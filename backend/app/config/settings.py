@@ -23,6 +23,9 @@ class Settings(BaseModel):
     JWT_SECRET: Optional[str] = Field(
         default_factory=lambda: (os.getenv("JWT_SECRET") or "").strip() or None
     )
+    JWT_ALGORITHM: str = Field(
+        default_factory=lambda: (os.getenv("JWT_ALGORITHM") or "HS256").strip() or "HS256"
+    )
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
         default_factory=lambda: int((os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or "60").strip())
     )

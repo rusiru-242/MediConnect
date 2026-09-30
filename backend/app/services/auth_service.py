@@ -2,21 +2,36 @@ from datetime import datetime, timedelta, timezone
 import logging
 import secrets
 from typing import Any, Dict
+from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
+from app.config.settings import settings
 from app.models.user import AccountStatus, UserRole
 from app.schemas.auth import (
+    LoginRequest,
+    LoginResponse,
+    LogoutRequest,
+    LogoutResponse,
     PatientRegisterRequest,
     PatientRegisterResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
     ResendVerificationRequest,
     ResendVerificationResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
+from app.schemas.user import UserResponseSchema
 from app.services.email_service import EmailService
-from app.utils.security import hash_password, verify_password
+from app.utils.security import (
+    create_access_token,
+    generate_refresh_token,
+    hash_password,
+    hash_token,
+    verify_password,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +50,7 @@ def _ensure_utc(dt: Any) -> datetime:
 
 
 class AuthService:
-    """Service handling authentication and email verification business logic."""
+    """Service handling authentication, sessions, and email verification business logic."""
 
     @staticmethod
     def register_patient(patient_data: PatientRegisterRequest, db: Database) -> PatientRegisterResponse:
@@ -290,3 +305,208 @@ class AuthService:
         return ResendVerificationResponse(
             message="Verification code has been resent successfully."
         )
+
+    @staticmethod
+    def login(payload: LoginRequest, db: Database) -> LoginResponse:
+        """Authenticate user credentials and issue access + refresh tokens."""
+        normalized_email = payload.email.strip().lower()
+
+        try:
+            user = db["users"].find_one({"email": normalized_email})
+        except PyMongoError as exc:
+            logger.error("Database query error during login: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="A database error occurred during login.",
+            )
+
+        # Generic credential rejection (does not reveal if email or password was wrong)
+        if not user or not user.get("passwordHash"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not verify_password(payload.password, user["passwordHash"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Check email verification status
+        if not user.get("emailVerified"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email verification is required before logging in. Please verify your email.",
+            )
+
+        # Check account status
+        account_status = user.get("accountStatus")
+        if account_status == AccountStatus.SUSPENDED.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is suspended. Please contact support.",
+            )
+        if account_status != AccountStatus.ACTIVE.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is not active.",
+            )
+
+        user_id_str = str(user["_id"])
+        user_role = user.get("role", UserRole.PATIENT.value)
+
+        # Generate JWT access token (60 minutes default)
+        access_token = create_access_token(user_id=user_id_str, role=user_role)
+        expires_in = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+        # Generate opaque refresh token and store only its SHA-256 hash
+        raw_refresh_token = generate_refresh_token()
+        refresh_hash = hash_token(raw_refresh_token)
+        now = datetime.now(timezone.utc)
+        refresh_expires = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+        try:
+            db["refresh_tokens"].insert_one({
+                "userId": user_id_str,
+                "tokenHash": refresh_hash,
+                "expiresAt": refresh_expires,
+                "createdAt": now,
+                "revokedAt": None,
+            })
+        except PyMongoError as exc:
+            logger.error("Failed to store refresh token hash: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to initiate authenticated session.",
+            )
+
+        safe_user = UserResponseSchema(
+            id=user_id_str,
+            fullName=user["fullName"],
+            email=user["email"],
+            phone=user.get("phone"),
+            role=user_role,
+            emailVerified=user["emailVerified"],
+            accountStatus=user["accountStatus"],
+            createdAt=user["createdAt"],
+            updatedAt=user.get("updatedAt"),
+        )
+
+        return LoginResponse(
+            message="Login successful.",
+            accessToken=access_token,
+            refreshToken=raw_refresh_token,
+            tokenType="bearer",
+            expiresIn=expires_in,
+            user=safe_user,
+        )
+
+    @staticmethod
+    def refresh_token(payload: RefreshTokenRequest, db: Database) -> RefreshTokenResponse:
+        """Rotate a refresh token, revoking the old one and returning a new access + refresh pair."""
+        token_hash = hash_token(payload.refreshToken)
+
+        try:
+            token_record = db["refresh_tokens"].find_one({"tokenHash": token_hash})
+        except PyMongoError as exc:
+            logger.error("Database query error during token refresh: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database error during token refresh.",
+            )
+
+        if not token_record or token_record.get("revokedAt") is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or revoked refresh token.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        expires_at = _ensure_utc(token_record.get("expiresAt"))
+        now = datetime.now(timezone.utc)
+        if expires_at and now > expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token has expired. Please log in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        user_id = token_record.get("userId")
+        user_query = {"$or": [{"_id": ObjectId(user_id)}, {"_id": user_id}]} if ObjectId.is_valid(user_id) else {"_id": user_id}
+
+        try:
+            user = db["users"].find_one(user_query)
+        except PyMongoError as exc:
+            logger.error("Database query error finding user for refresh: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database error during token refresh.",
+            )
+
+        if not user or user.get("accountStatus") != AccountStatus.ACTIVE.value or not user.get("emailVerified"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is inactive or not found.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Invalidate the used refresh token immediately (token rotation)
+        try:
+            db["refresh_tokens"].update_one(
+                {"_id": token_record["_id"]},
+                {"$set": {"revokedAt": now}},
+            )
+        except PyMongoError as exc:
+            logger.error("Failed to revoke old refresh token during rotation: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update session state.",
+            )
+
+        # Generate fresh access token and new rotated refresh token
+        new_access_token = create_access_token(user_id=str(user["_id"]), role=user["role"])
+        new_raw_refresh = generate_refresh_token()
+        new_refresh_hash = hash_token(new_raw_refresh)
+        new_expires_at = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+        try:
+            db["refresh_tokens"].insert_one({
+                "userId": str(user["_id"]),
+                "tokenHash": new_refresh_hash,
+                "expiresAt": new_expires_at,
+                "createdAt": now,
+                "revokedAt": None,
+            })
+        except PyMongoError as exc:
+            logger.error("Failed to store new refresh token: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to persist rotated session.",
+            )
+
+        return RefreshTokenResponse(
+            message="Token refreshed successfully.",
+            accessToken=new_access_token,
+            refreshToken=new_raw_refresh,
+            tokenType="bearer",
+            expiresIn=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        )
+
+    @staticmethod
+    def logout(payload: LogoutRequest, db: Database) -> LogoutResponse:
+        """Revoke the submitted refresh token to terminate session."""
+        token_hash = hash_token(payload.refreshToken)
+        now = datetime.now(timezone.utc)
+
+        try:
+            db["refresh_tokens"].update_one(
+                {"tokenHash": token_hash, "revokedAt": None},
+                {"$set": {"revokedAt": now}},
+            )
+        except PyMongoError as exc:
+            logger.error("Database error during logout: %s", type(exc).__name__)
+
+        return LogoutResponse(message="Logged out successfully.")

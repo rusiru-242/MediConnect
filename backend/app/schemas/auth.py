@@ -133,3 +133,58 @@ class ResendVerificationResponse(BaseModel):
     """Response schema returned on successfully resending verification OTP."""
 
     message: str = "Verification code has been resent successfully."
+
+
+class LoginRequest(BaseModel):
+    """Request schema for user login."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    email: EmailStr
+    password: str = Field(..., min_length=1)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Email must be a string.")
+        return value.strip().lower()
+
+
+class LoginResponse(BaseModel):
+    """Response schema returned on successful login."""
+
+    message: str = "Login successful."
+    accessToken: str
+    refreshToken: str
+    tokenType: str = "bearer"
+    expiresIn: int
+    user: UserResponseSchema
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request schema for rotating a refresh token."""
+
+    refreshToken: str = Field(..., min_length=1)
+
+
+class RefreshTokenResponse(BaseModel):
+    """Response schema returned on successful token refresh."""
+
+    message: str = "Token refreshed successfully."
+    accessToken: str
+    refreshToken: str
+    tokenType: str = "bearer"
+    expiresIn: int
+
+
+class LogoutRequest(BaseModel):
+    """Request schema for user logout."""
+
+    refreshToken: str = Field(..., min_length=1)
+
+
+class LogoutResponse(BaseModel):
+    """Response schema returned on user logout."""
+
+    message: str = "Logged out successfully."

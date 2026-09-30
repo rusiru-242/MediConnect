@@ -9,7 +9,9 @@ from app.routes import auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage startup index creation and shutdown connection cleanup."""
+    """Manage startup validation, index creation, and shutdown cleanup."""
+    if not settings.JWT_SECRET or not settings.JWT_SECRET.strip():
+        raise RuntimeError("JWT_SECRET environment variable is missing. Refusing to start.")
     db_status = check_database_connection()
     if db_status.get("connected"):
         ensure_indexes()

@@ -2,14 +2,22 @@ from fastapi import APIRouter, Depends, status
 from pymongo.database import Database
 
 from app.config.database import get_database
+from app.middleware.auth import get_current_user
 from app.schemas.auth import (
+    LoginRequest,
+    LoginResponse,
+    LogoutRequest,
+    LogoutResponse,
     PatientRegisterRequest,
     PatientRegisterResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
     ResendVerificationRequest,
     ResendVerificationResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
+from app.schemas.user import UserResponseSchema
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -58,3 +66,62 @@ def resend_verification(
 ) -> ResendVerificationResponse:
     """Handle resending verification code."""
     return AuthService.resend_verification(payload, db)
+
+
+@router.post(
+    "/login",
+    response_model=LoginResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Log in user",
+    description="Authenticates user credentials and issues an access token and refresh token.",
+)
+def login(
+    payload: LoginRequest,
+    db: Database = Depends(get_database),
+) -> LoginResponse:
+    """Handle user login and session initialization."""
+    return AuthService.login(payload, db)
+
+
+@router.get(
+    "/me",
+    response_model=UserResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get current user profile",
+    description="Returns the profile of the currently authenticated user based on JWT access token.",
+)
+def get_me(
+    current_user: UserResponseSchema = Depends(get_current_user),
+) -> UserResponseSchema:
+    """Return authenticated user profile."""
+    return current_user
+
+
+@router.post(
+    "/refresh",
+    response_model=RefreshTokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Refresh access token",
+    description="Rotates refresh token and returns a new access token and refresh token pair.",
+)
+def refresh_token(
+    payload: RefreshTokenRequest,
+    db: Database = Depends(get_database),
+) -> RefreshTokenResponse:
+    """Handle refresh token rotation."""
+    return AuthService.refresh_token(payload, db)
+
+
+@router.post(
+    "/logout",
+    response_model=LogoutResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Log out user",
+    description="Revokes the active refresh token session.",
+)
+def logout(
+    payload: LogoutRequest,
+    db: Database = Depends(get_database),
+) -> LogoutResponse:
+    """Handle user logout and session invalidation."""
+    return AuthService.logout(payload, db)

@@ -56,12 +56,14 @@ def get_database() -> Database:
 
 
 def ensure_indexes(db: Optional[Database] = None) -> bool:
-    """Create required MongoDB indexes, including the unique index on User.email."""
+    """Create required MongoDB indexes for users and refresh tokens."""
+    from app.models.token import create_token_indexes
     from app.models.user import create_user_indexes
 
     try:
         target_db = db if db is not None else DatabaseManager.get_database()
         create_user_indexes(target_db)
+        create_token_indexes(target_db)
         return True
     except (ConnectionError, ConnectionFailure, PyMongoError) as exc:
         logger.warning("Could not create MongoDB indexes at this time: %s", type(exc).__name__)
