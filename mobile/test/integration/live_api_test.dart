@@ -45,11 +45,12 @@ void main() {
     test('2. Registration of a new patient returns 201 created with pending status', () async {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final newEmail = 'patient_$timestamp@example.com';
+      final newPhone = '077${(timestamp % 10000000).toString().padLeft(7, '0')}';
 
       final response = await authService.registerPatient(
         fullName: 'New Flow Patient',
         email: newEmail,
-        phone: '0771234567',
+        phone: newPhone,
         password: 'Password@123',
       );
 
@@ -63,13 +64,14 @@ void main() {
     });
 
     test('3. Verify email with wrong 6-digit OTP throws 400 bad request', () async {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final timestamp = DateTime.now().millisecondsSinceEpoch + 1;
       final newEmail = 'otp_test_$timestamp@example.com';
+      final newPhone = '077${(timestamp % 10000000).toString().padLeft(7, '0')}';
 
       await authService.registerPatient(
         fullName: 'OTP Test Patient',
         email: newEmail,
-        phone: '0771234567',
+        phone: newPhone,
         password: 'Password@123',
       );
 
@@ -86,17 +88,17 @@ void main() {
     });
 
     test('4. Resend OTP during cooldown period throws 429 too many requests', () async {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final timestamp = DateTime.now().millisecondsSinceEpoch + 2;
       final newEmail = 'resend_$timestamp@example.com';
+      final newPhone = '077${(timestamp % 10000000).toString().padLeft(7, '0')}';
 
       await authService.registerPatient(
         fullName: 'Resend Patient',
         email: newEmail,
-        phone: '0771234567',
+        phone: newPhone,
         password: 'Password@123',
       );
 
-      // Attempt immediate resend (cooldown is 60s)
       try {
         await authService.resendVerificationOtp(email: newEmail);
         fail('Expected 429 cooldown');
@@ -120,7 +122,6 @@ void main() {
     });
 
     test('C & D. Valid verified patient logs in and accesses GET /api/auth/me', () async {
-      // Login with verified test credentials
       final session = await authService.login(
         email: 'patient@example.com',
         password: 'Password@123',
@@ -132,13 +133,11 @@ void main() {
       expect(session.user.role, 'PATIENT');
       expect(session.user.emailVerified, isTrue);
 
-      // Save tokens to storage to simulate active session
       await storage.saveTokens(
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
       );
 
-      // D. Verify GET /api/auth/me with active access token
       final profile = await authService.getCurrentUser();
       expect(profile.id, session.user.id);
       expect(profile.email, 'patient@example.com');
@@ -201,6 +200,43 @@ void main() {
         () async => await authService.getCurrentUser(),
         throwsA(isA<AuthException>()),
       );
+    });
+
+    test('5. Forgot password with existing email returns generic response without enumeration', () async {
+      final msg = await authService.forgotPassword(email: 'patient@example.com');
+      expect(msg, 'If an account exists for this email, a password reset code has been sent.');
+    });
+
+    test('6. Forgot password with unknown email returns identical generic response', () async {
+      final msg = await authService.forgotPassword(email: 'nonexistent_user_999@example.com');
+      expect(msg, 'If an account exists for this email, a password reset code has been sent.');
+    });
+
+    test('7. Verify reset OTP with wrong 6-digit OTP throws 400 bad request', () async {
+      try {
+        await authService.verifyResetOtp(
+          email: 'patient@example.com',
+          otp: '000000',
+        );
+        fail('Expected 400 bad request');
+      } on ApiException catch (e) {
+        expect(e.statusCode, 400);
+        expect(e.message, contains('Invalid password reset code'));
+      }
+    });
+
+    test('8. Reset password with invalid resetToken throws 400 bad request', () async {
+      try {
+        await authService.resetPassword(
+          resetToken: 'invalid_dummy_token_123',
+          newPassword: 'NewPassword@123',
+          confirmPassword: 'NewPassword@123',
+        );
+        fail('Expected 400 bad request');
+      } on ApiException catch (e) {
+        expect(e.statusCode, 400);
+        expect(e.message, contains('Invalid or already used reset token'));
+      }
     });
 
     test('I. Backend unavailable / invalid host returns clean NetworkException', () async {

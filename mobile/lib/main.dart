@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/create_account_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
 import 'screens/splash_screen.dart';
@@ -45,6 +46,7 @@ class MediConnectApp extends StatelessWidget {
           '/': (context) => const SplashScreen(),
           '/welcome': (context) => const WelcomeScreen(),
           '/register': (context) => const CreateAccountScreen(),
+          '/forgot-password': (context) => const ForgotPasswordScreen(),
           '/login': (context) => const LoginScreen(),
           '/patient/home': (context) => const PatientHomeScreen(),
         },

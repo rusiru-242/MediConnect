@@ -76,21 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onForgotPassword() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Password Reset'),
-        content: const Text(
-          'Password reset flow will be available in the upcoming update. Please contact support if you require immediate assistance.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+    Navigator.of(context).pushNamed('/forgot-password');
   }
 
   void _onGoogleSignIn() {

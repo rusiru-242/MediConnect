@@ -226,6 +226,94 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Request a password reset OTP against POST /api/auth/forgot-password.
+  Future<String?> forgotPassword({
+    required String email,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final message = await _authApiService.forgotPassword(email: email);
+      _isLoading = false;
+      notifyListeners();
+      return message;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      _errorMessage = 'Unable to request password reset. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Verify 6-digit reset OTP against POST /api/auth/verify-reset-otp and obtain resetToken.
+  Future<String?> verifyResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final resetToken = await _authApiService.verifyResetOtp(
+        email: email,
+        otp: otp,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return resetToken;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      _errorMessage = 'Unable to verify reset code. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Reset password against POST /api/auth/reset-password using verified resetToken.
+  Future<bool> resetPassword({
+    required String resetToken,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _authApiService.resetPassword(
+        resetToken: resetToken,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _errorMessage = 'Unable to reset password. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Log out patient, revoking session on backend and clearing secure storage.
   Future<void> logout() async {
     _isLoading = true;

@@ -1,5 +1,6 @@
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
+import '../core/network/api_exceptions.dart';
 import '../models/auth_session.dart';
 import '../models/user_model.dart';
 
@@ -83,6 +84,68 @@ class AuthApiService {
       return response['message'] as String;
     }
     return 'Verification code has been resent successfully.';
+  }
+
+  /// Request a password reset code against POST /api/auth/forgot-password.
+  Future<String> forgotPassword({
+    required String email,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.forgotPasswordEndpoint,
+      body: {
+        'email': email.trim().toLowerCase(),
+      },
+      includeAuth: false,
+    );
+
+    if (response is Map<String, dynamic> && response['message'] != null) {
+      return response['message'] as String;
+    }
+    return 'If an account exists for this email, a password reset code has been sent.';
+  }
+
+  /// Verify 6-digit reset OTP against POST /api/auth/verify-reset-otp and obtain resetToken.
+  Future<String> verifyResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.verifyResetOtpEndpoint,
+      body: {
+        'email': email.trim().toLowerCase(),
+        'otp': otp.trim(),
+      },
+      includeAuth: false,
+    );
+
+    if (response is Map<String, dynamic> && response['resetToken'] != null) {
+      return response['resetToken'] as String;
+    }
+    throw const ApiException(
+      message: 'Invalid reset response received. Please try again.',
+    );
+  }
+
+  /// Reset password against POST /api/auth/reset-password using verified resetToken.
+  Future<String> resetPassword({
+    required String resetToken,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.resetPasswordEndpoint,
+      body: {
+        'resetToken': resetToken,
+        'newPassword': newPassword,
+        'confirmPassword': confirmPassword,
+      },
+      includeAuth: false,
+    );
+
+    if (response is Map<String, dynamic> && response['message'] != null) {
+      return response['message'] as String;
+    }
+    return 'Password reset successfully. Please log in again.';
   }
 
   /// Fetch currently authenticated user profile via GET /api/auth/me.
