@@ -274,3 +274,20 @@ class ResetPasswordResponse(BaseModel):
     """Response schema returned on successful password reset."""
 
     message: str = "Password reset successfully. Please log in again."
+
+
+class GoogleAuthRequest(BaseModel):
+    """Request schema for Google Sign-In with ID token."""
+
+    idToken: str = Field(..., min_length=1)
+
+
+class GoogleAuthResponse(BaseModel):
+    """Response schema returned on successful Google authentication."""
+
+    message: str = "Google authentication successful."
+    accessToken: str
+    refreshToken: str
+    tokenType: str = "bearer"
+    expiresIn: int
+    user: UserResponseSchema

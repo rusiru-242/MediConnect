@@ -22,10 +22,19 @@ class DatabaseManager:
             if not settings.MONGODB_URI or not settings.MONGODB_URI.strip():
                 raise ConnectionError("MONGODB_URI environment variable is not configured.")
             try:
+                try:
+                    import dns.resolver
+
+                    resolver = dns.resolver.get_default_resolver()
+                    if "8.8.8.8" not in resolver.nameservers:
+                        resolver.nameservers.extend(["8.8.8.8", "1.1.1.1"])
+                except Exception:
+                    pass
+
                 cls._client = MongoClient(
                     settings.MONGODB_URI,
-                    serverSelectionTimeoutMS=3000,
-                    connectTimeoutMS=3000,
+                    serverSelectionTimeoutMS=10000,
+                    connectTimeoutMS=10000,
                     tz_aware=True,
                 )
             except (ConfigurationError, PyMongoError) as exc:

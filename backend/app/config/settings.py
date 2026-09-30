@@ -50,6 +50,9 @@ class Settings(BaseModel):
     SMTP_FROM_NAME: str = Field(
         default_factory=lambda: (os.getenv("SMTP_FROM_NAME") or "MediConnect").strip() or "MediConnect"
     )
+    GOOGLE_CLIENT_ID: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("GOOGLE_CLIENT_ID") or "").strip() or None
+    )
 
 
 settings = Settings()

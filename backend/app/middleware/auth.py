@@ -73,6 +73,8 @@ def get_current_user(
         "accountStatus": user["accountStatus"],
         "createdAt": user["createdAt"],
         "updatedAt": user.get("updatedAt"),
+        "profileImage": user.get("profileImage"),
+        "authProviders": user.get("authProviders"),
     }
     return UserResponseSchema(**user_profile)
 

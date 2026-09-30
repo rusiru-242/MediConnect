@@ -38,10 +38,13 @@ class UserDocument(BaseModel):
     fullName: str = Field(..., min_length=1, max_length=150)
     email: EmailStr
     phone: Optional[str] = Field(default=None, max_length=30)
-    passwordHash: str = Field(..., min_length=1)
+    passwordHash: Optional[str] = Field(default=None)
     role: UserRole = Field(default=UserRole.PATIENT)
     emailVerified: bool = Field(default=False)
     accountStatus: AccountStatus = Field(default=AccountStatus.PENDING)
+    authProviders: list[str] = Field(default_factory=lambda: ["LOCAL"])
+    googleSub: Optional[str] = None
+    profileImage: Optional[str] = None
     emailVerification: Optional[Dict[str, Any]] = None
     createdAt: datetime = Field(default_factory=utc_now)
     updatedAt: datetime = Field(default_factory=utc_now)
@@ -83,11 +86,17 @@ def get_user_collection(db: Database) -> Collection:
     return db["users"]
 
 
-def create_user_indexes(db: Database) -> str:
-    """Create a unique index on User.email."""
+def create_user_indexes(db: Database) -> None:
+    """Create indexes on users collection for unique email and googleSub."""
     collection = get_user_collection(db)
-    return collection.create_index(
+    collection.create_index(
         [("email", ASCENDING)],
         unique=True,
         name="idx_users_email_unique",
+    )
+    collection.create_index(
+        [("googleSub", ASCENDING)],
+        unique=True,
+        sparse=True,
+        name="idx_users_google_sub_unique",
     )

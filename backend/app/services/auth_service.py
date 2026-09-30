@@ -12,6 +12,8 @@ from app.models.user import AccountStatus, UserRole
 from app.schemas.auth import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    GoogleAuthRequest,
+    GoogleAuthResponse,
     LoginRequest,
     LoginResponse,
     LogoutRequest,
@@ -31,6 +33,7 @@ from app.schemas.auth import (
 )
 from app.schemas.user import UserResponseSchema
 from app.services.email_service import EmailService
+from app.services.google_auth_service import GoogleAuthVerifier
 from app.utils.security import (
     create_access_token,
     generate_refresh_token,
@@ -56,7 +59,7 @@ def _ensure_utc(dt: Any) -> datetime:
 
 
 class AuthService:
-    """Service handling authentication, sessions, email verification, and password resets."""
+    """Service handling authentication, sessions, email verification, password resets, and Google auth."""
 
     @staticmethod
     def register_patient(patient_data: PatientRegisterRequest, db: Database) -> PatientRegisterResponse:
@@ -98,6 +101,9 @@ class AuthService:
             "role": UserRole.PATIENT.value,
             "emailVerified": False,
             "accountStatus": AccountStatus.PENDING.value,
+            "authProviders": ["LOCAL"],
+            "googleSub": None,
+            "profileImage": None,
             "emailVerification": {
                 "otpHash": otp_hash,
                 "expiresAt": expires_at,
@@ -134,6 +140,8 @@ class AuthService:
             "emailVerified": patient_document["emailVerified"],
             "accountStatus": patient_document["accountStatus"],
             "createdAt": patient_document["createdAt"],
+            "authProviders": patient_document["authProviders"],
+            "profileImage": patient_document["profileImage"],
         }
 
         return PatientRegisterResponse(
@@ -399,6 +407,8 @@ class AuthService:
             accountStatus=user["accountStatus"],
             createdAt=user["createdAt"],
             updatedAt=user.get("updatedAt"),
+            profileImage=user.get("profileImage"),
+            authProviders=user.get("authProviders", ["LOCAL"]),
         )
 
         return LoginResponse(
@@ -752,4 +762,140 @@ class AuthService:
 
         return ResetPasswordResponse(
             message="Password reset successfully. Please log in again."
+        )
+
+    @staticmethod
+    def google_authenticate(payload: GoogleAuthRequest, db: Database) -> GoogleAuthResponse:
+        """Authenticate or register a patient via independently verified Google OAuth2 ID token."""
+        id_info = GoogleAuthVerifier.verify_token(payload.idToken)
+
+        google_sub = str(id_info["sub"])
+        email = id_info["email"].strip().lower()
+        full_name = id_info.get("name") or "Google User"
+        picture = id_info.get("picture")
+
+        # Lookup existing user by googleSub and by email
+        user_by_sub = db["users"].find_one({"googleSub": google_sub})
+        user_by_email = db["users"].find_one({"email": email})
+
+        # Integrity check: Google sub linked to a different email account
+        if user_by_sub and user_by_email and user_by_sub["_id"] != user_by_email["_id"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This Google account is already linked to another user.",
+            )
+
+        existing_user = user_by_email or user_by_sub
+        now = datetime.now(timezone.utc)
+
+        if existing_user:
+            # Restrict Google authentication to PATIENT accounts only
+            if existing_user.get("role") != UserRole.PATIENT.value:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Google authentication is only permitted for patient accounts.",
+                )
+
+            # Prevent suspended users from accessing via Google
+            if existing_user.get("accountStatus") == AccountStatus.SUSPENDED.value:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account is suspended. Please contact support.",
+                )
+
+            # Securely link Google identity to existing account without overwriting password or role
+            update_data: Dict[str, Any] = {
+                "updatedAt": now,
+                "emailVerified": True,  # Google verified email
+                "accountStatus": AccountStatus.ACTIVE.value,
+            }
+            if not existing_user.get("googleSub"):
+                update_data["googleSub"] = google_sub
+            if picture and not existing_user.get("profileImage"):
+                update_data["profileImage"] = picture
+
+            db["users"].update_one(
+                {"_id": existing_user["_id"]},
+                {
+                    "$set": update_data,
+                    "$addToSet": {"authProviders": "GOOGLE"},
+                },
+            )
+            user = db["users"].find_one({"_id": existing_user["_id"]})
+        else:
+            # Create new PATIENT user (never ADMIN or DOCTOR, no fake password)
+            new_user_document = {
+                "fullName": full_name,
+                "email": email,
+                "phone": None,
+                "passwordHash": None,
+                "role": UserRole.PATIENT.value,
+                "emailVerified": True,
+                "accountStatus": AccountStatus.ACTIVE.value,
+                "authProviders": ["GOOGLE"],
+                "googleSub": google_sub,
+                "profileImage": picture,
+                "createdAt": now,
+                "updatedAt": now,
+            }
+            try:
+                insert_result = db["users"].insert_one(new_user_document)
+            except DuplicateKeyError:
+                user = db["users"].find_one({"email": email})
+                if not user:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="An account with this email already exists.",
+                    )
+            else:
+                user = new_user_document
+                user["_id"] = insert_result.inserted_id
+
+        user_id_str = str(user["_id"])
+        user_role = user.get("role", UserRole.PATIENT.value)
+
+        # Generate standard MediConnect JWT access token and refresh token pair
+        access_token = create_access_token(user_id=user_id_str, role=user_role)
+        expires_in = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+        raw_refresh_token = generate_refresh_token()
+        refresh_hash = hash_token(raw_refresh_token)
+        refresh_expires = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+        try:
+            db["refresh_tokens"].insert_one({
+                "userId": user_id_str,
+                "tokenHash": refresh_hash,
+                "expiresAt": refresh_expires,
+                "createdAt": now,
+                "revokedAt": None,
+            })
+        except PyMongoError as exc:
+            logger.error("Failed to store refresh token during Google login: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to initiate authenticated session.",
+            )
+
+        safe_user = UserResponseSchema(
+            id=user_id_str,
+            fullName=user["fullName"],
+            email=user["email"],
+            phone=user.get("phone"),
+            role=user_role,
+            emailVerified=user["emailVerified"],
+            accountStatus=user["accountStatus"],
+            createdAt=user["createdAt"],
+            updatedAt=user.get("updatedAt"),
+            profileImage=user.get("profileImage"),
+            authProviders=user.get("authProviders", ["GOOGLE"]),
+        )
+
+        return GoogleAuthResponse(
+            message="Google authentication successful.",
+            accessToken=access_token,
+            refreshToken=raw_refresh_token,
+            tokenType="bearer",
+            expiresIn=expires_in,
+            user=safe_user,
         )

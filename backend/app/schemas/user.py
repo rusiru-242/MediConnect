@@ -71,6 +71,8 @@ class UserResponseSchema(UserBaseSchema):
     accountStatus: AccountStatus
     createdAt: datetime
     updatedAt: Optional[datetime] = None
+    profileImage: Optional[str] = None
+    authProviders: Optional[list[str]] = None
 
     @field_validator("id", mode="before")
     @classmethod

@@ -6,6 +6,8 @@ from app.middleware.auth import get_current_user
 from app.schemas.auth import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    GoogleAuthRequest,
+    GoogleAuthResponse,
     LoginRequest,
     LoginResponse,
     LogoutRequest,
@@ -176,3 +178,18 @@ def reset_password(
 ) -> ResetPasswordResponse:
     """Handle setting a new password."""
     return AuthService.reset_password(payload, db)
+
+
+@router.post(
+    "/google",
+    response_model=GoogleAuthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Sign in with Google",
+    description="Authenticates or registers a patient using a verified Google OAuth2 ID token.",
+)
+def google_sign_in(
+    payload: GoogleAuthRequest,
+    db: Database = Depends(get_database),
+) -> GoogleAuthResponse:
+    """Handle Google authentication."""
+    return AuthService.google_authenticate(payload, db)
