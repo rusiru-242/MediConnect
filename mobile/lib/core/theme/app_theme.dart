@@ -25,6 +25,7 @@ class AppTheme {
   static const Color textMuted = Color(0xFF94A3B8); // Slate 400
 
   static const Color border = Color(0xFFE2E8F0); // Slate 200
+  static const Color outline = border;
   static const Color borderFocused = Color(0xFF0F766E);
   static const Color error = Color(0xFFDC2626); // Red 600
   static const Color errorContainer = Color(0xFFFEE2E2);

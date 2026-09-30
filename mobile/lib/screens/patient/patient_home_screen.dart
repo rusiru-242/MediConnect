@@ -135,35 +135,56 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              // Status notification
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppTheme.secondary.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline_rounded,
-                      color: AppTheme.secondary,
-                      size: 20,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Patient portal features such as appointments, doctors, and medical records will be added in upcoming phases.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.4,
-                          color: AppTheme.textSecondary,
+              // Main Action: Find a Doctor
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: InkWell(
+                  key: const Key('patient_home_find_doctor_button'),
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/patient/find-doctor');
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.person_search_rounded, size: 28, color: AppTheme.primary),
                         ),
-                      ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Find a Doctor',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Search verified doctors and view available appointment slots',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
               const Spacer(),

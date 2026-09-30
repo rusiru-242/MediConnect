@@ -44,6 +44,11 @@ class ApiConstants {
 
   // Doctor endpoints
   static const String doctorApplicationStatusEndpoint = '/doctors/me/application-status';
+  static const String doctorsEndpoint = '/doctors';
+  static String doctorDetailEndpoint(String id) => '/doctors/$id';
+  static String doctorSlotsEndpoint(String id) => '/doctors/$id/availability';
+  static const String doctorMyAvailabilityEndpoint = '/doctors/me/availability';
+  static String doctorAvailabilityDetailEndpoint(String id) => '/doctors/me/availability/$id';
 
   // Admin endpoints
   static const String adminDoctorApplicationsEndpoint = '/admin/doctors/applications';

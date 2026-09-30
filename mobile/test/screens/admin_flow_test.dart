@@ -519,7 +519,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(DoctorHomeScreen), findsOneWidget);
-      expect(find.text('Doctor Portal'), findsOneWidget);
+      expect(find.text('MediConnect Doctor'), findsOneWidget);
     });
 
     testWidgets('TEST 23: Rejected doctor sees Application Rejected and reason',

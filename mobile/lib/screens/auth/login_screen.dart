@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } else if (authProvider.user?.role == 'DOCTOR') {
       final status = authProvider.doctorApplicationStatus;
-      if (status?.isApproved == true) {
+      if (status?.isApproved == true || authProvider.user?.accountStatus == 'ACTIVE') {
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/doctor/home',
           (route) => false,

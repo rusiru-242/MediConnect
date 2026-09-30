@@ -70,6 +70,33 @@ class ApiClient {
     );
   }
 
+  /// PUT request
+  Future<dynamic> put(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+    bool includeAuth = true,
+  }) async {
+    return _sendWithRetry(
+      () => _rawPut(endpoint, body: body, headers: headers, includeAuth: includeAuth),
+      endpoint: endpoint,
+      includeAuth: includeAuth,
+    );
+  }
+
+  /// DELETE request
+  Future<dynamic> delete(
+    String endpoint, {
+    Map<String, String>? headers,
+    bool includeAuth = true,
+  }) async {
+    return _sendWithRetry(
+      () => _rawDelete(endpoint, headers: headers, includeAuth: includeAuth),
+      endpoint: endpoint,
+      includeAuth: includeAuth,
+    );
+  }
+
   /// POST multipart request for file uploads
   Future<dynamic> postMultipart(
     String endpoint, {
@@ -132,6 +159,46 @@ class ApiClient {
           uri,
           headers: combinedHeaders,
           body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(
+          ApiConstants.timeoutDuration,
+          onTimeout: () => throw const NetworkException(),
+        );
+  }
+
+  Future<http.Response> _rawPut(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+    bool includeAuth = true,
+  }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
+
+    return _httpClient
+        .put(
+          uri,
+          headers: combinedHeaders,
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(
+          ApiConstants.timeoutDuration,
+          onTimeout: () => throw const NetworkException(),
+        );
+  }
+
+  Future<http.Response> _rawDelete(
+    String endpoint, {
+    Map<String, String>? headers,
+    bool includeAuth = true,
+  }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
+
+    return _httpClient
+        .delete(
+          uri,
+          headers: combinedHeaders,
         )
         .timeout(
           ApiConstants.timeoutDuration,

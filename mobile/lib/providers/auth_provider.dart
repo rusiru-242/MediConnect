@@ -142,6 +142,13 @@ class AuthProvider extends ChangeNotifier {
 
       _user = session.user;
       _status = AuthStatus.authenticated;
+
+      if (_user?.role == 'DOCTOR') {
+        try {
+          _doctorApplicationStatus = await _authApiService.getDoctorApplicationStatus();
+        } catch (_) {}
+      }
+
       _isLoading = false;
       notifyListeners();
       return true;
