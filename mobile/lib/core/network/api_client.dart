@@ -38,6 +38,24 @@ class ApiClient {
     );
   }
 
+  /// GET request returning raw response bytes (useful for secure binary document retrieval)
+  Future<List<int>> getBytes(
+    String endpoint, {
+    Map<String, String>? headers,
+    bool includeAuth = true,
+  }) async {
+    final response = await _sendWithRetryRaw(
+      () => _rawGet(endpoint, headers: headers, includeAuth: includeAuth),
+      endpoint: endpoint,
+      includeAuth: includeAuth,
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response.bodyBytes;
+    }
+    _processResponse(response);
+    return response.bodyBytes;
+  }
+
   /// POST request
   Future<dynamic> post(
     String endpoint, {
@@ -150,6 +168,41 @@ class ApiClient {
       }
 
       return _processResponse(response);
+    } on SocketException {
+      throw const NetworkException();
+    } on http.ClientException {
+      throw const NetworkException();
+    } on TimeoutException {
+      throw const NetworkException();
+    }
+  }
+
+  /// Execute an HTTP request with automatic token refresh on 401 returning raw http.Response
+  Future<http.Response> _sendWithRetryRaw(
+    Future<http.Response> Function() requestFn, {
+    required String endpoint,
+    required bool includeAuth,
+  }) async {
+    try {
+      final response = await requestFn();
+
+      if (response.statusCode == 401 &&
+          includeAuth &&
+          endpoint != ApiConstants.loginEndpoint &&
+          endpoint != ApiConstants.refreshEndpoint) {
+        final refreshSucceeded = await _attemptTokenRefresh();
+        if (refreshSucceeded) {
+          return await requestFn();
+        } else {
+          await _storageService.clearTokens();
+          throw const AuthException(
+            message: 'Your session has expired. Please sign in again.',
+            statusCode: 401,
+          );
+        }
+      }
+
+      return response;
     } on SocketException {
       throw const NetworkException();
     } on http.ClientException {

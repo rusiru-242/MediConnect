@@ -73,7 +73,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _navigateAfterLogin(AuthProvider authProvider) {
-    if (authProvider.user?.role == 'DOCTOR') {
+    if (authProvider.user?.role == 'ADMIN') {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/admin/dashboard',
+        (route) => false,
+      );
+    } else if (authProvider.user?.role == 'DOCTOR') {
       final status = authProvider.doctorApplicationStatus;
       if (status?.isApproved == true) {
         Navigator.of(context).pushNamedAndRemoveUntil(

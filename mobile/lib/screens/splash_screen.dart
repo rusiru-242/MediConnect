@@ -34,7 +34,9 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (authProvider.isAuthenticated) {
-      if (authProvider.user?.role == 'DOCTOR') {
+      if (authProvider.user?.role == 'ADMIN') {
+        Navigator.of(context).pushReplacementNamed('/admin/dashboard');
+      } else if (authProvider.user?.role == 'DOCTOR') {
         final status = authProvider.doctorApplicationStatus;
         if (status?.isApproved == true) {
           Navigator.of(context).pushReplacementNamed('/doctor/home');

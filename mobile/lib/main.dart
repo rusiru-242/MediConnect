@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
+import 'providers/admin_provider.dart';
 import 'providers/auth_provider.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
+import 'screens/admin/doctor_applications_screen.dart';
 import 'screens/auth/create_account_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -39,6 +42,9 @@ class MediConnectApp extends StatelessWidget {
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(),
         ),
+        ChangeNotifierProvider<AdminProvider>(
+          create: (_) => AdminProvider(),
+        ),
       ],
       child: MaterialApp(
         title: 'MediConnect',
@@ -55,6 +61,8 @@ class MediConnectApp extends StatelessWidget {
           '/doctor/register': (context) => const DoctorRegistrationScreen(),
           '/doctor/application-status': (context) => const DoctorApplicationStatusScreen(),
           '/doctor/home': (context) => const DoctorHomeScreen(),
+          '/admin/dashboard': (context) => const AdminDashboardScreen(),
+          '/admin/doctor-applications': (context) => const DoctorApplicationsScreen(),
         },
       ),
     );

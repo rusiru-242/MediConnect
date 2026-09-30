@@ -45,6 +45,14 @@ class ApiConstants {
   // Doctor endpoints
   static const String doctorApplicationStatusEndpoint = '/doctors/me/application-status';
 
+  // Admin endpoints
+  static const String adminDoctorApplicationsEndpoint = '/admin/doctors/applications';
+  static String adminDoctorApplicationDetailEndpoint(String id) => '/admin/doctors/applications/$id';
+  static String adminDoctorDocumentEndpoint(String id, String docKey) =>
+      '/admin/doctors/applications/$id/documents/$docKey';
+  static String adminDoctorApproveEndpoint(String id) => '/admin/doctors/$id/approve';
+  static String adminDoctorRejectEndpoint(String id) => '/admin/doctors/$id/reject';
+
   /// Google OAuth Web Client ID (audience for ID tokens verified by backend).
   static const String googleServerClientId =
       '80346479357-pe3nov35fcpamn13q49llh4hc4amc1lj.apps.googleusercontent.com';

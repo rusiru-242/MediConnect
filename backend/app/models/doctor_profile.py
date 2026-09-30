@@ -42,6 +42,8 @@ class DoctorProfileDocument(BaseModel):
     rejectionReason: Optional[str] = Field(default=None)
     submittedAt: datetime = Field(default_factory=utc_now)
     verifiedAt: Optional[datetime] = None
+    verifiedBy: Optional[str] = Field(default=None, description="Admin userId who verified the application")
+    previousStatus: Optional[str] = Field(default=None, description="Previous verification status for audit")
     createdAt: datetime = Field(default_factory=utc_now)
     updatedAt: datetime = Field(default_factory=utc_now)
 
