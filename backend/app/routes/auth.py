@@ -4,6 +4,8 @@ from pymongo.database import Database
 from app.config.database import get_database
 from app.middleware.auth import get_current_user
 from app.schemas.auth import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     LoginResponse,
     LogoutRequest,
@@ -14,8 +16,12 @@ from app.schemas.auth import (
     RefreshTokenResponse,
     ResendVerificationRequest,
     ResendVerificationResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
+    VerifyResetOtpRequest,
+    VerifyResetOtpResponse,
 )
 from app.schemas.user import UserResponseSchema
 from app.services.auth_service import AuthService
@@ -125,3 +131,48 @@ def logout(
 ) -> LogoutResponse:
     """Handle user logout and session invalidation."""
     return AuthService.logout(payload, db)
+
+
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Request password reset code",
+    description="Sends a 6-digit password reset OTP to the email address if an account exists.",
+)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: Database = Depends(get_database),
+) -> ForgotPasswordResponse:
+    """Handle password reset request."""
+    return AuthService.forgot_password(payload, db)
+
+
+@router.post(
+    "/verify-reset-otp",
+    response_model=VerifyResetOtpResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Verify password reset OTP",
+    description="Verifies the 6-digit OTP and issues a short-lived reset token for setting a new password.",
+)
+def verify_reset_otp(
+    payload: VerifyResetOtpRequest,
+    db: Database = Depends(get_database),
+) -> VerifyResetOtpResponse:
+    """Handle verification of password reset OTP."""
+    return AuthService.verify_reset_otp(payload, db)
+
+
+@router.post(
+    "/reset-password",
+    response_model=ResetPasswordResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reset password",
+    description="Resets the user's password using a valid reset token and invalidates all active sessions.",
+)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Database = Depends(get_database),
+) -> ResetPasswordResponse:
+    """Handle setting a new password."""
+    return AuthService.reset_password(payload, db)

@@ -1,8 +1,23 @@
 import re
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.schemas.user import UserResponseSchema
+
+
+def validate_password_strength(value: str) -> str:
+    """Enforce shared MediConnect password policy across registration and reset."""
+    if len(value) < 8:
+        raise ValueError("Password must be at least 8 characters long.")
+    if not re.search(r"[A-Z]", value):
+        raise ValueError("Password must contain at least one uppercase letter.")
+    if not re.search(r"[a-z]", value):
+        raise ValueError("Password must contain at least one lowercase letter.")
+    if not re.search(r"\d", value):
+        raise ValueError("Password must contain at least one number.")
+    if not re.search(r"[^A-Za-z0-9]", value):
+        raise ValueError("Password must contain at least one special character.")
+    return value
 
 
 class PatientRegisterRequest(BaseModel):
@@ -40,7 +55,7 @@ class PatientRegisterRequest(BaseModel):
         if not isinstance(value, str):
             raise ValueError("Phone must be a string.")
         clean_phone = re.sub(r"[\s\-()]", "", value)
-        
+
         # Valid Sri Lankan mobile formats:
         # 07X XXXXXXX (10 digits)
         # +94 7X XXXXXXX
@@ -54,7 +69,7 @@ class PatientRegisterRequest(BaseModel):
             return f"+{clean_phone}"
         if re.fullmatch(r"00947[0-8]\d{7}", clean_phone):
             return f"+{clean_phone[2:]}"
-        
+
         raise ValueError(
             "Invalid Sri Lankan mobile number. Must be a valid 10-digit number (e.g., 0771234567) or in international format (+94771234567)."
         )
@@ -62,17 +77,7 @@ class PatientRegisterRequest(BaseModel):
     @field_validator("password", mode="after")
     @classmethod
     def validate_strong_password(cls, value: str) -> str:
-        if len(value) < 8:
-            raise ValueError("Password must be at least 8 characters long.")
-        if not re.search(r"[A-Z]", value):
-            raise ValueError("Password must contain at least one uppercase letter.")
-        if not re.search(r"[a-z]", value):
-            raise ValueError("Password must contain at least one lowercase letter.")
-        if not re.search(r"\d", value):
-            raise ValueError("Password must contain at least one number.")
-        if not re.search(r"[^A-Za-z0-9]", value):
-            raise ValueError("Password must contain at least one special character.")
-        return value
+        return validate_password_strength(value)
 
 
 class PatientRegisterResponse(BaseModel):
@@ -188,3 +193,84 @@ class LogoutResponse(BaseModel):
     """Response schema returned on user logout."""
 
     message: str = "Logged out successfully."
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request schema for requesting a password reset OTP."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Email must be a string.")
+        return value.strip().lower()
+
+
+class ForgotPasswordResponse(BaseModel):
+    """Generic response schema returned for forgot-password requests."""
+
+    message: str = "If an account exists for this email, a password reset code has been sent."
+
+
+class VerifyResetOtpRequest(BaseModel):
+    """Request schema for verifying a password reset OTP."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Email must be a string.")
+        return value.strip().lower()
+
+    @field_validator("otp", mode="before")
+    @classmethod
+    def validate_otp_format(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("OTP must be a string.")
+        trimmed = value.strip()
+        if not re.fullmatch(r"^\d{6}$", trimmed):
+            raise ValueError("OTP must be a 6-digit numeric code.")
+        return trimmed
+
+
+class VerifyResetOtpResponse(BaseModel):
+    """Response schema returned on successful reset OTP verification."""
+
+    message: str = "Reset code verified."
+    resetToken: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request schema for updating password using a verified reset token."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    resetToken: str = Field(..., min_length=1)
+    newPassword: str = Field(..., min_length=8, max_length=128)
+    confirmPassword: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("newPassword", mode="after")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return validate_password_strength(value)
+
+    @model_validator(mode="after")
+    def verify_passwords_match(self) -> "ResetPasswordRequest":
+        if self.newPassword != self.confirmPassword:
+            raise ValueError("Passwords do not match.")
+        return self
+
+
+class ResetPasswordResponse(BaseModel):
+    """Response schema returned on successful password reset."""
+
+    message: str = "Password reset successfully. Please log in again."

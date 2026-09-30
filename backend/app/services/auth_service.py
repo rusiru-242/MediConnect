@@ -10,6 +10,8 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from app.config.settings import settings
 from app.models.user import AccountStatus, UserRole
 from app.schemas.auth import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     LoginResponse,
     LogoutRequest,
@@ -20,8 +22,12 @@ from app.schemas.auth import (
     RefreshTokenResponse,
     ResendVerificationRequest,
     ResendVerificationResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
+    VerifyResetOtpRequest,
+    VerifyResetOtpResponse,
 )
 from app.schemas.user import UserResponseSchema
 from app.services.email_service import EmailService
@@ -50,7 +56,7 @@ def _ensure_utc(dt: Any) -> datetime:
 
 
 class AuthService:
-    """Service handling authentication, sessions, and email verification business logic."""
+    """Service handling authentication, sessions, email verification, and password resets."""
 
     @staticmethod
     def register_patient(patient_data: PatientRegisterRequest, db: Database) -> PatientRegisterResponse:
@@ -510,3 +516,240 @@ class AuthService:
             logger.error("Database error during logout: %s", type(exc).__name__)
 
         return LogoutResponse(message="Logged out successfully.")
+
+    @staticmethod
+    def forgot_password(payload: ForgotPasswordRequest, db: Database) -> ForgotPasswordResponse:
+        """Process password reset request securely without revealing account existence."""
+        normalized_email = payload.email.strip().lower()
+
+        try:
+            user = db["users"].find_one({"email": normalized_email})
+        except PyMongoError as exc:
+            logger.error("Database error during forgot-password lookup: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="A database error occurred.",
+            )
+
+        # If user exists, enforce cooldown and issue a new reset OTP
+        if user:
+            existing_challenge = db["password_resets"].find_one({
+                "email": normalized_email,
+                "used": False,
+            })
+
+            now = datetime.now(timezone.utc)
+            if existing_challenge and "lastSentAt" in existing_challenge:
+                last_sent = _ensure_utc(existing_challenge["lastSentAt"])
+                elapsed = (now - last_sent).total_seconds()
+                if elapsed < RESEND_COOLDOWN_SECONDS:
+                    remaining = int(RESEND_COOLDOWN_SECONDS - elapsed)
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=f"Please wait {remaining} seconds before requesting a new password reset code.",
+                    )
+
+            otp = f"{secrets.randbelow(1_000_000):06d}"
+            otp_hash = hash_password(otp)
+            expires_at = now + timedelta(minutes=OTP_EXPIRATION_MINUTES)
+
+            # Invalidate any previous challenges for this email
+            db["password_resets"].delete_many({"email": normalized_email})
+
+            db["password_resets"].insert_one({
+                "userId": str(user["_id"]),
+                "email": normalized_email,
+                "otpHash": otp_hash,
+                "expiresAt": expires_at,
+                "attempts": 0,
+                "lastSentAt": now,
+                "used": False,
+                "createdAt": now,
+            })
+
+            EmailService.send_password_reset_otp(normalized_email, otp)
+
+        # Generic response returned whether account exists or not
+        return ForgotPasswordResponse(
+            message="If an account exists for this email, a password reset code has been sent."
+        )
+
+    @staticmethod
+    def verify_reset_otp(payload: VerifyResetOtpRequest, db: Database) -> VerifyResetOtpResponse:
+        """Verify the 6-digit reset OTP and issue a short-lived reset token."""
+        normalized_email = payload.email.strip().lower()
+
+        try:
+            challenge = db["password_resets"].find_one({
+                "email": normalized_email,
+                "used": False,
+            })
+        except PyMongoError as exc:
+            logger.error("Database error during reset OTP verification: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="A database error occurred.",
+            )
+
+        if not challenge:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired password reset request.",
+            )
+
+        attempts = challenge.get("attempts", 0)
+        if attempts >= MAX_OTP_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Maximum reset attempts exceeded. Please request a new password reset code.",
+            )
+
+        expires_at = _ensure_utc(challenge.get("expiresAt"))
+        now = datetime.now(timezone.utc)
+        if expires_at and now > expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password reset code has expired. Please request a new code.",
+            )
+
+        is_valid = verify_password(payload.otp, challenge["otpHash"])
+
+        if not is_valid:
+            new_attempts = attempts + 1
+            try:
+                db["password_resets"].update_one(
+                    {"_id": challenge["_id"]},
+                    {"$set": {"attempts": new_attempts}},
+                )
+            except PyMongoError as exc:
+                logger.error("Failed to update reset attempts: %s", type(exc).__name__)
+
+            if new_attempts >= MAX_OTP_ATTEMPTS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Maximum reset attempts exceeded. Please request a new password reset code.",
+                )
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid password reset code. Please check and try again.",
+            )
+
+        # Generate single-purpose, cryptographically secure reset token
+        raw_reset_token = secrets.token_urlsafe(48)
+        reset_token_hash = hash_token(raw_reset_token)
+        reset_token_expires = now + timedelta(minutes=OTP_EXPIRATION_MINUTES)
+
+        try:
+            db["password_resets"].update_one(
+                {"_id": challenge["_id"]},
+                {
+                    "$set": {
+                        "resetTokenHash": reset_token_hash,
+                        "resetTokenExpiresAt": reset_token_expires,
+                        "otpVerified": True,
+                    }
+                },
+            )
+        except PyMongoError as exc:
+            logger.error("Failed to store reset token: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate reset token.",
+            )
+
+        return VerifyResetOtpResponse(
+            message="Reset code verified.",
+            resetToken=raw_reset_token,
+        )
+
+    @staticmethod
+    def reset_password(payload: ResetPasswordRequest, db: Database) -> ResetPasswordResponse:
+        """Reset user password using verified reset token, then revoke all active user sessions."""
+        token_hash = hash_token(payload.resetToken)
+
+        try:
+            challenge = db["password_resets"].find_one({
+                "resetTokenHash": token_hash,
+                "used": False,
+            })
+        except PyMongoError as exc:
+            logger.error("Database error during password reset: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="A database error occurred.",
+            )
+
+        if not challenge:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or already used reset token.",
+            )
+
+        expires_at = _ensure_utc(challenge.get("resetTokenExpiresAt"))
+        now = datetime.now(timezone.utc)
+        if expires_at and now > expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has expired. Please request a new password reset code.",
+            )
+
+        user_id = challenge.get("userId")
+        user_query = {"$or": [{"_id": ObjectId(user_id)}, {"_id": user_id}]} if ObjectId.is_valid(user_id) else {"_id": user_id}
+
+        try:
+            user = db["users"].find_one(user_query)
+        except PyMongoError as exc:
+            logger.error("Database error finding user for reset: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="A database error occurred.",
+            )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User account not found.",
+            )
+
+        # Hash new password
+        new_password_hash = hash_password(payload.newPassword)
+
+        try:
+            # 1. Update user password
+            db["users"].update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "passwordHash": new_password_hash,
+                        "updatedAt": now,
+                    }
+                },
+            )
+
+            # 2. Mark reset challenge as used
+            db["password_resets"].update_one(
+                {"_id": challenge["_id"]},
+                {
+                    "$set": {
+                        "used": True,
+                        "usedAt": now,
+                    }
+                },
+            )
+
+            # 3. Invalidate ALL existing refresh tokens/sessions for this user
+            db["refresh_tokens"].update_many(
+                {"userId": str(user["_id"]), "revokedAt": None},
+                {"$set": {"revokedAt": now}},
+            )
+        except PyMongoError as exc:
+            logger.error("Failed to apply password reset changes: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update password. Please try again.",
+            )
+
+        return ResetPasswordResponse(
+            message="Password reset successfully. Please log in again."
+        )
