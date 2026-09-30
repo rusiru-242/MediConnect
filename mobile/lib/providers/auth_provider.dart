@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 
 import '../core/network/api_client.dart';
 import '../core/network/api_exceptions.dart';
 import '../core/storage/secure_storage_service.dart';
+import '../models/auth_session.dart';
+import '../models/doctor_application_status.dart';
 import '../models/user_model.dart';
 import '../services/auth_api_service.dart';
 import '../services/google_auth_service.dart';
@@ -24,6 +27,7 @@ class AuthProvider extends ChangeNotifier {
 
   AuthStatus _status = AuthStatus.initial;
   UserModel? _user;
+  DoctorApplicationStatus? _doctorApplicationStatus;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -38,9 +42,17 @@ class AuthProvider extends ChangeNotifier {
 
   AuthStatus get status => _status;
   UserModel? get user => _user;
+  DoctorApplicationStatus? get doctorApplicationStatus => _doctorApplicationStatus;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
+
+  @visibleForTesting
+  void setSessionForTesting(AuthSession session) {
+    _user = session.user;
+    _status = AuthStatus.authenticated;
+    notifyListeners();
+  }
 
   /// Clear any active error message.
   void clearError() {
@@ -248,6 +260,81 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Register a new doctor account with documents against POST /api/auth/register-doctor.
+  /// Does NOT automatically log the doctor in.
+  Future<bool> registerDoctor({
+    required String fullName,
+    required String email,
+    required String phone,
+    required String password,
+    required String specialty,
+    required String medicalRegistrationNumber,
+    required String qualifications,
+    required String hospitalOrClinic,
+    required int experienceYears,
+    String? bio,
+    required http.MultipartFile identityDocument,
+    required http.MultipartFile medicalRegistrationDocument,
+    required http.MultipartFile qualificationDocument,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _authApiService.registerDoctor(
+        fullName: fullName,
+        email: email,
+        phone: phone,
+        password: password,
+        specialty: specialty,
+        medicalRegistrationNumber: medicalRegistrationNumber,
+        qualifications: qualifications,
+        hospitalOrClinic: hospitalOrClinic,
+        experienceYears: experienceYears,
+        bio: bio,
+        identityDocument: identityDocument,
+        medicalRegistrationDocument: medicalRegistrationDocument,
+        qualificationDocument: qualificationDocument,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _errorMessage = 'An unexpected error occurred during doctor registration. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Fetch application status for an authenticated doctor.
+  Future<void> fetchDoctorApplicationStatus() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final appStatus = await _authApiService.getDoctorApplicationStatus();
+      _doctorApplicationStatus = appStatus;
+      _isLoading = false;
+      notifyListeners();
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+    } catch (_) {
+      _errorMessage = 'Unable to fetch application status. Please check your connection.';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// Verify email with submitted 6-digit OTP against POST /api/auth/verify-email.
   /// Does NOT automatically log the user in.
   Future<bool> verifyEmail({
@@ -406,6 +493,7 @@ class AuthProvider extends ChangeNotifier {
 
       await _storageService.clearAll();
       _user = null;
+      _doctorApplicationStatus = null;
       _status = AuthStatus.unauthenticated;
       _isLoading = false;
       _errorMessage = null;

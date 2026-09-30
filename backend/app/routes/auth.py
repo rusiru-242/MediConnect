@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status
+from typing import Optional
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from pymongo.database import Database
 
 from app.config.database import get_database
@@ -25,6 +26,7 @@ from app.schemas.auth import (
     VerifyResetOtpRequest,
     VerifyResetOtpResponse,
 )
+from app.schemas.doctor import DoctorRegisterResponse
 from app.schemas.user import UserResponseSchema
 from app.services.auth_service import AuthService
 
@@ -44,6 +46,48 @@ def register_patient(
 ) -> PatientRegisterResponse:
     """Handle patient registration."""
     return AuthService.register_patient(payload, db)
+
+
+@router.post(
+    "/register-doctor",
+    response_model=DoctorRegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new doctor",
+    description="Submits doctor personal details, professional qualifications, and verification documents as multipart/form-data.",
+)
+async def register_doctor(
+    fullName: str = Form(..., description="Doctor's full name"),
+    email: str = Form(..., description="Doctor's email address"),
+    phone: str = Form(..., description="Doctor's phone number"),
+    password: str = Form(..., description="Account password"),
+    specialty: str = Form(..., description="Medical specialty"),
+    medicalRegistrationNumber: str = Form(..., description="Official medical registration / license number"),
+    qualifications: str = Form(..., description="Doctor's medical qualifications"),
+    hospitalOrClinic: str = Form(..., description="Current hospital or clinic affiliation"),
+    experienceYears: int = Form(..., description="Years of professional medical experience"),
+    bio: Optional[str] = Form(None, description="Optional brief professional biography"),
+    identityDocument: UploadFile = File(..., description="Identity verification document (PDF/JPG/PNG)"),
+    medicalRegistrationDocument: UploadFile = File(..., description="Medical registration certificate (PDF/JPG/PNG)"),
+    qualificationDocument: UploadFile = File(..., description="Medical qualification certificate (PDF/JPG/PNG)"),
+    db: Database = Depends(get_database),
+) -> DoctorRegisterResponse:
+    """Handle doctor registration with document uploads."""
+    return await AuthService.register_doctor(
+        full_name=fullName,
+        email=email,
+        phone=phone,
+        password=password,
+        specialty=specialty,
+        medical_registration_number=medicalRegistrationNumber,
+        qualifications=qualifications,
+        hospital_or_clinic=hospitalOrClinic,
+        experience_years=experienceYears,
+        bio=bio,
+        identity_document=identityDocument,
+        medical_registration_document=medicalRegistrationDocument,
+        qualification_document=qualificationDocument,
+        db=db,
+    )
 
 
 @router.post(

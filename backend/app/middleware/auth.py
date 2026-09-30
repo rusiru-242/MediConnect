@@ -5,7 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pymongo.database import Database
 
 from app.config.database import get_database
-from app.models.user import AccountStatus
+from app.models.user import AccountStatus, UserRole
 from app.schemas.user import UserResponseSchema
 from app.utils.security import decode_access_token
 
@@ -16,7 +16,7 @@ def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security_bearer),
     db: Database = Depends(get_database),
 ) -> UserResponseSchema:
-    """Validate JWT access token from Authorization header and return active user profile."""
+    """Validate JWT access token from Authorization header and return active or verified pending doctor user profile."""
     if credentials is None or not credentials.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -56,7 +56,21 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if user.get("accountStatus") != AccountStatus.ACTIVE.value:
+    if user.get("accountStatus") == AccountStatus.SUSPENDED.value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account is suspended.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Support restricted pending-doctor sessions (email verified, awaiting admin approval)
+    is_pending_verified_doctor = (
+        user.get("role") == UserRole.DOCTOR.value
+        and user.get("emailVerified") is True
+        and user.get("accountStatus") == AccountStatus.PENDING.value
+    )
+
+    if not is_pending_verified_doctor and user.get("accountStatus") != AccountStatus.ACTIVE.value:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Account is inactive or suspended.",

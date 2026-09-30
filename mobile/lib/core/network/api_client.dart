@@ -52,6 +52,40 @@ class ApiClient {
     );
   }
 
+  /// POST multipart request for file uploads
+  Future<dynamic> postMultipart(
+    String endpoint, {
+    required Map<String, String> fields,
+    required List<http.MultipartFile> files,
+    Map<String, String>? headers,
+    bool includeAuth = false,
+  }) async {
+    try {
+      final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+      final request = http.MultipartRequest('POST', uri);
+
+      final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
+      combinedHeaders.remove('Content-Type');
+      combinedHeaders.remove('content-type');
+      request.headers.addAll(combinedHeaders);
+
+      request.fields.addAll(fields);
+      request.files.addAll(files);
+
+      final streamedResponse = await _httpClient.send(request).timeout(
+        ApiConstants.timeoutDuration,
+        onTimeout: () => throw const NetworkException(),
+      );
+
+      final response = await http.Response.fromStream(streamedResponse);
+      return _processResponse(response);
+    } on SocketException {
+      throw const NetworkException();
+    } on http.ClientException {
+      throw const NetworkException();
+    }
+  }
+
   Future<http.Response> _rawGet(
     String endpoint, {
     Map<String, String>? headers,

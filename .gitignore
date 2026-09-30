@@ -28,3 +28,7 @@ Thumbs.db
 # Sensitive files
 *.pem
 *.key
+
+# Uploads & User Documents
+uploads/
+backend/uploads/

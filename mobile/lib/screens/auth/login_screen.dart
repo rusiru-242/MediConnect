@@ -68,6 +68,25 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      _navigateAfterLogin(authProvider);
+    }
+  }
+
+  void _navigateAfterLogin(AuthProvider authProvider) {
+    if (authProvider.user?.role == 'DOCTOR') {
+      final status = authProvider.doctorApplicationStatus;
+      if (status?.isApproved == true) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/doctor/home',
+          (route) => false,
+        );
+      } else {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/doctor/application-status',
+          (route) => false,
+        );
+      }
+    } else {
       Navigator.of(context).pushNamedAndRemoveUntil(
         '/patient/home',
         (route) => false,
@@ -91,10 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/patient/home',
-        (route) => false,
-      );
+      _navigateAfterLogin(authProvider);
     }
   }
 
@@ -330,6 +346,35 @@ class _LoginScreenState extends State<LoginScreen> {
                       onTap: isLoading ? null : _onCreateAccount,
                       child: const Text(
                         'Create Account',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Doctor Registration Link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Are you a doctor? ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    GestureDetector(
+                      key: const Key('login_doctor_register_link'),
+                      onTap: isLoading
+                          ? null
+                          : () => Navigator.of(context).pushNamed('/doctor/register'),
+                      child: const Text(
+                        'Register as a Doctor',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

@@ -40,6 +40,10 @@ class ApiConstants {
   static const String logoutEndpoint = '/auth/logout';
   static const String meEndpoint = '/auth/me';
   static const String googleAuthEndpoint = '/auth/google';
+  static const String registerDoctorEndpoint = '/auth/register-doctor';
+
+  // Doctor endpoints
+  static const String doctorApplicationStatusEndpoint = '/doctors/me/application-status';
 
   /// Google OAuth Web Client ID (audience for ID tokens verified by backend).
   static const String googleServerClientId =

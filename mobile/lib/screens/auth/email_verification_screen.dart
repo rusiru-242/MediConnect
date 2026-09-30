@@ -12,10 +12,12 @@ import '../../widgets/mediconnect_logo.dart';
 /// Includes cooldown timer for resending OTP and navigates to Login on success.
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
+  final bool isDoctor;
 
   const EmailVerificationScreen({
     super.key,
     required this.email,
+    this.isDoctor = false,
   });
 
   @override
@@ -100,19 +102,35 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     if (!mounted) return;
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppTheme.success,
-          content: Text('Email verified successfully. You can now log in.'),
-          duration: Duration(seconds: 3),
-        ),
-      );
+      if (widget.isDoctor) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppTheme.success,
+            content: Text('Email verified successfully.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
 
-      // Navigate to Login screen cleanly
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/login',
-        (route) => false,
-      );
+        // Navigate to Doctor Application Status screen
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/doctor/application-status',
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppTheme.success,
+            content: Text('Email verified successfully. You can now log in.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        // Navigate to Login screen cleanly
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+          (route) => false,
+        );
+      }
     }
   }
 

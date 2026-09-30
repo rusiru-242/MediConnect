@@ -7,6 +7,9 @@ import 'providers/auth_provider.dart';
 import 'screens/auth/create_account_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/doctor/doctor_application_status_screen.dart';
+import 'screens/doctor/doctor_home_screen.dart';
+import 'screens/doctor/doctor_registration_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
@@ -49,6 +52,9 @@ class MediConnectApp extends StatelessWidget {
           '/forgot-password': (context) => const ForgotPasswordScreen(),
           '/login': (context) => const LoginScreen(),
           '/patient/home': (context) => const PatientHomeScreen(),
+          '/doctor/register': (context) => const DoctorRegistrationScreen(),
+          '/doctor/application-status': (context) => const DoctorApplicationStatusScreen(),
+          '/doctor/home': (context) => const DoctorHomeScreen(),
         },
       ),
     );

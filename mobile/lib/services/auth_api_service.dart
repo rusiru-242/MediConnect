@@ -1,7 +1,10 @@
+import 'package:http/http.dart' as http;
+
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../core/network/api_exceptions.dart';
 import '../models/auth_session.dart';
+import '../models/doctor_application_status.dart';
 import '../models/user_model.dart';
 
 /// Service responsible for communicating with FastAPI authentication endpoints.
@@ -182,5 +185,60 @@ class AuthApiService {
       },
       includeAuth: false,
     );
+  }
+
+  /// Register a new doctor account with documents against POST /api/auth/register-doctor.
+  Future<Map<String, dynamic>> registerDoctor({
+    required String fullName,
+    required String email,
+    required String phone,
+    required String password,
+    required String specialty,
+    required String medicalRegistrationNumber,
+    required String qualifications,
+    required String hospitalOrClinic,
+    required int experienceYears,
+    String? bio,
+    required http.MultipartFile identityDocument,
+    required http.MultipartFile medicalRegistrationDocument,
+    required http.MultipartFile qualificationDocument,
+  }) async {
+    final fields = <String, String>{
+      'fullName': fullName.trim(),
+      'email': email.trim().toLowerCase(),
+      'phone': phone.trim(),
+      'password': password,
+      'specialty': specialty.trim(),
+      'medicalRegistrationNumber': medicalRegistrationNumber.trim(),
+      'qualifications': qualifications.trim(),
+      'hospitalOrClinic': hospitalOrClinic.trim(),
+      'experienceYears': experienceYears.toString(),
+    };
+    if (bio != null && bio.trim().isNotEmpty) {
+      fields['bio'] = bio.trim();
+    }
+
+    final response = await _apiClient.postMultipart(
+      ApiConstants.registerDoctorEndpoint,
+      fields: fields,
+      files: [
+        identityDocument,
+        medicalRegistrationDocument,
+        qualificationDocument,
+      ],
+      includeAuth: false,
+    );
+
+    return response as Map<String, dynamic>;
+  }
+
+  /// Fetch application status for authenticated doctor via GET /api/doctors/me/application-status.
+  Future<DoctorApplicationStatus> getDoctorApplicationStatus() async {
+    final response = await _apiClient.get(
+      ApiConstants.doctorApplicationStatusEndpoint,
+      includeAuth: true,
+    );
+
+    return DoctorApplicationStatus.fromJson(response as Map<String, dynamic>);
   }
 }

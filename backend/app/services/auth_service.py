@@ -1,13 +1,16 @@
 from datetime import datetime, timedelta, timezone
 import logging
+import re
 import secrets
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from bson import ObjectId
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.config.settings import settings
+from app.models.doctor_profile import DoctorVerificationStatus
+from app.models.specialty import is_valid_specialty
 from app.models.user import AccountStatus, UserRole
 from app.schemas.auth import (
     ForgotPasswordRequest,
@@ -30,8 +33,11 @@ from app.schemas.auth import (
     VerifyEmailResponse,
     VerifyResetOtpRequest,
     VerifyResetOtpResponse,
+    validate_password_strength,
 )
+from app.schemas.doctor import DoctorProfileResponseSchema, DoctorRegisterResponse
 from app.schemas.user import UserResponseSchema
+from app.services.document_storage_service import document_storage
 from app.services.email_service import EmailService
 from app.services.google_auth_service import GoogleAuthVerifier
 from app.utils.security import (
@@ -149,6 +155,244 @@ class AuthService:
         )
 
     @staticmethod
+    async def register_doctor(
+        full_name: str,
+        email: str,
+        phone: str,
+        password: str,
+        specialty: str,
+        medical_registration_number: str,
+        qualifications: str,
+        hospital_or_clinic: str,
+        experience_years: int,
+        bio: Optional[str],
+        identity_document: UploadFile,
+        medical_registration_document: UploadFile,
+        qualification_document: UploadFile,
+        db: Database,
+    ) -> DoctorRegisterResponse:
+        """Register a new doctor account with verification documents and initiate email OTP."""
+        # 1. Validate full name
+        clean_name = (full_name or "").strip()
+        if len(clean_name) < 2 or len(clean_name) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Full name must be between 2 and 100 characters.",
+            )
+
+        # 2. Validate email
+        clean_email = (email or "").strip().lower()
+        if not re.fullmatch(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", clean_email):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Please enter a valid email address.",
+            )
+
+        # 3. Validate Sri Lankan phone
+        raw_phone = re.sub(r"[\s\-()]", "", phone or "")
+        normalized_phone = None
+        if re.fullmatch(r"07[0-8]\d{7}", raw_phone):
+            normalized_phone = f"+94{raw_phone[1:]}"
+        elif re.fullmatch(r"\+947[0-8]\d{7}", raw_phone):
+            normalized_phone = raw_phone
+        elif re.fullmatch(r"947[0-8]\d{7}", raw_phone):
+            normalized_phone = f"+{raw_phone}"
+        elif re.fullmatch(r"00947[0-8]\d{7}", raw_phone):
+            normalized_phone = f"+{raw_phone[2:]}"
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid Sri Lankan mobile number format.",
+            )
+
+        # 4. Validate strong password
+        try:
+            validate_password_strength(password)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            )
+
+        # 5. Validate specialty
+        clean_specialty = (specialty or "").strip()
+        if not is_valid_specialty(clean_specialty):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid specialty. Please select a supported specialty.",
+            )
+
+        # 6. Validate medical registration number
+        clean_med_reg = (medical_registration_number or "").strip()
+        if not clean_med_reg or len(clean_med_reg) < 2 or len(clean_med_reg) > 50:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Medical registration number is required (2 to 50 characters).",
+            )
+
+        # 7. Validate qualifications & hospital
+        clean_qualifications = (qualifications or "").strip()
+        if not clean_qualifications or len(clean_qualifications) < 2 or len(clean_qualifications) > 200:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Qualifications are required.",
+            )
+
+        clean_hospital = (hospital_or_clinic or "").strip()
+        if not clean_hospital or len(clean_hospital) < 2 or len(clean_hospital) > 150:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Hospital or clinic name is required.",
+            )
+
+        # 8. Experience years
+        try:
+            exp_int = int(experience_years)
+            if exp_int < 0 or exp_int > 70:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Experience years must be between 0 and 70.",
+            )
+
+        # 9. Bio
+        clean_bio = (bio.strip() if bio else None)
+        if clean_bio and len(clean_bio) > 1000:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Bio cannot exceed 1000 characters.",
+            )
+
+        # 10. Check uniqueness before saving files
+        if db["users"].find_one({"email": clean_email}):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists.",
+            )
+
+        if db["doctor_profiles"].find_one({"medicalRegistrationNumber": clean_med_reg}):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A doctor profile with this medical registration number already exists.",
+            )
+
+        # 11. Process and save verification documents
+        temp_user_id = str(ObjectId())
+        id_doc_meta = await document_storage.save_document(
+            identity_document, "identity_document", temp_user_id
+        )
+        med_doc_meta = await document_storage.save_document(
+            medical_registration_document, "medical_registration_document", temp_user_id
+        )
+        qual_doc_meta = await document_storage.save_document(
+            qualification_document, "qualification_document", temp_user_id
+        )
+
+        now = datetime.now(timezone.utc)
+        password_hash = hash_password(password)
+        otp = f"{secrets.randbelow(1_000_000):06d}"
+        otp_hash = hash_password(otp)
+        expires_at = now + timedelta(minutes=OTP_EXPIRATION_MINUTES)
+
+        user_doc = {
+            "_id": ObjectId(temp_user_id),
+            "fullName": clean_name,
+            "email": clean_email,
+            "phone": normalized_phone,
+            "passwordHash": password_hash,
+            "role": UserRole.DOCTOR.value,
+            "emailVerified": False,
+            "accountStatus": AccountStatus.PENDING.value,
+            "authProviders": ["LOCAL"],
+            "profileImage": None,
+            "emailVerification": {
+                "otpHash": otp_hash,
+                "expiresAt": expires_at,
+                "attempts": 0,
+                "lastSentAt": now,
+            },
+            "createdAt": now,
+            "updatedAt": now,
+        }
+
+        doctor_id = f"DOC-{secrets.token_hex(4).upper()}"
+        doctor_profile_doc = {
+            "userId": temp_user_id,
+            "doctorId": doctor_id,
+            "specialty": clean_specialty,
+            "medicalRegistrationNumber": clean_med_reg,
+            "qualifications": clean_qualifications,
+            "hospitalOrClinic": clean_hospital,
+            "experienceYears": exp_int,
+            "bio": clean_bio,
+            "verificationDocuments": {
+                "identityDocument": id_doc_meta,
+                "medicalRegistrationDocument": med_doc_meta,
+                "qualificationDocument": qual_doc_meta,
+            },
+            "verificationStatus": DoctorVerificationStatus.PENDING.value,
+            "rejectionReason": None,
+            "submittedAt": now,
+            "verifiedAt": None,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+
+        try:
+            db["users"].insert_one(user_doc)
+            profile_res = db["doctor_profiles"].insert_one(doctor_profile_doc)
+            doctor_profile_doc["_id"] = profile_res.inserted_id
+        except DuplicateKeyError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account or registration number with these details already exists.",
+            )
+        except PyMongoError as exc:
+            logger.error("Database error during doctor registration: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An unexpected error occurred while creating doctor account.",
+            )
+
+        EmailService.send_verification_otp(clean_email, otp)
+
+        user_response = UserResponseSchema(
+            id=temp_user_id,
+            fullName=clean_name,
+            email=clean_email,
+            phone=normalized_phone,
+            role=UserRole.DOCTOR.value,
+            emailVerified=False,
+            accountStatus=AccountStatus.PENDING.value,
+            authProviders=["LOCAL"],
+            createdAt=now,
+            updatedAt=now,
+        )
+
+        profile_response = DoctorProfileResponseSchema(
+            id=str(doctor_profile_doc["_id"]),
+            userId=temp_user_id,
+            doctorId=doctor_id,
+            specialty=clean_specialty,
+            medicalRegistrationNumber=clean_med_reg,
+            qualifications=clean_qualifications,
+            hospitalOrClinic=clean_hospital,
+            experienceYears=exp_int,
+            bio=clean_bio,
+            verificationStatus=DoctorVerificationStatus.PENDING.value,
+            rejectionReason=None,
+            submittedAt=now,
+            verifiedAt=None,
+        )
+
+        return DoctorRegisterResponse(
+            message="Doctor application submitted successfully. Please verify your email.",
+            user=user_response,
+            doctorProfile=profile_response,
+        )
+
+    @staticmethod
     def verify_email(payload: VerifyEmailRequest, db: Database) -> VerifyEmailResponse:
         """Verify patient email using submitted 6-digit OTP."""
         normalized_email = payload.email.strip().lower()
@@ -222,14 +466,24 @@ class AuthService:
                 detail="Invalid verification code. Please check and try again.",
             )
 
-        # OTP is valid: activate account and invalidate stored OTP
+        # OTP is valid:
+        user_role = user.get("role", UserRole.PATIENT.value)
+        # For PATIENT: successful email verification activates the account.
+        # For DOCTOR: successful email verification marks emailVerified = True,
+        # but accountStatus remains PENDING until administrative review & approval.
+        new_account_status = (
+            AccountStatus.PENDING.value
+            if user_role == UserRole.DOCTOR.value
+            else AccountStatus.ACTIVE.value
+        )
+
         try:
             db["users"].update_one(
                 {"_id": user["_id"]},
                 {
                     "$set": {
                         "emailVerified": True,
-                        "accountStatus": AccountStatus.ACTIVE.value,
+                        "accountStatus": new_account_status,
                         "updatedAt": now,
                     },
                     "$unset": {
@@ -357,12 +611,22 @@ class AuthService:
 
         # Check account status
         account_status = user.get("accountStatus")
+        user_role = user.get("role", UserRole.PATIENT.value)
+
         if account_status == AccountStatus.SUSPENDED.value:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is suspended. Please contact support.",
             )
-        if account_status != AccountStatus.ACTIVE.value:
+
+        # Allow DOCTOR with verified email and PENDING status for restricted application-status sessions
+        is_pending_verified_doctor = (
+            user_role == UserRole.DOCTOR.value
+            and user.get("emailVerified") is True
+            and account_status == AccountStatus.PENDING.value
+        )
+
+        if not is_pending_verified_doctor and account_status != AccountStatus.ACTIVE.value:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is not active.",
@@ -461,7 +725,20 @@ class AuthService:
                 detail="Database error during token refresh.",
             )
 
-        if not user or user.get("accountStatus") != AccountStatus.ACTIVE.value or not user.get("emailVerified"):
+        is_pending_verified_doctor = (
+            user.get("role") == UserRole.DOCTOR.value
+            and user.get("emailVerified") is True
+            and user.get("accountStatus") == AccountStatus.PENDING.value
+        )
+
+        if not user or not user.get("emailVerified") or user.get("accountStatus") == AccountStatus.SUSPENDED.value:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is inactive or not found.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not is_pending_verified_doctor and user.get("accountStatus") != AccountStatus.ACTIVE.value:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User account is inactive or not found.",

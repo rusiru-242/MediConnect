@@ -156,6 +156,34 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
+              // Doctor Registration Entry Point
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Are you a doctor? ',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  GestureDetector(
+                    key: const Key('welcome_doctor_register_link'),
+                    onTap: isLoading
+                        ? null
+                        : () => Navigator.of(context).pushNamed('/doctor/register'),
+                    child: const Text(
+                      'Register as a Doctor',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const Spacer(),
             ],
           ),

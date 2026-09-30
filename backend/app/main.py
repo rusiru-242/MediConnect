@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.config.database import DatabaseManager, check_database_connection, ensure_indexes
 from app.config.settings import settings
-from app.routes import auth_router
+from app.routes import auth_router, doctor_router
 
 
 @asynccontextmanager
@@ -26,6 +26,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router, prefix="/api")
+app.include_router(doctor_router, prefix="/api")
 
 
 @app.get("/")
