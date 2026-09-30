@@ -17,12 +17,7 @@ class WelcomeScreen extends StatelessWidget {
   }
 
   void _onCreateAccountPressed(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Patient registration will be available soon.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    Navigator.of(context).pushNamed('/register');
   }
 
   @override

@@ -273,7 +273,9 @@ class ApiClient {
       case 404:
         return 'The requested resource was not found.';
       case 409:
-        return 'An account with this information already exists.';
+        return 'An account with this email already exists.';
+      case 429:
+        return 'Too many requests. Please wait a moment before trying again.';
       default:
         return 'An unexpected error occurred. Please try again.';
     }

@@ -30,6 +30,9 @@ class ApiConstants {
 
   // Authentication endpoints
   static const String loginEndpoint = '/auth/login';
+  static const String registerEndpoint = '/auth/register';
+  static const String verifyEmailEndpoint = '/auth/verify-email';
+  static const String resendVerificationEndpoint = '/auth/resend-verification';
   static const String refreshEndpoint = '/auth/refresh';
   static const String logoutEndpoint = '/auth/logout';
   static const String meEndpoint = '/auth/me';

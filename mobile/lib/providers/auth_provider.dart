@@ -141,6 +141,91 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Register a new patient account against POST /api/auth/register.
+  /// Does NOT automatically log the patient in.
+  Future<bool> register({
+    required String fullName,
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _authApiService.registerPatient(
+        fullName: fullName,
+        email: email,
+        phone: phone,
+        password: password,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _errorMessage = 'An unexpected error occurred. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Verify email with submitted 6-digit OTP against POST /api/auth/verify-email.
+  /// Does NOT automatically log the user in.
+  Future<bool> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _authApiService.verifyEmail(
+        email: email,
+        otp: otp,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _errorMessage = 'An unexpected error occurred. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Resend verification OTP code against POST /api/auth/resend-verification.
+  Future<String?> resendVerificationOtp({
+    required String email,
+  }) async {
+    _errorMessage = null;
+    try {
+      final msg = await _authApiService.resendVerificationOtp(email: email);
+      return msg;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      _errorMessage = 'Unable to resend verification code. Please try again.';
+      notifyListeners();
+      return null;
+    }
+  }
+
   /// Log out patient, revoking session on backend and clearing secure storage.
   Future<void> logout() async {
     _isLoading = true;

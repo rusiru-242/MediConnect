@@ -27,6 +27,85 @@ void main() {
       authService = AuthApiService(apiClient: apiClient);
     });
 
+    test('1. Registration with duplicate email throws 409 conflict', () async {
+      try {
+        await authService.registerPatient(
+          fullName: 'Test Patient',
+          email: 'patient@example.com',
+          phone: '0771234567',
+          password: 'Password@123',
+        );
+        fail('Expected 409 conflict');
+      } on ApiException catch (e) {
+        expect(e.statusCode, 409);
+        expect(e.message, 'An account with this email already exists.');
+      }
+    });
+
+    test('2. Registration of a new patient returns 201 created with pending status', () async {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final newEmail = 'patient_$timestamp@example.com';
+
+      final response = await authService.registerPatient(
+        fullName: 'New Flow Patient',
+        email: newEmail,
+        phone: '0771234567',
+        password: 'Password@123',
+      );
+
+      expect(response['message'], 'Patient registered successfully.');
+      expect(response['user'], isNotNull);
+      final user = response['user'] as Map<String, dynamic>;
+      expect(user['email'], newEmail);
+      expect(user['role'], 'PATIENT');
+      expect(user['emailVerified'], isFalse);
+      expect(user['accountStatus'], 'PENDING');
+    });
+
+    test('3. Verify email with wrong 6-digit OTP throws 400 bad request', () async {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final newEmail = 'otp_test_$timestamp@example.com';
+
+      await authService.registerPatient(
+        fullName: 'OTP Test Patient',
+        email: newEmail,
+        phone: '0771234567',
+        password: 'Password@123',
+      );
+
+      try {
+        await authService.verifyEmail(
+          email: newEmail,
+          otp: '000000',
+        );
+        fail('Expected 400 bad request');
+      } on ApiException catch (e) {
+        expect(e.statusCode, 400);
+        expect(e.message, contains('Invalid verification code'));
+      }
+    });
+
+    test('4. Resend OTP during cooldown period throws 429 too many requests', () async {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final newEmail = 'resend_$timestamp@example.com';
+
+      await authService.registerPatient(
+        fullName: 'Resend Patient',
+        email: newEmail,
+        phone: '0771234567',
+        password: 'Password@123',
+      );
+
+      // Attempt immediate resend (cooldown is 60s)
+      try {
+        await authService.resendVerificationOtp(email: newEmail);
+        fail('Expected 429 cooldown');
+      } on ApiException catch (e) {
+        expect(e.statusCode, 429);
+        expect(e.message, contains('wait'));
+      }
+    });
+
     test('B. Invalid email/password throws user-friendly AuthException', () async {
       try {
         await authService.login(
@@ -68,7 +147,6 @@ void main() {
     });
 
     test('F & G. Token refresh and rotation', () async {
-      // Login to obtain active session
       final session = await authService.login(
         email: 'patient@example.com',
         password: 'Password@123',
@@ -81,7 +159,6 @@ void main() {
       final refreshToken = await storage.getRefreshToken();
       expect(refreshToken, isNotNull);
 
-      // Perform direct refresh call via ApiClient
       final refreshResponse = await apiClient.post(
         ApiConstants.refreshEndpoint,
         body: {'refreshToken': refreshToken},
@@ -92,13 +169,11 @@ void main() {
       expect(refreshResponse['refreshToken'], isNotNull);
       expect(refreshResponse['tokenType'], 'bearer');
 
-      // Update storage with rotated tokens
       await storage.saveTokens(
         accessToken: refreshResponse['accessToken'] as String,
         refreshToken: refreshResponse['refreshToken'] as String,
       );
 
-      // Verify the new rotated access token can access /api/auth/me
       final profile = await authService.getCurrentUser();
       expect(profile.email, 'patient@example.com');
     });
@@ -116,16 +191,12 @@ void main() {
       final activeRefreshToken = await storage.getRefreshToken();
       expect(activeRefreshToken, isNotNull);
 
-      // Call backend logout
       await authService.logout(activeRefreshToken!);
-
-      // Clear local storage
       await storage.clearAll();
 
       final clearedAccessToken = await storage.getAccessToken();
       expect(clearedAccessToken, isNull);
 
-      // Verify subsequent GET /api/auth/me fails with AuthException
       expect(
         () async => await authService.getCurrentUser(),
         throwsA(isA<AuthException>()),
@@ -133,7 +204,6 @@ void main() {
     });
 
     test('I. Backend unavailable / invalid host returns clean NetworkException', () async {
-      // Point temporarily to an unreachable port
       ApiConstants.baseUrl = 'http://127.0.0.1:59999/api';
 
       try {

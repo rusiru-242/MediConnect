@@ -26,8 +26,9 @@ class DatabaseManager:
                     import dns.resolver
 
                     resolver = dns.resolver.get_default_resolver()
-                    if "8.8.8.8" not in resolver.nameservers:
-                        resolver.nameservers.extend(["8.8.8.8", "1.1.1.1"])
+                    resolver.nameservers = ["8.8.8.8", "1.1.1.1"] + [
+                        ns for ns in resolver.nameservers if ns not in ["8.8.8.8", "1.1.1.1"]
+                    ]
                 except Exception:
                     pass
 

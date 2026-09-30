@@ -102,7 +102,6 @@ class AuthService:
             "emailVerified": False,
             "accountStatus": AccountStatus.PENDING.value,
             "authProviders": ["LOCAL"],
-            "googleSub": None,
             "profileImage": None,
             "emailVerification": {
                 "otpHash": otp_hash,

@@ -2,54 +2,43 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/mediconnect_logo.dart';
+import 'email_verification_screen.dart';
 
-/// Patient login screen providing email/password authentication, validation,
-/// loading states, and error handling against FastAPI backend.
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+/// Patient registration screen collecting name, email, phone, and password.
+/// Validates input client-side and connects to POST /api/auth/register.
+class CreateAccountScreen extends StatefulWidget {
+  const CreateAccountScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
+    _fullNameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Email address is required.';
-    }
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$',
-    );
-    if (!emailRegex.hasMatch(value.trim())) {
-      return 'Please enter a valid email address.';
-    }
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required.';
-    }
-    return null;
-  }
-
   Future<void> _handleSubmit() async {
-    // Clear any previous error before submitting
     final authProvider = context.read<AuthProvider>();
     authProvider.clearError();
 
@@ -57,53 +46,30 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Dismiss keyboard
     FocusScope.of(context).unfocus();
 
-    final success = await authProvider.login(
-      email: _emailController.text.trim(),
+    final email = _emailController.text.trim().toLowerCase();
+
+    final success = await authProvider.register(
+      fullName: _fullNameController.text.trim(),
+      email: email,
+      phone: _phoneController.text.trim(),
       password: _passwordController.text,
     );
 
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/patient/home',
-        (route) => false,
+      // Clear sensitive password fields immediately
+      _passwordController.clear();
+      _confirmPasswordController.clear();
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => EmailVerificationScreen(email: email),
+        ),
       );
     }
-  }
-
-  void _onForgotPassword() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Password Reset'),
-        content: const Text(
-          'Password reset flow will be available in the upcoming update. Please contact support if you require immediate assistance.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _onGoogleSignIn() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Google Sign-In will be available soon.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _onCreateAccount() {
-    Navigator.of(context).pushNamed('/register');
   }
 
   @override
@@ -115,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Patient Login'),
+        title: const Text('Create Account'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: isLoading ? null : () => Navigator.of(context).pop(),
@@ -129,13 +95,13 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 const Center(
-                  child: MediConnectLogo(size: 64),
+                  child: MediConnectLogo(size: 60),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 const Text(
-                  'Welcome Back',
+                  'Join MediConnect',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 26,
@@ -144,16 +110,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: AppTheme.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 const Text(
-                  'Log in to access your healthcare portal.',
+                  'Register as a patient to manage your health.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     color: AppTheme.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
 
                 // Error Banner
                 if (errorMessage != null) ...[
@@ -191,9 +157,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
                 ],
 
-                // Email Field
+                // Full Name
                 TextFormField(
-                  key: const Key('login_email_input'),
+                  key: const Key('register_full_name_input'),
+                  controller: _fullNameController,
+                  enabled: !isLoading,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    hintText: 'John Doe',
+                    prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
+                  ),
+                  validator: Validators.validateFullName,
+                ),
+                const SizedBox(height: 16),
+
+                // Email
+                TextFormField(
+                  key: const Key('register_email_input'),
                   controller: _emailController,
                   enabled: !isLoading,
                   keyboardType: TextInputType.emailAddress,
@@ -204,21 +186,36 @@ class _LoginScreenState extends State<LoginScreen> {
                     hintText: 'patient@example.com',
                     prefixIcon: Icon(Icons.email_outlined, size: 20),
                   ),
-                  validator: _validateEmail,
+                  validator: Validators.validateEmail,
                 ),
                 const SizedBox(height: 16),
 
-                // Password Field
+                // Phone Number
                 TextFormField(
-                  key: const Key('login_password_input'),
+                  key: const Key('register_phone_input'),
+                  controller: _phoneController,
+                  enabled: !isLoading,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number',
+                    hintText: '0771234567 or +94771234567',
+                    prefixIcon: Icon(Icons.phone_outlined, size: 20),
+                  ),
+                  validator: Validators.validatePhone,
+                ),
+                const SizedBox(height: 16),
+
+                // Password
+                TextFormField(
+                  key: const Key('register_password_input'),
                   controller: _passwordController,
                   enabled: !isLoading,
                   obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _handleSubmit(),
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    hintText: 'Enter your password',
+                    hintText: 'At least 8 characters with symbol & number',
                     prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -234,24 +231,46 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                   ),
-                  validator: _validatePassword,
-                ),
-                const SizedBox(height: 8),
-
-                // Forgot Password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    key: const Key('login_forgot_password_button'),
-                    onPressed: isLoading ? null : _onForgotPassword,
-                    child: const Text('Forgot Password?'),
-                  ),
+                  validator: Validators.validatePassword,
                 ),
                 const SizedBox(height: 16),
 
-                // Login Submit Button
+                // Confirm Password
+                TextFormField(
+                  key: const Key('register_confirm_password_input'),
+                  controller: _confirmPasswordController,
+                  enabled: !isLoading,
+                  obscureText: _obscureConfirmPassword,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _handleSubmit(),
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    hintText: 'Re-enter your password',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (val) => Validators.validateConfirmPassword(
+                    val,
+                    _passwordController.text,
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Submit Button
                 ElevatedButton(
-                  key: const Key('login_submit_button'),
+                  key: const Key('register_submit_button'),
                   onPressed: isLoading ? null : _handleSubmit,
                   child: isLoading
                       ? const SizedBox(
@@ -262,69 +281,30 @@ class _LoginScreenState extends State<LoginScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('Login'),
+                      : const Text('Create Account'),
                 ),
                 const SizedBox(height: 20),
 
-                // Divider with OR
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Text(
-                        'OR',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                    ),
-                    const Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Continue with Google Button
-                OutlinedButton.icon(
-                  key: const Key('login_google_button'),
-                  onPressed: isLoading ? null : _onGoogleSignIn,
-                  icon: Image.network(
-                    'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
-                    width: 20,
-                    height: 20,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.account_circle_outlined,
-                      size: 20,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  label: const Text(
-                    'Continue with Google',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Create Account Link
+                // Already have account link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      "Don't have an account? ",
+                      'Already have an account? ',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppTheme.textSecondary,
                       ),
                     ),
                     GestureDetector(
-                      onTap: isLoading ? null : _onCreateAccount,
+                      key: const Key('register_to_login_button'),
+                      onTap: isLoading
+                          ? null
+                          : () {
+                              Navigator.of(context).pushReplacementNamed('/login');
+                            },
                       child: const Text(
-                        'Create Account',
+                        'Login',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -334,7 +314,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
               ],
             ),
           ),

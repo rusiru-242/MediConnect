@@ -26,6 +26,65 @@ class AuthApiService {
     return AuthSession.fromJson(response as Map<String, dynamic>);
   }
 
+  /// Register a new patient account against POST /api/auth/register.
+  Future<Map<String, dynamic>> registerPatient({
+    required String fullName,
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.registerEndpoint,
+      body: {
+        'fullName': fullName.trim(),
+        'email': email.trim().toLowerCase(),
+        'phone': phone.trim(),
+        'password': password,
+      },
+      includeAuth: false,
+    );
+
+    return response as Map<String, dynamic>;
+  }
+
+  /// Verify patient email address against POST /api/auth/verify-email.
+  Future<String> verifyEmail({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.verifyEmailEndpoint,
+      body: {
+        'email': email.trim().toLowerCase(),
+        'otp': otp.trim(),
+      },
+      includeAuth: false,
+    );
+
+    if (response is Map<String, dynamic> && response['message'] != null) {
+      return response['message'] as String;
+    }
+    return 'Email verified successfully.';
+  }
+
+  /// Request a new 6-digit OTP code against POST /api/auth/resend-verification.
+  Future<String> resendVerificationOtp({
+    required String email,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.resendVerificationEndpoint,
+      body: {
+        'email': email.trim().toLowerCase(),
+      },
+      includeAuth: false,
+    );
+
+    if (response is Map<String, dynamic> && response['message'] != null) {
+      return response['message'] as String;
+    }
+    return 'Verification code has been resent successfully.';
+  }
+
   /// Fetch currently authenticated user profile via GET /api/auth/me.
   Future<UserModel> getCurrentUser() async {
     final response = await _apiClient.get(
