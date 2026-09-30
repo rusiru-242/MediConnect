@@ -80,3 +80,56 @@ class PatientRegisterResponse(BaseModel):
 
     message: str = "Patient registered successfully."
     user: UserResponseSchema
+
+
+class VerifyEmailRequest(BaseModel):
+    """Request schema for verifying email using a 6-digit OTP."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Email must be a string.")
+        return value.strip().lower()
+
+    @field_validator("otp", mode="before")
+    @classmethod
+    def validate_otp_format(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("OTP must be a string.")
+        trimmed = value.strip()
+        if not re.fullmatch(r"^\d{6}$", trimmed):
+            raise ValueError("OTP must be a 6-digit numeric code.")
+        return trimmed
+
+
+class VerifyEmailResponse(BaseModel):
+    """Response schema returned on successful email verification."""
+
+    message: str = "Email verified successfully."
+
+
+class ResendVerificationRequest(BaseModel):
+    """Request schema for resending an email verification OTP."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Email must be a string.")
+        return value.strip().lower()
+
+
+class ResendVerificationResponse(BaseModel):
+    """Response schema returned on successfully resending verification OTP."""
+
+    message: str = "Verification code has been resent successfully."

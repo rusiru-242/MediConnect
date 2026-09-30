@@ -29,6 +29,24 @@ class Settings(BaseModel):
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
         default_factory=lambda: int((os.getenv("REFRESH_TOKEN_EXPIRE_DAYS") or "7").strip())
     )
+    SMTP_HOST: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("SMTP_HOST") or "").strip() or None
+    )
+    SMTP_PORT: int = Field(
+        default_factory=lambda: int((os.getenv("SMTP_PORT") or "587").strip())
+    )
+    SMTP_USERNAME: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("SMTP_USERNAME") or "").strip() or None
+    )
+    SMTP_PASSWORD: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("SMTP_PASSWORD") or "").strip() or None
+    )
+    SMTP_FROM_EMAIL: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("SMTP_FROM_EMAIL") or "").strip() or None
+    )
+    SMTP_FROM_NAME: str = Field(
+        default_factory=lambda: (os.getenv("SMTP_FROM_NAME") or "MediConnect").strip() or "MediConnect"
+    )
 
 
 settings = Settings()

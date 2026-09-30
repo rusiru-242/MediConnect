@@ -42,6 +42,7 @@ class UserDocument(BaseModel):
     role: UserRole = Field(default=UserRole.PATIENT)
     emailVerified: bool = Field(default=False)
     accountStatus: AccountStatus = Field(default=AccountStatus.PENDING)
+    emailVerification: Optional[Dict[str, Any]] = None
     createdAt: datetime = Field(default_factory=utc_now)
     updatedAt: datetime = Field(default_factory=utc_now)
 

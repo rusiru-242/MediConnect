@@ -1,23 +1,45 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
+import secrets
 from typing import Any, Dict
 from fastapi import HTTPException, status
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.models.user import AccountStatus, UserRole
-from app.schemas.auth import PatientRegisterRequest, PatientRegisterResponse
-from app.utils.security import hash_password
+from app.schemas.auth import (
+    PatientRegisterRequest,
+    PatientRegisterResponse,
+    ResendVerificationRequest,
+    ResendVerificationResponse,
+    VerifyEmailRequest,
+    VerifyEmailResponse,
+)
+from app.services.email_service import EmailService
+from app.utils.security import hash_password, verify_password
 
 logger = logging.getLogger(__name__)
 
+MAX_OTP_ATTEMPTS = 5
+RESEND_COOLDOWN_SECONDS = 60
+OTP_EXPIRATION_MINUTES = 10
+
+
+def _ensure_utc(dt: Any) -> datetime:
+    """Ensure datetime object is timezone-aware in UTC."""
+    if isinstance(dt, datetime):
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    return dt
+
 
 class AuthService:
-    """Service handling authentication business logic."""
+    """Service handling authentication and email verification business logic."""
 
     @staticmethod
     def register_patient(patient_data: PatientRegisterRequest, db: Database) -> PatientRegisterResponse:
-        """Register a new patient account."""
+        """Register a new patient account and send a 6-digit verification OTP."""
         normalized_email = patient_data.email.strip().lower()
 
         # Check for existing email in database
@@ -40,6 +62,11 @@ class AuthService:
         password_hash = hash_password(patient_data.password)
 
         now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=OTP_EXPIRATION_MINUTES)
+
+        # Generate cryptographically secure 6-digit OTP and hash it before storage
+        otp = f"{secrets.randbelow(1_000_000):06d}"
+        otp_hash = hash_password(otp)
 
         # Build document with enforced defaults (client cannot override)
         patient_document = {
@@ -50,6 +77,12 @@ class AuthService:
             "role": UserRole.PATIENT.value,
             "emailVerified": False,
             "accountStatus": AccountStatus.PENDING.value,
+            "emailVerification": {
+                "otpHash": otp_hash,
+                "expiresAt": expires_at,
+                "attempts": 0,
+                "lastSentAt": now,
+            },
             "createdAt": now,
             "updatedAt": now,
         }
@@ -68,6 +101,9 @@ class AuthService:
                 detail="An unexpected error occurred while creating the account.",
             )
 
+        # Send verification email with OTP (does not log or store plain OTP)
+        EmailService.send_verification_otp(normalized_email, otp)
+
         user_response = {
             "id": str(insert_result.inserted_id),
             "fullName": patient_document["fullName"],
@@ -82,4 +118,175 @@ class AuthService:
         return PatientRegisterResponse(
             message="Patient registered successfully.",
             user=user_response,
+        )
+
+    @staticmethod
+    def verify_email(payload: VerifyEmailRequest, db: Database) -> VerifyEmailResponse:
+        """Verify patient email using submitted 6-digit OTP."""
+        normalized_email = payload.email.strip().lower()
+
+        try:
+            user = db["users"].find_one({"email": normalized_email})
+        except PyMongoError as exc:
+            logger.error("Database query failed during email verification: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="A database error occurred during verification.",
+            )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification request.",
+            )
+
+        if user.get("emailVerified") is True:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account is already verified.",
+            )
+
+        verification = user.get("emailVerification")
+        if not verification or "otpHash" not in verification:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No pending verification code found. Please request a new code.",
+            )
+
+        # Check attempt threshold before comparing
+        attempts = verification.get("attempts", 0)
+        if attempts >= MAX_OTP_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Maximum verification attempts exceeded. Please request a new code.",
+            )
+
+        # Check expiration
+        expires_at = _ensure_utc(verification.get("expiresAt"))
+        now = datetime.now(timezone.utc)
+        if expires_at and now > expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Please request a new code.",
+            )
+
+        # Securely compare submitted OTP against stored hash
+        is_valid = verify_password(payload.otp, verification["otpHash"])
+
+        if not is_valid:
+            new_attempts = attempts + 1
+            try:
+                db["users"].update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {"emailVerification.attempts": new_attempts}},
+                )
+            except PyMongoError as exc:
+                logger.error("Failed to update verification attempts: %s", type(exc).__name__)
+
+            if new_attempts >= MAX_OTP_ATTEMPTS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Maximum verification attempts exceeded. Please request a new code.",
+                )
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification code. Please check and try again.",
+            )
+
+        # OTP is valid: activate account and invalidate stored OTP
+        try:
+            db["users"].update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "emailVerified": True,
+                        "accountStatus": AccountStatus.ACTIVE.value,
+                        "updatedAt": now,
+                    },
+                    "$unset": {
+                        "emailVerification": "",
+                    },
+                },
+            )
+        except PyMongoError as exc:
+            logger.error("Failed to activate verified user: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An error occurred while updating verification status.",
+            )
+
+        return VerifyEmailResponse(message="Email verified successfully.")
+
+    @staticmethod
+    def resend_verification(payload: ResendVerificationRequest, db: Database) -> ResendVerificationResponse:
+        """Resend a new 6-digit OTP with cooldown protection."""
+        normalized_email = payload.email.strip().lower()
+
+        try:
+            user = db["users"].find_one({"email": normalized_email})
+        except PyMongoError as exc:
+            logger.error("Database query failed during resend verification: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="A database error occurred.",
+            )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid request. No account found with this email.",
+            )
+
+        if user.get("emailVerified") is True:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account is already verified.",
+            )
+
+        verification = user.get("emailVerification")
+        now = datetime.now(timezone.utc)
+
+        # Enforce 60-second cooldown
+        if verification and "lastSentAt" in verification:
+            last_sent = _ensure_utc(verification["lastSentAt"])
+            elapsed = (now - last_sent).total_seconds()
+            if elapsed < RESEND_COOLDOWN_SECONDS:
+                remaining = int(RESEND_COOLDOWN_SECONDS - elapsed)
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Please wait {remaining} seconds before requesting a new verification code.",
+                )
+
+        # Generate new OTP, hash it, and reset attempts
+        new_otp = f"{secrets.randbelow(1_000_000):06d}"
+        new_otp_hash = hash_password(new_otp)
+        expires_at = now + timedelta(minutes=OTP_EXPIRATION_MINUTES)
+
+        try:
+            db["users"].update_one(
+                {"_id": user["_id"]},
+                {
+                    "$set": {
+                        "emailVerification": {
+                            "otpHash": new_otp_hash,
+                            "expiresAt": expires_at,
+                            "attempts": 0,
+                            "lastSentAt": now,
+                        },
+                        "updatedAt": now,
+                    }
+                },
+            )
+        except PyMongoError as exc:
+            logger.error("Failed to update user with new OTP: %s", type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate new verification code.",
+            )
+
+        EmailService.send_verification_otp(normalized_email, new_otp)
+
+        return ResendVerificationResponse(
+            message="Verification code has been resent successfully."
         )
