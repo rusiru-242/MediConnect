@@ -14,16 +14,20 @@ class Settings(BaseModel):
     """Application configuration loaded from environment variables."""
 
     APP_NAME: str = "MediConnect"
-    MONGODB_URI: Optional[str] = Field(default_factory=lambda: os.getenv("MONGODB_URI") or None)
-    DATABASE_NAME: str = Field(
-        default_factory=lambda: os.getenv("DATABASE_NAME", "mediconnect") or "mediconnect"
+    MONGODB_URI: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("MONGODB_URI") or "").strip() or None
     )
-    JWT_SECRET: Optional[str] = Field(default_factory=lambda: os.getenv("JWT_SECRET") or None)
+    DATABASE_NAME: str = Field(
+        default_factory=lambda: (os.getenv("DATABASE_NAME") or "mediconnect").strip() or "mediconnect"
+    )
+    JWT_SECRET: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("JWT_SECRET") or "").strip() or None
+    )
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default_factory=lambda: int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+        default_factory=lambda: int((os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or "60").strip())
     )
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
-        default_factory=lambda: int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+        default_factory=lambda: int((os.getenv("REFRESH_TOKEN_EXPIRE_DAYS") or "7").strip())
     )
 
 

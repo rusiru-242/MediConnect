@@ -70,7 +70,7 @@ class UserResponseSchema(UserBaseSchema):
     emailVerified: bool
     accountStatus: AccountStatus
     createdAt: datetime
-    updatedAt: datetime
+    updatedAt: Optional[datetime] = None
 
     @field_validator("id", mode="before")
     @classmethod
