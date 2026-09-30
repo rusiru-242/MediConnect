@@ -27,6 +27,21 @@ class AuthApiService {
     return AuthSession.fromJson(response as Map<String, dynamic>);
   }
 
+  /// Authenticate patient with Google ID token against POST /api/auth/google.
+  Future<AuthSession> authenticateWithGoogle({
+    required String idToken,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.googleAuthEndpoint,
+      body: {
+        'idToken': idToken,
+      },
+      includeAuth: false,
+    );
+
+    return AuthSession.fromJson(response as Map<String, dynamic>);
+  }
+
   /// Register a new patient account against POST /api/auth/register.
   Future<Map<String, dynamic>> registerPatient({
     required String fullName,

@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/network/api_client.dart';
 import '../core/network/api_exceptions.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../models/user_model.dart';
 import '../services/auth_api_service.dart';
+import '../services/google_auth_service.dart';
 
 enum AuthStatus {
   initial,
@@ -18,6 +20,7 @@ enum AuthStatus {
 class AuthProvider extends ChangeNotifier {
   final AuthApiService _authApiService;
   final SecureStorageService _storageService;
+  final GoogleAuthService _googleAuthService;
 
   AuthStatus _status = AuthStatus.initial;
   UserModel? _user;
@@ -27,7 +30,9 @@ class AuthProvider extends ChangeNotifier {
   AuthProvider({
     AuthApiService? authApiService,
     SecureStorageService? storageService,
+    GoogleAuthService? googleAuthService,
   })  : _storageService = storageService ?? SecureStorageService(),
+        _googleAuthService = googleAuthService ?? GoogleAuthService(),
         _authApiService =
             authApiService ?? AuthApiService(apiClient: ApiClient(storageService: storageService));
 
@@ -135,6 +140,73 @@ class AuthProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       _errorMessage = 'An unexpected error occurred. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Authenticate patient using Google Sign-In against POST /api/auth/google.
+  ///
+  /// Flow:
+  /// 1. Interactively prompt account picker via Google Sign-In SDK.
+  /// 2. If canceled by user, cleanly exit without error.
+  /// 3. Extract real Google ID token.
+  /// 4. Submit token to backend POST /api/auth/google.
+  /// 5. Store MediConnect accessToken & refreshToken securely.
+  /// 6. Set user session and notify listeners.
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final idToken = await _googleAuthService.authenticate();
+
+      // Clean cancellation: user dismissed account picker without choosing an account
+      if (idToken == null) {
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      if (idToken.trim().isEmpty) {
+        _errorMessage = 'Google authentication did not provide an ID token. Please try again.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      final session = await _authApiService.authenticateWithGoogle(
+        idToken: idToken,
+      );
+
+      // Store tokens securely in MediConnect storage
+      await _storageService.saveTokens(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      );
+
+      // Cache user profile safely
+      await _storageService.saveUserJson(jsonEncode(session.user.toJson()));
+
+      _user = session.user;
+      _status = AuthStatus.authenticated;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on GoogleSignInException {
+      _errorMessage = 'Google Sign-In could not be completed. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _errorMessage = 'Unable to connect to MediConnect. Please try again.';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -329,6 +401,9 @@ class AuthProvider extends ChangeNotifier {
         }
       }
     } finally {
+      // Clear Google sign-in session to allow re-selection of account on subsequent sign-in
+      await _googleAuthService.signOut();
+
       await _storageService.clearAll();
       _user = null;
       _status = AuthStatus.unauthenticated;

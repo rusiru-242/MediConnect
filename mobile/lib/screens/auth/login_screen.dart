@@ -79,13 +79,23 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.of(context).pushNamed('/forgot-password');
   }
 
-  void _onGoogleSignIn() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Google Sign-In will be available soon.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _onGoogleSignIn() async {
+    final authProvider = context.read<AuthProvider>();
+    authProvider.clearError();
+
+    // Dismiss keyboard
+    FocusScope.of(context).unfocus();
+
+    final success = await authProvider.signInWithGoogle();
+
+    if (!mounted) return;
+
+    if (success) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/patient/home',
+        (route) => false,
+      );
+    }
   }
 
   void _onCreateAccount() {
@@ -276,19 +286,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 OutlinedButton.icon(
                   key: const Key('login_google_button'),
                   onPressed: isLoading ? null : _onGoogleSignIn,
-                  icon: Image.network(
-                    'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
-                    width: 20,
-                    height: 20,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.account_circle_outlined,
-                      size: 20,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  label: const Text(
-                    'Continue with Google',
-                    style: TextStyle(
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.0,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                          ),
+                        )
+                      : Image.network(
+                          'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
+                          width: 20,
+                          height: 20,
+                          errorBuilder: (context, error, stackTrace) => const Icon(
+                            Icons.account_circle_outlined,
+                            size: 20,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                  label: Text(
+                    isLoading ? 'Connecting...' : 'Continue with Google',
+                    style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.w500,
                     ),

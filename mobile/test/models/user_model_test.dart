@@ -75,5 +75,35 @@ void main() {
       expect(session.user.fullName, 'Test Patient');
       expect(session.user.email, 'patient@example.com');
     });
+
+    test('fromJson correctly parses Google authentication response with null phone and GOOGLE provider', () {
+      final json = {
+        'message': 'Google authentication successful.',
+        'accessToken': 'mediconnect.access.token',
+        'refreshToken': 'mediconnect.refresh.token',
+        'tokenType': 'bearer',
+        'expiresIn': 3600,
+        'user': {
+          'id': '674c1f8a89b1',
+          'fullName': 'Google Patient',
+          'email': 'google.patient@example.com',
+          'phone': null,
+          'role': 'PATIENT',
+          'emailVerified': true,
+          'accountStatus': 'ACTIVE',
+          'authProviders': ['GOOGLE'],
+        },
+      };
+
+      final session = AuthSession.fromJson(json);
+
+      expect(session.message, 'Google authentication successful.');
+      expect(session.accessToken, 'mediconnect.access.token');
+      expect(session.refreshToken, 'mediconnect.refresh.token');
+      expect(session.user.phone, isNull);
+      expect(session.user.authProviders, contains('GOOGLE'));
+      expect(session.user.role, 'PATIENT');
+      expect(session.user.emailVerified, true);
+    });
   });
 }

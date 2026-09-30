@@ -39,4 +39,9 @@ class ApiConstants {
   static const String refreshEndpoint = '/auth/refresh';
   static const String logoutEndpoint = '/auth/logout';
   static const String meEndpoint = '/auth/me';
+  static const String googleAuthEndpoint = '/auth/google';
+
+  /// Google OAuth Web Client ID (audience for ID tokens verified by backend).
+  static const String googleServerClientId =
+      '80346479357-pe3nov35fcpamn13q49llh4hc4amc1lj.apps.googleusercontent.com';
 }

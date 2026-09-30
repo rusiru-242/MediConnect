@@ -1,19 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/mediconnect_logo.dart';
 
-/// Welcome screen introducing MediConnect with entry points to Login and Registration.
+/// Welcome screen introducing MediConnect with entry points to Login, Registration, and Google Sign-In.
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
-  void _onGooglePressed(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Google Sign-In will be available soon.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _onGooglePressed(BuildContext context) async {
+    final authProvider = context.read<AuthProvider>();
+    authProvider.clearError();
+
+    final success = await authProvider.signInWithGoogle();
+
+    if (!context.mounted) return;
+
+    if (success) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/patient/home',
+        (route) => false,
+      );
+    } else if (authProvider.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage!),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _onCreateAccountPressed(BuildContext context) {
@@ -22,6 +39,9 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final isLoading = authProvider.isLoading;
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
@@ -71,16 +91,18 @@ class WelcomeScreen extends StatelessWidget {
               // Login Button
               ElevatedButton(
                 key: const Key('welcome_login_button'),
-                onPressed: () {
-                  Navigator.of(context).pushNamed('/login');
-                },
+                onPressed: isLoading
+                    ? null
+                    : () {
+                        Navigator.of(context).pushNamed('/login');
+                      },
                 child: const Text('Login'),
               ),
               const SizedBox(height: 12),
               // Create Account Button
               OutlinedButton(
                 key: const Key('welcome_create_account_button'),
-                onPressed: () => _onCreateAccountPressed(context),
+                onPressed: isLoading ? null : () => _onCreateAccountPressed(context),
                 child: const Text('Create Account'),
               ),
               const SizedBox(height: 20),
@@ -103,23 +125,32 @@ class WelcomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 20),
-              // Google Visual Button (Placeholder)
+              // Google Visual Button
               OutlinedButton.icon(
                 key: const Key('welcome_google_button'),
-                onPressed: () => _onGooglePressed(context),
-                icon: Image.network(
-                  'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
-                  width: 20,
-                  height: 20,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.account_circle_outlined,
-                    size: 20,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                label: const Text(
-                  'Continue with Google',
-                  style: TextStyle(
+                onPressed: isLoading ? null : () => _onGooglePressed(context),
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.0,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                        ),
+                      )
+                    : Image.network(
+                        'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
+                        width: 20,
+                        height: 20,
+                        errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.account_circle_outlined,
+                          size: 20,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                label: Text(
+                  isLoading ? 'Connecting...' : 'Continue with Google',
+                  style: const TextStyle(
                     color: AppTheme.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
