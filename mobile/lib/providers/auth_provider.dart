@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/network/api_client.dart';
+import '../core/network/api_error_mapper.dart';
 import '../core/network/api_exceptions.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../models/auth_session.dart';
@@ -153,12 +154,12 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
     } catch (e) {
-      _errorMessage = 'An unexpected error occurred. Please try again.';
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -220,12 +221,12 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
-    } catch (_) {
-      _errorMessage = 'Unable to connect to MediConnect. Please try again.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -255,12 +256,12 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
-    } catch (_) {
-      _errorMessage = 'An unexpected error occurred. Please try again.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -308,12 +309,12 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
-    } catch (_) {
-      _errorMessage = 'An unexpected error occurred during doctor registration. Please try again.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -332,11 +333,11 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
-    } catch (_) {
-      _errorMessage = 'Unable to fetch application status. Please check your connection.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
     }
@@ -361,12 +362,12 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
-    } catch (_) {
-      _errorMessage = 'An unexpected error occurred. Please try again.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -382,11 +383,11 @@ class AuthProvider extends ChangeNotifier {
       final msg = await _authApiService.resendVerificationOtp(email: email);
       return msg;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       notifyListeners();
       return null;
-    } catch (_) {
-      _errorMessage = 'Unable to resend verification code. Please try again.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       notifyListeners();
       return null;
     }
@@ -406,12 +407,12 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return message;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return null;
-    } catch (_) {
-      _errorMessage = 'Unable to request password reset. Please try again.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return null;
@@ -436,12 +437,12 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return resetToken;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return null;
-    } catch (_) {
-      _errorMessage = 'Unable to verify reset code. Please try again.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return null;
@@ -468,12 +469,12 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;
-    } catch (_) {
-      _errorMessage = 'Unable to reset password. Please try again.';
+    } catch (e) {
+      _errorMessage = ApiErrorMapper.mapException(e);
       _isLoading = false;
       notifyListeners();
       return false;

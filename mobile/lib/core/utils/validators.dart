@@ -23,12 +23,33 @@ class Validators {
       return 'Email address is required.';
     }
     final trimmed = value.trim();
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$',
-    );
-    if (!emailRegex.hasMatch(trimmed)) {
+
+    // Check basic email structure with single '@'
+    final atIndex = trimmed.indexOf('@');
+    if (atIndex <= 0 || atIndex != trimmed.lastIndexOf('@') || atIndex == trimmed.length - 1) {
       return 'Please enter a valid email address.';
     }
+
+    final localPart = trimmed.substring(0, atIndex);
+    final domainPart = trimmed.substring(atIndex + 1);
+
+    // Disallow leading, trailing, or consecutive dots in local or domain parts
+    if (localPart.startsWith('.') ||
+        localPart.endsWith('.') ||
+        localPart.contains('..') ||
+        domainPart.startsWith('.') ||
+        domainPart.endsWith('.') ||
+        domainPart.contains('..')) {
+      return 'Please enter a valid email address.';
+    }
+
+    final localRegex = RegExp(r'^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+$');
+    final domainRegex = RegExp(r'^[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$');
+
+    if (!localRegex.hasMatch(localPart) || !domainRegex.hasMatch(domainPart)) {
+      return 'Please enter a valid email address.';
+    }
+
     return null;
   }
 

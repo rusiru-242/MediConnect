@@ -27,9 +27,25 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  String? _emailFieldError;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  void _onEmailChanged() {
+    if (_emailFieldError != null) {
+      setState(() {
+        _emailFieldError = null;
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _emailController.removeListener(_onEmailChanged);
     _fullNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -42,13 +58,27 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     final authProvider = context.read<AuthProvider>();
     authProvider.clearError();
 
+    setState(() {
+      _emailFieldError = null;
+    });
+
+    // 1. Trim email before validation
+    final trimmedEmail = _emailController.text.trim();
+    if (_emailController.text != trimmedEmail) {
+      _emailController.value = _emailController.value.copyWith(
+        text: trimmedEmail,
+        selection: TextSelection.collapsed(offset: trimmedEmail.length),
+      );
+    }
+
+    // 2. Validate form client-side
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     FocusScope.of(context).unfocus();
 
-    final email = _emailController.text.trim().toLowerCase();
+    final email = trimmedEmail.toLowerCase();
 
     final success = await authProvider.register(
       fullName: _fullNameController.text.trim(),
@@ -69,6 +99,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           builder: (context) => EmailVerificationScreen(email: email),
         ),
       );
+    } else {
+      // If backend rejected email, also show the error at field level
+      final error = authProvider.errorMessage;
+      if (error != null && error.toLowerCase().contains('email')) {
+        setState(() {
+          _emailFieldError = error;
+        });
+        _formKey.currentState?.validate();
+      }
     }
   }
 
@@ -186,7 +225,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     hintText: 'patient@example.com',
                     prefixIcon: Icon(Icons.email_outlined, size: 20),
                   ),
-                  validator: Validators.validateEmail,
+                  validator: (value) {
+                    final basicError = Validators.validateEmail(value);
+                    if (basicError != null) return basicError;
+                    return _emailFieldError;
+                  },
                 ),
                 const SizedBox(height: 16),
 

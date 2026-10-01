@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
+import 'api_error_mapper.dart';
 import 'api_exceptions.dart';
 
 /// Centralized HTTP client for MediConnect.
@@ -394,9 +395,10 @@ class ApiClient {
     }
 
     if (response.statusCode >= 500) {
-      throw const ApiException(
-        message: 'A server error occurred. Please try again later.',
-        statusCode: 500,
+      throw ApiException(
+        message: message,
+        statusCode: response.statusCode,
+        details: decodedBody,
       );
     }
 
@@ -409,39 +411,6 @@ class ApiClient {
 
   /// Extracts clean user-facing error message without raw database or Python traces
   String _extractErrorMessage(dynamic body, int statusCode) {
-    if (body is Map<String, dynamic>) {
-      if (body['detail'] != null) {
-        final detail = body['detail'];
-        if (detail is String) {
-          return detail;
-        }
-        if (detail is List && detail.isNotEmpty) {
-          final first = detail.first;
-          if (first is Map && first['msg'] != null) {
-            return first['msg'].toString();
-          }
-        }
-      }
-      if (body['message'] != null && body['message'] is String) {
-        return body['message'] as String;
-      }
-    }
-
-    switch (statusCode) {
-      case 400:
-        return 'Invalid request. Please check your information.';
-      case 401:
-        return 'Invalid email or password.';
-      case 403:
-        return 'Access denied. You do not have permission to perform this action.';
-      case 404:
-        return 'The requested resource was not found.';
-      case 409:
-        return 'An account with this email already exists.';
-      case 429:
-        return 'Too many requests. Please wait a moment before trying again.';
-      default:
-        return 'An unexpected error occurred. Please try again.';
-    }
+    return ApiErrorMapper.fromResponseBody(body, statusCode);
   }
 }
