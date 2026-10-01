@@ -11,6 +11,7 @@ from app.schemas.appointment import (
     AppointmentResponse,
     CancelAppointmentRequest,
     CreateAppointmentRequest,
+    CreateAppointmentResponse,
     UpdateAppointmentStatusRequest,
 )
 from app.schemas.user import UserResponseSchema
