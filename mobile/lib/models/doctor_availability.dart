@@ -61,16 +61,19 @@ class DoctorAvailability {
 class TimeSlot {
   final String startTime;
   final String endTime;
+  final String? availabilityId;
 
   TimeSlot({
     required this.startTime,
     required this.endTime,
+    this.availabilityId,
   });
 
   factory TimeSlot.fromJson(Map<String, dynamic> json) {
     return TimeSlot(
       startTime: (json['startTime'] ?? '').toString(),
       endTime: (json['endTime'] ?? '').toString(),
+      availabilityId: json['availabilityId']?.toString(),
     );
   }
 
@@ -78,6 +81,7 @@ class TimeSlot {
     return {
       'startTime': startTime,
       'endTime': endTime,
+      if (availabilityId != null) 'availabilityId': availabilityId,
     };
   }
 }

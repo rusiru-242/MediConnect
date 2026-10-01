@@ -12,11 +12,15 @@ import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/doctor/add_availability_screen.dart';
 import 'screens/doctor/doctor_application_status_screen.dart';
+import 'screens/doctor/doctor_appointment_detail_screen.dart';
+import 'screens/doctor/doctor_appointments_screen.dart';
 import 'screens/doctor/doctor_home_screen.dart';
 import 'screens/doctor/doctor_registration_screen.dart';
 import 'screens/doctor/manage_availability_screen.dart';
+import 'screens/patient/appointment_detail_screen.dart';
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
+import 'screens/patient/my_appointments_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
@@ -64,9 +68,13 @@ class MediConnectApp extends StatelessWidget {
           '/patient/home': (context) => const PatientHomeScreen(),
           '/patient/find-doctor': (context) => const FindDoctorScreen(),
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
+          '/patient/my-appointments': (context) => const MyAppointmentsScreen(),
+          '/patient/appointment-detail': (context) => const AppointmentDetailScreen(),
           '/doctor/register': (context) => const DoctorRegistrationScreen(),
           '/doctor/application-status': (context) => const DoctorApplicationStatusScreen(),
           '/doctor/home': (context) => const DoctorHomeScreen(),
+          '/doctor/appointments': (context) => const DoctorAppointmentsScreen(),
+          '/doctor/appointment-detail': (context) => const DoctorAppointmentDetailScreen(),
           '/doctor/manage-availability': (context) => const ManageAvailabilityScreen(),
           '/doctor/add-availability': (context) => const AddAvailabilityScreen(),
           '/admin/dashboard': (context) => const AdminDashboardScreen(),

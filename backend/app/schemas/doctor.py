@@ -130,6 +130,7 @@ class TimeSlot(BaseModel):
 
     startTime: str
     endTime: str
+    availabilityId: Optional[str] = None
 
 
 class DayAvailabilitySlots(BaseModel):

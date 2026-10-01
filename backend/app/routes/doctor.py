@@ -6,6 +6,11 @@ from pymongo.database import Database
 
 from app.config.database import get_database
 from app.middleware.auth import get_current_user, require_doctor
+from app.schemas.appointment import (
+    AppointmentListResponse,
+    AppointmentResponse,
+    CancelAppointmentRequest,
+)
 from app.schemas.doctor import (
     CreateAvailabilityRequest,
     DayAvailabilitySlots,
@@ -16,6 +21,7 @@ from app.schemas.doctor import (
     UpdateAvailabilityRequest,
 )
 from app.schemas.user import UserResponseSchema
+from app.services.appointment_service import AppointmentService
 from app.services.doctor_service import DoctorService
 
 doctor_router = APIRouter(prefix="/doctors", tags=["Doctors"])
@@ -117,6 +123,94 @@ async def delete_availability(
         db=db,
         doctor_user=current_user,
         availability_id=availabilityId,
+    )
+
+
+@doctor_router.get(
+    "/me/appointments",
+    response_model=AppointmentListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get authenticated doctor's appointments",
+    description="Returns assigned appointments for the approved doctor with optional status and date filters.",
+)
+async def get_my_appointments(
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=50, description="Items per page"),
+    date: Optional[str] = Query(None, description="Filter by appointment date (YYYY-MM-DD)"),
+    status: Optional[str] = Query(None, description="Filter: PENDING | CONFIRMED | COMPLETED | CANCELLED"),
+    current_user: UserResponseSchema = Depends(require_doctor),
+    db: Database = Depends(get_database),
+) -> AppointmentListResponse:
+    """Retrieve appointments for the authenticated doctor."""
+    return await AppointmentService.list_doctor_appointments(
+        db=db,
+        doctor_user=current_user,
+        page=page,
+        limit=limit,
+        date_filter=date,
+        status_filter=status,
+    )
+
+
+@doctor_router.post(
+    "/me/appointments/{appointmentId}/confirm",
+    response_model=AppointmentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Doctor confirms a pending appointment",
+    description="Transition appointment from PENDING to CONFIRMED. Only the assigned doctor can confirm.",
+)
+async def confirm_appointment(
+    appointmentId: str,
+    current_user: UserResponseSchema = Depends(require_doctor),
+    db: Database = Depends(get_database),
+) -> AppointmentResponse:
+    """Confirm a PENDING appointment."""
+    return await AppointmentService.confirm_doctor_appointment(
+        db=db,
+        doctor_user=current_user,
+        appointment_id=appointmentId,
+    )
+
+
+@doctor_router.post(
+    "/me/appointments/{appointmentId}/complete",
+    response_model=AppointmentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Doctor marks appointment as completed",
+    description="Transition appointment from CONFIRMED to COMPLETED. Consultation time must be reached or passed.",
+)
+async def complete_appointment(
+    appointmentId: str,
+    current_user: UserResponseSchema = Depends(require_doctor),
+    db: Database = Depends(get_database),
+) -> AppointmentResponse:
+    """Mark a CONFIRMED appointment as completed."""
+    return await AppointmentService.complete_doctor_appointment(
+        db=db,
+        doctor_user=current_user,
+        appointment_id=appointmentId,
+    )
+
+
+@doctor_router.post(
+    "/me/appointments/{appointmentId}/cancel",
+    response_model=AppointmentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Doctor cancels an appointment",
+    description="Allows assigned doctor to cancel a PENDING or CONFIRMED appointment.",
+)
+async def cancel_doctor_appointment(
+    appointmentId: str,
+    req: CancelAppointmentRequest,
+    current_user: UserResponseSchema = Depends(require_doctor),
+    db: Database = Depends(get_database),
+) -> AppointmentResponse:
+    """Doctor cancels an appointment."""
+    return await AppointmentService.cancel_doctor_appointment(
+        db=db,
+        doctor_user=current_user,
+        appointment_id=appointmentId,
+        reason=req.reason if req else None,
     )
 
 

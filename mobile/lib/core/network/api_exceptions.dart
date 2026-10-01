@@ -39,3 +39,12 @@ class ValidationException extends ApiException {
     super.details,
   });
 }
+
+/// Thrown when a resource conflict occurs (e.g. HTTP 409 slot already booked).
+class ConflictException extends ApiException {
+  const ConflictException({
+    required super.message,
+    super.statusCode = 409,
+    super.details,
+  });
+}

@@ -540,6 +540,7 @@ class DoctorService:
         start_time_str: str,
         end_time_str: str,
         slot_duration_mins: int,
+        availability_id: Optional[str] = None,
     ) -> List[TimeSlot]:
         """Generate discrete TimeSlots between start_time and end_time, filtering out past slots."""
         start_h, start_m = int(start_time_str[:2]), int(start_time_str[3:5])
@@ -567,7 +568,11 @@ class DoctorService:
 
             # Filter out past slots if date is today
             if not is_today or (sl_now_mins is not None and current_mins > sl_now_mins):
-                slots.append(TimeSlot(startTime=slot_start_str, endTime=slot_end_str))
+                slots.append(TimeSlot(
+                    startTime=slot_start_str,
+                    endTime=slot_end_str,
+                    availabilityId=availability_id,
+                ))
 
             current_mins += slot_duration_mins
 
@@ -579,7 +584,7 @@ class DoctorService:
         doctor_id: str,
         date_filter: Optional[str] = None,
     ) -> Any:
-        """Generate and return available time slots for an APPROVED doctor."""
+        """Generate and return available time slots for an APPROVED doctor, removing booked slots."""
         clean_id = doctor_id.strip()
 
         # 1. Verify doctor is APPROVED + ACTIVE
@@ -616,19 +621,39 @@ class DoctorService:
         collection = get_doctor_availability_collection(db)
         avail_records = list(collection.find(avail_query).sort([("date", 1), ("startTime", 1)]))
 
-        # 3. Group and generate slots by date
+        # 3. Query active bookings occupying slots for this doctor
+        doctor_user_id = str(user["_id"])
+        appt_query: Dict[str, Any] = {
+            "doctorUserId": doctor_user_id,
+            "status": {"$in": ["PENDING", "CONFIRMED", "COMPLETED"]},
+        }
+        if date_filter and date_filter.strip():
+            appt_query["appointmentDate"] = date_filter.strip()
+        else:
+            appt_query["appointmentDate"] = {"$gte": sl_today}
+
+        active_appts = list(db["appointments"].find(appt_query, {"appointmentDate": 1, "startTime": 1}))
+        booked_slots = {(a["appointmentDate"], a["startTime"]) for a in active_appts}
+
+        # 4. Group and generate slots by date, excluding booked slots
         grouped_slots: Dict[str, List[TimeSlot]] = {}
         for rec in avail_records:
             date_key = rec["date"]
             start_t = rec["startTime"]
             end_t = rec["endTime"]
             duration = int(rec.get("slotDurationMinutes", 30))
+            avail_id_str = str(rec["_id"])
 
-            generated = DoctorService._generate_slots_for_window(date_key, start_t, end_t, duration)
-            if generated:
+            generated = DoctorService._generate_slots_for_window(
+                date_key, start_t, end_t, duration, availability_id=avail_id_str
+            )
+            # Remove booked slots
+            available_slots = [s for s in generated if (date_key, s.startTime) not in booked_slots]
+
+            if available_slots:
                 if date_key not in grouped_slots:
                     grouped_slots[date_key] = []
-                grouped_slots[date_key].extend(generated)
+                grouped_slots[date_key].extend(available_slots)
 
         day_availabilities = [
             DayAvailabilitySlots(date=d, slots=slots)

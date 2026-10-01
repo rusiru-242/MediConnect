@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/doctor.dart';
 import '../../models/doctor_availability.dart';
 import '../../services/doctor_service.dart';
+import 'booking_confirmation_screen.dart';
 
 /// Screen displaying public doctor details and patient-facing availability slots.
 class DoctorDetailScreen extends StatefulWidget {
@@ -449,25 +450,71 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
 
             const SizedBox(height: 20),
 
-            // Booking action placeholder (clearly disabled/coming soon)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                key: const Key('book_appointment_placeholder_button'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.outline.withValues(alpha: 0.3),
-                  foregroundColor: AppTheme.textSecondary,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: null, // Disabled per requirements: booking is next phase
-                child: Text(
-                  _selectedSlotStartTime != null
-                      ? 'Slot Selected ($_selectedSlotStartTime) · Booking Enabled Next Phase'
-                      : 'Select a Slot (Booking in Phase 5)',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
+            // Functional Booking Action Button
+            Builder(
+              builder: (context) {
+                TimeSlot? selectedSlot;
+                if (_selectedSlotStartTime != null) {
+                  try {
+                    selectedSlot = selectedDay.slots.firstWhere(
+                      (s) => s.startTime == _selectedSlotStartTime,
+                    );
+                  } catch (_) {}
+                }
+
+                final isEnabled = _selectedSlotStartTime != null &&
+                    _doctor != null &&
+                    selectedSlot != null;
+
+                return SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    key: const Key('book_appointment_button'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isEnabled
+                          ? AppTheme.primary
+                          : AppTheme.outline.withValues(alpha: 0.3),
+                      foregroundColor: isEnabled
+                          ? Colors.white
+                          : AppTheme.textSecondary,
+                      elevation: isEnabled ? 2 : 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: isEnabled
+                        ? () async {
+                            final shouldRefresh = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BookingConfirmationScreen(
+                                  doctor: _doctor!,
+                                  date: selectedDay.date,
+                                  slot: selectedSlot!,
+                                ),
+                              ),
+                            );
+                            if (shouldRefresh == true) {
+                              setState(() {
+                                _selectedSlotStartTime = null;
+                              });
+                              _loadAvailability();
+                            }
+                          }
+                        : null,
+                    child: Text(
+                      _selectedSlotStartTime != null
+                          ? 'Continue to Booking ($_selectedSlotStartTime)'
+                          : 'Select a Time Slot',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),

@@ -121,7 +121,21 @@ class DoctorHomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // 1. Manage Availability Card (FULLY FUNCTIONAL)
+              // 1. Appointments Card
+              _buildSectionCard(
+                key: const Key('doctor_home_appointments_card'),
+                icon: Icons.calendar_month_rounded,
+                iconColor: Colors.blueAccent,
+                title: 'Appointments',
+                subtitle: 'Review incoming requests, confirm, complete, or cancel bookings',
+                onTap: () {
+                  Navigator.of(context).pushNamed('/doctor/appointments');
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              // 2. Manage Availability Card (FULLY FUNCTIONAL)
               _buildSectionCard(
                 key: const Key('doctor_home_manage_availability_card'),
                 icon: Icons.event_available_rounded,

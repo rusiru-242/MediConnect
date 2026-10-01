@@ -58,6 +58,18 @@ class ApiConstants {
   static String adminDoctorApproveEndpoint(String id) => '/admin/doctors/$id/approve';
   static String adminDoctorRejectEndpoint(String id) => '/admin/doctors/$id/reject';
 
+  // Appointment endpoints
+  static const String appointmentsEndpoint = '/appointments';
+  static const String myAppointmentsEndpoint = '/appointments/me';
+  static String appointmentDetailEndpoint(String id) => '/appointments/$id';
+  static String cancelAppointmentEndpoint(String id) => '/appointments/$id/cancel';
+
+  // Doctor Appointment endpoints
+  static const String doctorMyAppointmentsEndpoint = '/doctors/me/appointments';
+  static String doctorConfirmAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/confirm';
+  static String doctorCompleteAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/complete';
+  static String doctorCancelAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/cancel';
+
   /// Google OAuth Web Client ID (audience for ID tokens verified by backend).
   static const String googleServerClientId =
       '80346479357-pe3nov35fcpamn13q49llh4hc4amc1lj.apps.googleusercontent.com';

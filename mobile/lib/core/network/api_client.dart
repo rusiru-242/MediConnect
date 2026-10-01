@@ -375,6 +375,16 @@ class ApiClient {
       throw AuthException(message: message, statusCode: 401);
     }
 
+    if (response.statusCode == 409) {
+      throw ConflictException(
+        message: message.isNotEmpty
+            ? message
+            : 'This time slot is no longer available.',
+        statusCode: 409,
+        details: decodedBody,
+      );
+    }
+
     if (response.statusCode == 422) {
       throw ValidationException(
         message: message,
