@@ -1,4 +1,4 @@
-﻿/// Appointment model representing a booking between a patient and a doctor.
+/// Appointment model representing a booking between a patient and a doctor.
 library;
 
 class Appointment {
@@ -11,6 +11,9 @@ class Appointment {
   final String startTime;
   final String endTime;
   final String status; // PENDING | CONFIRMED | COMPLETED | CANCELLED
+  final String paymentStatus; // UNPAID | PENDING | PAID | FAILED | REFUNDED
+  final double consultationFee;
+  final DateTime? holdExpiresAt;
   final String? patientNote;
   final String? cancelledBy;
   final String? cancellationReason;
@@ -34,6 +37,9 @@ class Appointment {
     required this.startTime,
     required this.endTime,
     required this.status,
+    this.paymentStatus = 'UNPAID',
+    this.consultationFee = 2500.0,
+    this.holdExpiresAt,
     this.patientNote,
     this.cancelledBy,
     this.cancellationReason,
@@ -57,6 +63,13 @@ class Appointment {
       startTime: (json['startTime'] ?? '').toString(),
       endTime: (json['endTime'] ?? '').toString(),
       status: (json['status'] ?? 'PENDING').toString(),
+      paymentStatus: (json['paymentStatus'] ?? 'UNPAID').toString(),
+      consultationFee: json['consultationFee'] is num
+          ? (json['consultationFee'] as num).toDouble()
+          : 2500.0,
+      holdExpiresAt: json['holdExpiresAt'] != null
+          ? DateTime.tryParse(json['holdExpiresAt'].toString())
+          : null,
       patientNote: json['patientNote']?.toString(),
       cancelledBy: json['cancelledBy']?.toString(),
       cancellationReason: json['cancellationReason']?.toString(),

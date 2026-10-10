@@ -39,6 +39,9 @@ class AppointmentResponse(BaseModel):
     startTime: str
     endTime: str
     status: str
+    paymentStatus: Optional[str] = "UNPAID"
+    consultationFee: Optional[float] = 2500.0
+    holdExpiresAt: Optional[datetime] = None
     patientNote: Optional[str] = None
     cancelledBy: Optional[str] = None
     cancellationReason: Optional[str] = None

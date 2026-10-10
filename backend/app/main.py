@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
 from typing import Any, Dict
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.database import DatabaseManager, check_database_connection, ensure_indexes
 from app.config.settings import settings
-from app.routes import admin_router, appointment_router, auth_router, doctor_router
+from app.routes import admin_router, appointment_router, auth_router, doctor_router, payment_router
 
 
 @asynccontextmanager
@@ -25,10 +26,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth_router, prefix="/api")
 app.include_router(doctor_router, prefix="/api")
 app.include_router(appointment_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(payment_router, prefix="/api")
 
 
 @app.get("/")

@@ -1,29 +1,156 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
+import '../storage/secure_storage_service.dart';
 
 /// Centralized API configuration for MediConnect.
 class ApiConstants {
   ApiConstants._();
 
-  /// Default API base URL depending on platform.
-  /// Android emulator uses 10.0.2.2 to access host machine localhost.
-  /// iOS simulator, desktop, and other platforms use 127.0.0.1.
-  static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://127.0.0.1:8000/api';
+  /// Optional compile-time environment override via --dart-define=API_BASE_URL=...
+  ///
+  /// Examples:
+  /// - Physical Android device with ADB reverse:
+  ///   --dart-define=API_BASE_URL=http://127.0.0.1:8000
+  /// - Android Emulator:
+  ///   --dart-define=API_BASE_URL=http://10.0.2.2:8000
+  /// - Custom network IP:
+  ///   --dart-define=API_BASE_URL=http://192.168.248.238:8000
+  static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  static String? _activeHostBaseUrl;
+
+  /// Cleans any trailing slash or '/api' suffix to get the raw host URL.
+  static String cleanHostUrl(String url) {
+    var cleaned = url.trim();
+    if (cleaned.endsWith('/')) {
+      cleaned = cleaned.substring(0, cleaned.length - 1);
     }
-    try {
-      if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8000/api';
-      }
-    } catch (_) {
-      // Platform check may fail in unsupported environments, fallback to localhost
+    if (cleaned.endsWith('/api')) {
+      cleaned = cleaned.substring(0, cleaned.length - 4);
     }
-    return 'http://127.0.0.1:8000/api';
+    if (cleaned.endsWith('/')) {
+      cleaned = cleaned.substring(0, cleaned.length - 1);
+    }
+    return cleaned;
   }
 
-  /// Active base URL. Can be modified at runtime if needed.
-  static String baseUrl = defaultBaseUrl;
+  /// Centralized backend default host URL without trailing slash or '/api' prefix.
+  static String get defaultHostBaseUrl {
+    if (_envBaseUrl.isNotEmpty) {
+      return cleanHostUrl(_envBaseUrl);
+    }
+    if (kIsWeb) {
+      return 'http://127.0.0.1:8000';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // 127.0.0.1 works seamlessly with `adb reverse tcp:8000 tcp:8000`
+      return 'http://127.0.0.1:8000';
+    }
+    return 'http://127.0.0.1:8000';
+  }
+
+  /// Active backend host URL.
+  static String get hostBaseUrl => _activeHostBaseUrl ?? defaultHostBaseUrl;
+
+  /// Default API base URL ending with '/api'.
+  static String get defaultBaseUrl => '$defaultHostBaseUrl/api';
+
+  /// Active API base URL ending with '/api'.
+  static String get baseUrl => '$hostBaseUrl/api';
+
+  /// Setter allowing runtime override.
+  static set baseUrl(String value) {
+    setBaseUrl(value);
+  }
+
+  /// Explicitly updates active base URL.
+  static void setBaseUrl(String value) {
+    _activeHostBaseUrl = cleanHostUrl(value);
+  }
+
+  /// Resets active base URL back to default.
+  static void resetToDefault() {
+    _activeHostBaseUrl = null;
+  }
+
+  /// Candidate host URLs to probe for connectivity.
+  static List<String> get candidateHostUrls {
+    final list = <String>[];
+    if (_envBaseUrl.isNotEmpty) {
+      list.add(cleanHostUrl(_envBaseUrl));
+    }
+    if (kIsWeb) {
+      list.add('http://127.0.0.1:8000');
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      // 1. Physical phone over USB with ADB reverse
+      list.add('http://127.0.0.1:8000');
+      // 2. Local Wi-Fi / Hotspot LAN IP of host machine
+      list.add('http://192.168.248.238:8000');
+      // 3. Android Emulator loopback
+      list.add('http://10.0.2.2:8000');
+    } else {
+      list.add('http://127.0.0.1:8000');
+    }
+    return list;
+  }
+
+  /// Discovers and configures the active backend host on startup.
+  static Future<void> initialize({
+    SecureStorageService? storageService,
+    http.Client? client,
+  }) async {
+    final storage = storageService ?? SecureStorageService();
+    try {
+      final savedUrl = await storage.getServerUrl();
+      if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+        setBaseUrl(savedUrl.trim());
+        if (kDebugMode) {
+          debugPrint('[ApiConfig] Using saved server URL: $baseUrl');
+        }
+        return;
+      }
+    } catch (_) {}
+
+    // Auto-probe candidate URLs concurrently
+    await autoDetectBaseUrl(client: client);
+  }
+
+  /// Concurrently probes candidate endpoints to auto-detect which host is reachable.
+  static Future<String?> autoDetectBaseUrl({http.Client? client}) async {
+    final httpClient = client ?? http.Client();
+    final candidates = candidateHostUrls;
+
+    try {
+      final futures = candidates.map((host) async {
+        try {
+          final uri = Uri.parse('$host/health');
+          final response = await httpClient.get(uri).timeout(
+            const Duration(milliseconds: 1500),
+          );
+          if (response.statusCode == 200) {
+            return host;
+          }
+        } catch (_) {}
+        return null;
+      });
+
+      final results = await Future.wait(futures);
+      final workingHost = results.firstWhere((h) => h != null, orElse: () => null);
+      if (workingHost != null) {
+        setBaseUrl(workingHost);
+        if (kDebugMode) {
+          debugPrint('[ApiConfig] Auto-detected reachable backend: $baseUrl');
+        }
+        return baseUrl;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[ApiConfig] Auto-detection completed without match: $e');
+      }
+    }
+    return null;
+  }
 
   // Request timeout duration
   static const Duration timeoutDuration = Duration(seconds: 15);
@@ -69,6 +196,18 @@ class ApiConstants {
   static String doctorConfirmAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/confirm';
   static String doctorCompleteAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/complete';
   static String doctorCancelAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/cancel';
+
+  // Payment endpoints
+  static const String createPaymentIntentEndpoint = '/payments/create-intent';
+  static String paymentStatusEndpoint(String paymentId) => '/payments/$paymentId/status';
+  static const String paymentHistoryEndpoint = '/payments/me';
+
+  /// Stripe Publishable Key (safe for mobile client).
+  /// Backend returns publishableKey in create-intent response, or can be passed via env.
+  static const String defaultStripePublishableKey = String.fromEnvironment(
+    'STRIPE_PUBLISHABLE_KEY',
+    defaultValue: 'pk_test_51MockKeyForStripeInitializationMediConnect0001',
+  );
 
   /// Google OAuth Web Client ID (audience for ID tokens verified by backend).
   static const String googleServerClientId =

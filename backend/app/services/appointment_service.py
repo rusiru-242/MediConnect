@@ -12,6 +12,7 @@ from pymongo.errors import DuplicateKeyError
 from app.models.appointment import (
     AppointmentDocument,
     AppointmentStatus,
+    PaymentStatus,
     get_appointment_collection,
     utc_now,
 )
@@ -35,6 +36,10 @@ SL_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
 # VALID STATE TRANSITIONS
 # ---------------------------------------------------------------------------
 _ALLOWED_TRANSITIONS: Dict[str, set] = {
+    AppointmentStatus.HOLD.value: {
+        AppointmentStatus.CONFIRMED.value,
+        AppointmentStatus.CANCELLED.value,
+    },
     AppointmentStatus.PENDING.value: {
         AppointmentStatus.CONFIRMED.value,
         AppointmentStatus.CANCELLED.value,
@@ -68,6 +73,9 @@ def _build_appointment_response(
         startTime=doc["startTime"],
         endTime=doc["endTime"],
         status=doc["status"],
+        paymentStatus=doc.get("paymentStatus", "UNPAID"),
+        consultationFee=float(doc.get("consultationFee", 2500.0)),
+        holdExpiresAt=doc.get("holdExpiresAt"),
         patientNote=doc.get("patientNote"),
         cancelledBy=doc.get("cancelledBy"),
         cancellationReason=doc.get("cancellationReason"),
@@ -245,26 +253,54 @@ class AppointmentService:
                 detail="Cannot book an appointment in the past.",
             )
 
-        # 6. Check if slot is already occupied by any active appointment (PENDING, CONFIRMED, COMPLETED)
-        existing_booking = db["appointments"].find_one({
+        # 6. Check if slot is already occupied by any active appointment
+        now = utc_now()
+        active_bookings = list(db["appointments"].find({
             "doctorUserId": doctor_user_id,
             "appointmentDate": target_date,
             "startTime": req.startTime,
             "status": {"$in": [
+                AppointmentStatus.HOLD.value,
                 AppointmentStatus.PENDING.value,
                 AppointmentStatus.CONFIRMED.value,
                 AppointmentStatus.COMPLETED.value,
             ]},
-        })
-        if existing_booking:
+        }))
+
+        for b in active_bookings:
+            b_status = b.get("status")
+            b_hold = b.get("holdExpiresAt")
+            b_paid = b.get("paymentStatus") == PaymentStatus.PAID.value
+            # Check if this booking is an expired hold
+            if b_status in [AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value] and not b_paid:
+                if b_hold:
+                    if b_hold.tzinfo is None:
+                        b_hold = b_hold.replace(tzinfo=timezone.utc)
+                    if b_hold <= now:
+                        # Cancel expired hold to release slot and remove it from active unique index
+                        db["appointments"].update_one(
+                            {"_id": b["_id"]},
+                            {
+                                "$set": {
+                                    "status": AppointmentStatus.CANCELLED.value,
+                                    "cancellationReason": "Booking hold expired",
+                                    "cancelledBy": "SYSTEM",
+                                    "updatedAt": now,
+                                }
+                            }
+                        )
+                        continue
+            # Slot is actively occupied
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="This time slot is no longer available.",
             )
 
-        # 7. Insert appointment - database unique index guards concurrent race conditions
-        now = utc_now()
+        # 7. Insert appointment with temporary 10-minute hold - database unique index guards concurrent race conditions
         avail_id_str = str(avail_doc["_id"])
+        consultation_fee = float(doctor_profile.get("consultationFee", 2500.0))
+        hold_expires_at = now + timedelta(minutes=10)
+
         appt_doc = AppointmentDocument(
             patientUserId=str(patient_user.id),
             doctorUserId=doctor_user_id,
@@ -274,6 +310,9 @@ class AppointmentService:
             startTime=req.startTime,
             endTime=derived_end_str,
             status=AppointmentStatus.PENDING,
+            paymentStatus=PaymentStatus.UNPAID.value,
+            consultationFee=consultation_fee,
+            holdExpiresAt=hold_expires_at,
             patientNote=req.patientNote,
             createdAt=now,
             updatedAt=now,

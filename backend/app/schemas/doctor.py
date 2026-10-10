@@ -17,6 +17,7 @@ class DoctorProfileResponseSchema(BaseModel):
     qualifications: str
     hospitalOrClinic: str
     experienceYears: int
+    consultationFee: float = 2500.0
     bio: Optional[str] = None
     verificationStatus: str
     rejectionReason: Optional[str] = None
@@ -54,6 +55,7 @@ class DoctorListItem(BaseModel):
     specialty: str
     hospitalOrClinic: str
     experienceYears: int
+    consultationFee: float = 2500.0
     bio: Optional[str] = None
     profileImage: Optional[str] = None
     verificationStatus: str = "APPROVED"
@@ -82,6 +84,7 @@ class DoctorDetailResponse(BaseModel):
     qualifications: str
     hospitalOrClinic: str
     experienceYears: int
+    consultationFee: float = 2500.0
     bio: Optional[str] = None
     profileImage: Optional[str] = None
     verificationStatus: str = "APPROVED"

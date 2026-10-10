@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/mediconnect_logo.dart';
+import '../../widgets/server_settings_sheet.dart';
 
 /// Patient login screen providing email/password authentication, validation,
 /// loading states, and error handling against FastAPI backend.
@@ -123,6 +125,22 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.of(context).pushNamed('/register');
   }
 
+  Future<void> _openServerSettings() async {
+    final updated = await ServerSettingsSheet.show(context);
+    if (updated == true && mounted) {
+      context.read<AuthProvider>().clearError();
+    }
+  }
+
+  Future<void> _retryConnection() async {
+    final authProvider = context.read<AuthProvider>();
+    authProvider.clearError();
+    await ApiConstants.autoDetectBaseUrl();
+    if (_formKey.currentState?.validate() == true) {
+      _handleSubmit();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -137,6 +155,13 @@ class _LoginScreenState extends State<LoginScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: isLoading ? null : () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_rounded),
+            tooltip: 'Server Settings',
+            onPressed: isLoading ? null : _openServerSettings,
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -183,25 +208,58 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppTheme.error.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Icon(
-                          Icons.error_outline_rounded,
-                          color: AppTheme.error,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            errorMessage,
-                            style: const TextStyle(
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
                               color: AppTheme.error,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                              size: 20,
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                errorMessage,
+                                style: const TextStyle(
+                                  color: AppTheme.error,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                        if (errorMessage.toLowerCase().contains('connect') ||
+                            errorMessage.toLowerCase().contains('network')) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  foregroundColor: AppTheme.primary,
+                                ),
+                                icon: const Icon(Icons.dns_outlined, size: 16),
+                                label: const Text('Server Settings', style: TextStyle(fontSize: 13)),
+                                onPressed: _openServerSettings,
+                              ),
+                              const SizedBox(width: 4),
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  foregroundColor: AppTheme.primary,
+                                ),
+                                icon: const Icon(Icons.refresh_rounded, size: 16),
+                                label: const Text('Retry', style: TextStyle(fontSize: 13)),
+                                onPressed: _retryConnection,
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:mediconnect/core/network/api_error_mapper.dart';
 import 'package:mediconnect/core/network/api_exceptions.dart';
 
@@ -153,6 +154,48 @@ void main() {
       expect(
         ApiErrorMapper.fromResponseBody(medRegBody, 422),
         'Please enter a valid medical registration number.',
+      );
+    });
+
+    test('12. Distinguishes 401, 403, network, and 5xx exceptions accurately', () {
+      // 401 Unauthorized
+      const authEx = AuthException(
+        message: 'Invalid email or password.',
+        statusCode: 401,
+      );
+      expect(ApiErrorMapper.mapException(authEx), 'Incorrect email or password.');
+
+      // 403 Email verification required
+      const unverifiedEx = ApiException(
+        message: 'Email verification is required before logging in. Please verify your email.',
+        statusCode: 403,
+        details: {
+          'detail': 'Email verification is required before logging in. Please verify your email.'
+        },
+      );
+      expect(
+        ApiErrorMapper.mapException(unverifiedEx),
+        'Please verify your email before logging in.',
+      );
+
+      // Web XMLHttpRequest / ClientException network error
+      final clientEx = http.ClientException(
+        'XMLHttpRequest error.',
+        Uri.parse('http://127.0.0.1:8000/api/auth/login'),
+      );
+      expect(
+        ApiErrorMapper.mapException(clientEx),
+        'Unable to connect to MediConnect. Please try again.',
+      );
+
+      // 500 Server error
+      const serverEx = ApiException(
+        message: 'Database query error during login: pymongo cursor error',
+        statusCode: 500,
+      );
+      expect(
+        ApiErrorMapper.mapException(serverEx),
+        'Something went wrong. Please try again.',
       );
     });
   });

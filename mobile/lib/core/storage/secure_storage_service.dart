@@ -7,6 +7,7 @@ class SecureStorageService {
   static const String _accessTokenKey = 'mediconnect_access_token';
   static const String _refreshTokenKey = 'mediconnect_refresh_token';
   static const String _userCacheKey = 'mediconnect_user_cache';
+  static const String _serverUrlKey = 'mediconnect_server_url';
 
   final FlutterSecureStorage _storage;
 
@@ -59,6 +60,29 @@ class SecureStorageService {
       return await _storage.read(key: _userCacheKey);
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Persists a custom server URL.
+  Future<void> saveServerUrl(String serverUrl) async {
+    await _storage.write(key: _serverUrlKey, value: serverUrl);
+  }
+
+  /// Retrieves the stored server URL, or null if absent.
+  Future<String?> getServerUrl() async {
+    try {
+      return await _storage.read(key: _serverUrlKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Clears the stored server URL.
+  Future<void> clearServerUrl() async {
+    try {
+      await _storage.delete(key: _serverUrlKey);
+    } catch (_) {
+      // Best-effort cleanup
     }
   }
 

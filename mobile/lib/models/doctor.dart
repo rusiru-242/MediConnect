@@ -11,6 +11,7 @@ class Doctor {
   final String? profileImage;
   final String verificationStatus;
   final String? qualifications;
+  final double consultationFee;
 
   Doctor({
     required this.doctorId,
@@ -22,6 +23,7 @@ class Doctor {
     this.profileImage,
     this.verificationStatus = 'APPROVED',
     this.qualifications,
+    this.consultationFee = 2500.0,
   });
 
   factory Doctor.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class Doctor {
       profileImage: json['profileImage']?.toString(),
       verificationStatus: (json['verificationStatus'] ?? 'APPROVED').toString(),
       qualifications: json['qualifications']?.toString(),
+      consultationFee: json['consultationFee'] is num ? (json['consultationFee'] as num).toDouble() : 2500.0,
     );
   }
 

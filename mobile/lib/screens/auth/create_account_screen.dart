@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/mediconnect_logo.dart';
+import '../../widgets/server_settings_sheet.dart';
 import 'email_verification_screen.dart';
 
 /// Patient registration screen collecting name, email, phone, and password.
@@ -125,6 +126,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: isLoading ? null : () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_rounded),
+            tooltip: 'Server Settings',
+            onPressed: isLoading ? null : () => ServerSettingsSheet.show(context),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

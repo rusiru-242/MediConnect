@@ -36,6 +36,7 @@ class DoctorProfileDocument(BaseModel):
     qualifications: str = Field(..., min_length=1)
     hospitalOrClinic: str = Field(..., min_length=1)
     experienceYears: int = Field(default=0, ge=0, le=70)
+    consultationFee: float = Field(default=2500.0, ge=0.0, description="Consultation fee in LKR")
     bio: Optional[str] = Field(default=None, max_length=1000)
     verificationDocuments: Dict[str, Any] = Field(default_factory=dict)
     verificationStatus: DoctorVerificationStatus = Field(default=DoctorVerificationStatus.PENDING)

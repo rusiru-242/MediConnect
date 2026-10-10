@@ -251,6 +251,12 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   _buildDetailRow(Icons.local_hospital_outlined, 'Hospital / Clinic', doctor.hospitalOrClinic),
                   const Divider(height: 20),
                   _buildDetailRow(Icons.work_history_outlined, 'Experience', '${doctor.experienceYears} Years'),
+                  const Divider(height: 20),
+                  _buildDetailRow(
+                    Icons.payments_outlined,
+                    'Consultation Fee',
+                    'LKR ${doctor.consultationFee.toStringAsFixed(2)}',
+                  ),
                   if (doctor.bio != null && doctor.bio!.isNotEmpty) ...[
                     const Divider(height: 20),
                     _buildDetailRow(Icons.info_outline, 'About', doctor.bio!),

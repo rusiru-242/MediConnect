@@ -493,6 +493,54 @@ class _DoctorAppointmentDetailScreenState
                                     ),
                                   ],
                                 ),
+                                const Divider(height: 20),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.payment_outlined,
+                                        size: 18, color: AppTheme.primary),
+                                    const SizedBox(width: 10),
+                                    const Text('Payment Status:',
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            color: AppTheme.textSecondary)),
+                                    const Spacer(),
+                                    Text(
+                                      _appointment!.paymentStatus == 'PAID'
+                                          ? 'Paid'
+                                          : _appointment!.paymentStatus,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: _appointment!.paymentStatus == 'PAID'
+                                            ? AppTheme.success
+                                            : Colors.orange,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_appointment!.consultationFee > 0) ...[
+                                  const Divider(height: 20),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.monetization_on_outlined,
+                                          size: 18, color: AppTheme.primary),
+                                      const SizedBox(width: 10),
+                                      const Text('Consultation Fee:',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              color: AppTheme.textSecondary)),
+                                      const Spacer(),
+                                      Text(
+                                        'LKR ',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),

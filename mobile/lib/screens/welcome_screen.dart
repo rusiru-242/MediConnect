@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/mediconnect_logo.dart';
+import '../widgets/server_settings_sheet.dart';
 
 /// Welcome screen introducing MediConnect with entry points to Login, Registration, and Google Sign-In.
 class WelcomeScreen extends StatelessWidget {
@@ -44,6 +45,17 @@ class WelcomeScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_rounded),
+            tooltip: 'Server Settings',
+            onPressed: () => ServerSettingsSheet.show(context),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),

@@ -107,8 +107,8 @@ class DoctorService:
             clean_spec = specialty.strip()
             profile_query["specialty"] = {"$regex": f"^{re.escape(clean_spec)}$", "$options": "i"}
 
-        # 3. Query all approved profiles matching specialty filter
-        profiles = list(db["doctor_profiles"].find(profile_query))
+        # 3. Query all approved profiles matching specialty filter (newest first)
+        profiles = list(db["doctor_profiles"].find(profile_query).sort([("_id", -1)]))
         if not profiles:
             return DoctorListResponse(items=[], page=page, limit=limit, total=0, totalPages=0)
 
@@ -158,6 +158,7 @@ class DoctorService:
                     specialty=spec,
                     hospitalOrClinic=hospital,
                     experienceYears=int(p.get("experienceYears", 0)),
+                    consultationFee=float(p.get("consultationFee", 2500.0)),
                     bio=p.get("bio"),
                     profileImage=user.get("profileImage"),
                     verificationStatus=DoctorVerificationStatus.APPROVED.value,
@@ -231,6 +232,7 @@ class DoctorService:
             qualifications=profile.get("qualifications", ""),
             hospitalOrClinic=profile.get("hospitalOrClinic", ""),
             experienceYears=int(profile.get("experienceYears", 0)),
+            consultationFee=float(profile.get("consultationFee", 2500.0)),
             bio=profile.get("bio"),
             profileImage=user.get("profileImage"),
             verificationStatus=DoctorVerificationStatus.APPROVED.value,
@@ -625,15 +627,31 @@ class DoctorService:
         doctor_user_id = str(user["_id"])
         appt_query: Dict[str, Any] = {
             "doctorUserId": doctor_user_id,
-            "status": {"$in": ["PENDING", "CONFIRMED", "COMPLETED"]},
+            "status": {"$in": ["HOLD", "PENDING", "CONFIRMED", "COMPLETED"]},
         }
         if date_filter and date_filter.strip():
             appt_query["appointmentDate"] = date_filter.strip()
         else:
             appt_query["appointmentDate"] = {"$gte": sl_today}
 
-        active_appts = list(db["appointments"].find(appt_query, {"appointmentDate": 1, "startTime": 1}))
-        booked_slots = {(a["appointmentDate"], a["startTime"]) for a in active_appts}
+        now = datetime.now(timezone.utc)
+        active_appts = list(
+            db["appointments"].find(
+                appt_query,
+                {"appointmentDate": 1, "startTime": 1, "status": 1, "holdExpiresAt": 1, "paymentStatus": 1},
+            )
+        )
+        booked_slots = set()
+        for a in active_appts:
+            st = a.get("status")
+            hold = a.get("holdExpiresAt")
+            paid = a.get("paymentStatus") == "PAID"
+            if st in ["HOLD", "PENDING"] and not paid and hold:
+                if hold.tzinfo is None:
+                    hold = hold.replace(tzinfo=timezone.utc)
+                if hold <= now:
+                    continue  # Expired hold does not block slot
+            booked_slots.add((a["appointmentDate"], a["startTime"]))
 
         # 4. Group and generate slots by date, excluding booked slots
         grouped_slots: Dict[str, List[TimeSlot]] = {}

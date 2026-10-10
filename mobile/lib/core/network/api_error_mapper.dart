@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
+
 import 'api_exceptions.dart';
 
 /// Centralized mapper to convert raw backend responses, HTTP status codes,
@@ -50,7 +52,7 @@ class ApiErrorMapper {
   /// Maps an HTTP response body and status code to a safe, user-friendly message.
   static String fromResponseBody(dynamic body, int statusCode) {
     // 1. If body is a Map, inspect 'detail', 'message', or 'error'
-    if (body is Map<String, dynamic>) {
+    if (body is Map) {
       final detail = body['detail'];
 
       // Case A: FastAPI 422 RequestValidationError list
@@ -188,39 +190,36 @@ class ApiErrorMapper {
 
     final lower = cleaned.toLowerCase();
 
-    // 1. Login credentials check (must precede email format check)
+    // 1. 401: Login credentials check (must precede email format check)
     if (_isLoginCredentialsError(lower, statusCode)) {
       return incorrectCredentialsMessage;
     }
 
-    // 2. Email format / invalid email errors (including Pydantic / email-validator)
+    // 2. 403: Email verification required check
+    if (_isEmailVerificationError(lower, statusCode)) {
+      return emailNotVerifiedMessage;
+    }
+
+    // 3. Email format / invalid email errors (including Pydantic / email-validator)
     if (_isEmailFormatError(lower)) {
       return invalidEmailMessage;
     }
 
-    // 3. Duplicate email / account already exists
+    // 4. Duplicate email / account already exists
     if (lower.contains('already exists') ||
         lower.contains('duplicate') ||
         lower.contains('email is already registered')) {
       return duplicateEmailMessage;
     }
 
-    // 4. Phone format errors
+    // 5. Phone format errors
     if (_isPhoneFormatError(lower)) {
       return invalidPhoneMessage;
     }
 
-    // 5. Password strength / requirements
+    // 6. Password strength / requirements
     if (_isPasswordStrengthError(lower)) {
       return weakPasswordMessage;
-    }
-
-    // 6. Email verification required
-    if (lower.contains('verify your email') ||
-        lower.contains('email verification is required') ||
-        lower.contains('email not verified') ||
-        lower.contains('pending verification')) {
-      return emailNotVerifiedMessage;
     }
 
     // 7. OTP expired
@@ -257,26 +256,42 @@ class ApiErrorMapper {
 
     // 13. Account suspended
     if (lower.contains('suspended') || lower.contains('deactivated')) {
+      if (cleaned.isNotEmpty && cleaned.length < 150) {
+        return cleaned;
+      }
       return 'Your account is suspended. Please contact support.';
     }
 
     // 14. Reset token invalid / expired
-    if (lower.contains('reset token') || (lower.contains('token') && lower.contains('expired'))) {
+    if (!lower.contains('google') &&
+        (lower.contains('reset token') ||
+            (lower.contains('reset') && lower.contains('token')) ||
+            (lower.contains('token') && lower.contains('expired') && lower.contains('reset')))) {
       return 'The reset link has expired. Please request a new one.';
     }
 
-    // 15. Check for technical leaking (stack traces, Pydantic details, database errors)
+    // 15. Check for 5xx server errors
+    if (statusCode != null && statusCode >= 500) {
+      return serverErrorMessage;
+    }
+
+    // 16. Check for technical leaking (stack traces, Pydantic details, database errors)
     if (_containsTechnicalLeak(lower)) {
-      if (statusCode != null && statusCode >= 500) {
-        return serverErrorMessage;
-      }
       if (statusCode == 422) {
         return defaultValidationMessage;
       }
       return serverErrorMessage;
     }
 
-    // 16. If the message is already clean, concise, and user-friendly, display it
+    // 17. 403 specific fallback
+    if (statusCode == 403) {
+      if (lower.contains('not active')) {
+        return 'Your account is not active.';
+      }
+      return 'Access denied. You do not have permission to perform this action.';
+    }
+
+    // 18. If the message is already clean, concise, and user-friendly, display it
     if (cleaned.isNotEmpty && cleaned.length < 150) {
       return cleaned;
     }
@@ -289,7 +304,10 @@ class ApiErrorMapper {
     if (error is NetworkException) {
       return networkFailureMessage;
     }
-    if (error is SocketException || error is TimeoutException || error is HttpException) {
+    if (error is SocketException ||
+        error is TimeoutException ||
+        error is HttpException ||
+        error is http.ClientException) {
       return networkFailureMessage;
     }
     if (error is AuthException) {
@@ -308,6 +326,24 @@ class ApiErrorMapper {
       return _mapMessageText(error.message, 409);
     }
     if (error is ApiException) {
+      if (error.statusCode != null && error.statusCode! >= 500) {
+        return serverErrorMessage;
+      }
+      if (error.statusCode == 401) {
+        if (error.details != null) {
+          return fromResponseBody(error.details, 401);
+        }
+        return _mapMessageText(error.message, 401);
+      }
+      if (error.statusCode == 403) {
+        if (error.details != null) {
+          final mapped = fromResponseBody(error.details, 403);
+          if (mapped != _statusFallback(403)) {
+            return mapped;
+          }
+        }
+        return _mapMessageText(error.message, 403);
+      }
       if (error.details != null) {
         return fromResponseBody(error.details, error.statusCode ?? 400);
       }
@@ -319,7 +355,17 @@ class ApiErrorMapper {
         errorString.contains('connection') ||
         errorString.contains('network') ||
         errorString.contains('failed host lookup') ||
-        errorString.contains('timeout')) {
+        errorString.contains('timeout') ||
+        errorString.contains('xmlhttprequest') ||
+        errorString.contains('clientexception') ||
+        errorString.contains('failed to fetch') ||
+        errorString.contains('load failed') ||
+        errorString.contains('handshake') ||
+        errorString.contains('tls') ||
+        errorString.contains('refused') ||
+        errorString.contains('unreachable') ||
+        errorString.contains('cors') ||
+        errorString.contains('cross-origin')) {
       return networkFailureMessage;
     }
 
@@ -327,6 +373,14 @@ class ApiErrorMapper {
   }
 
   // --- Helper detection methods ---
+
+  static bool _isEmailVerificationError(String lower, int? statusCode) {
+    return lower.contains('verify your email') ||
+        lower.contains('email verification is required') ||
+        lower.contains('email not verified') ||
+        lower.contains('pending verification') ||
+        (statusCode == 403 && (lower.contains('verif') || lower.contains('email')));
+  }
 
   static bool _isEmailFormatError(String lower) {
     if (lower.contains('password')) return false;
@@ -363,10 +417,15 @@ class ApiErrorMapper {
   }
 
   static bool _isLoginCredentialsError(String lower, int? statusCode) {
-    return lower.contains('incorrect email or password') ||
+    if (lower.contains('google') || lower.contains('session has expired')) {
+      return false;
+    }
+    return statusCode == 401 ||
+        lower.contains('incorrect email or password') ||
         lower.contains('invalid email or password') ||
         lower.contains('invalid credentials') ||
         lower.contains('incorrect credentials') ||
+        lower.contains('bad credentials') ||
         (statusCode == 401 && (lower.contains('password') || lower.contains('credential')));
   }
 

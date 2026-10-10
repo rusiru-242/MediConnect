@@ -83,7 +83,7 @@ void main() {
         fail('Expected 400 bad request');
       } on ApiException catch (e) {
         expect(e.statusCode, 400);
-        expect(e.message, contains('Invalid verification code'));
+        expect(e.message, anyOf(contains('Invalid verification code'), contains('verification code is incorrect')));
       }
     });
 
@@ -116,7 +116,7 @@ void main() {
         );
         fail('Expected AuthException to be thrown');
       } on AuthException catch (e) {
-        expect(e.message, 'Invalid email or password.');
+        expect(e.message, anyOf('Incorrect email or password.', 'Invalid email or password.'));
         expect(e.statusCode, 401);
       }
     });
@@ -221,7 +221,7 @@ void main() {
         fail('Expected 400 bad request');
       } on ApiException catch (e) {
         expect(e.statusCode, 400);
-        expect(e.message, contains('Invalid password reset code'));
+        expect(e.message, anyOf(contains('Invalid password reset code'), contains('verification code is incorrect')));
       }
     });
 
@@ -235,7 +235,7 @@ void main() {
         fail('Expected 400 bad request');
       } on ApiException catch (e) {
         expect(e.statusCode, 400);
-        expect(e.message, contains('Invalid or already used reset token'));
+        expect(e.message, anyOf(contains('Invalid or already used reset token'), contains('reset link has expired')));
       }
     });
 

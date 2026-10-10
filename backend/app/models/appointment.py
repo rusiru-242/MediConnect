@@ -1,4 +1,4 @@
-﻿"""MongoDB document model and indexes for patient appointments."""
+"""MongoDB document model and indexes for patient appointments."""
 
 from datetime import datetime, timezone
 from enum import Enum
@@ -11,10 +11,19 @@ from pymongo.database import Database
 
 
 class AppointmentStatus(str, Enum):
+    HOLD = "HOLD"
     PENDING = "PENDING"
     CONFIRMED = "CONFIRMED"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
+
+
+class PaymentStatus(str, Enum):
+    UNPAID = "UNPAID"
+    PENDING = "PENDING"
+    PAID = "PAID"
+    FAILED = "FAILED"
+    REFUNDED = "REFUNDED"
 
 
 def utc_now() -> datetime:
@@ -49,6 +58,11 @@ class AppointmentDocument(BaseModel):
     # Status machine
     status: AppointmentStatus = Field(default=AppointmentStatus.PENDING)
 
+    # Payment linkage & booking hold
+    paymentStatus: PaymentStatus = Field(default=PaymentStatus.UNPAID)
+    holdExpiresAt: Optional[datetime] = Field(default=None, description="Expiration time for temporary slot hold")
+    consultationFee: Optional[float] = Field(default=2500.0, description="Consultation fee locked at booking")
+
     # Optional patient note
     patientNote: Optional[str] = Field(default=None, max_length=500)
 
@@ -67,7 +81,7 @@ class AppointmentDocument(BaseModel):
             return str(value)
         return value
 
-    @field_validator("createdAt", "updatedAt", mode="before")
+    @field_validator("createdAt", "updatedAt", "holdExpiresAt", mode="before")
     @classmethod
     def ensure_utc_timestamp(cls, value: Any) -> Optional[datetime]:
         if value is None:
@@ -121,6 +135,7 @@ def create_appointment_indexes(db: Database) -> None:
         unique=True,
         partialFilterExpression={
             "status": {"$in": [
+                AppointmentStatus.HOLD.value,
                 AppointmentStatus.PENDING.value,
                 AppointmentStatus.CONFIRMED.value,
                 AppointmentStatus.COMPLETED.value,

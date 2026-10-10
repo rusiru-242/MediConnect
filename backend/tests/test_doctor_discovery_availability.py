@@ -30,6 +30,7 @@ def _setup_test_users():
     - 1 Inactive Doctor
     """
     db = get_database()
+    db["doctor_profiles"].delete_many({"doctorId": {"$regex": "^DOC-TEST-"}})
     ts = int(time.time() * 1000)
 
     # 1. Patient
@@ -203,7 +204,7 @@ def test_doctor_discovery_and_search():
     pat_headers = {"Authorization": f"Bearer {data['pat_token']}"}
 
     # TEST 1: Patient requests doctor list -> only APPROVED + ACTIVE
-    res = client.get("/api/doctors", headers=pat_headers)
+    res = client.get("/api/doctors?limit=50", headers=pat_headers)
     assert res.status_code == 200, f"Expected 200, got: {res.text}"
     body = res.json()
     assert "items" in body

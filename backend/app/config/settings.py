@@ -53,6 +53,18 @@ class Settings(BaseModel):
     GOOGLE_CLIENT_ID: Optional[str] = Field(
         default_factory=lambda: (os.getenv("GOOGLE_CLIENT_ID") or "").strip() or None
     )
+    STRIPE_SECRET_KEY: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("STRIPE_SECRET_KEY") or "").strip() or None
+    )
+    STRIPE_WEBHOOK_SECRET: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip() or None
+    )
+    STRIPE_CURRENCY: str = Field(
+        default_factory=lambda: (os.getenv("STRIPE_CURRENCY") or "lkr").strip().lower() or "lkr"
+    )
+    STRIPE_PUBLISHABLE_KEY: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("STRIPE_PUBLISHABLE_KEY") or "").strip() or None
+    )
 
 
 settings = Settings()

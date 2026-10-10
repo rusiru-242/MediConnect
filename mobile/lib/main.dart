@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:provider/provider.dart';
 
+import 'core/constants/api_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/admin_provider.dart';
 import 'providers/auth_provider.dart';
@@ -22,11 +25,32 @@ import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
 import 'screens/patient/my_appointments_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
+import 'screens/patient/payment_history_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Stripe SDK on supported native mobile platforms only (Android / iOS).
+  // MediConnect currently targets Android for Stripe testing.
+  // Native flutter_stripe is skipped cleanly on web to prevent MissingPluginException.
+  final isNativeStripeSupported = !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  if (isNativeStripeSupported) {
+    Stripe.publishableKey = ApiConstants.defaultStripePublishableKey;
+    try {
+      await Stripe.instance.applySettings();
+    } catch (e, stackTrace) {
+      // Do not swallow genuine native Stripe initialization failures silently
+      debugPrint('CRITICAL: Failed to initialize Stripe on native platform: $e\n$stackTrace');
+      rethrow;
+    }
+  } else {
+    debugPrint('Stripe native initialization skipped cleanly on unsupported platform.');
+  }
 
   // Set system UI overlay style for modern look
   SystemChrome.setSystemUIOverlayStyle(
@@ -35,6 +59,13 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Initialize backend server URL (checks saved preferences or auto-detects reachable host)
+  await ApiConstants.initialize();
+
+  if (kDebugMode) {
+    debugPrint('[ApiConfig] Active API Base URL: ${ApiConstants.baseUrl} (Host: ${ApiConstants.hostBaseUrl})');
+  }
 
   runApp(const MediConnectApp());
 }
@@ -70,6 +101,7 @@ class MediConnectApp extends StatelessWidget {
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
           '/patient/my-appointments': (context) => const MyAppointmentsScreen(),
           '/patient/appointment-detail': (context) => const AppointmentDetailScreen(),
+          '/patient/payments': (context) => const PaymentHistoryScreen(),
           '/doctor/register': (context) => const DoctorRegistrationScreen(),
           '/doctor/application-status': (context) => const DoctorApplicationStatusScreen(),
           '/doctor/home': (context) => const DoctorHomeScreen(),

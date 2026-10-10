@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
@@ -26,6 +27,31 @@ class ApiClient {
   })  : _httpClient = httpClient ?? http.Client(),
         _storageService = storageService ?? SecureStorageService();
 
+  /// Safe debug logger for outgoing requests (never logs bodies or headers/tokens)
+  void _safeLogRequest(String method, Uri uri) {
+    if (kDebugMode) {
+      debugPrint('[ApiClient] $method $uri');
+    }
+  }
+
+  /// Safe debug logger for incoming responses (never logs response body)
+  void _safeLogResponse(Uri uri, int statusCode) {
+    if (kDebugMode) {
+      debugPrint('[ApiClient] Response $statusCode from $uri');
+    }
+  }
+
+  /// Safe debug logger for error categorizations (never logs sensitive payload)
+  void _safeLogError(Uri uri, String safeCategory, [int? statusCode]) {
+    if (kDebugMode) {
+      if (statusCode != null) {
+        debugPrint('[ApiClient] Error on $uri: HTTP $statusCode (Category: $safeCategory)');
+      } else {
+        debugPrint('[ApiClient] Error on $uri (Category: $safeCategory)');
+      }
+    }
+  }
+
   /// GET request
   Future<dynamic> get(
     String endpoint, {
@@ -45,6 +71,7 @@ class ApiClient {
     Map<String, String>? headers,
     bool includeAuth = true,
   }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     final response = await _sendWithRetryRaw(
       () => _rawGet(endpoint, headers: headers, includeAuth: includeAuth),
       endpoint: endpoint,
@@ -53,7 +80,7 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return response.bodyBytes;
     }
-    _processResponse(response);
+    _processResponse(response, uri: uri);
     return response.bodyBytes;
   }
 
@@ -106,8 +133,9 @@ class ApiClient {
     Map<String, String>? headers,
     bool includeAuth = false,
   }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    _safeLogRequest('POST (multipart)', uri);
     try {
-      final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
       final request = http.MultipartRequest('POST', uri);
 
       final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
@@ -120,14 +148,28 @@ class ApiClient {
 
       final streamedResponse = await _httpClient.send(request).timeout(
         ApiConstants.timeoutDuration,
-        onTimeout: () => throw const NetworkException(),
       );
 
       final response = await http.Response.fromStream(streamedResponse);
-      return _processResponse(response);
-    } on SocketException {
+      _safeLogResponse(uri, response.statusCode);
+      return _processResponse(response, uri: uri);
+    } on SocketException catch (e) {
+      _safeLogError(uri, 'NetworkException (Socket: ${e.osError?.message ?? e.message})');
       throw const NetworkException();
-    } on http.ClientException {
+    } on http.ClientException catch (e) {
+      _safeLogError(uri, 'NetworkException (ClientException: ${e.message})');
+      throw const NetworkException();
+    } on TimeoutException {
+      _safeLogError(uri, 'NetworkException (Timeout after ${ApiConstants.timeoutDuration.inSeconds}s)');
+      throw const NetworkException();
+    } on HttpException catch (e) {
+      _safeLogError(uri, 'NetworkException (HttpException: ${e.message})');
+      throw const NetworkException();
+    } catch (e) {
+      if (e is ApiException) {
+        rethrow;
+      }
+      _safeLogError(uri, 'NetworkException ($e)');
       throw const NetworkException();
     }
   }
@@ -138,11 +180,11 @@ class ApiClient {
     bool includeAuth = true,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    _safeLogRequest('GET', uri);
     final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
 
     return _httpClient.get(uri, headers: combinedHeaders).timeout(
       ApiConstants.timeoutDuration,
-      onTimeout: () => throw const NetworkException(),
     );
   }
 
@@ -153,6 +195,7 @@ class ApiClient {
     bool includeAuth = true,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    _safeLogRequest('POST', uri);
     final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
 
     return _httpClient
@@ -161,10 +204,7 @@ class ApiClient {
           headers: combinedHeaders,
           body: body != null ? jsonEncode(body) : null,
         )
-        .timeout(
-          ApiConstants.timeoutDuration,
-          onTimeout: () => throw const NetworkException(),
-        );
+        .timeout(ApiConstants.timeoutDuration);
   }
 
   Future<http.Response> _rawPut(
@@ -174,6 +214,7 @@ class ApiClient {
     bool includeAuth = true,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    _safeLogRequest('PUT', uri);
     final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
 
     return _httpClient
@@ -182,10 +223,7 @@ class ApiClient {
           headers: combinedHeaders,
           body: body != null ? jsonEncode(body) : null,
         )
-        .timeout(
-          ApiConstants.timeoutDuration,
-          onTimeout: () => throw const NetworkException(),
-        );
+        .timeout(ApiConstants.timeoutDuration);
   }
 
   Future<http.Response> _rawDelete(
@@ -194,6 +232,7 @@ class ApiClient {
     bool includeAuth = true,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    _safeLogRequest('DELETE', uri);
     final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
 
     return _httpClient
@@ -201,10 +240,7 @@ class ApiClient {
           uri,
           headers: combinedHeaders,
         )
-        .timeout(
-          ApiConstants.timeoutDuration,
-          onTimeout: () => throw const NetworkException(),
-        );
+        .timeout(ApiConstants.timeoutDuration);
   }
 
   /// Execute an HTTP request with automatic token refresh on 401
@@ -213,21 +249,26 @@ class ApiClient {
     required String endpoint,
     required bool includeAuth,
   }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
       final response = await requestFn();
+      _safeLogResponse(uri, response.statusCode);
 
       // Check if 401 Unauthorized and auth was requested
       if (response.statusCode == 401 &&
           includeAuth &&
           endpoint != ApiConstants.loginEndpoint &&
           endpoint != ApiConstants.refreshEndpoint) {
+        _safeLogError(uri, 'AuthSessionRefresh', 401);
         final refreshSucceeded = await _attemptTokenRefresh();
         if (refreshSucceeded) {
           // Retry the original request once with newly rotated access token
           final retryResponse = await requestFn();
-          return _processResponse(retryResponse);
+          _safeLogResponse(uri, retryResponse.statusCode);
+          return _processResponse(retryResponse, uri: uri);
         } else {
           await _storageService.clearTokens();
+          _safeLogError(uri, 'AuthSessionExpired', 401);
           throw const AuthException(
             message: 'Your session has expired. Please sign in again.',
             statusCode: 401,
@@ -235,13 +276,44 @@ class ApiClient {
         }
       }
 
-      return _processResponse(response);
-    } on SocketException {
+      return _processResponse(response, uri: uri);
+    } on SocketException catch (e) {
+      _safeLogError(uri, 'NetworkException (Socket: ${e.osError?.message ?? e.message})');
       throw const NetworkException();
-    } on http.ClientException {
+    } on http.ClientException catch (e) {
+      _safeLogError(uri, 'NetworkException (ClientException: ${e.message})');
       throw const NetworkException();
     } on TimeoutException {
+      _safeLogError(uri, 'NetworkException (Timeout after ${ApiConstants.timeoutDuration.inSeconds}s)');
       throw const NetworkException();
+    } on HttpException catch (e) {
+      _safeLogError(uri, 'NetworkException (HttpException: ${e.message})');
+      throw const NetworkException();
+    } catch (e) {
+      if (e is ApiException) {
+        rethrow;
+      }
+      final errLower = e.toString().toLowerCase();
+      if (errLower.contains('socket') ||
+          errLower.contains('connection') ||
+          errLower.contains('network') ||
+          errLower.contains('failed host lookup') ||
+          errLower.contains('timeout') ||
+          errLower.contains('xmlhttprequest') ||
+          errLower.contains('clientexception') ||
+          errLower.contains('failed to fetch') ||
+          errLower.contains('load failed') ||
+          errLower.contains('handshake') ||
+          errLower.contains('tls') ||
+          errLower.contains('refused') ||
+          errLower.contains('unreachable') ||
+          errLower.contains('cors') ||
+          errLower.contains('cross-origin')) {
+        _safeLogError(uri, 'NetworkException ($e)');
+        throw const NetworkException();
+      }
+      _safeLogError(uri, 'UnexpectedException ($e)');
+      rethrow;
     }
   }
 
@@ -251,18 +323,24 @@ class ApiClient {
     required String endpoint,
     required bool includeAuth,
   }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     try {
       final response = await requestFn();
+      _safeLogResponse(uri, response.statusCode);
 
       if (response.statusCode == 401 &&
           includeAuth &&
           endpoint != ApiConstants.loginEndpoint &&
           endpoint != ApiConstants.refreshEndpoint) {
+        _safeLogError(uri, 'AuthSessionRefresh', 401);
         final refreshSucceeded = await _attemptTokenRefresh();
         if (refreshSucceeded) {
-          return await requestFn();
+          final retryResponse = await requestFn();
+          _safeLogResponse(uri, retryResponse.statusCode);
+          return retryResponse;
         } else {
           await _storageService.clearTokens();
+          _safeLogError(uri, 'AuthSessionExpired', 401);
           throw const AuthException(
             message: 'Your session has expired. Please sign in again.',
             statusCode: 401,
@@ -271,12 +349,43 @@ class ApiClient {
       }
 
       return response;
-    } on SocketException {
+    } on SocketException catch (e) {
+      _safeLogError(uri, 'NetworkException (Socket: ${e.osError?.message ?? e.message})');
       throw const NetworkException();
-    } on http.ClientException {
+    } on http.ClientException catch (e) {
+      _safeLogError(uri, 'NetworkException (ClientException: ${e.message})');
       throw const NetworkException();
     } on TimeoutException {
+      _safeLogError(uri, 'NetworkException (Timeout after ${ApiConstants.timeoutDuration.inSeconds}s)');
       throw const NetworkException();
+    } on HttpException catch (e) {
+      _safeLogError(uri, 'NetworkException (HttpException: ${e.message})');
+      throw const NetworkException();
+    } catch (e) {
+      if (e is ApiException) {
+        rethrow;
+      }
+      final errLower = e.toString().toLowerCase();
+      if (errLower.contains('socket') ||
+          errLower.contains('connection') ||
+          errLower.contains('network') ||
+          errLower.contains('failed host lookup') ||
+          errLower.contains('timeout') ||
+          errLower.contains('xmlhttprequest') ||
+          errLower.contains('clientexception') ||
+          errLower.contains('failed to fetch') ||
+          errLower.contains('load failed') ||
+          errLower.contains('handshake') ||
+          errLower.contains('tls') ||
+          errLower.contains('refused') ||
+          errLower.contains('unreachable') ||
+          errLower.contains('cors') ||
+          errLower.contains('cross-origin')) {
+        _safeLogError(uri, 'NetworkException ($e)');
+        throw const NetworkException();
+      }
+      _safeLogError(uri, 'UnexpectedException ($e)');
+      rethrow;
     }
   }
 
@@ -356,7 +465,7 @@ class ApiClient {
   }
 
   /// Parses HTTP response, extracts JSON payload, or throws structured ApiException
-  dynamic _processResponse(http.Response response) {
+  dynamic _processResponse(http.Response response, {Uri? uri}) {
     dynamic decodedBody;
     if (response.body.isNotEmpty) {
       try {
@@ -373,10 +482,21 @@ class ApiClient {
     final message = _extractErrorMessage(decodedBody, response.statusCode);
 
     if (response.statusCode == 401) {
+      _safeLogError(uri ?? Uri(), 'AuthException (401)', 401);
       throw AuthException(message: message, statusCode: 401);
     }
 
+    if (response.statusCode == 403) {
+      _safeLogError(uri ?? Uri(), 'ForbiddenException (403)', 403);
+      throw ApiException(
+        message: message,
+        statusCode: 403,
+        details: decodedBody,
+      );
+    }
+
     if (response.statusCode == 409) {
+      _safeLogError(uri ?? Uri(), 'ConflictException (409)', 409);
       throw ConflictException(
         message: message.isNotEmpty
             ? message
@@ -387,6 +507,7 @@ class ApiClient {
     }
 
     if (response.statusCode == 422) {
+      _safeLogError(uri ?? Uri(), 'ValidationException (422)', 422);
       throw ValidationException(
         message: message,
         statusCode: 422,
@@ -395,6 +516,7 @@ class ApiClient {
     }
 
     if (response.statusCode >= 500) {
+      _safeLogError(uri ?? Uri(), 'ServerException (${response.statusCode})', response.statusCode);
       throw ApiException(
         message: message,
         statusCode: response.statusCode,
@@ -402,6 +524,7 @@ class ApiClient {
       );
     }
 
+    _safeLogError(uri ?? Uri(), 'ApiException (${response.statusCode})', response.statusCode);
     throw ApiException(
       message: message,
       statusCode: response.statusCode,
@@ -412,5 +535,31 @@ class ApiClient {
   /// Extracts clean user-facing error message without raw database or Python traces
   String _extractErrorMessage(dynamic body, int statusCode) {
     return ApiErrorMapper.fromResponseBody(body, statusCode);
+  }
+
+  /// Checks connectivity to the backend's existing GET /health endpoint.
+  /// Useful to verify network reachability from physical devices before authentication.
+  Future<bool> checkHealth() async {
+    final healthUri = Uri.parse('${ApiConstants.hostBaseUrl}/health');
+    _safeLogRequest('GET', healthUri);
+    try {
+      final response = await _httpClient.get(healthUri).timeout(
+        const Duration(seconds: 5),
+      );
+      _safeLogResponse(healthUri, response.statusCode);
+      return response.statusCode == 200;
+    } on SocketException catch (e) {
+      _safeLogError(healthUri, 'HealthCheckFailed (Socket: ${e.osError?.message ?? e.message})');
+      return false;
+    } on http.ClientException catch (e) {
+      _safeLogError(healthUri, 'HealthCheckFailed (Client: ${e.message})');
+      return false;
+    } on TimeoutException {
+      _safeLogError(healthUri, 'HealthCheckFailed (Timeout after 5s)');
+      return false;
+    } catch (e) {
+      _safeLogError(healthUri, 'HealthCheckFailed ($e)');
+      return false;
+    }
   }
 }

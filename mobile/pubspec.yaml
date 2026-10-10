@@ -39,6 +39,7 @@ dependencies:
   provider: ^6.1.5+1
   google_sign_in: ^7.2.0
   file_picker: ^13.1.0
+  flutter_stripe: ^14.1.0
 
 dev_dependencies:
   flutter_test:

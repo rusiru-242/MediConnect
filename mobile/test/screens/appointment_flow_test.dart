@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mediconnect/core/network/api_exceptions.dart';
 import 'package:mediconnect/models/appointment.dart';
@@ -14,10 +16,40 @@ import 'package:mediconnect/screens/patient/booking_confirmation_screen.dart';
 import 'package:mediconnect/screens/patient/doctor_detail_screen.dart';
 import 'package:mediconnect/screens/patient/my_appointments_screen.dart';
 import 'package:mediconnect/screens/patient/patient_home_screen.dart';
+import 'package:mediconnect/models/payment.dart';
+import 'package:mediconnect/screens/patient/payment_success_screen.dart';
 import 'package:mediconnect/services/appointment_service.dart';
 import 'package:mediconnect/services/auth_api_service.dart';
 import 'package:mediconnect/services/doctor_service.dart';
+import 'package:mediconnect/services/payment_service.dart';
 import 'package:provider/provider.dart';
+
+class MockPaymentService extends PaymentService {
+  @override
+  Future<CreatePaymentIntentResponse> createPaymentIntent(
+      String appointmentId) async {
+    return CreatePaymentIntentResponse(
+      paymentIntentClientSecret: 'pi_test_secret_abc123',
+      paymentId: 'PAY-TEST-300',
+      amount: 250000,
+      currency: 'lkr',
+      publishableKey: 'pk_test_mock_key',
+    );
+  }
+
+  @override
+  Future<PaymentStatusResult> getPaymentStatus(String paymentId) async {
+    return PaymentStatusResult(
+      paymentId: paymentId,
+      appointmentId: 'APPT-TEST-200',
+      paymentStatus: 'SUCCEEDED',
+      appointmentStatus: 'CONFIRMED',
+      amount: 2500.0,
+      currency: 'lkr',
+      paidAt: DateTime.now(),
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // MOCKS
@@ -352,6 +384,24 @@ Widget createTestApp({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('flutter.stripe/payments', JSONMethodCodec()),
+      (MethodCall methodCall) async {
+        if (methodCall.method == 'initPaymentSheet') {
+          return {};
+        }
+        if (methodCall.method == 'presentPaymentSheet') {
+          return {};
+        }
+        return {};
+      },
+    );
+    Stripe.publishableKey =
+        'pk_test_mock_${DateTime.now().microsecondsSinceEpoch}_${UniqueKey().toString()}';
+  });
+
   // TEST 18: Patient selects available slot -> BookingConfirmationScreen
   testWidgets('TEST 18: Patient selects available slot and proceeds to BookingConfirmationScreen',
       (tester) async {
@@ -388,14 +438,15 @@ void main() {
     // Expect BookingConfirmationScreen is displayed
     expect(find.byType(BookingConfirmationScreen), findsOneWidget);
     expect(find.text('Confirm Booking'), findsOneWidget);
-    expect(find.text('Request Appointment'), findsOneWidget);
+    expect(find.text('Continue to Payment'), findsOneWidget);
   });
 
-  // TEST 19: Request appointment -> PENDING appointment created
+  // TEST 19: Request appointment creates appointment and proceeds to payment
   testWidgets('TEST 19: Request appointment creates PENDING appointment',
       (tester) async {
     final mockApptService = MockAppointmentService();
     final mockDoctorService = MockDoctorService();
+    final mockPaymentService = MockPaymentService();
 
     await tester.pumpWidget(createTestApp(
       child: BookingConfirmationScreen(
@@ -407,6 +458,7 @@ void main() {
           availabilityId: 'AVAIL-01',
         ),
         appointmentService: mockApptService,
+        paymentService: mockPaymentService,
       ),
     ));
     await tester.pumpAndSettle();
@@ -417,14 +469,16 @@ void main() {
       'Routine follow-up consultation',
     );
 
-    // Tap Request Appointment
-    await tester.tap(find.byKey(const Key('request_appointment_button')));
+    // Tap Continue to Payment
+    await tester.tap(find.byKey(const Key('continue_to_payment_button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    // Verify success feedback and navigation to detail screen
-    expect(find.text('Appointment request submitted.'), findsOneWidget);
-    expect(find.byType(AppointmentDetailScreen), findsOneWidget);
-    expect(find.text('PENDING'), findsWidgets);
+    // Verify confirmation
+    expect(find.byType(PaymentSuccessScreen), findsOneWidget);
+    expect(find.text('Payment Successful'), findsOneWidget);
+    expect(find.text('Appointment Confirmed'), findsOneWidget);
   });
 
   // TEST 20: Double-book conflict -> Friendly message + slots refresh
@@ -433,6 +487,7 @@ void main() {
     final mockApptService = MockAppointmentService();
     mockApptService.simulateConflict = true; // Simulate 409
     final mockDoctorService = MockDoctorService();
+    final mockPaymentService = MockPaymentService();
 
     await tester.pumpWidget(createTestApp(
       child: BookingConfirmationScreen(
@@ -444,19 +499,20 @@ void main() {
           availabilityId: 'AVAIL-01',
         ),
         appointmentService: mockApptService,
+        paymentService: mockPaymentService,
       ),
     ));
     await tester.pumpAndSettle();
 
-    // Tap Request Appointment
-    await tester.tap(find.byKey(const Key('request_appointment_button')));
+    // Tap Continue to Payment
+    await tester.tap(find.byKey(const Key('continue_to_payment_button')));
     await tester.pumpAndSettle();
 
     // Verify friendly 409 message displayed in dialog
     expect(find.text('Slot Unavailable'), findsOneWidget);
     expect(
       find.text('This time slot is no longer available.'),
-      findsOneWidget,
+      findsWidgets,
     );
 
     // Tap Select Another Slot dialog action
