@@ -92,7 +92,7 @@ class _ServerSettingsSheetState extends State<ServerSettingsSheet> {
       _testMessage = 'Scanning candidate host endpoints...';
     });
 
-    final detected = await ApiConstants.autoDetectBaseUrl();
+    final detected = await ApiConstants.autoDetectBaseUrl(force: true);
     if (!mounted) return;
 
     setState(() {

@@ -34,6 +34,7 @@ class PaymentStatusResponse(BaseModel):
     appointmentStatus: str
     amount: float
     currency: str
+    paidAt: Optional[datetime] = None
 
 
 class PaymentHistoryItem(BaseModel):
@@ -57,4 +58,4 @@ class PaymentHistoryResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     items: List[PaymentHistoryItem]
-    total: int
+    total: int = Field(default=0, description="Total count of payment records")

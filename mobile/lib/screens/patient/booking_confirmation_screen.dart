@@ -84,10 +84,13 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
               defaultTargetPlatform == TargetPlatform.iOS);
 
       if (isNativeStripeSupported) {
-        // If backend returns publishable key, update it
+        // If backend returns publishable key, update it and apply settings
         if (intentResp.publishableKey != null &&
             intentResp.publishableKey!.isNotEmpty) {
           Stripe.publishableKey = intentResp.publishableKey!;
+          try {
+            await Stripe.instance.applySettings();
+          } catch (_) {}
         }
 
         // 3. Initialize & Present Stripe PaymentSheet
@@ -112,9 +115,18 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
         debugPrint('Stripe native PaymentSheet presentation skipped on unsupported platform.');
       }
 
-      // 5. Rule 19: PaymentSheet returning does NOT prove backend state. Authoritatively query backend!
-      final statusResult =
+      // 5. Authoritatively query backend for confirmed payment and appointment status
+      var statusResult =
           await _paymentService.getPaymentStatus(intentResp.paymentId);
+
+      // Brief retry if still pending (webhook/Stripe sync propagation)
+      if (!statusResult.isSucceeded &&
+          statusResult.paymentStatus.toUpperCase() == 'PENDING') {
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+        statusResult =
+            await _paymentService.getPaymentStatus(intentResp.paymentId);
+      }
 
       if (!mounted) return;
 
@@ -182,6 +194,13 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
           ],
         ),
       );
+    } on NetworkException {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage =
+            'Unable to connect to MediConnect. Please check your internet connection and try again.';
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -199,8 +218,12 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _errorMessage =
-            'Unable to connect to MediConnect. Please try again.';
+        _errorMessage = e.toString().toLowerCase().contains('socket') ||
+                e.toString().toLowerCase().contains('network') ||
+                e.toString().toLowerCase().contains('timeout') ||
+                e.toString().toLowerCase().contains('connect')
+            ? 'Unable to connect to MediConnect. Please check your internet connection and try again.'
+            : 'Payment could not be completed. Please try again.';
       });
     }
   }

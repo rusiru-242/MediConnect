@@ -559,3 +559,132 @@ class TestStripePaymentBackend:
         )
         assert resp.status_code == 403
         assert "do not have permission" in resp.json()["detail"]
+
+    # TEST 14: Payment intent on expired booking hold -> cancels hold and returns 400
+    def test_14_create_intent_on_expired_hold_returns_400(self, db):
+        patient = _make_test_patient(db, "ExpiredHoldPat")
+        doctor = _make_test_doctor(db, "ExpiredHoldDoc")
+        avail = _make_future_availability(db, doctor, 14)
+
+        appt = _book_appointment(db, patient, doctor, avail, "10:00")
+
+        # Manually expire hold
+        past_time = utc_now() - timedelta(minutes=15)
+        db["appointments"].update_one(
+            {"_id": ObjectId(appt["id"])},
+            {"$set": {"holdExpiresAt": past_time}},
+        )
+
+        resp = client.post(
+            "/api/payments/create-intent",
+            headers={"Authorization": f"Bearer {patient['token']}"},
+            json={"appointmentId": appt["id"]},
+        )
+        assert resp.status_code == 400
+        assert "expired" in resp.json()["detail"].lower()
+
+        # Verify appointment marked CANCELLED
+        updated_appt = db["appointments"].find_one({"_id": ObjectId(appt["id"])})
+        assert updated_appt["status"] == AppointmentStatus.CANCELLED.value
+
+    # TEST 15: Duplicate create payment intent for same active hold -> reuses existing intent idempotently
+    def test_15_duplicate_create_intent_reuses_existing_intent(self, db):
+        patient = _make_test_patient(db, "DupIntentPat")
+        doctor = _make_test_doctor(db, "DupIntentDoc")
+        avail = _make_future_availability(db, doctor, 15)
+
+        appt = _book_appointment(db, patient, doctor, avail, "10:30")
+
+        mock_intent = MagicMock()
+        mock_intent.id = f"pi_reuse_{_uid()}"
+        mock_intent.client_secret = f"{mock_intent.id}_secret_xyz"
+        mock_intent.status = "requires_payment_method"
+
+        with patch("stripe.PaymentIntent.create", return_value=mock_intent) as mock_create:
+            with patch("stripe.PaymentIntent.retrieve", return_value=mock_intent) as mock_retrieve:
+                # First request creates PaymentIntent
+                r1 = client.post(
+                    "/api/payments/create-intent",
+                    headers={"Authorization": f"Bearer {patient['token']}"},
+                    json={"appointmentId": appt["id"]},
+                )
+                assert r1.status_code == 201
+                d1 = r1.json()
+                assert mock_create.call_count == 1
+
+                # Second request reuses the existing PaymentIntent without creating another
+                r2 = client.post(
+                    "/api/payments/create-intent",
+                    headers={"Authorization": f"Bearer {patient['token']}"},
+                    json={"appointmentId": appt["id"]},
+                )
+                assert r2.status_code == 201
+                d2 = r2.json()
+
+                # Verify same intent and payment ID returned
+                assert d2["paymentIntentClientSecret"] == d1["paymentIntentClientSecret"]
+                assert d2["paymentId"] == d1["paymentId"]
+                # PaymentIntent.create was NOT called again
+                assert mock_create.call_count == 1
+                assert mock_retrieve.call_count >= 1
+
+    # TEST 16: Payment intent on already paid appointment -> rejected with 400
+    def test_16_create_intent_on_already_paid_appointment_returns_400(self, db):
+        patient = _make_test_patient(db, "PaidApptPat")
+        doctor = _make_test_doctor(db, "PaidApptDoc")
+        avail = _make_future_availability(db, doctor, 16)
+
+        appt = _book_appointment(db, patient, doctor, avail, "11:00")
+        db["appointments"].update_one(
+            {"_id": ObjectId(appt["id"])},
+            {"$set": {"status": AppointmentStatus.CONFIRMED.value, "paymentStatus": AppointmentPaymentStatus.PAID.value}},
+        )
+
+        resp = client.post(
+            "/api/payments/create-intent",
+            headers={"Authorization": f"Bearer {patient['token']}"},
+            json={"appointmentId": appt["id"]},
+        )
+        assert resp.status_code == 400
+        assert "already been paid" in resp.json()["detail"].lower()
+
+    # TEST 17: Patient payment history GET /api/payments/me -> returns 200 with items and total
+    def test_17_patient_reads_payment_history(self, db):
+        patient = _make_test_patient(db, "HistPat")
+        doctor = _make_test_doctor(db, "HistDoc")
+        now = utc_now()
+
+        pay_doc = PaymentDocument(
+            appointmentId=str(ObjectId()),
+            patientUserId=patient["id"],
+            doctorUserId=doctor["id"],
+            stripePaymentIntentId=f"pi_hist_{_uid()}",
+            amount=2500.0,
+            currency="lkr",
+            status=PaymentStatus.SUCCEEDED,
+            paidAt=now,
+            createdAt=now,
+            updatedAt=now,
+        )
+        get_payment_collection(db).insert_one(pay_doc.to_mongo_dict())
+
+        resp = client.get(
+            "/api/payments/me",
+            headers={"Authorization": f"Bearer {patient['token']}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "items" in data
+        assert "total" in data
+        assert data["total"] >= 1
+        assert any(item["doctorName"] == doctor["user"]["fullName"] for item in data["items"])
+
+    # TEST 18: Doctor role accessing GET /api/payments/me -> 403 forbidden
+    def test_18_doctor_cannot_view_patient_payment_history(self, db):
+        doctor = _make_test_doctor(db, "DocNoHist")
+        resp = client.get(
+            "/api/payments/me",
+            headers={"Authorization": f"Bearer {doctor['token']}"},
+        )
+        assert resp.status_code == 403
+

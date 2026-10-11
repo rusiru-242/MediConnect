@@ -87,12 +87,13 @@ class PaymentService:
 
         # 3. Check appointment status and hold validity
         appt_status = appt_doc.get("status")
+        if appt_doc.get("paymentStatus") == AppointmentPaymentStatus.PAID.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This appointment has already been paid for and confirmed.",
+            )
+
         if appt_status not in [AppointmentStatus.PENDING.value, AppointmentStatus.HOLD.value]:
-            if appt_status == AppointmentStatus.CONFIRMED.value and appt_doc.get("paymentStatus") == AppointmentPaymentStatus.PAID.value:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="This appointment has already been paid for and confirmed.",
-                )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot initiate payment for appointment in '{appt_status}' status.",
@@ -162,7 +163,21 @@ class PaymentService:
             intent_id = existing_payment["stripePaymentIntentId"]
             try:
                 intent = stripe.PaymentIntent.retrieve(intent_id)
-                if intent.status not in ["canceled", "requires_payment_method"]:
+                if intent.status == "succeeded":
+                    # Payment was already completed in Stripe
+                    payment_col.update_one(
+                        {"_id": existing_payment["_id"]},
+                        {"$set": {"status": PaymentStatus.SUCCEEDED.value, "paidAt": now, "updatedAt": now}},
+                    )
+                    db["appointments"].update_one(
+                        {"_id": appt_doc["_id"]},
+                        {"$set": {"status": AppointmentStatus.CONFIRMED.value, "paymentStatus": AppointmentPaymentStatus.PAID.value, "updatedAt": now}},
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="This appointment has already been paid for and confirmed.",
+                    )
+                if intent.status in ["requires_payment_method", "requires_confirmation", "requires_action"]:
                     return CreatePaymentIntentResponse(
                         paymentIntentClientSecret=intent.client_secret,
                         paymentId=str(existing_payment["_id"]),
@@ -170,6 +185,8 @@ class PaymentService:
                         currency=currency,
                         publishableKey=settings.STRIPE_PUBLISHABLE_KEY,
                     )
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.warning(f"Could not retrieve existing PaymentIntent {intent_id}: {e}")
 
@@ -288,9 +305,12 @@ class PaymentService:
             if payment.get("status") == PaymentStatus.SUCCEEDED.value:
                 return {"status": "already_processed"}
 
-            # Mark payment as SUCCEEDED
-            payment_col.update_one(
-                {"_id": payment["_id"]},
+            # Mark payment as SUCCEEDED atomically (prevents concurrent race conditions)
+            update_res = payment_col.update_one(
+                {
+                    "_id": payment["_id"],
+                    "status": {"$ne": PaymentStatus.SUCCEEDED.value},
+                },
                 {
                     "$set": {
                         "status": PaymentStatus.SUCCEEDED.value,
@@ -299,6 +319,8 @@ class PaymentService:
                     }
                 },
             )
+            if update_res.modified_count == 0:
+                return {"status": "already_processed"}
 
             # Confirm appointment and mark paymentStatus = PAID
             appt_id_str = payment["appointmentId"]
@@ -326,7 +348,10 @@ class PaymentService:
 
             error_msg = data_object.get("last_payment_error", {}).get("message", "Payment failed")
             payment_col.update_one(
-                {"_id": payment["_id"]},
+                {
+                    "_id": payment["_id"],
+                    "status": {"$ne": PaymentStatus.SUCCEEDED.value},
+                },
                 {
                     "$set": {
                         "status": PaymentStatus.FAILED.value,
@@ -484,4 +509,4 @@ class PaymentService:
                 )
             )
 
-        return PaymentHistoryResponse(items=items)
+        return PaymentHistoryResponse(items=items, total=len(items))

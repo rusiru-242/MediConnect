@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -19,6 +21,7 @@ class ApiConstants {
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
   static String? _activeHostBaseUrl;
+  static Completer<String?>? _activeDetectCompleter;
 
   /// Cleans any trailing slash or '/api' suffix to get the raw host URL.
   static String cleanHostUrl(String url) {
@@ -113,18 +116,55 @@ class ApiConstants {
     } catch (_) {}
 
     // Auto-probe candidate URLs concurrently
-    await autoDetectBaseUrl(client: client);
+    await autoDetectBaseUrl(storageService: storage, client: client);
   }
 
   /// Concurrently probes candidate endpoints to auto-detect which host is reachable.
-  static Future<String?> autoDetectBaseUrl({http.Client? client}) async {
-    final httpClient = client ?? http.Client();
-    final candidates = candidateHostUrls;
+  /// - If [force] is false and a custom server URL is already saved, the saved URL is respected.
+  /// - Deduplicates overlapping concurrent scans to prevent redundant network traffic.
+  /// - Probes only the anonymous /health endpoint without transmitting any patient data or tokens.
+  static Future<String?> autoDetectBaseUrl({
+    SecureStorageService? storageService,
+    http.Client? client,
+    bool force = false,
+  }) async {
+    // If an auto-detection is already in progress, await its result rather than launching a duplicate scan
+    if (_activeDetectCompleter != null) {
+      return _activeDetectCompleter!.future;
+    }
+
+    final completer = Completer<String?>();
+    _activeDetectCompleter = completer;
 
     try {
+      final storage = storageService ?? SecureStorageService();
+      String? savedUrl;
+      try {
+        savedUrl = await storage.getServerUrl();
+      } catch (_) {}
+
+      // If user manually saved a server URL and not forced, respect it without overriding
+      if (!force && savedUrl != null && savedUrl.trim().isNotEmpty) {
+        setBaseUrl(savedUrl.trim());
+        completer.complete(baseUrl);
+        return baseUrl;
+      }
+
+      final httpClient = client ?? http.Client();
+      final candidates = <String>[];
+      if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+        candidates.add(cleanHostUrl(savedUrl));
+      }
+      for (final h in candidateHostUrls) {
+        if (!candidates.contains(h)) {
+          candidates.add(h);
+        }
+      }
+
       final futures = candidates.map((host) async {
         try {
           final uri = Uri.parse('$host/health');
+          // Anonymous GET check only - no auth headers, cookies, or sensitive data
           final response = await httpClient.get(uri).timeout(
             const Duration(milliseconds: 1500),
           );
@@ -142,14 +182,20 @@ class ApiConstants {
         if (kDebugMode) {
           debugPrint('[ApiConfig] Auto-detected reachable backend: $baseUrl');
         }
+        completer.complete(baseUrl);
         return baseUrl;
       }
+      completer.complete(null);
+      return null;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[ApiConfig] Auto-detection completed without match: $e');
       }
+      completer.complete(null);
+      return null;
+    } finally {
+      _activeDetectCompleter = null;
     }
-    return null;
   }
 
   // Request timeout duration

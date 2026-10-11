@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mediconnect/core/network/api_exceptions.dart';
 import 'package:mediconnect/models/appointment.dart';
 import 'package:mediconnect/models/doctor.dart';
 import 'package:mediconnect/models/doctor_availability.dart';
@@ -433,4 +434,91 @@ void main() {
     expect(find.text('LKR 3000.00'), findsOneWidget);
     expect(find.text('PENDING'), findsOneWidget);
   });
+
+  // TEST 23: Network failure during payment intent creation shows clean connectivity error
+  testWidgets('TEST 23: Network failure during payment shows connectivity error',
+      (tester) async {
+    final mockDoctorService = MockDoctorService();
+    final mockApptService = MockAppointmentService();
+
+    final networkFailingService = MockPaymentService();
+    networkFailingService.simulateFailed = false;
+
+    // Use a custom payment service that throws NetworkException
+    final failingPaymentService = _NetworkFailingPaymentService();
+
+    await tester.pumpWidget(createTestApp(
+      child: BookingConfirmationScreen(
+        doctor: mockDoctorService.sampleDoctor,
+        date: '2026-10-20',
+        slot: TimeSlot(
+          startTime: '10:00',
+          endTime: '10:30',
+          availabilityId: 'AVAIL-TEST-100',
+        ),
+        appointmentService: mockApptService,
+        paymentService: failingPaymentService,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('continue_to_payment_button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Unable to connect to MediConnect. Please check your internet connection and try again.'),
+      findsOneWidget,
+    );
+    expect(find.byType(PaymentSuccessScreen), findsNothing);
+  });
+
+  // TEST 24: Expired booking hold shows clear expiration message
+  testWidgets('TEST 24: Expired booking hold shows clear expiration message',
+      (tester) async {
+    final mockDoctorService = MockDoctorService();
+    final mockApptService = MockAppointmentService();
+    final expiredPaymentService = _ExpiredHoldPaymentService();
+
+    await tester.pumpWidget(createTestApp(
+      child: BookingConfirmationScreen(
+        doctor: mockDoctorService.sampleDoctor,
+        date: '2026-10-20',
+        slot: TimeSlot(
+          startTime: '10:00',
+          endTime: '10:30',
+          availabilityId: 'AVAIL-TEST-100',
+        ),
+        appointmentService: mockApptService,
+        paymentService: expiredPaymentService,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('continue_to_payment_button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('This booking session has expired. Please select the time slot again.'),
+      findsWidgets,
+    );
+    expect(find.byType(PaymentSuccessScreen), findsNothing);
+  });
 }
+
+class _NetworkFailingPaymentService extends PaymentService {
+  @override
+  Future<CreatePaymentIntentResponse> createPaymentIntent(String appointmentId) async {
+    throw const NetworkException();
+  }
+}
+
+class _ExpiredHoldPaymentService extends PaymentService {
+  @override
+  Future<CreatePaymentIntentResponse> createPaymentIntent(String appointmentId) async {
+    throw const ApiException(
+      message: 'This booking session has expired. Please select the time slot again.',
+      statusCode: 400,
+    );
+  }
+}
+
