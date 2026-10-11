@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
+import '../../widgets/notification_bell_button.dart';
 
 /// Doctor Home Screen foundation displaying welcome greeting and key operational cards.
 class DoctorHomeScreen extends StatelessWidget {
@@ -39,6 +41,12 @@ class DoctorHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        Provider.of<NotificationProvider>(context, listen: false).refreshUnreadCount();
+      } catch (_) {}
+    });
+
     final authProvider = context.watch<AuthProvider>();
     final user = authProvider.user;
     final doctorName = user?.fullName.isNotEmpty == true
@@ -50,6 +58,7 @@ class DoctorHomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('MediConnect Doctor'),
         actions: [
+          const NotificationBellButton(),
           IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout_rounded),

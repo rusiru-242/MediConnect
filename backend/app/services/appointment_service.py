@@ -1,5 +1,4 @@
-"""Appointment service: booking, listing, status management with strict validation."""
-
+import logging
 from datetime import datetime as _dt, timedelta, timezone
 import math
 from typing import Any, Dict, List, Optional
@@ -8,6 +7,8 @@ from fastapi import HTTPException, status
 from pymongo import ASCENDING, DESCENDING
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
+
+logger = logging.getLogger(__name__)
 
 from app.models.appointment import (
     AppointmentDocument,
@@ -326,6 +327,23 @@ class AppointmentService:
                 detail="This time slot is no longer available.",
             )
 
+        # Notify doctor of new booking created
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=doctor_user_id,
+                type=NotificationType.BOOKING_CREATED,
+                title="New Booking Request",
+                body=f"New appointment booked by {patient_user.fullName or 'a patient'} for {target_date} at {req.startTime}.",
+                related_appointment_id=str(result.inserted_id),
+                idempotency_key=f"booking_created_{result.inserted_id}",
+            )
+        except Exception as notif_err:
+            logger.warning("Failed to send booking created notification: %s", notif_err)
+
         appt_response = _build_appointment_response(
             {**appt_doc.to_mongo_dict(), "_id": result.inserted_id},
             doctor_id=str(doctor_profile.get("doctorId", "")),
@@ -444,6 +462,23 @@ class AppointmentService:
             },
         )
 
+        # Notify doctor of patient cancellation
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["doctorUserId"]),
+                type=NotificationType.APPOINTMENT_CANCELLED,
+                title="Appointment Cancelled",
+                body=f"Appointment on {appt.get('appointmentDate')} at {appt.get('startTime')} was cancelled by the patient.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"patient_cancelled_{appt['_id']}",
+            )
+        except Exception as notif_err:
+            logger.warning("Failed to send patient cancellation notification: %s", notif_err)
+
         updated = _get_appointment_or_404(db, appointment_id)
         dr_user = db["users"].find_one({"_id": ObjectId(updated["doctorUserId"])}) if ObjectId.is_valid(updated.get("doctorUserId", "")) else None
         dr_profile = db["doctor_profiles"].find_one({"_id": ObjectId(updated["doctorProfileId"])}) if ObjectId.is_valid(updated.get("doctorProfileId", "")) else None
@@ -550,6 +585,23 @@ class AppointmentService:
             {"$set": {"status": AppointmentStatus.CONFIRMED.value, "updatedAt": now}},
         )
 
+        # Notify patient of appointment confirmation
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["patientUserId"]),
+                type=NotificationType.APPOINTMENT_CONFIRMED,
+                title="Appointment Confirmed",
+                body=f"Your appointment with Dr. {doctor_user.fullName or ''} on {appt.get('appointmentDate')} at {appt.get('startTime')} has been confirmed.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"doctor_confirmed_{appt['_id']}",
+            )
+        except Exception as notif_err:
+            logger.warning("Failed to send doctor confirmation notification: %s", notif_err)
+
         updated = _get_appointment_or_404(db, appointment_id)
         pt_user = db["users"].find_one({"_id": ObjectId(updated["patientUserId"])}) if ObjectId.is_valid(updated.get("patientUserId", "")) else None
         return _build_appointment_response(
@@ -601,6 +653,23 @@ class AppointmentService:
             {"_id": ObjectId(appointment_id)},
             {"$set": {"status": AppointmentStatus.COMPLETED.value, "updatedAt": now}},
         )
+
+        # Notify patient of appointment completion
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["patientUserId"]),
+                type=NotificationType.APPOINTMENT_COMPLETED,
+                title="Appointment Completed",
+                body=f"Your consultation on {appt.get('appointmentDate')} has been marked as completed.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"doctor_completed_{appt['_id']}",
+            )
+        except Exception as notif_err:
+            logger.warning("Failed to send appointment completion notification: %s", notif_err)
 
         updated = _get_appointment_or_404(db, appointment_id)
         pt_user = db["users"].find_one({"_id": ObjectId(updated["patientUserId"])}) if ObjectId.is_valid(updated.get("patientUserId", "")) else None
@@ -655,6 +724,23 @@ class AppointmentService:
                 }
             },
         )
+
+        # Notify patient of doctor cancellation
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["patientUserId"]),
+                type=NotificationType.APPOINTMENT_CANCELLED,
+                title="Appointment Cancelled",
+                body=f"Your appointment on {appt.get('appointmentDate')} at {appt.get('startTime')} was cancelled by the doctor.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"doctor_cancelled_{appt['_id']}",
+            )
+        except Exception as notif_err:
+            logger.warning("Failed to send doctor cancellation notification: %s", notif_err)
 
         updated = _get_appointment_or_404(db, appointment_id)
         pt_user = db["users"].find_one({"_id": ObjectId(updated["patientUserId"])}) if ObjectId.is_valid(updated.get("patientUserId", "")) else None

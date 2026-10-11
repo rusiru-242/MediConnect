@@ -248,6 +248,13 @@ class ApiConstants {
   static String paymentStatusEndpoint(String paymentId) => '/payments/$paymentId/status';
   static const String paymentHistoryEndpoint = '/payments/me';
 
+  // Notification endpoints
+  static const String notificationsEndpoint = '/notifications';
+  static const String unreadCountEndpoint = '/notifications/unread-count';
+  static String readNotificationEndpoint(String id) => '/notifications/$id/read';
+  static const String readAllNotificationsEndpoint = '/notifications/read-all';
+  static const String deviceTokensEndpoint = '/notifications/devices';
+
   /// Stripe Publishable Key (safe for mobile client).
   /// Backend returns publishableKey in create-intent response, or can be passed via env.
   static const String defaultStripePublishableKey = String.fromEnvironment(

@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../widgets/mediconnect_logo.dart';
+import '../../widgets/notification_bell_button.dart';
 
 /// Temporary home screen for authenticated patients.
 /// Displays greeting with the user's full name, MediConnect branding, and Logout button.
@@ -16,6 +18,16 @@ class PatientHomeScreen extends StatefulWidget {
 
 class _PatientHomeScreenState extends State<PatientHomeScreen> {
   bool _isLoggingOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        Provider.of<NotificationProvider>(context, listen: false).refreshUnreadCount();
+      } catch (_) {}
+    });
+  }
 
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
@@ -69,6 +81,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
       appBar: AppBar(
         title: const Text('MediConnect'),
         actions: [
+          const NotificationBellButton(),
           IconButton(
             key: const Key('patient_home_logout_icon_button'),
             icon: const Icon(Icons.logout_rounded),

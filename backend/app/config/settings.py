@@ -65,6 +65,15 @@ class Settings(BaseModel):
     STRIPE_PUBLISHABLE_KEY: Optional[str] = Field(
         default_factory=lambda: (os.getenv("STRIPE_PUBLISHABLE_KEY") or "").strip() or None
     )
+    FIREBASE_CREDENTIALS_PATH: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("FIREBASE_CREDENTIALS_PATH") or "").strip() or None
+    )
+    FIREBASE_SERVICE_ACCOUNT_JSON: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON") or "").strip() or None
+    )
+    REMINDER_CHECK_INTERVAL_SECONDS: int = Field(
+        default_factory=lambda: int((os.getenv("REMINDER_CHECK_INTERVAL_SECONDS") or "60").strip())
+    )
 
 
 settings = Settings()

@@ -8,6 +8,7 @@ import 'core/constants/api_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/admin_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/notification_provider.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/admin/doctor_applications_screen.dart';
 import 'screens/auth/create_account_screen.dart';
@@ -20,6 +21,7 @@ import 'screens/doctor/doctor_appointments_screen.dart';
 import 'screens/doctor/doctor_home_screen.dart';
 import 'screens/doctor/doctor_registration_screen.dart';
 import 'screens/doctor/manage_availability_screen.dart';
+import 'screens/notifications/notifications_screen.dart';
 import 'screens/patient/appointment_detail_screen.dart';
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
@@ -28,6 +30,7 @@ import 'screens/patient/patient_home_screen.dart';
 import 'screens/patient/payment_history_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
+import 'services/fcm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +54,9 @@ void main() async {
   } else {
     debugPrint('Stripe native initialization skipped cleanly on unsupported platform.');
   }
+
+  // Initialize Firebase Cloud Messaging safely (graceful fallback if unconfigured)
+  await FcmService().initialize();
 
   // Set system UI overlay style for modern look
   SystemChrome.setSystemUIOverlayStyle(
@@ -84,9 +90,13 @@ class MediConnectApp extends StatelessWidget {
         ChangeNotifierProvider<AdminProvider>(
           create: (_) => AdminProvider(),
         ),
+        ChangeNotifierProvider<NotificationProvider>(
+          create: (_) => NotificationProvider(),
+        ),
       ],
       child: MaterialApp(
         title: 'MediConnect',
+        navigatorKey: FcmService().navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         initialRoute: '/',
@@ -96,6 +106,7 @@ class MediConnectApp extends StatelessWidget {
           '/register': (context) => const CreateAccountScreen(),
           '/forgot-password': (context) => const ForgotPasswordScreen(),
           '/login': (context) => const LoginScreen(),
+          '/notifications': (context) => const NotificationsScreen(),
           '/patient/home': (context) => const PatientHomeScreen(),
           '/patient/find-doctor': (context) => const FindDoctorScreen(),
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),

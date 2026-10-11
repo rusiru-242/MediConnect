@@ -11,6 +11,7 @@ import '../models/auth_session.dart';
 import '../models/doctor_application_status.dart';
 import '../models/user_model.dart';
 import '../services/auth_api_service.dart';
+import '../services/fcm_service.dart';
 import '../services/google_auth_service.dart';
 
 enum AuthStatus {
@@ -86,6 +87,7 @@ class AuthProvider extends ChangeNotifier {
       _user = user;
       _status = AuthStatus.authenticated;
       await _storageService.saveUserJson(jsonEncode(user.toJson()));
+      FcmService().syncTokenWithBackend().catchError((_) {});
       notifyListeners();
     } on AuthException {
       // Token is invalid/expired and refresh failed
@@ -143,6 +145,7 @@ class AuthProvider extends ChangeNotifier {
 
       _user = session.user;
       _status = AuthStatus.authenticated;
+      FcmService().syncTokenWithBackend().catchError((_) {});
 
       if (_user?.role == 'DOCTOR') {
         try {
@@ -212,6 +215,7 @@ class AuthProvider extends ChangeNotifier {
 
       _user = session.user;
       _status = AuthStatus.authenticated;
+      FcmService().syncTokenWithBackend().catchError((_) {});
       _isLoading = false;
       notifyListeners();
       return true;
@@ -496,6 +500,9 @@ class AuthProvider extends ChangeNotifier {
         }
       }
     } finally {
+      // Remove FCM device token on logout so device stops receiving push notifications
+      await FcmService().removeTokenOnLogout().catchError((_) {});
+
       // Clear Google sign-in session to allow re-selection of account on subsequent sign-in
       await _googleAuthService.signOut();
 
