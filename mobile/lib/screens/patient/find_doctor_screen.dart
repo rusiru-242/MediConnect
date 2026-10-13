@@ -148,6 +148,14 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
         title: const Text('Find a Doctor'),
         actions: [
           IconButton(
+            key: const Key('find_doctor_ai_booking_icon_button'),
+            icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.primary),
+            tooltip: 'AI Booking Assistant',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/patient/ai-booking');
+            },
+          ),
+          IconButton(
             key: const Key('find_doctor_ai_assistant_icon_button'),
             icon: const Icon(Icons.auto_awesome_rounded, color: Colors.amber),
             tooltip: 'AI Doctor Finder',

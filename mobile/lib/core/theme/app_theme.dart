@@ -7,8 +7,10 @@ class AppTheme {
 
   // Color Palette
   static const Color primary = Color(0xFF0F766E); // Medical Teal
+  static const Color primaryTeal = primary;
   static const Color primaryLight = Color(0xFF14B8A6);
   static const Color primaryDark = Color(0xFF115E59);
+  static const Color darkNavy = textPrimary;
   static const Color primaryContainer = Color(0xFFCCFBF1);
   static const Color onPrimaryContainer = Color(0xFF134E4A);
 

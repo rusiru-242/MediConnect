@@ -226,6 +226,16 @@ class ApiConstants {
   // AI Recommendation endpoints
   static const String aiDoctorRecommendationsEndpoint = '/ai/doctor-recommendations';
 
+  // AI Booking Assistant endpoints (Phase 19)
+  static const String aiBookingSessionsEndpoint = '/ai/booking/sessions';
+  static String aiBookingSessionDetailEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId';
+  static String aiBookingSessionMessagesEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/messages';
+  static String aiBookingSessionSelectDoctorEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/select-doctor';
+  static String aiBookingSessionSelectSlotEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/select-slot';
+  static String aiBookingSessionConfirmEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/confirm';
+  static String aiBookingSessionCancelEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/cancel';
+  static String aiBookingSessionPaymentStatusEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/payment-status';
+
   // Admin endpoints
   static const String adminDoctorApplicationsEndpoint = '/admin/doctors/applications';
   static String adminDoctorApplicationDetailEndpoint(String id) => '/admin/doctors/applications/$id';
