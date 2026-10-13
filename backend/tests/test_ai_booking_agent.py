@@ -109,6 +109,7 @@ def seeded_booking_env():
         "_id": ObjectId(doc_profile_id),
         "userId": doc_user_id,
         "doctorId": doc_code,
+        "medicalRegistrationNumber": f"SLMC-BK-{ts}",
         "specialty": "Cardiology",
         "hospitalOrClinic": "Asiri Central Hospital, Colombo",
         "experienceYears": 14,
@@ -217,7 +218,7 @@ def test_03_multi_turn_preference_extraction_english(seeded_booking_env):
     assert resp1.status_code == 201
     s1 = resp1.json()
     session_id = s1["id"]
-    assert s1["preferences"]["specialty"] == "Cardiology"
+    assert s1["preferences"]["specialty"] in ["Cardiologist", "Cardiology"]
     assert s1["preferences"]["city"] == "Colombo"
     assert s1["state"] == BookingAgentState.AWAITING_DOCTOR_SELECTION.value
     assert len(s1["candidateDoctors"]) >= 1
@@ -230,7 +231,7 @@ def test_03_multi_turn_preference_extraction_english(seeded_booking_env):
     )
     assert resp2.status_code == 200
     s2 = resp2.json()
-    assert s2["preferences"]["specialty"] == "Cardiology"
+    assert s2["preferences"]["specialty"] in ["Cardiologist", "Cardiology"]
     assert s2["preferences"]["city"] == "Colombo"
     assert s2["preferences"]["date"] == seeded_booking_env["tomorrow_date"]
     assert s2["preferences"]["maxFee"] == 3000.0
@@ -246,7 +247,7 @@ def test_04_multi_turn_preference_extraction_sinhala(seeded_booking_env):
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["preferences"]["specialty"] == "Cardiology"
+    assert data["preferences"]["specialty"] in ["Cardiologist", "Cardiology"]
     assert data["preferences"]["city"] == "Colombo"
     assert data["preferences"]["language"] == "si"
     # Assistant replies in Sinhala

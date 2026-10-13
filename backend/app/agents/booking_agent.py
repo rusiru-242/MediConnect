@@ -299,7 +299,10 @@ class BookingAgent:
 
         specialty = prefs.get("specialty")
         if specialty and specialty.strip():
-            profile_query["specialty"] = {"$regex": f"^{re.escape(specialty.strip())}$", "$options": "i"}
+            clean_spec = specialty.strip()
+            stem = clean_spec[:-4] if clean_spec.lower().endswith("gist") else clean_spec
+            stem = stem[:-2] if stem.lower().endswith("gy") else stem
+            profile_query["specialty"] = {"$regex": re.escape(stem), "$options": "i"}
 
         city = prefs.get("city")
         if city and city.strip():
