@@ -148,6 +148,86 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+              // AI Doctor Assistant Action Card
+              Card(
+                elevation: 3,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primary,
+                        Colors.teal.shade700,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: InkWell(
+                    key: const Key('patient_home_ai_recommendations_button'),
+                    onTap: () {
+                      Navigator.of(context).pushNamed('/patient/ai-recommendations');
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.auto_awesome_rounded, size: 28, color: Colors.amberAccent),
+                          ),
+                          const SizedBox(width: 16),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'AI Doctor Finder',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'NEW',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.amberAccent,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Ask in English or Sinhala for personalized doctor matches & real slots',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               // Main Action: Find a Doctor
               Card(
                 elevation: 2,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mediconnect/models/notification_model.dart';
-import 'package:mediconnect/models/user_model.dart';
 import 'package:mediconnect/providers/auth_provider.dart';
 import 'package:mediconnect/providers/notification_provider.dart';
 import 'package:mediconnect/screens/notifications/notifications_screen.dart';

@@ -146,6 +146,16 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Find a Doctor'),
+        actions: [
+          IconButton(
+            key: const Key('find_doctor_ai_assistant_icon_button'),
+            icon: const Icon(Icons.auto_awesome_rounded, color: Colors.amber),
+            tooltip: 'AI Doctor Finder',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/patient/ai-recommendations');
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(

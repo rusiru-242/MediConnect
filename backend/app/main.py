@@ -9,6 +9,7 @@ from app.config.database import DatabaseManager, check_database_connection, ensu
 from app.config.settings import settings
 from app.routes import (
     admin_router,
+    ai_recommendations_router,
     appointment_router,
     auth_router,
     doctor_router,
@@ -79,6 +80,7 @@ app.include_router(appointment_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(payment_router, prefix="/api")
 app.include_router(notification_router, prefix="/api")
+app.include_router(ai_recommendations_router, prefix="/api")
 
 
 @app.get("/")
