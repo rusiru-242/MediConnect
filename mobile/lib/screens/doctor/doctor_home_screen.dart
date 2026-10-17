@@ -192,6 +192,24 @@ class DoctorHomeScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
+              // Patient Reviews & Ratings (Phase 23)
+              _buildSectionCard(
+                key: const Key('doctor_home_reviews_card'),
+                icon: Icons.star_rounded,
+                iconColor: Colors.amber.shade800,
+                title: 'Patient Reviews & Ratings',
+                subtitle: 'View verified patient feedback and rating distribution',
+                onTap: () {
+                  final auth = context.read<AuthProvider>();
+                  Navigator.of(context).pushNamed(
+                    '/patient/doctor-detail',
+                    arguments: auth.user?.id,
+                  );
+                },
+              ),
+
+              const SizedBox(height: 12),
+
               // 3. Application Status Card
               _buildSectionCard(
                 key: const Key('doctor_home_application_status_card'),

@@ -33,6 +33,7 @@ import 'screens/patient/medication_reminders_screen.dart';
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
 import 'screens/patient/my_appointments_screen.dart';
+import 'screens/patient/my_reviews_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
 import 'screens/patient/payment_history_screen.dart';
 import 'screens/splash_screen.dart';
@@ -129,6 +130,7 @@ class MediConnectApp extends StatelessWidget {
 
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
           '/patient/my-appointments': (context) => const MyAppointmentsScreen(),
+          '/patient/my-reviews': (context) => const MyReviewsScreen(),
           '/patient/appointment-detail': (context) => const AppointmentDetailScreen(),
           '/patient/payments': (context) => const PaymentHistoryScreen(),
           '/doctor/register': (context) => const DoctorRegistrationScreen(),

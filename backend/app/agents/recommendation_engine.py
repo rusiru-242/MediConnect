@@ -250,6 +250,33 @@ class RecommendationEngine:
         # -------------------------------------------------------------
         # STEP 6: Deterministic Multi-Factor Ranking
         # -------------------------------------------------------------
+        # Batch fetch verified review ratings for candidates
+        candidate_uids = [str(u["_id"]) for _, u in candidate_doctors]
+        candidate_pids = [str(p["_id"]) for p, _ in candidate_doctors]
+        ratings_by_doc: Dict[str, Tuple[float, int]] = {}
+        if candidate_uids and "doctor_reviews" in db.list_collection_names():
+            rev_coll = db["doctor_reviews"]
+            rating_aggr = rev_coll.aggregate([
+                {
+                    "$match": {
+                        "$or": [
+                            {"doctorUserId": {"$in": candidate_uids}},
+                            {"doctorProfileId": {"$in": candidate_pids}},
+                        ],
+                        "status": "PUBLISHED",
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$doctorUserId",
+                        "totalReviews": {"$sum": 1},
+                        "avgRating": {"$avg": "$rating"},
+                    }
+                },
+            ])
+            for r in rating_aggr:
+                ratings_by_doc[str(r["_id"])] = (float(r["avgRating"]), int(r["totalReviews"]))
+
         scored_candidates: List[Tuple[float, List[str], Dict[str, Any], Dict[str, Any]]] = []
 
         for profile, user in candidate_doctors:
@@ -339,13 +366,26 @@ class RecommendationEngine:
             if doc_exp >= 5:
                 reasons.append(f"{doc_exp} years of clinical experience")
 
+            # 6. Verified Patient Reviews & Ratings (fair shrinkage, no fabricated ratings)
+            doc_rating_info = ratings_by_doc.get(doc_user_id)
+            if doc_rating_info and doc_rating_info[1] > 0:
+                avg_r, total_r = doc_rating_info
+                # Bayesian smoothing towards 4.0 baseline with m=3 pseudo-reviews
+                smoothed_rating = (total_r * avg_r + 3.0 * 4.0) / (total_r + 3.0)
+                rating_bonus = round((smoothed_rating / 5.0) * 5.0, 1)
+                score += rating_bonus
+                reasons.append(
+                    f"Rated {avg_r:.1f}/5 by verified patients ({total_r} verified review{'s' if total_r > 1 else ''})"
+                )
+
             final_score = round(min(100.0, max(0.0, score)), 1)
             scored_candidates.append((final_score, reasons, profile, user))
 
-        # Sort by score descending, then by available slots count descending, then fee ascending
+        # Sort by score descending, then verified rating count, then available slots count descending, then fee ascending
         scored_candidates.sort(
             key=lambda item: (
                 item[0],
+                ratings_by_doc.get(str(item[3]["_id"]), (0.0, 0))[1],
                 len(doctor_slots_map.get(str(item[3]["_id"]), [])),
                 -float(item[2].get("consultationFee", 2500.0)),
             ),

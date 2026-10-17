@@ -259,6 +259,16 @@ class ApiConstants {
   static String medicationReminderDetailEndpoint(String id) => '/medication-reminders/$id';
   static String medicationReminderEventsEndpoint(String id) => '/medication-reminders/$id/events';
 
+  // Doctor Reviews & Ratings endpoints (Phase 23)
+  static const String reviewsEndpoint = '/reviews';
+  static const String myReviewsEndpoint = '/reviews/me';
+  static String doctorReviewsEndpoint(String doctorId) => '/doctors/$doctorId/reviews';
+  static String doctorRatingSummaryEndpoint(String doctorId) => '/doctors/$doctorId/rating-summary';
+  static String reviewDetailEndpoint(String reviewId) => '/reviews/$reviewId';
+  static String reportReviewEndpoint(String reviewId) => '/reviews/$reviewId/report';
+  static const String adminReportedReviewsEndpoint = '/admin/reviews/reported';
+  static String moderateReviewEndpoint(String reviewId) => '/reviews/$reviewId/moderate';
+
 
   // Admin endpoints
   static const String adminDoctorApplicationsEndpoint = '/admin/doctors/applications';

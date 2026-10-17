@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/doctor.dart';
 import '../../models/doctor_availability.dart';
+import '../../models/doctor_review.dart';
 import '../../services/doctor_service.dart';
+import '../../services/review_service.dart';
 import 'booking_confirmation_screen.dart';
 
 /// Screen displaying public doctor details and patient-facing availability slots.
@@ -11,12 +13,14 @@ class DoctorDetailScreen extends StatefulWidget {
   final Doctor? doctor;
   final String? doctorId;
   final DoctorService? doctorService;
+  final ReviewService? reviewService;
 
   const DoctorDetailScreen({
     super.key,
     this.doctor,
     this.doctorId,
     this.doctorService,
+    this.reviewService,
   });
 
   @override
@@ -25,6 +29,7 @@ class DoctorDetailScreen extends StatefulWidget {
 
 class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
   late final DoctorService _doctorService;
+  late final ReviewService _reviewService;
   Doctor? _doctor;
   String? _effectiveDoctorId;
 
@@ -35,6 +40,10 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
   String? _availabilityError;
   List<DayAvailabilitySlots> _dayAvailabilities = [];
 
+  bool _isLoadingReviews = false;
+  DoctorRatingSummary? _ratingSummary;
+  List<DoctorReview> _reviews = [];
+
   String? _selectedDate;
   String? _selectedSlotStartTime;
 
@@ -42,6 +51,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
   void initState() {
     super.initState();
     _doctorService = widget.doctorService ?? DoctorService();
+    _reviewService = widget.reviewService ?? ReviewService();
     _doctor = widget.doctor;
     _effectiveDoctorId = widget.doctor?.doctorId ?? widget.doctorId;
   }
@@ -65,6 +75,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
       _loadDoctorDetail();
     } else if (_doctor != null && _dayAvailabilities.isEmpty && !_isLoadingAvailability) {
       _loadAvailability();
+      _loadReviews();
     }
   }
 
@@ -83,11 +94,37 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
         _isLoadingDoctor = false;
       });
       _loadAvailability();
+      _loadReviews();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _doctorError = 'Unable to connect to MediConnect. Please try again.';
         _isLoadingDoctor = false;
+      });
+    }
+  }
+
+  Future<void> _loadReviews() async {
+    final docId = _doctor?.doctorId ?? _effectiveDoctorId;
+    if (docId == null) return;
+
+    setState(() {
+      _isLoadingReviews = true;
+    });
+
+    try {
+      final summary = await _reviewService.getDoctorRatingSummary(docId);
+      final page = await _reviewService.getDoctorReviews(docId, page: 1, pageSize: 20);
+      if (!mounted) return;
+      setState(() {
+        _ratingSummary = summary;
+        _reviews = page.items;
+        _isLoadingReviews = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingReviews = false;
       });
     }
   }
@@ -276,6 +313,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
           const SizedBox(height: 12),
 
           _buildAvailabilitySection(),
+
+          const SizedBox(height: 24),
+
+          // Verified Reviews & Ratings Section (Phase 23)
+          _buildReviewsAndRatingsSection(),
         ],
       ),
     );
@@ -526,5 +568,325 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildReviewsAndRatingsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.rate_review_outlined, color: AppTheme.primary, size: 22),
+            SizedBox(width: 8),
+            Text(
+              'Patient Reviews & Ratings',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildRatingSummaryCard(),
+        const SizedBox(height: 16),
+        if (_reviews.isNotEmpty) ...[
+          const Text(
+            'Verified Patient Feedback',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+          ),
+          const SizedBox(height: 10),
+          ..._reviews.map((r) => _buildReviewCard(r)),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildRatingSummaryCard() {
+    if (_isLoadingReviews) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_ratingSummary == null || !_ratingSummary!.hasReviews) {
+      return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 1,
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.star_outline_rounded, color: Colors.amber, size: 30),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No reviews yet',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Reviews appear after verified patients complete their scheduled appointments.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final summary = _ratingSummary!;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Overall Rating Column
+            Expanded(
+              flex: 4,
+              child: Column(
+                children: [
+                  Text(
+                    summary.averageRating?.toStringAsFixed(1) ?? '0.0',
+                    style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final starValue = i + 1;
+                      final rating = summary.averageRating ?? 0.0;
+                      return Icon(
+                        rating >= starValue
+                            ? Icons.star_rounded
+                            : (rating >= starValue - 0.5 ? Icons.star_half_rounded : Icons.star_outline_rounded),
+                        color: Colors.amber[700],
+                        size: 18,
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${summary.totalReviews} verified review${summary.totalReviews > 1 ? "s" : ""}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Breakdown bars (5 down to 1)
+            Expanded(
+              flex: 6,
+              child: Column(
+                children: [5, 4, 3, 2, 1].map((star) {
+                  final pct = summary.getStarPercentage(star);
+                  final count = summary.ratingDistribution[star.toString()] ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Text('$star', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: pct,
+                              minHeight: 6,
+                              backgroundColor: AppTheme.outline.withValues(alpha: 0.15),
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.amber[700]!),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 20,
+                          child: Text(
+                            '$count',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewCard(DoctorReview review) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 0.5,
+      color: AppTheme.surfaceVariant.withValues(alpha: 0.2),
+      child: Padding(
+        padding: const EdgeInsets.all(14.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+                  child: const Icon(Icons.person, size: 16, color: AppTheme.primary),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  review.patientDisplayName,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.success),
+                      SizedBox(width: 3),
+                      Text('Verified', style: TextStyle(fontSize: 10, color: AppTheme.success, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(5, (i) {
+                    return Icon(
+                      i < review.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      size: 16,
+                      color: Colors.amber[700],
+                    );
+                  }),
+                ),
+              ],
+            ),
+            if (review.reviewText != null && review.reviewText!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                review.reviewText!,
+                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.35),
+              ),
+            ],
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                InkWell(
+                  onTap: () => _promptReportReview(review.reviewId),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.flag_outlined, size: 13, color: AppTheme.textSecondary),
+                        SizedBox(width: 4),
+                        Text('Report', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _promptReportReview(String reviewId) async {
+    final reasonController = TextEditingController();
+    final reported = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report Review'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Please provide a reason why this review violates guidelines:',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              maxLength: 500,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Enter reason...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (reasonController.text.trim().length >= 5) {
+                Navigator.of(ctx).pop(true);
+              }
+            },
+            child: const Text('Report'),
+          ),
+        ],
+      ),
+    );
+
+    if (reported == true && mounted) {
+      try {
+        await _reviewService.reportReview(
+          reviewId: reviewId,
+          reason: reasonController.text.trim(),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Review reported for administrative moderation.'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to report review.'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    }
   }
 }

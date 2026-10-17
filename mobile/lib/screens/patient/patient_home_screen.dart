@@ -600,6 +600,59 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              // Doctor Reviews & Ratings (Phase 23)
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: InkWell(
+                  key: const Key('patient_home_my_reviews_button'),
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/patient/my-reviews');
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.star_rounded, size: 28, color: Colors.amber.shade800),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'My Doctor Reviews',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Manage verified ratings, reviews, and completed appointment feedback',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
               // Logout Action Button
               ElevatedButton.icon(

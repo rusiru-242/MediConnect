@@ -10,6 +10,7 @@ from app.routes.medication_reminder import medication_reminder_router
 from app.routes.notification import router as notification_router
 from app.routes.payment import payment_router
 from app.routes.prescription import prescription_router
+from app.routes.review import review_router
 
 __all__ = [
     "admin_router",
@@ -24,6 +25,7 @@ __all__ = [
     "notification_router",
     "payment_router",
     "prescription_router",
+    "review_router",
 ]
 
 
