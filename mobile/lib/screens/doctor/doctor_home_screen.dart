@@ -144,6 +144,22 @@ class DoctorHomeScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
+              // Consultation Documentation & Prescriptions (Phase 21)
+              _buildSectionCard(
+                key: const Key('doctor_home_consultations_card'),
+                icon: Icons.edit_note_rounded,
+                iconColor: Colors.teal,
+                title: 'Consultations & Prescriptions',
+                subtitle: 'Document clinical notes, assessment, treatment plans & issue digital prescriptions',
+                badgeText: 'Phase 21',
+                badgeColor: AppTheme.primary,
+                onTap: () {
+                  Navigator.of(context).pushNamed('/doctor/consultations');
+                },
+              ),
+
+              const SizedBox(height: 12),
+
               // 2. Manage Availability Card (FULLY FUNCTIONAL)
               _buildSectionCard(
                 key: const Key('doctor_home_manage_availability_card'),

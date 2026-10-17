@@ -15,8 +15,10 @@ from app.routes import (
     appointment_router,
     auth_router,
     doctor_router,
+    medical_record_router,
     notification_router,
     payment_router,
+    prescription_router,
 )
 
 from app.services.notification_service import NotificationService
@@ -86,6 +88,8 @@ app.include_router(notification_router, prefix="/api")
 app.include_router(ai_recommendations_router, prefix="/api")
 app.include_router(ai_booking_router, prefix="/api")
 app.include_router(ai_health_chat_router, prefix="/api")
+app.include_router(medical_record_router, prefix="/api")
+app.include_router(prescription_router, prefix="/api")
 
 
 

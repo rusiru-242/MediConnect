@@ -18,6 +18,7 @@ import 'screens/doctor/add_availability_screen.dart';
 import 'screens/doctor/doctor_application_status_screen.dart';
 import 'screens/doctor/doctor_appointment_detail_screen.dart';
 import 'screens/doctor/doctor_appointments_screen.dart';
+import 'screens/doctor/doctor_consultations_screen.dart';
 import 'screens/doctor/doctor_home_screen.dart';
 import 'screens/doctor/doctor_registration_screen.dart';
 import 'screens/doctor/manage_availability_screen.dart';
@@ -26,6 +27,7 @@ import 'screens/patient/ai_booking_assistant_screen.dart';
 import 'screens/patient/ai_doctor_recommendation_screen.dart';
 import 'screens/patient/ai_health_assistant_screen.dart';
 import 'screens/patient/appointment_detail_screen.dart';
+import 'screens/patient/medical_records_screen.dart';
 
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
@@ -116,6 +118,7 @@ class MediConnectApp extends StatelessWidget {
           '/patient/ai-booking': (context) => const AiBookingAssistantScreen(),
           '/patient/ai-health-chat': (context) => const AiHealthAssistantScreen(),
           '/patient/find-doctor': (context) => const FindDoctorScreen(),
+          '/patient/medical-records': (context) => const MedicalRecordsScreen(),
 
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
           '/patient/my-appointments': (context) => const MyAppointmentsScreen(),
@@ -126,6 +129,7 @@ class MediConnectApp extends StatelessWidget {
           '/doctor/home': (context) => const DoctorHomeScreen(),
           '/doctor/appointments': (context) => const DoctorAppointmentsScreen(),
           '/doctor/appointment-detail': (context) => const DoctorAppointmentDetailScreen(),
+          '/doctor/consultations': (context) => const DoctorConsultationsScreen(),
           '/doctor/manage-availability': (context) => const ManageAvailabilityScreen(),
           '/doctor/add-availability': (context) => const AddAvailabilityScreen(),
           '/admin/dashboard': (context) => const AdminDashboardScreen(),

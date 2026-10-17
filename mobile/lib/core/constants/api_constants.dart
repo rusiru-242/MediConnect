@@ -241,6 +241,16 @@ class ApiConstants {
   static String aiHealthChatSessionDetailEndpoint(String sessionId) => '/ai/health-chat/sessions/$sessionId';
   static String aiHealthChatSessionMessagesEndpoint(String sessionId) => '/ai/health-chat/sessions/$sessionId/messages';
 
+  // Medical Records & Prescriptions endpoints (Phase 21)
+  static const String medicalRecordsEndpoint = '/medical-records';
+  static const String myMedicalRecordsEndpoint = '/medical-records/me';
+  static String medicalRecordDetailEndpoint(String recordId) => '/medical-records/$recordId';
+
+  static const String prescriptionsEndpoint = '/prescriptions';
+  static const String myPrescriptionsEndpoint = '/prescriptions/me';
+  static String prescriptionDetailEndpoint(String prescriptionId) => '/prescriptions/$prescriptionId';
+  static String prescriptionPdfEndpoint(String prescriptionId) => '/prescriptions/$prescriptionId/pdf';
+
 
   // Admin endpoints
   static const String adminDoctorApplicationsEndpoint = '/admin/doctors/applications';
