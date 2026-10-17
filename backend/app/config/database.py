@@ -72,6 +72,7 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
     from app.models.doctor_availability import create_doctor_availability_indexes
     from app.models.doctor_profile import create_doctor_profile_indexes
     from app.models.health_chat import create_health_chat_indexes
+    from app.models.medication_reminder import create_medication_reminder_indexes
     from app.models.medical_record import create_medical_record_indexes
     from app.models.notification import create_notification_indexes
     from app.models.password_reset import create_password_reset_indexes
@@ -94,6 +95,7 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         create_health_chat_indexes(target_db)
         create_medical_record_indexes(target_db)
         create_prescription_indexes(target_db)
+        create_medication_reminder_indexes(target_db)
         return True
 
     except (ConnectionError, ConnectionFailure, PyMongoError) as exc:

@@ -251,6 +251,14 @@ class ApiConstants {
   static String prescriptionDetailEndpoint(String prescriptionId) => '/prescriptions/$prescriptionId';
   static String prescriptionPdfEndpoint(String prescriptionId) => '/prescriptions/$prescriptionId/pdf';
 
+  // Medication Reminder endpoints (Phase 22)
+  static const String medicationRemindersEndpoint = '/medication-reminders';
+  static const String todayMedicationScheduleEndpoint = '/medication-reminders/today';
+  static const String medicationRemindersHistoryEndpoint = '/medication-reminders/history';
+  static const String medicationRemindersAdherenceEndpoint = '/medication-reminders/adherence';
+  static String medicationReminderDetailEndpoint(String id) => '/medication-reminders/$id';
+  static String medicationReminderEventsEndpoint(String id) => '/medication-reminders/$id/events';
+
 
   // Admin endpoints
   static const String adminDoctorApplicationsEndpoint = '/admin/doctors/applications';

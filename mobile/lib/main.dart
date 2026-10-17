@@ -28,6 +28,7 @@ import 'screens/patient/ai_doctor_recommendation_screen.dart';
 import 'screens/patient/ai_health_assistant_screen.dart';
 import 'screens/patient/appointment_detail_screen.dart';
 import 'screens/patient/medical_records_screen.dart';
+import 'screens/patient/medication_reminders_screen.dart';
 
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
@@ -37,6 +38,7 @@ import 'screens/patient/payment_history_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/fcm_service.dart';
+import 'services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +65,9 @@ void main() async {
 
   // Initialize Firebase Cloud Messaging safely (graceful fallback if unconfigured)
   await FcmService().initialize();
+
+  // Initialize Local Notifications for Medication Reminders (Phase 22)
+  await LocalNotificationService().initialize();
 
   // Set system UI overlay style for modern look
   SystemChrome.setSystemUIOverlayStyle(
@@ -119,6 +124,8 @@ class MediConnectApp extends StatelessWidget {
           '/patient/ai-health-chat': (context) => const AiHealthAssistantScreen(),
           '/patient/find-doctor': (context) => const FindDoctorScreen(),
           '/patient/medical-records': (context) => const MedicalRecordsScreen(),
+          '/patient/medication-reminders': (context) => const MedicationRemindersScreen(),
+          '/medication-reminders': (context) => const MedicationRemindersScreen(),
 
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
           '/patient/my-appointments': (context) => const MyAppointmentsScreen(),

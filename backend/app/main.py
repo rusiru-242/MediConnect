@@ -16,6 +16,7 @@ from app.routes import (
     auth_router,
     doctor_router,
     medical_record_router,
+    medication_reminder_router,
     notification_router,
     payment_router,
     prescription_router,
@@ -90,6 +91,7 @@ app.include_router(ai_booking_router, prefix="/api")
 app.include_router(ai_health_chat_router, prefix="/api")
 app.include_router(medical_record_router, prefix="/api")
 app.include_router(prescription_router, prefix="/api")
+app.include_router(medication_reminder_router, prefix="/api")
 
 
 

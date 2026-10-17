@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/prescription.dart';
 import '../../services/medical_record_service.dart';
+import 'create_medication_reminder_screen.dart';
 
 /// Screen displaying structured digital prescription and official PDF download action.
 class PrescriptionDetailScreen extends StatefulWidget {
@@ -290,7 +291,7 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
         ...presc.medicationItems.asMap().entries.map((entry) {
           final idx = entry.key + 1;
           final item = entry.value;
-          return _buildMedicationCard(idx, item);
+          return _buildMedicationCard(presc, entry.key, idx, item);
         }),
 
         if (presc.instructions != null && presc.instructions!.isNotEmpty) ...[
@@ -392,7 +393,7 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
     );
   }
 
-  Widget _buildMedicationCard(int index, MedicationItem item) {
+  Widget _buildMedicationCard(Prescription presc, int itemIndex, int index, MedicationItem item) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 1,
@@ -465,6 +466,29 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
                 ),
               ),
             ],
+            const Divider(height: 18.0),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  minimumSize: const Size(50, 32),
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CreateMedicationReminderScreen(
+                        initialPrescription: presc,
+                        initialMedicationIndex: itemIndex,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.alarm_add_rounded, size: 16),
+                label: const Text('Set Reminder', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ),
           ],
         ),
       ),
