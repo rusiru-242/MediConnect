@@ -10,6 +10,7 @@ from app.config.settings import settings
 from app.routes import (
     admin_router,
     ai_booking_router,
+    ai_health_chat_router,
     ai_recommendations_router,
     appointment_router,
     auth_router,
@@ -17,6 +18,7 @@ from app.routes import (
     notification_router,
     payment_router,
 )
+
 from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
@@ -83,6 +85,7 @@ app.include_router(payment_router, prefix="/api")
 app.include_router(notification_router, prefix="/api")
 app.include_router(ai_recommendations_router, prefix="/api")
 app.include_router(ai_booking_router, prefix="/api")
+app.include_router(ai_health_chat_router, prefix="/api")
 
 
 

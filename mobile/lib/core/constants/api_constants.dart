@@ -236,6 +236,12 @@ class ApiConstants {
   static String aiBookingSessionCancelEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/cancel';
   static String aiBookingSessionPaymentStatusEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/payment-status';
 
+  // AI Health Chatbot endpoints (Phase 20)
+  static const String aiHealthChatSessionsEndpoint = '/ai/health-chat/sessions';
+  static String aiHealthChatSessionDetailEndpoint(String sessionId) => '/ai/health-chat/sessions/$sessionId';
+  static String aiHealthChatSessionMessagesEndpoint(String sessionId) => '/ai/health-chat/sessions/$sessionId/messages';
+
+
   // Admin endpoints
   static const String adminDoctorApplicationsEndpoint = '/admin/doctors/applications';
   static String adminDoctorApplicationDetailEndpoint(String id) => '/admin/doctors/applications/$id';

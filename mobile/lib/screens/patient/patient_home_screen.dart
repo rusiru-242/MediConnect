@@ -361,6 +361,86 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              // AI Health Assistant Action Card (Phase 20)
+              Card(
+                elevation: 3,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF0D5C56),
+                        Color(0xFF0F766E),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: InkWell(
+                    key: const Key('patient_home_ai_health_chat_button'),
+                    onTap: () {
+                      Navigator.of(context).pushNamed('/patient/ai-health-chat');
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.health_and_safety_rounded, size: 28, color: Colors.tealAccent),
+                          ),
+                          const SizedBox(width: 16),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'AI Health Assistant',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'GUIDANCE',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.tealAccent,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'General symptom education, 1990 safety triage & doctor referrals',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               // Secondary Action: My Appointments
               Card(
                 elevation: 2,
@@ -368,6 +448,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 child: InkWell(
                   key: const Key('patient_home_my_appointments_button'),
                   onTap: () {
+
                     Navigator.of(context).pushNamed('/patient/my-appointments');
                   },
                   borderRadius: BorderRadius.circular(16),

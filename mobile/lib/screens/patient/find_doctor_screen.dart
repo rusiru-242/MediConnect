@@ -148,6 +148,14 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
         title: const Text('Find a Doctor'),
         actions: [
           IconButton(
+            key: const Key('find_doctor_ai_health_chat_icon_button'),
+            icon: const Icon(Icons.health_and_safety_rounded, color: AppTheme.primary),
+            tooltip: 'AI Health Assistant',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/patient/ai-health-chat');
+            },
+          ),
+          IconButton(
             key: const Key('find_doctor_ai_booking_icon_button'),
             icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.primary),
             tooltip: 'AI Booking Assistant',
@@ -164,6 +172,7 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
             },
           ),
         ],
+
       ),
       body: SafeArea(
         child: Column(

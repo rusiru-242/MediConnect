@@ -71,6 +71,7 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
     from app.models.booking_session import create_booking_session_indexes
     from app.models.doctor_availability import create_doctor_availability_indexes
     from app.models.doctor_profile import create_doctor_profile_indexes
+    from app.models.health_chat import create_health_chat_indexes
     from app.models.notification import create_notification_indexes
     from app.models.password_reset import create_password_reset_indexes
     from app.models.payment import create_payment_indexes
@@ -88,7 +89,9 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         create_payment_indexes(target_db)
         create_notification_indexes(target_db)
         create_booking_session_indexes(target_db)
+        create_health_chat_indexes(target_db)
         return True
+
     except (ConnectionError, ConnectionFailure, PyMongoError) as exc:
         logger.warning("Could not create MongoDB indexes at this time: %s", type(exc).__name__)
         return False
