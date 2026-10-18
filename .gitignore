@@ -53,3 +53,10 @@ key.properties
 # Android build artifacts
 *.apk
 *.aab
+
+# Node / Web Admin
+node_modules/
+admin-web/node_modules/
+dist/
+admin-web/dist/
+.eslintcache
