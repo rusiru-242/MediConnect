@@ -45,3 +45,11 @@ backend/uploads/
 # Production env templates vs real secrets
 .env.production
 backend/.env.production
+
+# Android signing secrets & keystores
+key.properties
+**/key.properties
+
+# Android build artifacts
+*.apk
+*.aab

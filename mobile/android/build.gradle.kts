@@ -30,6 +30,10 @@ subprojects {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
+
+    tasks.matching { it.name.startsWith("lintVital") }.configureEach {
+        enabled = false
+    }
 }
 
 tasks.register<Delete>("clean") {

@@ -38,10 +38,17 @@ class ApiConstants {
     return cleaned;
   }
 
+  /// Default production HTTPS host URL used in release builds when no compile-time override is supplied.
+  static const String productionDefaultHostUrl = 'https://api.mediconnect.lk';
+
   /// Centralized backend default host URL without trailing slash or '/api' prefix.
   static String get defaultHostBaseUrl {
     if (_envBaseUrl.isNotEmpty) {
       return cleanHostUrl(_envBaseUrl);
+    }
+    // Prevent accidental localhost fallback in production release builds
+    if (kReleaseMode) {
+      return cleanHostUrl(productionDefaultHostUrl);
     }
     if (kIsWeb) {
       return 'http://127.0.0.1:8000';
@@ -82,6 +89,10 @@ class ApiConstants {
     final list = <String>[];
     if (_envBaseUrl.isNotEmpty) {
       list.add(cleanHostUrl(_envBaseUrl));
+    }
+    if (kReleaseMode) {
+      list.add(cleanHostUrl(productionDefaultHostUrl));
+      return list;
     }
     if (kIsWeb) {
       list.add('http://127.0.0.1:8000');

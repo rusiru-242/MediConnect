@@ -2,7 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Any, Dict
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.database import DatabaseManager, check_database_connection, ensure_indexes
@@ -55,6 +55,8 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("JWT_SECRET environment variable is missing. Refusing to start.")
     if settings.ENVIRONMENT == "production" and len(settings.JWT_SECRET.strip().encode("utf-8")) < 32:
         raise RuntimeError("JWT_SECRET must be at least 32 bytes (256 bits) in production mode.")
+    if settings.ENVIRONMENT == "production" and (not settings.MONGODB_URI or not settings.MONGODB_URI.strip()):
+        raise RuntimeError("MONGODB_URI environment variable is required in production mode.")
     db_status = check_database_connection()
     if db_status.get("connected"):
         ensure_indexes()
@@ -136,14 +138,34 @@ def root() -> Dict[str, str]:
 
 
 @app.get("/health")
+@app.get("/api/health")
 def health_check() -> Dict[str, Any]:
     """Report API and database connectivity without exposing sensitive configuration."""
     db_health = check_database_connection()
     return {
+        "status": "healthy" if db_health["connected"] else "degraded",
         "api": "healthy",
         "database": {
             "connected": db_health["connected"],
             "status": db_health["status"],
             "message": db_health["message"],
         },
+        "environment": settings.ENVIRONMENT,
+    }
+
+
+@app.get("/ready")
+@app.get("/api/ready")
+def readiness_check(response: Response) -> Dict[str, Any]:
+    """Readiness probe for container orchestrators (k8s/ECS/Cloud Run)."""
+    db_health = check_database_connection()
+    if not db_health["connected"]:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {
+            "status": "unready",
+            "message": "Database is not connected.",
+        }
+    return {
+        "status": "ready",
+        "message": "All dependencies healthy.",
     }

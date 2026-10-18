@@ -1,0 +1,17 @@
+# ==============================================================================
+# MediConnect Android Keystore Configuration Template (key.properties.example)
+#
+# INSTRUCTIONS:
+# 1. Copy this file to `mobile/android/key.properties` (or project root).
+# 2. Generate a secure release keystore using Java keytool:
+#    keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+# 3. Store `upload-keystore.jks` in a secure location (e.g. `mobile/android/app/upload-keystore.jks`).
+# 4. Fill in the values below matching your keystore credentials.
+# 5. NEVER commit `key.properties` or `*.jks` / `*.keystore` to version control!
+#    Both are explicitly ignored in .gitignore.
+# ==============================================================================
+
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=upload-keystore.jks
