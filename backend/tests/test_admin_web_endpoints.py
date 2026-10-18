@@ -143,12 +143,13 @@ def test_admin_web_endpoints_rbac_and_crud():
 
     # 8. Admin Payments
     payment_id = ObjectId()
+    unique_pi_id = f"pi_test_{ObjectId()}"
     db["payments"].insert_one({
         "_id": payment_id,
         "appointmentId": str(appt_id),
         "patientUserId": patient_id,
         "doctorUserId": admin_id,
-        "stripePaymentIntentId": "pi_test_1234567890",
+        "stripePaymentIntentId": unique_pi_id,
         "amount": 3000.0,
         "currency": "lkr",
         "status": "SUCCEEDED",

@@ -6,14 +6,9 @@ import 'package:provider/provider.dart';
 
 import 'core/constants/api_constants.dart';
 import 'core/theme/app_theme.dart';
-import 'providers/admin_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/notification_provider.dart';
-import 'screens/admin/admin_article_editor_screen.dart';
-import 'screens/admin/admin_articles_screen.dart';
-import 'screens/admin/admin_dashboard_screen.dart';
-import 'screens/admin/admin_reviews_screen.dart';
-import 'screens/admin/doctor_applications_screen.dart';
+import 'screens/auth/admin_access_blocked_screen.dart';
 import 'screens/auth/create_account_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -103,9 +98,6 @@ class MediConnectApp extends StatelessWidget {
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(),
         ),
-        ChangeNotifierProvider<AdminProvider>(
-          create: (_) => AdminProvider(),
-        ),
         ChangeNotifierProvider<NotificationProvider>(
           create: (_) => NotificationProvider(),
         ),
@@ -116,6 +108,17 @@ class MediConnectApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         initialRoute: '/',
+        onGenerateRoute: (settings) {
+          // Route guard & deep-link interception (Phase 32)
+          // Admin functions are solely accessible via the React Web Admin Portal.
+          if (settings.name != null && settings.name!.startsWith('/admin')) {
+            return MaterialPageRoute(
+              builder: (context) => const AdminAccessBlockedScreen(),
+              settings: settings,
+            );
+          }
+          return null;
+        },
         routes: {
           '/': (context) => const SplashScreen(),
           '/welcome': (context) => const WelcomeScreen(),
@@ -146,11 +149,6 @@ class MediConnectApp extends StatelessWidget {
           '/doctor/consultations': (context) => const DoctorConsultationsScreen(),
           '/doctor/manage-availability': (context) => const ManageAvailabilityScreen(),
           '/doctor/add-availability': (context) => const AddAvailabilityScreen(),
-          '/admin/dashboard': (context) => const AdminDashboardScreen(),
-          '/admin/doctor-applications': (context) => const DoctorApplicationsScreen(),
-          '/admin/articles': (context) => const AdminArticlesScreen(),
-          '/admin/new-article': (context) => const AdminArticleEditorScreen(),
-          '/admin/reviews': (context) => const AdminReviewsScreen(),
         },
       ),
     );

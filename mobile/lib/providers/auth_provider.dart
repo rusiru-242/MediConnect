@@ -49,8 +49,19 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
+  /// Error message displayed when an Admin account attempts mobile login or session restoration.
+  static const String adminWebOnlyMessage =
+      'Admin accounts are supported on the MediConnect Web Admin Portal. Please sign in through the web portal.';
+
   @visibleForTesting
   void setSessionForTesting(AuthSession session) {
+    if (session.user.role == 'ADMIN') {
+      _user = null;
+      _status = AuthStatus.unauthenticated;
+      _errorMessage = adminWebOnlyMessage;
+      notifyListeners();
+      return;
+    }
     _user = session.user;
     _status = AuthStatus.authenticated;
     notifyListeners();
@@ -84,6 +95,18 @@ class AuthProvider extends ChangeNotifier {
       // Token exists, verify with backend GET /api/auth/me
       // Note: ApiClient handles automatic refresh rotation on 401 if refresh token is available
       final user = await _authApiService.getCurrentUser();
+
+      // Phase 32: Mobile app is strictly for Patients and Doctors.
+      // If an Admin account session is detected, safely clear mobile tokens and reject session.
+      if (user.role == 'ADMIN') {
+        await _storageService.clearAll();
+        _user = null;
+        _status = AuthStatus.unauthenticated;
+        _errorMessage = adminWebOnlyMessage;
+        notifyListeners();
+        return;
+      }
+
       _user = user;
       _status = AuthStatus.authenticated;
       await _storageService.saveUserJson(jsonEncode(user.toJson()));
@@ -101,7 +124,16 @@ class AuthProvider extends ChangeNotifier {
       if (cachedJson != null) {
         try {
           final decoded = jsonDecode(cachedJson) as Map<String, dynamic>;
-          _user = UserModel.fromJson(decoded);
+          final cachedUser = UserModel.fromJson(decoded);
+          if (cachedUser.role == 'ADMIN') {
+            await _storageService.clearAll();
+            _user = null;
+            _status = AuthStatus.unauthenticated;
+            _errorMessage = adminWebOnlyMessage;
+            notifyListeners();
+            return;
+          }
+          _user = cachedUser;
           _status = AuthStatus.authenticated;
           notifyListeners();
           return;
@@ -133,6 +165,18 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
       );
+
+      // Phase 32: Mobile app is strictly for Patients and Doctors.
+      // Admin accounts are supported exclusively on the React Web Admin Portal.
+      if (session.user.role == 'ADMIN') {
+        await _storageService.clearAll();
+        _user = null;
+        _status = AuthStatus.unauthenticated;
+        _errorMessage = adminWebOnlyMessage;
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
 
       // Store tokens securely
       await _storageService.saveTokens(
@@ -203,6 +247,17 @@ class AuthProvider extends ChangeNotifier {
       final session = await _authApiService.authenticateWithGoogle(
         idToken: idToken,
       );
+
+      // Phase 32: Mobile app is strictly for Patients and Doctors.
+      if (session.user.role == 'ADMIN') {
+        await _storageService.clearAll();
+        _user = null;
+        _status = AuthStatus.unauthenticated;
+        _errorMessage = adminWebOnlyMessage;
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
 
       // Store tokens securely in MediConnect storage
       await _storageService.saveTokens(

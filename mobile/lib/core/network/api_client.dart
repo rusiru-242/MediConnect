@@ -442,6 +442,19 @@ class ApiClient {
         return false;
       }
 
+      // Phase 32: Do not refresh admin sessions on mobile
+      final cachedJson = await _storageService.getUserJson();
+      if (cachedJson != null) {
+        try {
+          final decoded = jsonDecode(cachedJson) as Map<String, dynamic>;
+          if (decoded['role'] == 'ADMIN') {
+            await _storageService.clearAll();
+            _refreshCompleter?.complete(false);
+            return false;
+          }
+        } catch (_) {}
+      }
+
       final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.refreshEndpoint}');
       final response = await _httpClient
           .post(

@@ -75,12 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _navigateAfterLogin(AuthProvider authProvider) {
-    if (authProvider.user?.role == 'ADMIN') {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/admin/dashboard',
-        (route) => false,
-      );
-    } else if (authProvider.user?.role == 'DOCTOR') {
+    if (authProvider.user?.role == 'DOCTOR') {
       final status = authProvider.doctorApplicationStatus;
       if (status?.isApproved == true || authProvider.user?.accountStatus == 'ACTIVE') {
         Navigator.of(context).pushNamedAndRemoveUntil(
@@ -93,10 +88,21 @@ class _LoginScreenState extends State<LoginScreen> {
           (route) => false,
         );
       }
-    } else {
+    } else if (authProvider.user?.role == 'PATIENT') {
       Navigator.of(context).pushNamedAndRemoveUntil(
         '/patient/home',
         (route) => false,
+      );
+    } else {
+      // Phase 32: Admin or unsupported role rejection fallback
+      authProvider.logout();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Admin accounts are supported on the MediConnect Web Admin Portal. Please sign in through the web portal.',
+          ),
+          backgroundColor: AppTheme.error,
+        ),
       );
     }
   }
