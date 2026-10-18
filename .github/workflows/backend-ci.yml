@@ -1,0 +1,48 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Backend Lint, Compile & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Syntax & Compilation Check
+        run: python -m compileall app
+
+      - name: Run Pytest Suite
+        run: pytest -q --tb=short
+        env:
+          JWT_SECRET_KEY: ci_test_secret_key_minimum_32_bytes_long_123456
+          STRIPE_SECRET_KEY: sk_test_mock_secret_key
+          STRIPE_WEBHOOK_SECRET: whsec_test_mock_webhook_secret
