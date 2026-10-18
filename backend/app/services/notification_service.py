@@ -129,6 +129,9 @@ class NotificationService:
         col = get_device_token_collection(db)
         now = utc_now()
 
+        # Disassociate this physical device token from any other user to prevent cross-account notification leakage
+        col.delete_many({"fcmToken": token, "userId": {"$ne": str(user_id)}})
+
         # Upsert token for this user
         col.update_one(
             {"userId": str(user_id), "fcmToken": token},

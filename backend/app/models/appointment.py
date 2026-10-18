@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo import ASCENDING
 from pymongo.collection import Collection
 from pymongo.database import Database
+from pymongo.errors import PyMongoError
 
 
 class AppointmentStatus(str, Enum):
