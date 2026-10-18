@@ -18,9 +18,11 @@ import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { SearchBar } from '../components/common/SearchBar';
 import { getErrorMessage } from '../api/client';
+import { useToast } from '../context/ToastContext';
 
 export const DoctorVerificationPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
@@ -57,14 +59,18 @@ export const DoctorVerificationPage: React.FC = () => {
   const approveMutation = useMutation({
     mutationFn: (profileId: string) => doctorVerificationApi.approveApplication(profileId),
     onSuccess: (data) => {
-      setActionSuccess(data.message || 'Doctor application approved.');
+      const msg = data.message || 'Doctor application approved.';
+      setActionSuccess(msg);
+      showToast(msg, 'success');
       setApproveDialogTarget(null);
       setSelectedAppId(null);
       queryClient.invalidateQueries({ queryKey: ['doctor-applications'] });
       queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
     },
     onError: (err: unknown) => {
-      setActionError(getErrorMessage(err));
+      const errDetail = getErrorMessage(err);
+      setActionError(errDetail);
+      showToast(errDetail, 'error');
     },
   });
 
@@ -73,7 +79,9 @@ export const DoctorVerificationPage: React.FC = () => {
     mutationFn: ({ profileId, reason }: { profileId: string; reason: string }) =>
       doctorVerificationApi.rejectApplication(profileId, reason),
     onSuccess: (data) => {
-      setActionSuccess(data.message || 'Doctor application rejected.');
+      const msg = data.message || 'Doctor application rejected.';
+      setActionSuccess(msg);
+      showToast(msg, 'success');
       setRejectDialogTarget(null);
       setRejectionReason('');
       setSelectedAppId(null);
@@ -81,7 +89,9 @@ export const DoctorVerificationPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
     },
     onError: (err: unknown) => {
-      setActionError(getErrorMessage(err));
+      const errDetail = getErrorMessage(err);
+      setActionError(errDetail);
+      showToast(errDetail, 'error');
     },
   });
 
@@ -101,8 +111,11 @@ export const DoctorVerificationPage: React.FC = () => {
   const handleDownloadDoc = async (doctorProfileId: string, documentKey: string, filename: string) => {
     try {
       await doctorVerificationApi.downloadDocument(doctorProfileId, documentKey, filename);
+      showToast(`Downloaded ${filename} successfully.`, 'success');
     } catch (err: unknown) {
-      alert(`Could not download document: ${getErrorMessage(err)}`);
+      const errMsg = `Could not download document: ${getErrorMessage(err)}`;
+      setActionError(errMsg);
+      showToast(errMsg, 'error');
     }
   };
 

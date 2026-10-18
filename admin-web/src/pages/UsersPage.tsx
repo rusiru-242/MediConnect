@@ -13,10 +13,12 @@ import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { getErrorMessage } from '../api/client';
+import { useToast } from '../context/ToastContext';
 
 export const UsersPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { admin } = useAuth();
+  const { showToast } = useToast();
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
@@ -49,19 +51,23 @@ export const UsersPage: React.FC = () => {
     mutationFn: ({ userId, status }: { userId: string; status: string }) =>
       usersApi.updateUserStatus(userId, status),
     onSuccess: (data) => {
-      setActionSuccess(data.message || 'User status updated.');
+      const msg = data.message || 'User status updated.';
+      setActionSuccess(msg);
+      showToast(msg, 'success');
       setTargetUser(null);
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
     },
     onError: (err: unknown) => {
-      setActionError(getErrorMessage(err));
+      const errDetail = getErrorMessage(err);
+      setActionError(errDetail);
+      showToast(errDetail, 'error');
     },
   });
 
   const handleStatusClick = (user: UserItem, targetNewStatus: string) => {
     if (user.id === admin?.id) {
-      alert('Security policy: Administrators cannot modify their own account status.');
+      showToast('Security policy: Administrators cannot modify their own account status.', 'warning');
       return;
     }
     setTargetUser(user);
