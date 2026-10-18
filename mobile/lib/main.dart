@@ -9,6 +9,8 @@ import 'core/theme/app_theme.dart';
 import 'providers/admin_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/notification_provider.dart';
+import 'screens/admin/admin_article_editor_screen.dart';
+import 'screens/admin/admin_articles_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/admin/doctor_applications_screen.dart';
 import 'screens/auth/create_account_screen.dart';
@@ -32,6 +34,7 @@ import 'screens/patient/medication_reminders_screen.dart';
 
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
+import 'screens/patient/health_wellness_screen.dart';
 import 'screens/patient/my_appointments_screen.dart';
 import 'screens/patient/my_reviews_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
@@ -129,6 +132,7 @@ class MediConnectApp extends StatelessWidget {
           '/medication-reminders': (context) => const MedicationRemindersScreen(),
 
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
+          '/patient/health-wellness': (context) => const HealthWellnessScreen(),
           '/patient/my-appointments': (context) => const MyAppointmentsScreen(),
           '/patient/my-reviews': (context) => const MyReviewsScreen(),
           '/patient/appointment-detail': (context) => const AppointmentDetailScreen(),
@@ -143,6 +147,8 @@ class MediConnectApp extends StatelessWidget {
           '/doctor/add-availability': (context) => const AddAvailabilityScreen(),
           '/admin/dashboard': (context) => const AdminDashboardScreen(),
           '/admin/doctor-applications': (context) => const DoctorApplicationsScreen(),
+          '/admin/articles': (context) => const AdminArticlesScreen(),
+          '/admin/new-article': (context) => const AdminArticleEditorScreen(),
         },
       ),
     );

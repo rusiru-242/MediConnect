@@ -21,6 +21,9 @@ from app.routes import (
     payment_router,
     prescription_router,
     review_router,
+    content_router,
+    admin_content_router,
+    analytics_router,
 )
 
 from app.services.notification_service import NotificationService
@@ -94,6 +97,9 @@ app.include_router(medical_record_router, prefix="/api")
 app.include_router(prescription_router, prefix="/api")
 app.include_router(medication_reminder_router, prefix="/api")
 app.include_router(review_router, prefix="/api")
+app.include_router(content_router, prefix="/api")
+app.include_router(admin_content_router, prefix="/api")
+app.include_router(analytics_router, prefix="/api")
 
 
 

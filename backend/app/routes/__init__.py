@@ -8,6 +8,8 @@ from app.routes.doctor import doctor_router
 from app.routes.medical_record import medical_record_router
 from app.routes.medication_reminder import medication_reminder_router
 from app.routes.notification import router as notification_router
+from app.routes.analytics import analytics_router
+from app.routes.health_content import admin_content_router, content_router
 from app.routes.payment import payment_router
 from app.routes.prescription import prescription_router
 from app.routes.review import review_router
@@ -26,6 +28,9 @@ __all__ = [
     "payment_router",
     "prescription_router",
     "review_router",
+    "content_router",
+    "admin_content_router",
+    "analytics_router",
 ]
 
 

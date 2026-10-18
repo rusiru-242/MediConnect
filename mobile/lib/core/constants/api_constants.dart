@@ -278,6 +278,26 @@ class ApiConstants {
   static String adminDoctorApproveEndpoint(String id) => '/admin/doctors/$id/approve';
   static String adminDoctorRejectEndpoint(String id) => '/admin/doctors/$id/reject';
 
+  // Admin Health Content endpoints
+  static const String adminHealthContentEndpoint = '/admin/content';
+  static String adminHealthContentDetailEndpoint(String id) => '/admin/content/$id';
+  static String adminHealthContentPublishEndpoint(String id) => '/admin/content/$id/publish';
+  static String adminHealthContentArchiveEndpoint(String id) => '/admin/content/$id/archive';
+
+  // Admin Analytics endpoints
+  static const String adminAnalyticsOverviewEndpoint = '/admin/analytics/overview';
+  static const String adminAnalyticsAppointmentsEndpoint = '/admin/analytics/appointments';
+  static const String adminAnalyticsPaymentsEndpoint = '/admin/analytics/payments';
+  static const String adminAnalyticsDoctorsEndpoint = '/admin/analytics/doctors';
+  static const String adminAnalyticsContentEndpoint = '/admin/analytics/content';
+
+  // Public & Patient Health Content endpoints
+  static const String healthContentEndpoint = '/content';
+  static const String healthContentCategoriesEndpoint = '/content/categories';
+  static const String healthContentBookmarksEndpoint = '/content/bookmarks';
+  static String healthContentDetailEndpoint(String id) => '/content/$id';
+  static String healthContentBookmarkToggleEndpoint(String id) => '/content/bookmarks/$id';
+
   // Appointment endpoints
   static const String appointmentsEndpoint = '/appointments';
   static const String myAppointmentsEndpoint = '/appointments/me';

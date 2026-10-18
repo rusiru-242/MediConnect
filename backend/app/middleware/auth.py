@@ -116,3 +116,47 @@ def require_role(role: str) -> Callable:
 require_patient = require_role("PATIENT")
 require_doctor = require_role("DOCTOR")
 require_admin = require_role("ADMIN")
+
+
+def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security_bearer),
+    db: Database = Depends(get_database),
+) -> Optional[UserResponseSchema]:
+    """Extract authenticated user if JWT token is provided and valid, otherwise return None."""
+    if credentials is None or not credentials.credentials:
+        return None
+    try:
+        token = credentials.credentials
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+
+        query = {}
+        if ObjectId.is_valid(user_id):
+            query = {"$or": [{"_id": ObjectId(user_id)}, {"_id": user_id}]}
+        else:
+            query = {"_id": user_id}
+
+        user = db["users"].find_one(query)
+        if not user or not user.get("emailVerified"):
+            return None
+        if user.get("accountStatus") == AccountStatus.SUSPENDED.value:
+            return None
+
+        user_profile = {
+            "id": str(user["_id"]),
+            "fullName": user["fullName"],
+            "email": user["email"],
+            "phone": user.get("phone"),
+            "role": user["role"],
+            "emailVerified": user["emailVerified"],
+            "accountStatus": user["accountStatus"],
+            "createdAt": user["createdAt"],
+            "updatedAt": user.get("updatedAt"),
+            "profileImage": user.get("profileImage"),
+            "authProviders": user.get("authProviders"),
+        }
+        return UserResponseSchema(**user_profile)
+    except Exception:
+        return None

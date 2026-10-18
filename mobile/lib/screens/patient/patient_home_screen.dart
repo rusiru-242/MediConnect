@@ -653,6 +653,59 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              // Health & Wellness Content (Phase 24)
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: InkWell(
+                  key: const Key('patient_home_health_wellness_button'),
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/patient/health-wellness');
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.spa_rounded, size: 28, color: Colors.teal.shade800),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Health & Wellness',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Educational articles, healthy eating, exercise habits & tips',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
               // Logout Action Button
               ElevatedButton.icon(
