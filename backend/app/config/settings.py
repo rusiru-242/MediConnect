@@ -92,6 +92,15 @@ class Settings(BaseModel):
     AI_MAX_RECOMMENDATIONS: int = Field(
         default_factory=lambda: int((os.getenv("AI_MAX_RECOMMENDATIONS") or "10").strip())
     )
+    ENVIRONMENT: str = Field(
+        default_factory=lambda: (os.getenv("ENVIRONMENT") or "development").strip().lower()
+    )
+    ALLOWED_ORIGINS: str = Field(
+        default_factory=lambda: (os.getenv("ALLOWED_ORIGINS") or "*").strip()
+    )
+    SECURE_HEADERS_ENABLED: bool = Field(
+        default_factory=lambda: (os.getenv("SECURE_HEADERS_ENABLED") or "true").strip().lower() in ("true", "1", "yes")
+    )
 
 
 settings = Settings()

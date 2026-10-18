@@ -25,10 +25,23 @@ build/
 .DS_Store
 Thumbs.db
 
-# Sensitive files
+# Sensitive files, keys & certificates
 *.pem
 *.key
+*.p8
+*.p12
+*.keystore
+*.jks
+*service-account*.json
+*serviceAccount*.json
+firebase-adminsdk*.json
+google-services.json
 
-# Uploads & User Documents
+# Uploads & User Documents & PDFs
 uploads/
 backend/uploads/
+*.pdf
+
+# Production env templates vs real secrets
+.env.production
+backend/.env.production

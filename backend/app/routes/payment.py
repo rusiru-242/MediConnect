@@ -14,6 +14,7 @@ from app.schemas.payment import (
 )
 from app.schemas.user import UserResponseSchema
 from app.services.payment_service import PaymentService
+from app.utils.rate_limiter import payment_intent_limiter
 
 payment_router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -34,6 +35,7 @@ async def create_payment_intent(
     db: Database = Depends(get_database),
 ) -> CreatePaymentIntentResponse:
     """Create Stripe PaymentIntent for held appointment."""
+    payment_intent_limiter.check(str(current_user.id))
     return await PaymentService.create_payment_intent(
         db=db, patient_user=current_user, req=req
     )

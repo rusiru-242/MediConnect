@@ -83,28 +83,35 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
     from app.models.token import create_token_indexes
     from app.models.user import create_user_indexes
 
-    try:
-        target_db = db if db is not None else DatabaseManager.get_database()
-        create_user_indexes(target_db)
-        create_token_indexes(target_db)
-        create_password_reset_indexes(target_db)
-        create_doctor_profile_indexes(target_db)
-        create_doctor_availability_indexes(target_db)
-        create_appointment_indexes(target_db)
-        create_payment_indexes(target_db)
-        create_notification_indexes(target_db)
-        create_booking_session_indexes(target_db)
-        create_health_chat_indexes(target_db)
-        create_medical_record_indexes(target_db)
-        create_prescription_indexes(target_db)
-        create_medication_reminder_indexes(target_db)
-        create_review_indexes(target_db)
-        create_health_content_indexes(target_db)
-        return True
+    index_creators = [
+        ("users", create_user_indexes),
+        ("tokens", create_token_indexes),
+        ("password_resets", create_password_reset_indexes),
+        ("doctor_profiles", create_doctor_profile_indexes),
+        ("doctor_availabilities", create_doctor_availability_indexes),
+        ("appointments", create_appointment_indexes),
+        ("payments", create_payment_indexes),
+        ("notifications", create_notification_indexes),
+        ("booking_sessions", create_booking_session_indexes),
+        ("health_chat", create_health_chat_indexes),
+        ("medical_records", create_medical_record_indexes),
+        ("prescriptions", create_prescription_indexes),
+        ("medication_reminders", create_medication_reminder_indexes),
+        ("reviews", create_review_indexes),
+        ("health_content", create_health_content_indexes),
+    ]
 
-    except (ConnectionError, ConnectionFailure, PyMongoError) as exc:
-        logger.warning("Could not create MongoDB indexes at this time: %s", type(exc).__name__)
-        return False
+    target_db = db if db is not None else DatabaseManager.get_database()
+    all_success = True
+
+    for collection_name, creator in index_creators:
+        try:
+            creator(target_db)
+        except (ConnectionError, ConnectionFailure, PyMongoError) as exc:
+            logger.warning("Could not create MongoDB indexes for '%s': %s (%s)", collection_name, type(exc).__name__, exc)
+            all_success = False
+
+    return all_success
 
 
 def check_database_connection() -> Dict[str, Any]:
