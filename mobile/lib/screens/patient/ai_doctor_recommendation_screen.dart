@@ -327,6 +327,7 @@ class _AiDoctorRecommendationScreenState extends State<AiDoctorRecommendationScr
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),

@@ -373,6 +373,10 @@ class _ServerSettingsSheetState extends State<ServerSettingsSheet> {
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
                   icon: const Icon(Icons.save_rounded, size: 18),
                   label: const Text('Save & Connect'),
                   onPressed: _saveAndApply,

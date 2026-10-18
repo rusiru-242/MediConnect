@@ -143,9 +143,9 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> with Single
         title: const Text('Medical Records & Rx'),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.tealAccent,
+          labelColor: AppTheme.primary,
+          unselectedLabelColor: AppTheme.textSecondary,
+          indicatorColor: AppTheme.primary,
           indicatorWeight: 3,
           tabs: const [
             Tab(icon: Icon(Icons.description_rounded), text: 'Consultations'),
