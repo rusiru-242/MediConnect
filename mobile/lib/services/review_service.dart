@@ -124,4 +124,42 @@ class ReviewService {
     }
     return true;
   }
+
+  /// Fetch reported reviews awaiting moderation (Admin only).
+  Future<List<AdminReportedReviewItem>> getReportedReviews({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final endpoint = '${ApiConstants.adminReportedReviewsEndpoint}?page=$page&page_size=$pageSize';
+    final response = await _apiClient.get(endpoint, includeAuth: true);
+
+    if (response is List) {
+      return response
+          .whereType<Map<String, dynamic>>()
+          .map((item) => AdminReportedReviewItem.fromJson(item))
+          .toList();
+    }
+    return [];
+  }
+
+  /// Moderate a review (hide or restore) (Admin only).
+  Future<bool> moderateReview({
+    required String reviewId,
+    required String action, // 'HIDE' or 'RESTORE'
+    String? reason,
+  }) async {
+    final payload = {
+      'action': action,
+      if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+    };
+    final response = await _apiClient.patch(
+      ApiConstants.moderateReviewEndpoint(reviewId),
+      body: payload,
+      includeAuth: true,
+    );
+    if (response is Map<String, dynamic>) {
+      return response['success'] == true;
+    }
+    return true;
+  }
 }

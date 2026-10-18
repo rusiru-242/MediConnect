@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/notification_bell_button.dart';
+import '../../widgets/server_settings_sheet.dart';
 
 /// Doctor Home Screen foundation displaying welcome greeting and key operational cards.
 class DoctorHomeScreen extends StatelessWidget {
@@ -37,6 +38,122 @@ class DoctorHomeScreen extends StatelessWidget {
     await authProvider.logout();
     if (!context.mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+  }
+
+  void _showDoctorProfile(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.user;
+    final appStatus = authProvider.doctorApplicationStatus;
+
+    final doctorName = user?.fullName.isNotEmpty == true
+        ? (user!.fullName.startsWith('Dr.') ? user.fullName : 'Dr. ${user.fullName}')
+        : 'Dr. Doctor';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: AppTheme.primaryContainer,
+                  child: const Icon(Icons.medical_services_rounded, size: 32, color: AppTheme.onPrimaryContainer),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doctorName,
+                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        user?.email ?? '',
+                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          appStatus?.verificationStatus.toUpperCase() ?? 'VERIFIED & ACTIVE',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            if (appStatus?.specialty != null && appStatus!.specialty.isNotEmpty)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.local_hospital_rounded, color: AppTheme.primary),
+                title: const Text('Specialty', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                subtitle: Text(appStatus.specialty, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+              ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.assignment_ind_rounded, color: Colors.teal),
+              title: const Text('Verification & Documents', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              subtitle: const Text('View accreditation history and certificate status', style: TextStyle(fontSize: 14)),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).pushNamed('/doctor/application-status');
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.dns_rounded, color: Colors.blueGrey),
+              title: const Text('Server & Connectivity Settings', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              subtitle: const Text('Change host URL or toggle ADB reverse', style: TextStyle(fontSize: 14)),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.pop(ctx);
+                ServerSettingsSheet.show(context);
+              },
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text(
+                'MediConnect Doctor Portal v1.0.0 (RC-1)',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -183,11 +300,7 @@ class DoctorHomeScreen extends StatelessWidget {
                 iconColor: Colors.deepPurple,
                 title: 'My Profile',
                 subtitle: 'View professional credentials, specialty, and clinic affiliation',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Doctor profile editing will be expanded in the next phase.')),
-                  );
-                },
+                onTap: () => _showDoctorProfile(context),
               ),
 
               const SizedBox(height: 12),

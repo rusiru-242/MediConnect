@@ -33,9 +33,10 @@ class _DoctorApplicationStatusScreenState
     if (!mounted) return;
     setState(() => _isRefreshing = false);
 
-    // If approved, optionally auto-route or notify
+    // If approved and arrived from root auth flow, auto-route to doctor home
+    final canPop = Navigator.of(context).canPop();
     final status = authProvider.doctorApplicationStatus;
-    if (status?.isApproved == true) {
+    if (status?.isApproved == true && !canPop) {
       Navigator.of(context).pushReplacementNamed('/doctor/home');
     }
   }
@@ -60,7 +61,7 @@ class _DoctorApplicationStatusScreenState
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Application Status'),
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: Navigator.of(context).canPop(),
         actions: [
           IconButton(
             tooltip: 'Logout',

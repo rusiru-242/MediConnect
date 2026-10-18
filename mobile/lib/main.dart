@@ -12,6 +12,7 @@ import 'providers/notification_provider.dart';
 import 'screens/admin/admin_article_editor_screen.dart';
 import 'screens/admin/admin_articles_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
+import 'screens/admin/admin_reviews_screen.dart';
 import 'screens/admin/doctor_applications_screen.dart';
 import 'screens/auth/create_account_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
@@ -149,6 +150,7 @@ class MediConnectApp extends StatelessWidget {
           '/admin/doctor-applications': (context) => const DoctorApplicationsScreen(),
           '/admin/articles': (context) => const AdminArticlesScreen(),
           '/admin/new-article': (context) => const AdminArticleEditorScreen(),
+          '/admin/reviews': (context) => const AdminReviewsScreen(),
         },
       ),
     );

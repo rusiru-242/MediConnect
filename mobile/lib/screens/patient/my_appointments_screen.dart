@@ -282,6 +282,14 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
       appBar: AppBar(
         title: const Text('My Appointments'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            key: const Key('my_appointments_payments_button'),
+            icon: const Icon(Icons.receipt_long_rounded),
+            tooltip: 'Payment History',
+            onPressed: () => Navigator.of(context).pushNamed('/patient/payments'),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppTheme.primary,

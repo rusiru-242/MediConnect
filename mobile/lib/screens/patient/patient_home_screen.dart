@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
+import '../../widgets/server_settings_sheet.dart';
 
 /// Temporary home screen for authenticated patients.
 /// Displays greeting with the user's full name, MediConnect branding, and Logout button.
@@ -70,6 +71,130 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     );
   }
 
+  void _showSettingsAndProfile() {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.user;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+                  child: const Icon(Icons.person_rounded, size: 32, color: AppTheme.primary),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user?.fullName ?? 'Patient',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        user?.email ?? '',
+                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.alarm_rounded, color: Colors.indigo),
+              ),
+              title: const Text('Medication Reminders'),
+              subtitle: const Text('Active schedules, adherence, and reminders'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).pushNamed('/patient/medication-reminders');
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.receipt_long_rounded, color: Colors.green),
+              ),
+              title: const Text('Payment History & Receipts'),
+              subtitle: const Text('Stripe consultation fee transactions'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).pushNamed('/patient/payments');
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.dns_rounded, color: Colors.blueGrey),
+              ),
+              title: const Text('Server & Connectivity Settings'),
+              subtitle: const Text('Change host URL or toggle ADB reverse'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.pop(ctx);
+                ServerSettingsSheet.show(context);
+              },
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text(
+                'MediConnect v1.0.0 (RC-1)',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -82,6 +207,12 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         title: const Text('MediConnect'),
         actions: [
           const NotificationBellButton(),
+          IconButton(
+            key: const Key('patient_home_settings_button'),
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Profile & Settings',
+            onPressed: _showSettingsAndProfile,
+          ),
           IconButton(
             key: const Key('patient_home_logout_icon_button'),
             icon: const Icon(Icons.logout_rounded),
@@ -692,6 +823,59 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                               SizedBox(height: 4),
                               Text(
                                 'Educational articles, healthy eating, exercise habits & tips',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Payment History & Receipts
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: InkWell(
+                  key: const Key('patient_home_payments_button'),
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/patient/payments');
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.receipt_long_rounded, size: 28, color: Colors.green),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Payment History & Receipts',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'View past consultation fee payments, transaction receipts & status',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: AppTheme.textSecondary,

@@ -9,6 +9,7 @@ import '../../services/analytics_service.dart';
 import '../../widgets/mediconnect_logo.dart';
 import 'admin_article_editor_screen.dart';
 import 'admin_articles_screen.dart';
+import 'admin_reviews_screen.dart';
 import 'doctor_applications_screen.dart';
 
 /// Administrative dashboard for MediConnect doctor verification, analytics, and content operations (Phase 24).
@@ -138,6 +139,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const AdminArticleEditorScreen(),
+      ),
+    );
+  }
+
+  void _navigateToReviews() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AdminReviewsScreen(),
       ),
     );
   }
@@ -683,6 +692,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                     onPressed: () => _navigateToApplications(filter: 'PENDING'),
                     icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                     label: const Text('View Doctor Applications'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Quick Navigation: Doctor Review Moderation
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.rate_review_rounded, color: Colors.amber.shade800, size: 24),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Doctor Review Moderation',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Inspect reported patient feedback, moderate inappropriate reviews, or restore hidden reviews.',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    key: const Key('open_review_moderation_button'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber.shade800,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _navigateToReviews,
+                    icon: const Icon(Icons.shield_outlined, size: 18),
+                    label: const Text('Moderate Reported Reviews'),
                   ),
                 ],
               ),

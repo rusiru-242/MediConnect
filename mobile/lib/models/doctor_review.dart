@@ -205,3 +205,90 @@ class DoctorReviewsPage {
     );
   }
 }
+
+/// Model representing a reported review for administrative moderation.
+class AdminReportedReviewItem {
+  final String reviewId;
+  final String appointmentId;
+  final String doctorUserId;
+  final String? doctorName;
+  final String patientUserId;
+  final String? patientDisplayName;
+  final int rating;
+  final String? reviewText;
+  final String status;
+  final String? reportReason;
+  final String? reportedBy;
+  final DateTime? reportedAt;
+  final DateTime createdAt;
+
+  const AdminReportedReviewItem({
+    required this.reviewId,
+    required this.appointmentId,
+    required this.doctorUserId,
+    this.doctorName,
+    required this.patientUserId,
+    this.patientDisplayName,
+    required this.rating,
+    this.reviewText,
+    required this.status,
+    this.reportReason,
+    this.reportedBy,
+    this.reportedAt,
+    required this.createdAt,
+  });
+
+  factory AdminReportedReviewItem.fromJson(Map<String, dynamic> json) {
+    DateTime parsedCreated;
+    try {
+      parsedCreated = json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'].toString()).toLocal()
+          : DateTime.now();
+    } catch (_) {
+      parsedCreated = DateTime.now();
+    }
+
+    DateTime? parsedReported;
+    if (json['reportedAt'] != null) {
+      try {
+        parsedReported = DateTime.parse(json['reportedAt'].toString()).toLocal();
+      } catch (_) {
+        parsedReported = null;
+      }
+    }
+
+    return AdminReportedReviewItem(
+      reviewId: (json['reviewId'] ?? '').toString(),
+      appointmentId: (json['appointmentId'] ?? '').toString(),
+      doctorUserId: (json['doctorUserId'] ?? '').toString(),
+      doctorName: json['doctorName']?.toString(),
+      patientUserId: (json['patientUserId'] ?? '').toString(),
+      patientDisplayName: json['patientDisplayName']?.toString() ?? 'Verified Patient',
+      rating: (json['rating'] as num?)?.toInt() ?? 5,
+      reviewText: json['reviewText']?.toString(),
+      status: (json['status'] ?? 'PUBLISHED').toString(),
+      reportReason: json['reportReason']?.toString(),
+      reportedBy: json['reportedBy']?.toString(),
+      reportedAt: parsedReported,
+      createdAt: parsedCreated,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'reviewId': reviewId,
+      'appointmentId': appointmentId,
+      'doctorUserId': doctorUserId,
+      'doctorName': doctorName,
+      'patientUserId': patientUserId,
+      'patientDisplayName': patientDisplayName,
+      'rating': rating,
+      'reviewText': reviewText,
+      'status': status,
+      'reportReason': reportReason,
+      'reportedBy': reportedBy,
+      'reportedAt': reportedAt?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+}
