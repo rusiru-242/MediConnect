@@ -1,5 +1,6 @@
 """Conversational AI Booking Agent with bilingual multi-turn dialog, state machine, and safety checks."""
 
+from collections import defaultdict
 from datetime import datetime, timezone
 import logging
 import re
@@ -8,6 +9,10 @@ from bson import ObjectId
 from pymongo.database import Database
 
 from app.agents.ai_provider import get_ai_provider
+from app.agents.companion_intent import CompanionIntent, CompanionIntentClassifier
+from app.agents.medicine_knowledge import MedicineKnowledge
+from app.agents.wellness_knowledge import WellnessKnowledge
+from app.agents.medicine_image_agent import MedicineImageAgent
 from app.agents.nlp_parser import (
     check_urgency,
     parse_query_deterministically,
@@ -59,6 +64,9 @@ class BookingAgent:
         db: Database,
         session_data: Dict[str, Any],
         user_message: str,
+        image_bytes: Optional[bytes] = None,
+        image_filename: Optional[str] = None,
+        image_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Process a user conversational turn, update preferences, and transition state."""
         clean_text = user_message.strip()
@@ -79,7 +87,7 @@ class BookingAgent:
                 "sender": "user",
                 "content": clean_text,
                 "timestamp": utc_now(),
-                "metadata": None,
+                "metadata": {"imageUrl": image_url} if image_url else None,
             })
             session_data["messages"].append({
                 "id": str(ObjectId()),
@@ -121,6 +129,10 @@ class BookingAgent:
             prefs["maxFee"] = float(parsed_delta["maxFee"])
         if parsed_delta.get("language"):
             prefs["language"] = parsed_delta["language"]
+        if parsed_delta.get("symptoms"):
+            prefs["symptoms"] = parsed_delta["symptoms"]
+        if parsed_delta.get("sortBy"):
+            prefs["sortBy"] = parsed_delta["sortBy"]
 
         lang = prefs.get("language", "en")
         session_data["preferences"] = prefs
@@ -131,32 +143,233 @@ class BookingAgent:
             "sender": "user",
             "content": clean_text,
             "timestamp": utc_now(),
-            "metadata": None,
+            "metadata": {"imageUrl": image_url} if image_url else None,
         })
 
-        # 3. Handle explicit selections via conversational text if applicable
-        selected_doctor = session_data.get("selectedDoctor")
-        selected_slot = session_data.get("selectedSlot")
+        # -----------------------------------------------------------------
+        # Unified Intent Routing across Companion Capabilities (Phase 40)
+        # -----------------------------------------------------------------
+        intent = CompanionIntentClassifier.classify_intent(
+            query=clean_text,
+            current_state=current_state,
+            has_image=bool(image_bytes or image_url),
+            candidate_count=len(session_data.get("candidateDoctors") or []),
+        )
+        session_data["activeIntent"] = intent.value
+
+        # Capability 1: Medicine Image Analysis (Packaging/Label OCR & Uncertainty)
+        if intent == CompanionIntent.MEDICINE_IMAGE_ANALYSIS or image_bytes or image_url:
+            if image_bytes and image_filename:
+                img_res = await MedicineImageAgent.analyze_medicine_image(
+                    image_bytes=image_bytes,
+                    filename=image_filename,
+                    user_prompt=clean_text,
+                )
+            else:
+                img_res = await MedicineImageAgent.analyze_medicine_image(
+                    image_bytes=b"\x89PNG\r\n\x1a\n" + b"\x00" * 32,
+                    filename="medicine_label.png",
+                    user_prompt=clean_text,
+                )
+
+            session_data["activeImageAnalysis"] = img_res.get("analysis")
+            session_data["activeMedicineCard"] = img_res.get("medicineCard")
+            session_data["activeWellnessCard"] = None
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": img_res.get("text", ""),
+                "timestamp": utc_now(),
+                "metadata": {
+                    "type": "medicine_image_analysis",
+                    "analysis": img_res.get("analysis"),
+                    "card": img_res.get("medicineCard"),
+                },
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        # Capability 2: Medicine Information Assistant
+        if intent == CompanionIntent.MEDICINE_INFORMATION:
+            med_res = MedicineKnowledge.generate_educational_response(clean_text)
+            session_data["activeMedicineCard"] = med_res.get("card")
+            session_data["activeWellnessCard"] = None
+            session_data["activeImageAnalysis"] = None
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": med_res.get("text", ""),
+                "timestamp": utc_now(),
+                "metadata": {
+                    "type": "medicine_information",
+                    "card": med_res.get("card"),
+                },
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        # Capability 3: Healthy Food & Nutrition Assistant
+        if intent == CompanionIntent.HEALTHY_FOOD:
+            food_res = WellnessKnowledge.get_healthy_food_guidance(clean_text)
+            session_data["activeWellnessCard"] = food_res.get("card")
+            session_data["activeMedicineCard"] = None
+            session_data["activeImageAnalysis"] = None
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": food_res.get("text", ""),
+                "timestamp": utc_now(),
+                "metadata": {
+                    "type": "healthy_food",
+                    "card": food_res.get("card"),
+                },
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        # Capability 4: Exercise & Mobility Guidance
+        if intent == CompanionIntent.EXERCISE_GUIDANCE:
+            ex_res = WellnessKnowledge.get_exercise_guidance(clean_text)
+            if ex_res.get("intent") == "EMERGENCY_GUIDANCE":
+                session_data["isUrgent"] = True
+                session_data["urgencyReason"] = "Concerning symptoms reported during physical activity inquiry."
+                session_data["messages"].append({
+                    "id": str(ObjectId()),
+                    "sender": "assistant",
+                    "content": ex_res.get("text", ""),
+                    "timestamp": utc_now(),
+                    "metadata": {"isUrgent": True, "ambulanceCall": "1990"},
+                })
+                session_data["updatedAt"] = utc_now()
+                return session_data
+
+            session_data["activeWellnessCard"] = ex_res.get("card")
+            session_data["activeMedicineCard"] = None
+            session_data["activeImageAnalysis"] = None
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": ex_res.get("text", ""),
+                "timestamp": utc_now(),
+                "metadata": {
+                    "type": "exercise_guidance",
+                    "card": ex_res.get("card"),
+                },
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        # Capability 5: General Wellness, Sleep & Lifestyle Habits
+        if intent == CompanionIntent.GENERAL_WELLNESS:
+            well_res = WellnessKnowledge.get_wellness_guidance(clean_text)
+            session_data["activeWellnessCard"] = well_res.get("card")
+            session_data["activeMedicineCard"] = None
+            session_data["activeImageAnalysis"] = None
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": well_res.get("text", ""),
+                "timestamp": utc_now(),
+                "metadata": {
+                    "type": "general_wellness",
+                    "card": well_res.get("card"),
+                },
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        # 3. Handle explicit cancel / reset commands
+        if re.search(r"\b(?:cancel|abort|start\s+over|reset|අවලංගු)\b", clean_text, re.IGNORECASE):
+            session_data["selectedDoctor"] = None
+            session_data["selectedSlot"] = None
+            session_data["bookingSummary"] = None
+            session_data["state"] = BookingAgentState.COLLECTING_PREFERENCES.value
+            assistant_msg = (
+                "ඔබේ තේරීම අවලංගු කරන ලදී. ඔබට නැවත නව වෛද්‍යවරයකු සෙවිය හැකිය."
+                if lang == "si"
+                else "Your booking selection has been reset. You can search for another doctor or specialty whenever you're ready."
+            )
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": assistant_msg,
+                "timestamp": utc_now(),
+                "metadata": {"type": "reset"},
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
         candidate_doctors = session_data.get("candidateDoctors") or []
         candidate_slots = session_data.get("candidateSlots") or []
+        selected_doctor = session_data.get("selectedDoctor")
+        selected_slot = session_data.get("selectedSlot")
 
-        # Check if user mentioned a doctor name from candidates
+        # 4. Handle "compare" / "compare doctors" request
+        if candidate_doctors and re.search(r"\b(?:compare|comparison|සසඳන්න)\b", clean_text, re.IGNORECASE):
+            assistant_msg = cls._build_comparison_message(candidate_doctors, lang)
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": assistant_msg,
+                "timestamp": utc_now(),
+                "metadata": {"type": "doctor_comparison", "count": len(candidate_doctors)},
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        # 5. Handle "show me doctors with lower consultation fees" or "cheaper doctor"
+        if parsed_delta.get("sortBy") == "fee_asc" or re.search(r"\b(?:cheaper|lower\s+fee|lower\s+fees|lowest\s+fee|අඩු\s+ගාස්තු)\b", clean_text, re.IGNORECASE):
+            prefs["sortBy"] = "fee_asc"
+            session_data["preferences"] = prefs
+            session_data["selectedDoctor"] = None
+            session_data["selectedSlot"] = None
+            session_data["bookingSummary"] = None
+            doctors = await cls._search_candidate_doctors(db, prefs)
+            session_data["candidateDoctors"] = doctors
+            session_data["state"] = BookingAgentState.AWAITING_DOCTOR_SELECTION.value
+            assistant_msg = (
+                "මෙන්න අඩුම උපදේශන ගාස්තු සහිත පිළිගත් වෛද්‍යවරුන්:\n"
+                if lang == "si"
+                else "Here are the verified doctors sorted by lowest consultation fee:\n"
+            )
+            assistant_msg += cls._build_doctor_options_message(doctors, prefs, lang)
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": assistant_msg,
+                "timestamp": utc_now(),
+                "metadata": {"type": "doctor_options", "count": len(doctors), "sortedBy": "fee_asc"},
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        # 6. If user changes search criteria while a doctor was already selected, reset selection
+        if selected_doctor and (parsed_delta.get("specialty") or parsed_delta.get("city") or parsed_delta.get("maxFee") is not None):
+            session_data["selectedDoctor"] = None
+            session_data["selectedSlot"] = None
+            session_data["bookingSummary"] = None
+            selected_doctor = None
+            selected_slot = None
+
+        # 7. Check if user mentioned a doctor (by name or ordinal: 'second doctor', 'doctor 1', etc.)
         matched_doctor = None
         if not selected_doctor and candidate_doctors:
-            text_lower = clean_text.lower()
-            for doc in candidate_doctors:
-                doc_name = doc.get("fullName", "").lower()
-                doc_id = doc.get("doctorId", "").lower()
-                # Check for "dr. name" or last name match
-                name_parts = [p for p in doc_name.replace("dr.", "").strip().split() if len(p) > 2]
-                if doc_name in text_lower or doc_id in text_lower or any(p in text_lower for p in name_parts):
-                    matched_doctor = doc
-                    break
+            ordinal = parsed_delta.get("ordinalDoctorIndex")
+            if ordinal is not None and 0 <= ordinal < len(candidate_doctors):
+                matched_doctor = candidate_doctors[ordinal]
+            else:
+                text_lower = clean_text.lower()
+                for doc in candidate_doctors:
+                    doc_name = doc.get("fullName", "").lower()
+                    doc_id = doc.get("doctorId", "").lower()
+                    name_parts = [p for p in doc_name.replace("dr.", "").strip().split() if len(p) > 2]
+                    if doc_name in text_lower or doc_id in text_lower or any(p in text_lower for p in name_parts):
+                        matched_doctor = doc
+                        break
 
         if matched_doctor:
             session_data["selectedDoctor"] = matched_doctor
             selected_doctor = matched_doctor
-            # Clear candidates and transition to slot selection
             slots = await cls._fetch_available_slots(db, matched_doctor["doctorId"], prefs.get("date"))
             session_data["candidateSlots"] = slots
             target_state = BookingAgentState.AWAITING_SLOT_SELECTION.value
@@ -174,7 +387,7 @@ class BookingAgent:
             session_data["updatedAt"] = utc_now()
             return session_data
 
-        # Check if user mentioned a time slot from candidate slots
+        # 8. Check if user mentioned a time slot from candidate slots (by time or ordinal)
         matched_slot = None
         if selected_doctor and not selected_slot and candidate_slots:
             time_match = re.search(r"(\d{1,2}[:.]\d{2})", clean_text)
@@ -186,6 +399,11 @@ class BookingAgent:
                     if s.get("startTime") == raw_time:
                         matched_slot = s
                         break
+            else:
+                # Check for ordinal slot selection e.g. "first slot", "second slot"
+                slot_ord = parsed_delta.get("ordinalDoctorIndex")
+                if slot_ord is not None and 0 <= slot_ord < len(candidate_slots):
+                    matched_slot = candidate_slots[slot_ord]
 
         if matched_slot:
             session_data["selectedSlot"] = matched_slot
@@ -206,7 +424,7 @@ class BookingAgent:
             session_data["updatedAt"] = utc_now()
             return session_data
 
-        # 4. If doctor already selected and awaiting slot
+        # 9. If doctor already selected and awaiting slot selection
         if selected_doctor and not selected_slot:
             slots = await cls._fetch_available_slots(db, selected_doctor["doctorId"], prefs.get("date"))
             session_data["candidateSlots"] = slots
@@ -225,9 +443,8 @@ class BookingAgent:
             session_data["updatedAt"] = utc_now()
             return session_data
 
-        # 5. Doctor Discovery Search
-        # If specialty is known or query has enough intent, search approved doctors
-        if prefs.get("specialty") or prefs.get("city"):
+        # 10. Doctor Discovery Search (specialty, symptoms, or location specified)
+        if prefs.get("specialty") or prefs.get("city") or prefs.get("symptoms"):
             target_state = BookingAgentState.SEARCHING_DOCTORS.value
             if validate_state_transition(current_state, target_state):
                 session_data["state"] = target_state
@@ -267,10 +484,10 @@ class BookingAgent:
 
             assistant_msg = (
                 "මම ඔබට වෛද්‍යවරයකු සොයා ගැනීමට සහ වේලාවක් වෙන්කරවා ගැනීමට උදව් කළ හැකියි. "
-                "කරුණාකර ඔබට අවශ්‍ය වෛද්‍ය විශේෂඥතාවය (උදා: චර්ම රෝග, හෘද රෝග) හෝ ඔබ සිටින නගරය සඳහන් කරන්න."
+                "කරුණාකර ඔබට අවශ්‍ය වෛද්‍ය විශේෂඥතාවය (උදා: චර්ම රෝග, හෘද රෝග, සාමාන්‍ය වෛද්‍ය), ඔබේ රෝග ලක්ෂණ හෝ ඔබ සිටින නගරය සඳහන් කරන්න."
                 if lang == "si"
-                else "I'm your MediConnect Booking Assistant. I can help you find verified doctors and book an appointment. "
-                "Could you please share what specialty or symptoms you're looking for, or your preferred city?"
+                else "I'm your MediConnect AI Care Assistant. I can help you find verified doctors, compare options, and book an appointment. "
+                "Could you please share your symptoms or preferred medical specialty (e.g. Cardiologist, Dermatologist), your city, or budget?"
             )
             session_data["messages"].append({
                 "id": str(ObjectId()),
@@ -292,7 +509,7 @@ class BookingAgent:
         db: Database,
         prefs: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
-        """Find approved and active doctors matching accumulated preferences."""
+        """Find approved and active doctors matching accumulated preferences with multi-factor scoring."""
         profile_query: Dict[str, Any] = {
             "verificationStatus": DoctorVerificationStatus.APPROVED.value,
         }
@@ -308,16 +525,11 @@ class BookingAgent:
         if city and city.strip():
             profile_query["hospitalOrClinic"] = {"$regex": re.escape(city.strip()), "$options": "i"}
 
-        max_fee = prefs.get("maxFee")
-        if max_fee is not None:
-            profile_query["consultationFee"] = {"$lte": float(max_fee)}
-
-        profiles = list(db["doctor_profiles"].find(profile_query).limit(10))
-        if not profiles:
-            # If city match produced 0 results, retry without city to suggest available specialists
-            if city:
-                profile_query.pop("hospitalOrClinic", None)
-                profiles = list(db["doctor_profiles"].find(profile_query).limit(10))
+        profiles = list(db["doctor_profiles"].find(profile_query).limit(20))
+        if not profiles and city:
+            # If city produced 0 results, retry without city to suggest available specialists
+            profile_query.pop("hospitalOrClinic", None)
+            profiles = list(db["doctor_profiles"].find(profile_query).limit(20))
 
         if not profiles:
             return []
@@ -335,27 +547,178 @@ class BookingAgent:
         })
         active_users = {str(u["_id"]): u for u in users_cursor}
 
-        results: List[Dict[str, Any]] = []
+        verified_candidates: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
         for p in profiles:
             uid_str = str(p.get("userId", ""))
             user = active_users.get(uid_str)
-            if not user:
+            if user:
+                verified_candidates.append((p, user))
+
+        if not verified_candidates:
+            return []
+
+        # Batch retrieve available slots
+        sl_today = get_sl_today_str()
+        cand_prof_ids = [str(p["_id"]) for p, _ in verified_candidates]
+        cand_user_ids = [str(u["_id"]) for _, u in verified_candidates]
+
+        avails_cursor = db["doctor_availabilities"].find({
+            "doctorProfileId": {"$in": cand_prof_ids},
+            "isActive": True,
+            "date": {"$gte": sl_today},
+        }).sort([("date", 1), ("startTime", 1)])
+        avails_by_prof: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for av in avails_cursor:
+            avails_by_prof[str(av.get("doctorProfileId", ""))].append(av)
+
+        now_utc = datetime.now(timezone.utc)
+        appts_cursor = db["appointments"].find(
+            {
+                "doctorUserId": {"$in": cand_user_ids},
+                "status": {"$in": ["HOLD", "PENDING", "CONFIRMED", "COMPLETED"]},
+                "appointmentDate": {"$gte": sl_today},
+            },
+            {"doctorUserId": 1, "appointmentDate": 1, "startTime": 1, "status": 1, "holdExpiresAt": 1, "paymentStatus": 1},
+        )
+        booked_by_doc: Dict[str, set] = defaultdict(set)
+        for a in appts_cursor:
+            st = a.get("status")
+            hold = a.get("holdExpiresAt")
+            paid = a.get("paymentStatus") == "PAID"
+            if st in ["HOLD", "PENDING"] and not paid and hold:
+                if hold.tzinfo is None:
+                    hold = hold.replace(tzinfo=timezone.utc)
+                if hold <= now_utc:
+                    continue
+            d_uid = str(a.get("doctorUserId", ""))
+            booked_by_doc[d_uid].add((a.get("appointmentDate"), a.get("startTime")))
+
+        max_fee = prefs.get("maxFee")
+        target_date = prefs.get("date")
+
+        scored_candidates: List[Dict[str, Any]] = []
+
+        for p, user in verified_candidates:
+            uid_str = str(user["_id"])
+            prof_id = str(p["_id"])
+            doc_id = str(p.get("doctorId", ""))
+            doc_name = user.get("fullName", "Doctor")
+            doc_spec = p.get("specialty", "General Medicine")
+            doc_hospital = p.get("hospitalOrClinic", "MediConnect Clinic")
+            doc_fee = float(p.get("consultationFee", 2500.0))
+            doc_exp = int(p.get("experienceYears", 0))
+            doc_rating = float(p.get("rating", 4.8))
+            doc_quals = p.get("qualifications", "MBBS")
+
+            # Hard budget filter if maxFee specified
+            if max_fee is not None and doc_fee > float(max_fee):
                 continue
 
-            results.append({
-                "doctorId": str(p.get("doctorId", "")),
-                "doctorProfileId": str(p["_id"]),
+            # Calculate available unbooked slots
+            avails = avails_by_prof.get(prof_id, [])
+            booked_set = booked_by_doc.get(uid_str, set())
+            unbooked_slots: List[Dict[str, Any]] = []
+
+            for av in avails:
+                d_str = av["date"]
+                s_t = av["startTime"]
+                e_t = av["endTime"]
+                dur = int(av.get("slotDurationMinutes", 30))
+                av_id = str(av["_id"])
+
+                gen_slots = DoctorService._generate_slots_for_window(
+                    date_str=d_str,
+                    start_time_str=s_t,
+                    end_time_str=e_t,
+                    slot_duration_mins=dur,
+                    availability_id=av_id,
+                )
+                for gs in gen_slots:
+                    if (d_str, gs.startTime) not in booked_set:
+                        unbooked_slots.append({
+                            "availabilityId": av_id,
+                            "date": d_str,
+                            "startTime": gs.startTime,
+                            "endTime": gs.endTime,
+                        })
+
+            # Multi-factor score (0-100) & match reasons
+            score = 0.0
+            reasons: List[str] = []
+
+            # 1. Specialty match (up to 40 pts)
+            if specialty:
+                if specialty.lower() in doc_spec.lower() or doc_spec.lower() in specialty.lower():
+                    score += 40.0
+                    reasons.append(f"Direct match for requested specialty: {doc_spec}")
+                else:
+                    score += 20.0
+                    reasons.append(f"Provides care as {doc_spec}")
+            else:
+                score += 20.0
+                reasons.append(f"Approved specialist in {doc_spec}")
+
+            # 2. Location match (up to 25 pts)
+            if city:
+                if city.lower() in doc_hospital.lower():
+                    score += 25.0
+                    reasons.append(f"Located in {city} ({doc_hospital})")
+                else:
+                    score += 5.0
+            else:
+                score += 15.0
+
+            # 3. Budget match (up to 20 pts)
+            if max_fee is not None:
+                if doc_fee <= float(max_fee):
+                    score += 20.0
+                    reasons.append(f"Consultation fee LKR {doc_fee:,.0f} is within your budget of LKR {float(max_fee):,.0f}")
+            else:
+                score += 15.0
+
+            # 4. Availability match (up to 10 pts)
+            next_date = unbooked_slots[0]["date"] if unbooked_slots else None
+            if target_date:
+                has_date = any(s["date"] == target_date for s in unbooked_slots)
+                if has_date:
+                    score += 10.0
+                    reasons.append(f"Has appointment slot available on {target_date}")
+                elif unbooked_slots:
+                    score += 5.0
+            elif unbooked_slots:
+                score += 10.0
+                reasons.append(f"Next available slot on {next_date}")
+
+            # 5. Rating bonus (up to 5 pts)
+            score += min(5.0, doc_rating)
+
+            scored_candidates.append({
+                "doctorId": doc_id,
+                "doctorProfileId": prof_id,
                 "doctorUserId": uid_str,
-                "fullName": user.get("fullName", "Doctor"),
-                "specialty": p.get("specialty", "General Medicine"),
-                "hospitalOrClinic": p.get("hospitalOrClinic", "MediConnect Clinic"),
-                "experienceYears": int(p.get("experienceYears", 0)),
-                "consultationFee": float(p.get("consultationFee", 2500.0)),
-                "rating": float(p.get("rating", 4.8)),
-                "matchReason": f"Approved specialist in {p.get('specialty')} with {p.get('experienceYears', 0)} years experience",
+                "fullName": doc_name,
+                "specialty": doc_spec,
+                "qualifications": doc_quals,
+                "hospitalOrClinic": doc_hospital,
+                "experienceYears": doc_exp,
+                "consultationFee": doc_fee,
+                "rating": doc_rating,
+                "matchScore": round(min(100.0, score), 1),
+                "matchReason": reasons[0] if reasons else f"Approved specialist in {doc_spec}",
+                "matchReasons": reasons,
+                "nextAvailableDate": next_date,
+                "availableSlots": unbooked_slots[:4],
             })
 
-        return results[:5]
+        # Sorting: if fee_asc requested, sort by consultationFee ascending
+        if prefs.get("sortBy") == "fee_asc":
+            scored_candidates.sort(key=lambda x: (x["consultationFee"], -x["matchScore"]))
+        elif prefs.get("sortBy") == "rating_desc":
+            scored_candidates.sort(key=lambda x: (-x["rating"], -x["matchScore"]))
+        else:
+            scored_candidates.sort(key=lambda x: (-x["matchScore"], x["consultationFee"]))
+
+        return scored_candidates[:5]
 
     @classmethod
     async def _fetch_available_slots(
@@ -442,20 +805,61 @@ class BookingAgent:
         if lang == "si":
             lines = [f"ඔබේ අවශ්‍යතාවයට ගැළපෙන පිළිගත් {spec} වෛද්‍යවරුන් {count} දෙනෙකු සොයා ගන්නා ලදී:"]
             for i, d in enumerate(doctors, 1):
+                qual_str = f" ({d['qualifications']})" if d.get("qualifications") else ""
                 lines.append(
-                    f"{i}. {d['fullName']} - {d.get('hospitalOrClinic', 'රෝහල')} "
-                    f"(ගාස්තුව: LKR {d['consultationFee']:,.0f})"
+                    f"{i}. {d['fullName']}{qual_str} - {d.get('hospitalOrClinic', 'රෝහල')} "
+                    f"[ගාස්තුව: LKR {d['consultationFee']:,.0f} | ශ්‍රේණිගත කිරීම: ⭐{d.get('rating', 4.8):.1f}]"
                 )
-            lines.append("කරුණාකර ලබාගත හැකි වේලාවන් බැලීමට වෛද්‍යවරයකු තෝරන්න.")
+            lines.append("වේලාවන් බැලීමට වෛද්‍යවරයකු තෝරන්න (උදා: '2 වැනි වෛද්‍යවරයා' හෝ බොත්තම ඔබන්න).")
             return "\n".join(lines)
 
         lines = [f"I found {count} approved {spec}{loc_str} matching your preferences:"]
         for i, d in enumerate(doctors, 1):
+            qual_str = f" ({d['qualifications']})" if d.get("qualifications") else ""
+            score_str = f" • {d['matchScore']:.0f}% Match" if d.get("matchScore") else ""
             lines.append(
-                f"{i}. {d['fullName']} - {d.get('hospitalOrClinic', 'Clinic')} "
-                f"(Fee: LKR {d['consultationFee']:,.0f})"
+                f"{i}. {d['fullName']}{qual_str} - {d.get('hospitalOrClinic', 'Clinic')} "
+                f"[Fee: LKR {d['consultationFee']:,.0f} | Rating: ⭐{d.get('rating', 4.8):.1f}{score_str}]"
             )
-        lines.append("Please select a doctor to view their available appointment slots.")
+        lines.append("Select a doctor to view available appointment slots, or ask to compare them.")
+        return "\n".join(lines)
+
+    @classmethod
+    def _build_comparison_message(
+        cls,
+        doctors: List[Dict[str, Any]],
+        lang: str,
+    ) -> str:
+        if lang == "si":
+            lines = ["වෛද්‍යවරුන්ගේ සංසන්දනය:"]
+            for i, d in enumerate(doctors[:3], 1):
+                lines.append(
+                    f"\n{i}. {d['fullName']}\n"
+                    f"   • විශේෂත්වය: {d['specialty']}\n"
+                    f"   • සුදුසුකම්: {d.get('qualifications', 'MBBS')}\n"
+                    f"   • රෝහල: {d.get('hospitalOrClinic', 'MediConnect')}\n"
+                    f"   • උපදේශන ගාස්තුව: LKR {d['consultationFee']:,.0f}\n"
+                    f"   • පළපුරුද්ද: වසර {d.get('experienceYears', 0)}\n"
+                    f"   • ශ්‍රේණිගත කිරීම: ⭐ {d.get('rating', 4.8):.1f}\n"
+                    f"   • ඊළඟ වේලාව: {d.get('nextAvailableDate') or 'ලබාගත හැක'}"
+                )
+            lines.append("\nකරුණාකර ඔබ කැමති වෛද්‍යවරයකු තෝරන්න.")
+            return "\n".join(lines)
+
+        lines = ["Here is a side-by-side comparison of the top recommended doctors:"]
+        for i, d in enumerate(doctors[:3], 1):
+            score_val = d.get('matchScore', 90)
+            lines.append(
+                f"\n{i}. {d['fullName']}\n"
+                f"   • Specialty: {d['specialty']}\n"
+                f"   • Qualifications: {d.get('qualifications', 'MBBS')}\n"
+                f"   • Hospital/Clinic: {d.get('hospitalOrClinic', 'MediConnect Clinic')}\n"
+                f"   • Fee: LKR {d['consultationFee']:,.0f}\n"
+                f"   • Experience: {d.get('experienceYears', 0)} years\n"
+                f"   • Rating: ⭐ {d.get('rating', 4.8):.1f} ({score_val:.0f}% Match)\n"
+                f"   • Next Available: {d.get('nextAvailableDate') or 'Slots available'}"
+            )
+        lines.append("\nTo proceed, select a doctor or reply with their number (e.g., 'Book the 2nd doctor').")
         return "\n".join(lines)
 
     @classmethod

@@ -350,6 +350,11 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
 # ---------------------------------------------------------------------------
 LOCATION_PATTERNS: List[Tuple[str, List[str]]] = [
     ("Colombo", [r"\bcolombo\b", r"\bkollupitiya\b", r"\bbambalapitiya\b", r"\bnarahenpita\b", "කොළඹ"]),
+    ("Nugegoda", [r"\bnugegoda\b", "නුගේගොඩ"]),
+    ("Maharagama", [r"\bmaharagama\b", "මහරගම"]),
+    ("Dehiwala", [r"\bdehiwala\b", r"\bmount\s+lavinia\b", "දෙහිවල"]),
+    ("Rajagiriya", [r"\brajagiriya\b", "රාජගිරිය"]),
+    ("Battaramulla", [r"\bbattaramulla\b", "බත්තරමුල්ල"]),
     ("Kandy", [r"\bkandy\b", r"\bperadeniya\b", "මහනුවර", "නුවර"]),
     ("Galle", [r"\bgalle\b", r"\bkarapitiya\b", "ගාල්ල"]),
     ("Gampaha", [r"\bgampaha\b", "ගම්පහ"]),
@@ -526,6 +531,8 @@ def extract_max_fee(text: str) -> Optional[float]:
     patterns = [
         r"(?:under|below|less\s+than|max|maximum|up\s+to|within)\s*(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
         r"(?:lkr|rs\.?|රු\.?)\s*(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:or\s+less|max|below|under)",
+        r"(?:my\s+)?budget\s+(?:is\s+)?(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
+        r"(?:cost|fee)\s+(?:around|up\s+to|below|under|max|is)\s*(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
         r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:ට\s*අඩු|නොවැඩි)",
         r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:lkr|rs\.?)\s*(?:budget|limit)",
     ]
@@ -541,6 +548,53 @@ def extract_max_fee(text: str) -> Optional[float]:
             except ValueError:
                 pass
 
+    return None
+
+
+def extract_sort_preference(text: str) -> Optional[str]:
+    """Detect sorting preferences like cheapest / lower consultation fees."""
+    text_lower = text.lower()
+    if re.search(
+        r"\b(?:cheaper|cheapest|lower(?:\s+\w+)?\s+fees?|lowest(?:\s+\w+)?\s+fees?|less\s+expensive|low(?:est)?\s+(?:cost|price|fee|fees)|budget\s+friendly|අඩු\s+ගාස්තු|අඩුම\s+මිල)\b",
+        text_lower,
+    ):
+        return "fee_asc"
+    if re.search(
+        r"\b(?:top\s+rated|highest\s+rated|best\s+rating|best\s+doctor|ඉහළම\s+ශ්‍රේණිගත)\b",
+        text_lower,
+    ):
+        return "rating_desc"
+    return None
+
+
+def extract_symptoms(text: str) -> Optional[str]:
+    """Extract mentioned symptoms or medical complaints from natural language query."""
+    symptom_patterns = [
+        r"\b(?:headache|migraine|fever|cough|cold|chest\s+pain|stomach\s+ache|abdominal\s+pain|back\s+pain|joint\s+pain|skin\s+rash|rash|acne|itching|vomiting|diarrhea|fatigue|dizziness|breathlessness)\b",
+        r"\b(?:හිරවීම|කැස්ස|උණ|හිසරදය|බඩේ\s+කැක්කුම|ඇඟපත\s+වේදනාව)\b",
+    ]
+    matches: List[str] = []
+    for p in symptom_patterns:
+        found = re.findall(p, text, re.IGNORECASE)
+        matches.extend(found)
+    if matches:
+        return ", ".join(list(dict.fromkeys(matches)))
+    return None
+
+
+def extract_ordinal_doctor_index(text: str) -> Optional[int]:
+    """Detect if patient refers to a doctor by ordinal position (e.g. 'the second doctor', '1st doctor')."""
+    text_lower = text.lower()
+    if re.search(r"\b(?:first|1st|first\s+one|doctor\s+1|dr\s+1|first\s+doctor|පළමු|1\s*වැනි)\b", text_lower):
+        return 0
+    if re.search(r"\b(?:second|2nd|second\s+one|doctor\s+2|dr\s+2|second\s+doctor|දෙවන|2\s*වැනි)\b", text_lower):
+        return 1
+    if re.search(r"\b(?:third|3rd|third\s+one|doctor\s+3|dr\s+3|third\s+doctor|තෙවන|3\s*වැනි)\b", text_lower):
+        return 2
+    if re.search(r"\b(?:fourth|4th|fourth\s+one|doctor\s+4|dr\s+4|fourth\s+doctor|හතරවන|4\s*වැනි)\b", text_lower):
+        return 3
+    if re.search(r"\b(?:fifth|5th|fifth\s+one|doctor\s+5|dr\s+5|fifth\s+doctor|පස්වන|5\s*වැනි)\b", text_lower):
+        return 4
     return None
 
 
@@ -601,6 +655,11 @@ def parse_query_deterministically(
                 "preferred city (e.g. Colombo, Kandy), or target date to help us narrow down recommendations?"
             )
 
+    # 8. Sort Preference & Symptoms
+    parsed_sort = extract_sort_preference(query)
+    parsed_symptoms = extract_symptoms(query)
+    parsed_ordinal = extract_ordinal_doctor_index(query)
+
     return {
         "specialty": parsed_specialty,
         "city": parsed_city,
@@ -608,6 +667,9 @@ def parse_query_deterministically(
         "timeRange": parsed_time_range,
         "maxFee": parsed_max_fee,
         "consultationType": parsed_consultation_type,
+        "sortBy": parsed_sort,
+        "symptoms": parsed_symptoms,
+        "ordinalDoctorIndex": parsed_ordinal,
         "language": lang,
         "isUrgent": is_urgent,
         "urgencyReason": urgency_reason,

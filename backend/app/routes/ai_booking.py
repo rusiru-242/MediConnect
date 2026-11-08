@@ -1,9 +1,13 @@
 """API routes for AI Conversational Booking Assistant."""
 
+from pathlib import Path
 import time
-from typing import Dict, Tuple
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from typing import Dict, Optional, Tuple
+import uuid
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pymongo.database import Database
+
+from app.agents.medicine_image_agent import validate_image_file_bytes
 
 from app.config.database import get_database
 from app.middleware.auth import require_patient
@@ -102,6 +106,94 @@ async def send_session_message(
     _check_rate_limit(str(current_user.id))
     return await BookingSessionService.handle_message(
         db=db, patient_user=current_user, session_id=session_id, req=req
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3b. Securely upload medicine packaging/label image
+# ---------------------------------------------------------------------------
+@ai_booking_router.post(
+    "/upload-image",
+    summary="Upload medicine packaging image",
+    description="Uploads a medicine label or packaging image for the companion assistant with file validation.",
+)
+async def upload_companion_image(
+    file: UploadFile = File(...),
+    current_user: UserResponseSchema = Depends(require_patient),
+) -> Dict[str, str]:
+    """Securely upload a medicine packaging or label photo."""
+    content = await file.read()
+    filename = file.filename or "uploaded_image.png"
+    is_valid, error_msg = validate_image_file_bytes(content, filename)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg or "Invalid image file.",
+        )
+
+    project_root = Path(__file__).resolve().parent.parent.parent
+    upload_dir = project_root / "uploads" / "companion_images"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(filename).suffix.lower()
+    safe_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = upload_dir / safe_name
+    dest_path.write_bytes(content)
+
+    relative_url = f"/uploads/companion_images/{safe_name}"
+    return {
+        "imageUrl": relative_url,
+        "filename": filename,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 3c. Send medicine packaging image in session
+# ---------------------------------------------------------------------------
+@ai_booking_router.post(
+    "/sessions/{session_id}/image",
+    response_model=BookingSessionResponse,
+    summary="Send medicine packaging image in session",
+    description="Uploads and analyzes a medicine package photo in the active conversational companion session.",
+)
+async def send_session_image(
+    session_id: str,
+    file: UploadFile = File(...),
+    message: Optional[str] = Form(None),
+    current_user: UserResponseSchema = Depends(require_patient),
+    db: Database = Depends(get_database),
+) -> BookingSessionResponse:
+    """Upload and process medicine image in companion conversation."""
+    _check_rate_limit(str(current_user.id))
+    content = await file.read()
+    filename = file.filename or "uploaded_image.png"
+
+    is_valid, error_msg = validate_image_file_bytes(content, filename)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg or "Invalid image file.",
+        )
+
+    project_root = Path(__file__).resolve().parent.parent.parent
+    upload_dir = project_root / "uploads" / "companion_images"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(filename).suffix.lower()
+    safe_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = upload_dir / safe_name
+    dest_path.write_bytes(content)
+
+    relative_url = f"/uploads/companion_images/{safe_name}"
+
+    return await BookingSessionService.handle_image_message(
+        db=db,
+        patient_user=current_user,
+        session_id=session_id,
+        image_bytes=content,
+        filename=filename,
+        message=message,
+        image_url=relative_url,
     )
 
 

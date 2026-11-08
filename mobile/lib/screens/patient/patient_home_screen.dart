@@ -279,7 +279,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              // AI Doctor Assistant Action Card
+              // Unified AI Care Assistant Action Card (Phase 39)
               Card(
                 elevation: 3,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -296,9 +296,9 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     ),
                   ),
                   child: InkWell(
-                    key: const Key('patient_home_ai_recommendations_button'),
+                    key: const Key('patient_home_ai_assistant_button'),
                     onTap: () {
-                      Navigator.of(context).pushNamed('/patient/ai-recommendations');
+                      Navigator.of(context).pushNamed('/patient/ai-assistant');
                     },
                     borderRadius: BorderRadius.circular(16),
                     child: Padding(
@@ -321,7 +321,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                                 Row(
                                   children: [
                                     Text(
-                                      'AI Doctor Finder',
+                                      'MediConnect AI Assistant',
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -330,7 +330,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                                     ),
                                     SizedBox(width: 6),
                                     Text(
-                                      'NEW',
+                                      'AI',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w900,
@@ -342,7 +342,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Ask in English or Sinhala for personalized doctor matches & real slots',
+                                  'Find doctors, book slots, ask about medicines & wellness in one chat',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.white70,
@@ -407,166 +407,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                         ),
                         const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
                       ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // AI Booking Assistant Action Card (Phase 19)
-              Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.textPrimary,
-                        Colors.blueGrey.shade800,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: InkWell(
-                    key: const Key('patient_home_ai_booking_button'),
-                    onTap: () {
-                      Navigator.of(context).pushNamed('/patient/ai-booking');
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.chat_bubble_outline_rounded, size: 28, color: Color(0xFF90CAF9)),
-                          ),
-                          const SizedBox(width: 16),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      'AI Booking Assistant',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'CHAT',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                        color: Color(0xFF90CAF9),
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Chat in English or Sinhala to find doctors, pick slots & book with Stripe',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded, color: Colors.white70),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // AI Health Assistant Action Card (Phase 20)
-              Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      colors: [
-                        AppTheme.darkNavy,
-                        AppTheme.primary,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: InkWell(
-                    key: const Key('patient_home_ai_health_chat_button'),
-                    onTap: () {
-                      Navigator.of(context).pushNamed('/patient/ai-health-chat');
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.health_and_safety_rounded, size: 28, color: Color(0xFF90CAF9)),
-                          ),
-                          const SizedBox(width: 16),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      'AI Health Assistant',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'GUIDANCE',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                        color: Color(0xFF90CAF9),
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'General symptom education, 1990 safety triage & doctor referrals',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded, color: Colors.white70),
-                        ],
-                      ),
                     ),
                   ),
                 ),

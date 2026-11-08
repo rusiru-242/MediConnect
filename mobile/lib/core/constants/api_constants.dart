@@ -246,6 +246,8 @@ class ApiConstants {
   static String aiBookingSessionConfirmEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/confirm';
   static String aiBookingSessionCancelEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/cancel';
   static String aiBookingSessionPaymentStatusEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/payment-status';
+  static const String aiBookingUploadImageEndpoint = '/ai/booking/upload-image';
+  static String aiBookingSessionImageEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/image';
 
   // AI Health Chatbot endpoints (Phase 20)
   static const String aiHealthChatSessionsEndpoint = '/ai/health-chat/sessions';

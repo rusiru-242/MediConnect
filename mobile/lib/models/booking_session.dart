@@ -8,6 +8,7 @@ class ChatMessage {
   final String content;
   final DateTime timestamp;
   final Map<String, dynamic>? metadata;
+  final String? imageUrl;
 
   const ChatMessage({
     required this.id,
@@ -15,6 +16,7 @@ class ChatMessage {
     required this.content,
     required this.timestamp,
     this.metadata,
+    this.imageUrl,
   });
 
   bool get isUser => sender == 'user';
@@ -30,6 +32,7 @@ class ChatMessage {
           ? DateTime.tryParse(json['timestamp'] as String) ?? DateTime.now()
           : DateTime.now(),
       metadata: json['metadata'] as Map<String, dynamic>?,
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 
@@ -40,6 +43,7 @@ class ChatMessage {
       'content': content,
       'timestamp': timestamp.toIso8601String(),
       'metadata': metadata,
+      if (imageUrl != null) 'imageUrl': imageUrl,
     };
   }
 }
@@ -53,6 +57,9 @@ class BookingPreferences {
   final double? maxFee;
   final String language;
   final String? patientNote;
+  final String? preferredGender;
+  final String? symptoms;
+  final String? sortBy;
 
   const BookingPreferences({
     this.specialty,
@@ -62,6 +69,9 @@ class BookingPreferences {
     this.maxFee,
     this.language = 'en',
     this.patientNote,
+    this.preferredGender,
+    this.symptoms,
+    this.sortBy,
   });
 
   factory BookingPreferences.fromJson(Map<String, dynamic> json) {
@@ -73,6 +83,9 @@ class BookingPreferences {
       maxFee: (json['maxFee'] as num?)?.toDouble(),
       language: json['language'] as String? ?? 'en',
       patientNote: json['patientNote'] as String?,
+      preferredGender: json['preferredGender'] as String?,
+      symptoms: json['symptoms'] as String?,
+      sortBy: json['sortBy'] as String?,
     );
   }
 
@@ -85,82 +98,10 @@ class BookingPreferences {
       'maxFee': maxFee,
       'language': language,
       'patientNote': patientNote,
+      'preferredGender': preferredGender,
+      'symptoms': symptoms,
+      'sortBy': sortBy,
     };
-  }
-}
-
-/// Summary card for doctor candidates in conversational flow.
-class DoctorCardSummary {
-  final String doctorId;
-  final String doctorProfileId;
-  final String doctorUserId;
-  final String fullName;
-  final String specialty;
-  final String? hospitalOrClinic;
-  final int experienceYears;
-  final double consultationFee;
-  final double rating;
-  final String? nextAvailableDate;
-  final String? matchReason;
-
-  const DoctorCardSummary({
-    required this.doctorId,
-    required this.doctorProfileId,
-    required this.doctorUserId,
-    required this.fullName,
-    required this.specialty,
-    this.hospitalOrClinic,
-    this.experienceYears = 0,
-    required this.consultationFee,
-    this.rating = 4.8,
-    this.nextAvailableDate,
-    this.matchReason,
-  });
-
-  factory DoctorCardSummary.fromJson(Map<String, dynamic> json) {
-    return DoctorCardSummary(
-      doctorId: json['doctorId'] as String? ?? '',
-      doctorProfileId: json['doctorProfileId'] as String? ?? '',
-      doctorUserId: json['doctorUserId'] as String? ?? '',
-      fullName: json['fullName'] as String? ?? 'Doctor',
-      specialty: json['specialty'] as String? ?? '',
-      hospitalOrClinic: json['hospitalOrClinic'] as String?,
-      experienceYears: (json['experienceYears'] as num?)?.toInt() ?? 0,
-      consultationFee: (json['consultationFee'] as num?)?.toDouble() ?? 2500.0,
-      rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
-      nextAvailableDate: json['nextAvailableDate'] as String?,
-      matchReason: json['matchReason'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'doctorId': doctorId,
-      'doctorProfileId': doctorProfileId,
-      'doctorUserId': doctorUserId,
-      'fullName': fullName,
-      'specialty': specialty,
-      'hospitalOrClinic': hospitalOrClinic,
-      'experienceYears': experienceYears,
-      'consultationFee': consultationFee,
-      'rating': rating,
-      'nextAvailableDate': nextAvailableDate,
-      'matchReason': matchReason,
-    };
-  }
-
-  /// Converts to standard Doctor model for existing profile navigation.
-  Doctor toDoctor() {
-    return Doctor(
-      doctorId: doctorId,
-      fullName: fullName,
-      specialty: specialty,
-      hospitalOrClinic: hospitalOrClinic ?? 'MediConnect Clinic',
-      experienceYears: experienceYears,
-      consultationFee: consultationFee,
-      profileImage: null,
-      verificationStatus: 'APPROVED',
-    );
   }
 }
 
@@ -202,6 +143,103 @@ class SlotCardSummary {
       startTime: startTime,
       endTime: endTime,
       availabilityId: availabilityId,
+    );
+  }
+}
+
+/// Summary card for doctor candidates in conversational flow.
+class DoctorCardSummary {
+  final String doctorId;
+  final String doctorProfileId;
+  final String doctorUserId;
+  final String fullName;
+  final String specialty;
+  final String? qualifications;
+  final String? hospitalOrClinic;
+  final int experienceYears;
+  final double consultationFee;
+  final double rating;
+  final double? matchScore;
+  final String? nextAvailableDate;
+  final String? matchReason;
+  final List<String> matchReasons;
+  final List<SlotCardSummary> availableSlots;
+
+  const DoctorCardSummary({
+    required this.doctorId,
+    required this.doctorProfileId,
+    required this.doctorUserId,
+    required this.fullName,
+    required this.specialty,
+    this.qualifications,
+    this.hospitalOrClinic,
+    this.experienceYears = 0,
+    required this.consultationFee,
+    this.rating = 4.8,
+    this.matchScore,
+    this.nextAvailableDate,
+    this.matchReason,
+    this.matchReasons = const [],
+    this.availableSlots = const [],
+  });
+
+  factory DoctorCardSummary.fromJson(Map<String, dynamic> json) {
+    return DoctorCardSummary(
+      doctorId: json['doctorId'] as String? ?? '',
+      doctorProfileId: json['doctorProfileId'] as String? ?? '',
+      doctorUserId: json['doctorUserId'] as String? ?? '',
+      fullName: json['fullName'] as String? ?? 'Doctor',
+      specialty: json['specialty'] as String? ?? '',
+      qualifications: json['qualifications'] as String?,
+      hospitalOrClinic: json['hospitalOrClinic'] as String?,
+      experienceYears: (json['experienceYears'] as num?)?.toInt() ?? 0,
+      consultationFee: (json['consultationFee'] as num?)?.toDouble() ?? 2500.0,
+      rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
+      matchScore: (json['matchScore'] as num?)?.toDouble(),
+      nextAvailableDate: json['nextAvailableDate'] as String?,
+      matchReason: json['matchReason'] as String?,
+      matchReasons: (json['matchReasons'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          (json['matchReason'] != null ? [json['matchReason'].toString()] : const []),
+      availableSlots: (json['availableSlots'] as List<dynamic>?)
+              ?.map((e) => SlotCardSummary.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'doctorId': doctorId,
+      'doctorProfileId': doctorProfileId,
+      'doctorUserId': doctorUserId,
+      'fullName': fullName,
+      'specialty': specialty,
+      'qualifications': qualifications,
+      'hospitalOrClinic': hospitalOrClinic,
+      'experienceYears': experienceYears,
+      'consultationFee': consultationFee,
+      'rating': rating,
+      'matchScore': matchScore,
+      'nextAvailableDate': nextAvailableDate,
+      'matchReason': matchReason,
+      'matchReasons': matchReasons,
+      'availableSlots': availableSlots.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  /// Converts to standard Doctor model for existing profile navigation.
+  Doctor toDoctor() {
+    return Doctor(
+      doctorId: doctorId,
+      fullName: fullName,
+      specialty: specialty,
+      hospitalOrClinic: hospitalOrClinic ?? 'MediConnect Clinic',
+      experienceYears: experienceYears,
+      consultationFee: consultationFee,
+      profileImage: null,
+      verificationStatus: 'APPROVED',
     );
   }
 }
@@ -263,7 +301,162 @@ class BookingSummary {
   }
 }
 
-/// Full AI conversational booking session data model.
+/// Educational medicine card summary for AI Health Companion.
+class MedicineCardSummary {
+  final String medicineName;
+  final String? activeIngredient;
+  final List<String> commonUses;
+  final List<String> precautions;
+  final List<String> sideEffects;
+  final List<String> warnings;
+  final List<String> consultPharmacistWhen;
+  final bool isPrescriptionRequired;
+
+  const MedicineCardSummary({
+    required this.medicineName,
+    this.activeIngredient,
+    this.commonUses = const [],
+    this.precautions = const [],
+    this.sideEffects = const [],
+    this.warnings = const [],
+    this.consultPharmacistWhen = const [],
+    this.isPrescriptionRequired = false,
+  });
+
+  factory MedicineCardSummary.fromJson(Map<String, dynamic> json) {
+    return MedicineCardSummary(
+      medicineName: json['medicineName'] as String? ?? 'Medicine',
+      activeIngredient: json['activeIngredient'] as String?,
+      commonUses: (json['commonUses'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      precautions: (json['precautions'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      sideEffects: (json['sideEffects'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      warnings: (json['warnings'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      consultPharmacistWhen: (json['consultPharmacistWhen'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      isPrescriptionRequired:
+          json['isPrescriptionRequired'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'medicineName': medicineName,
+      'activeIngredient': activeIngredient,
+      'commonUses': commonUses,
+      'precautions': precautions,
+      'sideEffects': sideEffects,
+      'warnings': warnings,
+      'consultPharmacistWhen': consultPharmacistWhen,
+      'isPrescriptionRequired': isPrescriptionRequired,
+    };
+  }
+}
+
+/// Educational wellness & lifestyle card summary for AI Health Companion.
+class WellnessCardSummary {
+  final String category; // 'FOOD' | 'EXERCISE' | 'WELLNESS'
+  final String title;
+  final String summary;
+  final List<String> tips;
+  final List<String> sriLankanOptions;
+  final String? safetyNote;
+
+  const WellnessCardSummary({
+    required this.category,
+    required this.title,
+    required this.summary,
+    this.tips = const [],
+    this.sriLankanOptions = const [],
+    this.safetyNote,
+  });
+
+  factory WellnessCardSummary.fromJson(Map<String, dynamic> json) {
+    return WellnessCardSummary(
+      category: json['category'] as String? ?? 'WELLNESS',
+      title: json['title'] as String? ?? 'Wellness Guidance',
+      summary: json['summary'] as String? ?? '',
+      tips: (json['tips'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+          const [],
+      sriLankanOptions: (json['sriLankanOptions'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      safetyNote: json['safetyNote'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'category': category,
+      'title': title,
+      'summary': summary,
+      'tips': tips,
+      'sriLankanOptions': sriLankanOptions,
+      'safetyNote': safetyNote,
+    };
+  }
+}
+
+/// Image OCR and label analysis summary for AI Health Companion.
+class ImageAnalysisSummary {
+  final String detectedText;
+  final String? identifiedMedicine;
+  final String? activeIngredient;
+  final String confidenceLevel; // 'HIGH' | 'MEDIUM' | 'LOW' | 'UNCERTAIN'
+  final String? uncertaintyExplanation;
+  final String? safetyAdvice;
+  final bool requiresClearerPhoto;
+
+  const ImageAnalysisSummary({
+    required this.detectedText,
+    this.identifiedMedicine,
+    this.activeIngredient,
+    this.confidenceLevel = 'UNCERTAIN',
+    this.uncertaintyExplanation,
+    this.safetyAdvice,
+    this.requiresClearerPhoto = false,
+  });
+
+  factory ImageAnalysisSummary.fromJson(Map<String, dynamic> json) {
+    return ImageAnalysisSummary(
+      detectedText: json['detectedText'] as String? ?? '',
+      identifiedMedicine: json['identifiedMedicine'] as String?,
+      activeIngredient: json['activeIngredient'] as String?,
+      confidenceLevel: json['confidenceLevel'] as String? ?? 'UNCERTAIN',
+      uncertaintyExplanation: json['uncertaintyExplanation'] as String?,
+      safetyAdvice: json['safetyAdvice'] as String?,
+      requiresClearerPhoto: json['requiresClearerPhoto'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'detectedText': detectedText,
+      'identifiedMedicine': identifiedMedicine,
+      'activeIngredient': activeIngredient,
+      'confidenceLevel': confidenceLevel,
+      'uncertaintyExplanation': uncertaintyExplanation,
+      'safetyAdvice': safetyAdvice,
+      'requiresClearerPhoto': requiresClearerPhoto,
+    };
+  }
+}
+
+/// Full AI conversational companion session data model.
 class BookingSession {
   final String id;
   final String patientUserId;
@@ -280,6 +473,10 @@ class BookingSession {
   final List<ChatMessage> messages;
   final bool isUrgent;
   final String? urgencyReason;
+  final String? activeIntent;
+  final MedicineCardSummary? activeMedicineCard;
+  final WellnessCardSummary? activeWellnessCard;
+  final ImageAnalysisSummary? activeImageAnalysis;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime expiresAt;
@@ -300,6 +497,10 @@ class BookingSession {
     this.messages = const [],
     this.isUrgent = false,
     this.urgencyReason,
+    this.activeIntent,
+    this.activeMedicineCard,
+    this.activeWellnessCard,
+    this.activeImageAnalysis,
     required this.createdAt,
     required this.updatedAt,
     required this.expiresAt,
@@ -354,6 +555,19 @@ class BookingSession {
           [],
       isUrgent: json['isUrgent'] as bool? ?? false,
       urgencyReason: json['urgencyReason'] as String?,
+      activeIntent: json['activeIntent'] as String?,
+      activeMedicineCard: json['activeMedicineCard'] != null
+          ? MedicineCardSummary.fromJson(
+              json['activeMedicineCard'] as Map<String, dynamic>)
+          : null,
+      activeWellnessCard: json['activeWellnessCard'] != null
+          ? WellnessCardSummary.fromJson(
+              json['activeWellnessCard'] as Map<String, dynamic>)
+          : null,
+      activeImageAnalysis: json['activeImageAnalysis'] != null
+          ? ImageAnalysisSummary.fromJson(
+              json['activeImageAnalysis'] as Map<String, dynamic>)
+          : null,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
           : DateTime.now(),
@@ -383,6 +597,10 @@ class BookingSession {
       'messages': messages.map((e) => e.toJson()).toList(),
       'isUrgent': isUrgent,
       'urgencyReason': urgencyReason,
+      'activeIntent': activeIntent,
+      'activeMedicineCard': activeMedicineCard?.toJson(),
+      'activeWellnessCard': activeWellnessCard?.toJson(),
+      'activeImageAnalysis': activeImageAnalysis?.toJson(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'expiresAt': expiresAt.toIso8601String(),

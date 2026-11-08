@@ -1,3 +1,4 @@
+import 'package:http/http.dart' as http;
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/booking_session.dart';
@@ -39,11 +40,19 @@ class AiBookingService {
     throw Exception('Unexpected response format when fetching booking session.');
   }
 
-  /// Post a conversational message from the patient.
-  Future<BookingSession> sendMessage(String sessionId, String message) async {
+  /// Post a conversational message from the patient (supports optional imageUrl).
+  Future<BookingSession> sendMessage(
+    String sessionId,
+    String message, {
+    String? imageUrl,
+  }) async {
     final response = await _apiClient.post(
       ApiConstants.aiBookingSessionMessagesEndpoint(sessionId),
-      body: {'message': message.trim()},
+      body: {
+        'message': message.trim(),
+        if (imageUrl != null && imageUrl.trim().isNotEmpty)
+          'imageUrl': imageUrl.trim(),
+      },
       includeAuth: true,
     );
 
@@ -51,6 +60,57 @@ class AiBookingService {
       return BookingSession.fromJson(response);
     }
     throw Exception('Unexpected response format when sending message.');
+  }
+
+  /// Upload a medicine packaging or label photo for OCR/vision analysis.
+  Future<Map<String, dynamic>> uploadMedicineImage(
+    List<int> bytes,
+    String filename,
+  ) async {
+    final multipartFile = http.MultipartFile.fromBytes(
+      'file',
+      bytes,
+      filename: filename,
+    );
+    final response = await _apiClient.postMultipart(
+      ApiConstants.aiBookingUploadImageEndpoint,
+      fields: {},
+      files: [multipartFile],
+      includeAuth: true,
+    );
+
+    if (response is Map<String, dynamic>) {
+      return response;
+    }
+    throw Exception('Unexpected response format when uploading medicine image.');
+  }
+
+  /// Send an image directly to the active session for OCR and analysis.
+  Future<BookingSession> sendImageMessage(
+    String sessionId,
+    List<int> bytes,
+    String filename, {
+    String? message,
+  }) async {
+    final multipartFile = http.MultipartFile.fromBytes(
+      'file',
+      bytes,
+      filename: filename,
+    );
+    final response = await _apiClient.postMultipart(
+      ApiConstants.aiBookingSessionImageEndpoint(sessionId),
+      fields: {
+        if (message != null && message.trim().isNotEmpty)
+          'message': message.trim(),
+      },
+      files: [multipartFile],
+      includeAuth: true,
+    );
+
+    if (response is Map<String, dynamic>) {
+      return BookingSession.fromJson(response);
+    }
+    throw Exception('Unexpected response format when sending image message.');
   }
 
   /// Explicitly select a doctor from recommendation cards.
