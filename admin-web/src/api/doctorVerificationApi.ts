@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE_URL } from './client';
 import { DoctorApplicationSummary, DoctorApplicationDetail } from '../types/doctor';
 
 export const doctorVerificationApi = {
@@ -23,7 +23,7 @@ export const doctorVerificationApi = {
   },
 
   getDocumentUrl: (doctorProfileId: string, documentKey: string): string => {
-    const base = apiClient.defaults.baseURL || 'http://localhost:8000/api';
+    const base = apiClient.defaults.baseURL || API_BASE_URL;
     return `${base}/admin/doctors/applications/${doctorProfileId}/documents/${documentKey}`;
   },
 

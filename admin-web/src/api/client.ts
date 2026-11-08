@@ -1,6 +1,35 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+/**
+ * Resolves and normalizes the backend API base URL.
+ * Ensures the trailing `/api` prefix is present so requests to
+ * `/auth/login`, `/admin/users`, etc. match backend route mount points.
+ * Prevents unintentional `localhost` fallbacks in production builds.
+ */
+export function resolveApiBaseUrl(
+  rawEnvUrl?: string,
+  isProd: boolean = import.meta.env.PROD
+): string {
+  const envUrl = (
+    rawEnvUrl ?? (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+  ).trim();
+
+  if (envUrl) {
+    const cleanUrl = envUrl.replace(/\/+$/, '');
+    return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
+  }
+
+  if (isProd) {
+    console.warn(
+      '[MediConnect Admin] VITE_API_BASE_URL is not defined in production environment. Defaulting to relative "/api".'
+    );
+    return '/api';
+  }
+
+  return 'http://localhost:8000/api';
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

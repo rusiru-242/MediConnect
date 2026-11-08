@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AdminUser, AuthContextType } from '../types/auth';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '../api/client';
+import { authApi } from '../api/authApi';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -38,11 +39,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAdmin(user);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const refreshToken = sessionStorage.getItem('mediconnect_admin_refresh') || undefined;
     sessionStorage.removeItem(AUTH_TOKEN_KEY);
     sessionStorage.removeItem(AUTH_USER_KEY);
     sessionStorage.removeItem('mediconnect_admin_refresh');
     setAdmin(null);
+    if (refreshToken) {
+      try {
+        await authApi.logout(refreshToken);
+      } catch {
+        // Best-effort remote revocation
+      }
+    }
   };
 
   const isAuthenticated = !!admin && admin.role === 'ADMIN';

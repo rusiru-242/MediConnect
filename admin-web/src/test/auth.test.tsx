@@ -6,6 +6,7 @@ import { UnauthorizedPage } from '../pages/UnauthorizedPage';
 import { AuthProvider } from '../context/AuthContext';
 import { ProtectedRoute } from '../App';
 import { authApi } from '../api/authApi';
+import { resolveApiBaseUrl } from '../api/client';
 
 // Mock authApi
 vi.mock('../api/authApi', () => ({
@@ -122,5 +123,27 @@ describe('Admin Authentication & Protected Routes', () => {
 
     expect(screen.getByText('Login Screen Mock')).toBeInTheDocument();
     expect(screen.queryByText('Secret Dashboard Content')).not.toBeInTheDocument();
+  });
+
+  describe('resolveApiBaseUrl configuration handling', () => {
+    it('appends /api when omitted in configured environment URL', () => {
+      expect(resolveApiBaseUrl('https://mediconnect-backend.onrender.com')).toBe(
+        'https://mediconnect-backend.onrender.com/api'
+      );
+    });
+
+    it('strips trailing slashes and preserves existing /api', () => {
+      expect(resolveApiBaseUrl('https://mediconnect-backend.onrender.com/api/')).toBe(
+        'https://mediconnect-backend.onrender.com/api'
+      );
+    });
+
+    it('defaults to relative /api in production when VITE_API_BASE_URL is empty', () => {
+      expect(resolveApiBaseUrl('', true)).toBe('/api');
+    });
+
+    it('defaults to localhost:8000/api in development when empty', () => {
+      expect(resolveApiBaseUrl('', false)).toBe('http://localhost:8000/api');
+    });
   });
 });

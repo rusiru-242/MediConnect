@@ -20,4 +20,14 @@ export const authApi = {
     const response = await apiClient.get<{ status: string; service: string }>('/health');
     return response.data;
   },
+
+  logout: async (refreshToken?: string): Promise<void> => {
+    if (refreshToken) {
+      try {
+        await apiClient.post('/auth/logout', { refreshToken });
+      } catch {
+        // Silently tolerate session revocation network failure on logout
+      }
+    }
+  },
 };

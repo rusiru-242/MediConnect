@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any, Dict
 from fastapi import FastAPI, Request, Response, status
@@ -80,21 +81,30 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-cors_origins = (
+default_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+configured_origins = (
     [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
     if settings.ALLOWED_ORIGINS and settings.ALLOWED_ORIGINS != "*"
-    else [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
+    else []
+)
+
+cors_origins = list(dict.fromkeys(default_origins + configured_origins))
+
+cors_origin_regex = (
+    os.getenv("CORS_ORIGIN_REGEX")
+    or r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://([a-zA-Z0-9_-]+\.)*vercel\.app$"
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

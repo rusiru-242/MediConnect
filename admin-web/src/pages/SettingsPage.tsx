@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/authApi';
+import { API_BASE_URL } from '../api/client';
 import { Button } from '../components/common/Button';
 import { Shield, Server, CheckCircle2, XCircle, LogOut, RefreshCw } from 'lucide-react';
 
@@ -82,7 +83,7 @@ export const SettingsPage: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">FastAPI Backend Connection</h3>
-              <p className="text-xs text-slate-400">Endpoint: {import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}</p>
+              <p className="text-xs text-slate-400">Endpoint: {API_BASE_URL}</p>
             </div>
           </div>
 
