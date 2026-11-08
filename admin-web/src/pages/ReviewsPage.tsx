@@ -329,7 +329,7 @@ export const ReviewsPage: React.FC = () => {
                 onChange={(e) => setModerationNotes(e.target.value)}
                 placeholder="e.g. Inappropriate language or spam detected. Hidden in compliance with community terms."
                 rows={3}
-                className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </div>
 

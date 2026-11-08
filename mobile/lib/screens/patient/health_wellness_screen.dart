@@ -717,7 +717,7 @@ class _HealthWellnessScreenState extends State<HealthWellnessScreen> {
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0D5C56), Color(0xFF14B8A6)],
+          colors: [AppTheme.darkNavy, AppTheme.secondaryBlue],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

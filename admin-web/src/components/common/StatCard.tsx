@@ -18,10 +18,10 @@ export const StatCard: React.FC<StatCardProps> = ({
   isPositive,
   icon,
   subtitle,
-  iconBgColor = 'bg-teal-50 text-teal-600',
+  iconBgColor = 'bg-brand-50 text-brand-600',
 }) => {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+    <div className="rounded-2xl border border-[#E5EAF2] bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</span>
         <div className={`p-2.5 rounded-xl ${iconBgColor}`}>{icon}</div>

@@ -122,7 +122,7 @@ class DoctorHomeScreen extends StatelessWidget {
               ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.assignment_ind_rounded, color: Colors.teal),
+              leading: const Icon(Icons.assignment_ind_rounded, color: AppTheme.primary),
               title: const Text('Verification & Documents', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               subtitle: const Text('View accreditation history and certificate status', style: TextStyle(fontSize: 14)),
               trailing: const Icon(Icons.chevron_right_rounded),
@@ -265,7 +265,7 @@ class DoctorHomeScreen extends StatelessWidget {
               _buildSectionCard(
                 key: const Key('doctor_home_consultations_card'),
                 icon: Icons.edit_note_rounded,
-                iconColor: Colors.teal,
+                iconColor: AppTheme.secondary,
                 title: 'Consultations & Prescriptions',
                 subtitle: 'Document clinical notes, assessment, treatment plans & issue digital prescriptions',
                 badgeText: 'Phase 21',
@@ -327,7 +327,7 @@ class DoctorHomeScreen extends StatelessWidget {
               _buildSectionCard(
                 key: const Key('doctor_home_application_status_card'),
                 icon: Icons.assignment_turned_in_outlined,
-                iconColor: Colors.teal,
+                iconColor: AppTheme.secondary,
                 title: 'Application Status',
                 subtitle: 'Review verification history and admin accreditation status',
                 onTap: () {

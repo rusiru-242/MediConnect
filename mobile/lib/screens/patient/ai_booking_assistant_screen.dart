@@ -386,10 +386,10 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppTheme.primaryTeal.withValues(alpha: 0.15),
+                color: AppTheme.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.auto_awesome, color: AppTheme.primaryTeal, size: 20),
+              child: const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 20),
             ),
             const SizedBox(width: 10),
             const Column(
@@ -631,7 +631,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isUser ? AppTheme.primaryTeal : Colors.grey.shade100,
+          color: isUser ? AppTheme.primary : Colors.grey.shade100,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -739,8 +739,8 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.15),
-                          child: const Icon(Icons.person, color: AppTheme.primaryTeal),
+                          backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                          child: const Icon(Icons.person, color: AppTheme.primary),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -755,7 +755,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
                               ),
                               Text(
                                 doc.specialty,
-                                style: const TextStyle(fontSize: 11, color: AppTheme.primaryTeal),
+                                style: const TextStyle(fontSize: 11, color: AppTheme.primary),
                               ),
                             ],
                           ),
@@ -779,7 +779,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
                         ),
                         FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.primaryTeal,
+                            backgroundColor: AppTheme.primary,
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             minimumSize: const Size(80, 32),
                           ),
@@ -808,14 +808,14 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.teal.shade100),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.schedule, color: AppTheme.primaryTeal, size: 18),
+              const Icon(Icons.schedule, color: AppTheme.primary, size: 18),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -831,8 +831,8 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
             runSpacing: 8,
             children: slots.map((s) {
               return ActionChip(
-                backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.08),
-                avatar: const Icon(Icons.access_time, size: 14, color: AppTheme.primaryTeal),
+                backgroundColor: AppTheme.primary.withValues(alpha: 0.08),
+                avatar: const Icon(Icons.access_time, size: 14, color: AppTheme.primary),
                 label: Text(
                   '${s.startTime} - ${s.endTime}',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.darkNavy),
@@ -862,10 +862,10 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryTeal.withValues(alpha: 0.15),
+                    color: AppTheme.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.receipt_long, color: AppTheme.primaryTeal),
+                  child: const Icon(Icons.receipt_long, color: AppTheme.primary),
                 ),
                 const SizedBox(width: 10),
                 const Expanded(
@@ -895,7 +895,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
                 const Text('Total Payable:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 Text(
                   'LKR ${summary.totalAmount.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryTeal),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primary),
                 ),
               ],
             ),
@@ -905,7 +905,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
               height: 44,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryTeal,
+                  backgroundColor: AppTheme.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -936,12 +936,12 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
   Widget _buildPaymentActionCard() {
     final total = _session?.bookingSummary?.totalAmount ?? 2500.0;
     return Card(
-      color: Colors.teal.shade50,
+      color: AppTheme.primaryContainer,
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.teal.shade300),
+        side: BorderSide(color: AppTheme.secondary),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -949,7 +949,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.timer_outlined, color: AppTheme.primaryTeal, size: 24),
+                const Icon(Icons.timer_outlined, color: AppTheme.primary, size: 24),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -960,7 +960,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryTeal,
+                    color: AppTheme.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text('HOLD ACTIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),

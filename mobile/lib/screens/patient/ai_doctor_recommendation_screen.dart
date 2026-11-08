@@ -209,7 +209,7 @@ class _AiDoctorRecommendationScreenState extends State<AiDoctorRecommendationScr
         gradient: LinearGradient(
           colors: [
             AppTheme.primary.withValues(alpha: 0.15),
-            Colors.teal.shade50.withValues(alpha: 0.8),
+            AppTheme.primaryContainer.withValues(alpha: 0.8),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -787,16 +787,16 @@ class _AiDoctorRecommendationScreenState extends State<AiDoctorRecommendationScr
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.teal.shade50,
+                    color: AppTheme.primaryContainer,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.teal.shade200),
+                    border: Border.all(color: AppTheme.border),
                   ),
                   child: Text(
                     '${rec.score.toStringAsFixed(0)}% Match',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade800,
+                      color: AppTheme.primary,
                     ),
                   ),
                 ),

@@ -289,7 +289,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     gradient: LinearGradient(
                       colors: [
                         AppTheme.primary,
-                        Colors.teal.shade700,
+                        AppTheme.secondary,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -444,7 +444,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                               color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.chat_bubble_outline_rounded, size: 28, color: Colors.tealAccent),
+                            child: const Icon(Icons.chat_bubble_outline_rounded, size: 28, color: Color(0xFF90CAF9)),
                           ),
                           const SizedBox(width: 16),
                           const Expanded(
@@ -467,7 +467,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w900,
-                                        color: Colors.tealAccent,
+                                        color: Color(0xFF90CAF9),
                                         letterSpacing: 0.5,
                                       ),
                                     ),
@@ -501,8 +501,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     borderRadius: BorderRadius.circular(16),
                     gradient: const LinearGradient(
                       colors: [
-                        Color(0xFF0D5C56),
-                        Color(0xFF0F766E),
+                        AppTheme.darkNavy,
+                        AppTheme.primary,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -524,7 +524,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                               color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.health_and_safety_rounded, size: 28, color: Colors.tealAccent),
+                            child: const Icon(Icons.health_and_safety_rounded, size: 28, color: Color(0xFF90CAF9)),
                           ),
                           const SizedBox(width: 16),
                           const Expanded(
@@ -547,7 +547,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w900,
-                                        color: Colors.tealAccent,
+                                        color: Color(0xFF90CAF9),
                                         letterSpacing: 0.5,
                                       ),
                                     ),
@@ -802,10 +802,10 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.teal.withValues(alpha: 0.15),
+                            color: AppTheme.primaryContainer,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(Icons.spa_rounded, size: 28, color: Colors.teal.shade800),
+                          child: const Icon(Icons.spa_rounded, size: 28, color: AppTheme.primary),
                         ),
                         const SizedBox(width: 16),
                         const Expanded(

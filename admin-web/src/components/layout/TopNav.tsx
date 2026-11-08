@@ -42,12 +42,12 @@ export const TopNav: React.FC<TopNavProps> = ({ onOpenSidebar }) => {
           type="button"
           onClick={onOpenSidebar}
           aria-label="Open navigation menu"
-          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 lg:hidden focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none"
+          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 lg:hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
         >
           <Menu className="h-5 w-5" />
         </button>
         <div className="hidden sm:flex items-center gap-2">
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-700 border border-teal-200/60">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200/60">
             Healthcare Operations Console
           </span>
         </div>
@@ -61,9 +61,9 @@ export const TopNav: React.FC<TopNavProps> = ({ onOpenSidebar }) => {
           aria-haspopup="true"
           aria-expanded={dropdownOpen}
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="flex items-center gap-2.5 rounded-full border border-slate-200/80 bg-slate-50/50 py-1.5 pl-2 pr-3 hover:bg-slate-100 transition-colors focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none"
+          className="flex items-center gap-2.5 rounded-full border border-slate-200/80 bg-slate-50/50 py-1.5 pl-2 pr-3 hover:bg-slate-100 transition-colors focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-white text-xs font-bold">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-white text-xs font-bold">
             {admin?.fullName ? admin.fullName.charAt(0).toUpperCase() : 'A'}
           </div>
           <div className="hidden text-left sm:block">
@@ -90,7 +90,7 @@ export const TopNav: React.FC<TopNavProps> = ({ onOpenSidebar }) => {
               to="/settings"
               role="menuitem"
               onClick={() => setDropdownOpen(false)}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none"
+              className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
             >
               <Shield className="h-3.5 w-3.5 text-slate-400" />
               Settings & Security

@@ -81,7 +81,7 @@ export const PaymentsPage: React.FC = () => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Payment Statuses</option>
             <option value="SUCCEEDED">Succeeded</option>
@@ -96,7 +96,7 @@ export const PaymentsPage: React.FC = () => {
               setCurrencyFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Currencies</option>
             <option value="LKR">LKR (Sri Lanka)</option>

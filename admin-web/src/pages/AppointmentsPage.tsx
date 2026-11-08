@@ -101,7 +101,7 @@ export const AppointmentsPage: React.FC = () => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Appointment Statuses</option>
             <option value="CONFIRMED">Confirmed</option>
@@ -117,7 +117,7 @@ export const AppointmentsPage: React.FC = () => {
               setPaymentStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Payment Statuses</option>
             <option value="PAID">Paid</option>
@@ -172,7 +172,7 @@ export const AppointmentsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-800">{a.doctorName}</div>
-                      <div className="text-[11px] text-teal-600 font-medium">{a.doctorSpecialty}</div>
+                      <div className="text-[11px] text-brand-600 font-medium">{a.doctorSpecialty}</div>
                     </td>
                     <td className="px-6 py-4 font-mono font-medium text-slate-700">
                       LKR {a.consultationFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -243,7 +243,7 @@ export const AppointmentsPage: React.FC = () => {
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400">Practitioner</span>
                   <p className="font-semibold text-slate-900 mt-0.5">{selectedAppt.doctorName}</p>
-                  <p className="text-[10px] text-teal-600 font-medium">{selectedAppt.doctorSpecialty}</p>
+                  <p className="text-[10px] text-brand-600 font-medium">{selectedAppt.doctorSpecialty}</p>
                 </div>
               </div>
 

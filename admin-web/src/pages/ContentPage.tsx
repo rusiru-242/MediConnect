@@ -225,7 +225,7 @@ export const ContentPage: React.FC = () => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Publishing Statuses</option>
             <option value="PUBLISHED">Published</option>
@@ -264,7 +264,7 @@ export const ContentPage: React.FC = () => {
               >
                 <div className="space-y-1.5 max-w-2xl">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    <span className="text-[11px] font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
                       {art.category}
                     </span>
                     <StatusBadge status={art.status} />
@@ -372,7 +372,7 @@ export const ContentPage: React.FC = () => {
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 >
                   <option value="General Wellness">General Wellness</option>
                   <option value="Cardiology">Cardiology</option>
@@ -411,7 +411,7 @@ export const ContentPage: React.FC = () => {
                 onChange={(e) => setSummary(e.target.value)}
                 placeholder="Brief summary of key medical guidance..."
                 rows={2}
-                className="w-full rounded-lg border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full rounded-lg border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </div>
 
@@ -424,7 +424,7 @@ export const ContentPage: React.FC = () => {
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Write comprehensive, evidence-based medical information..."
                 rows={8}
-                className="w-full rounded-lg border border-slate-300 p-2.5 text-xs text-slate-900 font-mono focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 leading-relaxed"
+                className="w-full rounded-lg border border-slate-300 p-2.5 text-xs text-slate-900 font-mono focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 leading-relaxed"
               />
             </div>
 

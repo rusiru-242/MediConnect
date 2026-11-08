@@ -64,7 +64,7 @@ export const DoctorsPage: React.FC = () => {
               setSpecialtyFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Specialties</option>
             <option value="Cardiology">Cardiology</option>
@@ -80,7 +80,7 @@ export const DoctorsPage: React.FC = () => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Verification Statuses</option>
             <option value="APPROVED">Approved Only</option>
@@ -124,7 +124,7 @@ export const DoctorsPage: React.FC = () => {
                   <tr key={doc.doctorProfileId} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-50 text-teal-600 font-bold shrink-0">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-600 font-bold shrink-0">
                           <Stethoscope className="w-4 h-4" />
                         </div>
                         <div>

@@ -76,7 +76,7 @@ export const AnalyticsPage: React.FC = () => {
     value,
   }));
 
-  const COLORS = ['#0d9488', '#0284c7', '#f59e0b', '#e11d48', '#64748b'];
+  const COLORS = ['#1565C0', '#2196F3', '#16A34A', '#F59E0B', '#64748B'];
 
   const paymentTrends = paymentAnalytics?.dailyTrends?.map((d) => ({
     date: d.date.slice(5),
@@ -113,7 +113,7 @@ export const AnalyticsPage: React.FC = () => {
           title="Completion Rate"
           value={`${apptAnalytics?.completionRatePercent ?? 100}%`}
           icon={<Percent className="w-5 h-5" />}
-          iconBgColor="bg-teal-50 text-teal-600"
+          iconBgColor="bg-brand-50 text-brand-600"
           subtitle={`${apptAnalytics?.completedBookings ?? 0} completed of ${apptAnalytics?.totalBookings ?? 0}`}
         />
         <StatCard

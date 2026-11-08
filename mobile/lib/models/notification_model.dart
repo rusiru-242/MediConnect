@@ -163,7 +163,7 @@ class NotificationModel {
       case NotificationType.appointmentCancelled:
         return const Color(0xFFD32F2F); // Red
       case NotificationType.appointmentCompleted:
-        return const Color(0xFF00897B); // Teal
+        return const Color(0xFF1565C0); // Primary Blue
       case NotificationType.paymentSuccess:
         return const Color(0xFF2E7D32); // Green
       case NotificationType.paymentFailed:

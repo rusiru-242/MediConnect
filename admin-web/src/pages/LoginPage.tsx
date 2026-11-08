@@ -60,12 +60,12 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12 sm:px-6 lg:px-8">
       {/* Subtle radial glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-teal-900/20 via-slate-900 to-slate-950 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-blue-900/30 via-slate-900 to-slate-950 pointer-events-none" />
 
       <div className="relative w-full max-w-md space-y-8 rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl sm:p-10">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500 text-white shadow-lg shadow-teal-500/30">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30">
             <ShieldCheck className="h-8 w-8" />
           </div>
           <h2 className="mt-5 text-2xl font-bold tracking-tight text-white">MediConnect Admin</h2>
@@ -99,7 +99,7 @@ export const LoginPage: React.FC = () => {
               placeholder="admin@mediconnect.lk"
               leftIcon={<Mail className="w-4 h-4" />}
               error={errors.email?.message}
-              className="bg-slate-950/60 border-slate-700 text-white placeholder-slate-500 focus:border-teal-400"
+              className="bg-slate-950/60 border-slate-700 text-white placeholder-slate-500 focus:border-brand-500"
               {...register('email')}
             />
           </div>
@@ -112,7 +112,7 @@ export const LoginPage: React.FC = () => {
               placeholder="••••••••••••"
               leftIcon={<Lock className="w-4 h-4" />}
               error={errors.password?.message}
-              className="bg-slate-950/60 border-slate-700 text-white placeholder-slate-500 focus:border-teal-400"
+              className="bg-slate-950/60 border-slate-700 text-white placeholder-slate-500 focus:border-brand-500"
               {...register('password')}
             />
           </div>
@@ -122,7 +122,7 @@ export const LoginPage: React.FC = () => {
               type="submit"
               variant="primary"
               size="lg"
-              className="w-full bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold"
+              className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-md shadow-brand-600/25"
               isLoading={isLoading}
             >
               Sign In to Console

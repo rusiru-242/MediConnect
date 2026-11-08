@@ -501,7 +501,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+          colors: [AppTheme.primaryBlue, AppTheme.secondaryBlue],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

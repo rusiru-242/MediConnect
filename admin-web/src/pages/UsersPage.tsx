@@ -123,7 +123,7 @@ export const UsersPage: React.FC = () => {
               setRoleFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Roles</option>
             <option value="PATIENT">Patients</option>
@@ -137,7 +137,7 @@ export const UsersPage: React.FC = () => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="ALL">All Account Statuses</option>
             <option value="ACTIVE">Active</option>
@@ -185,7 +185,7 @@ export const UsersPage: React.FC = () => {
                         <div className="font-semibold text-slate-900 flex items-center gap-1.5">
                           {u.fullName}
                           {isSelf && (
-                            <span className="text-[10px] font-bold bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded">
+                            <span className="text-[10px] font-bold bg-brand-100 text-brand-800 px-1.5 py-0.2 rounded">
                               You
                             </span>
                           )}
@@ -198,7 +198,7 @@ export const UsersPage: React.FC = () => {
                             u.role === 'ADMIN'
                               ? 'bg-purple-50 text-purple-700 border border-purple-200'
                               : u.role === 'DOCTOR'
-                              ? 'bg-teal-50 text-teal-700 border border-teal-200'
+                              ? 'bg-brand-50 text-brand-700 border border-brand-200'
                               : 'bg-slate-100 text-slate-700'
                           }`}
                         >

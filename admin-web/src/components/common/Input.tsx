@@ -28,12 +28,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
-            className={`block w-full rounded-lg border text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors ${
+            className={`block w-full rounded-lg border text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
               leftIcon ? 'pl-10' : 'pl-3.5'
             } ${rightIcon ? 'pr-10' : 'pr-3.5'} py-2 ${
               error
                 ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200 bg-rose-50/20'
-                : 'border-slate-300 focus:border-teal-500 bg-white'
+                : 'border-slate-300 focus:border-brand-500 bg-white'
             } ${className}`}
             {...props}
           />

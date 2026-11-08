@@ -72,9 +72,9 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Welcome Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-teal-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-[#172B4D] via-[#1565C0] to-[#1976D2] rounded-3xl p-6 sm:p-8 text-white shadow-lg">
         <div>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-500/30 mb-2">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/15 text-blue-100 border border-white/20 mb-2">
             Operations & Health Overview
           </span>
           <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
@@ -110,7 +110,7 @@ export const DashboardPage: React.FC = () => {
           title="Verified Practitioners"
           value={totals?.verifiedDoctors?.toLocaleString() ?? 0}
           icon={<Stethoscope className="w-5 h-5" />}
-          iconBgColor="bg-teal-50 text-teal-600"
+          iconBgColor="bg-brand-50 text-brand-600"
           subtitle={`${totals?.totalDoctors ?? 0} total registered doctors`}
         />
         <StatCard
@@ -140,7 +140,7 @@ export const DashboardPage: React.FC = () => {
             </div>
             <Link
               to="/appointments"
-              className="text-xs font-semibold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+              className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1"
             >
               View All <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -154,8 +154,8 @@ export const DashboardPage: React.FC = () => {
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="apptGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#1565C0" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2196F3" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -163,7 +163,7 @@ export const DashboardPage: React.FC = () => {
                   <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#0f172a',
+                      backgroundColor: '#172b4d',
                       borderRadius: '0.75rem',
                       border: 'none',
                       color: '#ffffff',
@@ -173,7 +173,7 @@ export const DashboardPage: React.FC = () => {
                   <Area
                     type="monotone"
                     dataKey="appointments"
-                    stroke="#0d9488"
+                    stroke="#1565C0"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#apptGradient)"
@@ -193,7 +193,7 @@ export const DashboardPage: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-slate-900">Revenue by Currency</h2>
-              <div className="p-2 rounded-xl bg-teal-50 text-teal-600">
+              <div className="p-2 rounded-xl bg-brand-50 text-brand-600">
                 <CreditCard className="w-4 h-4" />
               </div>
             </div>

@@ -189,7 +189,7 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.health_and_safety_rounded, color: Colors.tealAccent, size: 24),
+            Icon(Icons.health_and_safety_rounded, color: Color(0xFF90CAF9), size: 24),
             SizedBox(width: 8),
             Text('AI Health Assistant', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
@@ -240,25 +240,25 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
     return Container(
       key: const Key('health_chat_disclaimer_banner'),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      color: Colors.teal.shade50,
+      color: AppTheme.primaryContainer,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, size: 20, color: Colors.teal.shade800),
+          Icon(Icons.info_outline_rounded, size: 20, color: AppTheme.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               _currentLanguage == 'si'
                   ? 'MediConnect AI සෞඛ්‍ය සහායකයා සාමාන්‍ය අධ්‍යාපනික තොරතුරු පමණක් සපයයි. මෙය වෛද්‍ය උපදෙසක් හෝ රෝග විනිශ්චයක් නොවේ. හදිසි අවස්ථාවකදී වහාම 1990 අමතන්න.'
                   : 'MediConnect AI provides general educational health information only. It is not a clinical diagnosis or prescription. In emergencies, call 1990 immediately.',
-              style: TextStyle(fontSize: 12, color: Colors.teal.shade900, height: 1.3),
+              style: TextStyle(fontSize: 12, color: AppTheme.darkNavy, height: 1.3),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 16),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            color: Colors.teal.shade700,
+            color: AppTheme.primary,
             onPressed: () => setState(() => _showDisclaimer = false),
           ),
         ],
@@ -339,7 +339,7 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.teal.shade200),
+                  side: BorderSide(color: AppTheme.border),
                 ),
                 onPressed: () => _sendMessage(q),
               );
@@ -612,7 +612,7 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.teal.shade200, width: 1.2),
+        border: Border.all(color: AppTheme.border, width: 1.2),
         boxShadow: [
 
           BoxShadow(
@@ -629,7 +629,7 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: Colors.teal.shade50,
+                backgroundColor: AppTheme.primaryContainer,
                 child: const Icon(Icons.person, color: AppTheme.primary, size: 22),
               ),
               const SizedBox(width: 8),

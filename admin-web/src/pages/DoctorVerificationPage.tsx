@@ -344,7 +344,7 @@ export const DoctorVerificationPage: React.FC = () => {
                       className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-teal-50 text-teal-600">
+                        <div className="p-2 rounded-lg bg-brand-50 text-brand-600">
                           <FileText className="w-4 h-4" />
                         </div>
                         <div>

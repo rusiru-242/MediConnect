@@ -36,7 +36,7 @@ export const SettingsPage: React.FC = () => {
       {/* Administrator Profile Card */}
       <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
         <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-600 text-white font-bold text-lg shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white font-bold text-lg shadow-sm">
             {admin?.fullName ? admin.fullName.charAt(0).toUpperCase() : 'A'}
           </div>
           <div>
@@ -118,12 +118,12 @@ export const SettingsPage: React.FC = () => {
 
       {/* Security Architecture Summary */}
       <div className="rounded-2xl border border-slate-200/80 bg-slate-900 text-white p-6 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 text-teal-400">
+        <div className="flex items-center gap-2 text-brand-400">
           <Shield className="w-5 h-5" />
           <h3 className="text-sm font-bold text-white">Production Security Safeguards</h3>
         </div>
         <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside">
-          <li>All endpoints protected by server-side FastAPI <code className="text-teal-300">require_admin</code> dependencies.</li>
+          <li>All endpoints protected by server-side FastAPI <code className="text-brand-300">require_admin</code> dependencies.</li>
           <li>Least-privilege API queries omit password hashes and confidential medical records.</li>
           <li>Verification documents are served through authenticated streaming routes, avoiding raw disk exposure.</li>
           <li>Sensitive long-lived credentials are never written to unencrypted persistent client storage.</li>

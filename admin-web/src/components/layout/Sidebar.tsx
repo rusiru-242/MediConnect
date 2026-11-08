@@ -68,12 +68,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white shadow-sm shadow-teal-500/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-600/20">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
               <span className="text-base font-bold tracking-tight text-slate-900">MediConnect</span>
-              <span className="block text-[10px] font-semibold uppercase tracking-wider text-teal-600">
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-brand-600">
                 Administration
               </span>
             </div>
@@ -82,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             type="button"
             onClick={onClose}
             aria-label="Close sidebar"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 lg:hidden focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 lg:hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
           >
             <X className="h-5 w-5" />
           </button>
@@ -101,16 +101,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 to={item.href}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none ${
+                  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none ${
                     isActive
-                      ? 'bg-teal-50 text-teal-700 shadow-xs font-bold'
+                      ? 'bg-brand-50 text-brand-700 shadow-xs font-bold'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
-                    <Icon className={`h-4 w-4 ${isActive ? 'text-teal-600' : 'text-slate-400'}`} />
+                    <Icon className={`h-4 w-4 ${isActive ? 'text-brand-600' : 'text-slate-400'}`} />
                     <span>{item.name}</span>
                   </>
                 )}

@@ -233,7 +233,7 @@ class _MedicalRecordDetailScreenState extends State<MedicalRecordDetailScreen> {
         // 4. Treatment Plan Section
         _buildSectionCard(
           icon: Icons.healing_rounded,
-          iconColor: Colors.teal,
+          iconColor: AppTheme.primary,
           title: 'Treatment & Management Plan',
           content: rec.treatmentPlan,
         ),

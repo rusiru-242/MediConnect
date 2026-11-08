@@ -63,8 +63,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       case 'info':
       default:
         return {
-          container: 'bg-teal-50 border-teal-200 text-teal-900',
-          icon: <Info className="w-4 h-4 text-teal-600 shrink-0" />,
+          container: 'bg-brand-50 border-brand-200 text-brand-900',
+          icon: <Info className="w-4 h-4 text-brand-600 shrink-0" />,
           role: 'status' as const,
         };
     }
@@ -96,7 +96,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label="Dismiss notification"
-                className="rounded-lg p-1 text-slate-400 hover:text-slate-700 hover:bg-black/5 transition-colors shrink-0 focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none"
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-700 hover:bg-black/5 transition-colors shrink-0 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
