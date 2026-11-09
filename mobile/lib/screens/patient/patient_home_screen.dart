@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
@@ -79,17 +80,27 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     final authProvider = context.read<AuthProvider>();
     final user = authProvider.user;
 
+    ThemeProvider? themeProvider;
+    try {
+      themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    } catch (_) {
+      themeProvider = null;
+    }
+    final isDark = themeProvider != null
+        ? themeProvider.isDark(context)
+        : Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
+      builder: (ctx) => Material(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -99,7 +110,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -108,8 +119,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: AppTheme.primaryContainer,
-                  child: const Icon(Icons.person_rounded, size: 32, color: AppTheme.primaryBlue),
+                  backgroundColor: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
+                  child: Icon(Icons.person_rounded, size: 32, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -118,19 +129,66 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     children: [
                       Text(
                         user?.fullName ?? 'Patient',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         user?.email ?? '',
-                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const Divider(height: 32),
+            Divider(height: 28, color: isDark ? AppTheme.darkBorder : AppTheme.border),
+            SwitchListTile.adaptive(
+              key: const Key('patient_home_dark_mode_switch'),
+              contentPadding: EdgeInsets.zero,
+              secondary: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppTheme.darkPrimaryContainer
+                      : AppTheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                  color: isDark ? const Color(0xFF38BDF8) : AppTheme.primaryBlue,
+                  size: 20,
+                ),
+              ),
+              title: Text(
+                'Dark Theme',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                isDark ? 'Medical Dark Slate active' : 'Clinical Light active',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+              value: isDark,
+              onChanged: themeProvider != null
+                  ? (val) {
+                      themeProvider?.setThemeMode(val ? ThemeMode.dark : ThemeMode.light);
+                      Navigator.pop(ctx);
+                    }
+                  : null,
+            ),
+            Divider(height: 16, color: isDark ? AppTheme.darkBorder : AppTheme.border),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Container(
@@ -214,7 +272,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   void _triggerEmergencyAlert() {
@@ -284,10 +343,20 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     final user = authProvider.user;
     final userName = user?.fullName.isNotEmpty == true ? user!.fullName : 'Patient';
 
+    ThemeProvider? themeProvider;
+    try {
+      themeProvider = Provider.of<ThemeProvider>(context);
+    } catch (_) {
+      themeProvider = null;
+    }
+    final isDark = themeProvider != null
+        ? themeProvider.isDark(context)
+        : Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
         elevation: 0,
         scrolledUnderElevation: 1,
         titleSpacing: 16,
@@ -305,15 +374,15 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.2,
-                    color: AppTheme.primaryBlue,
+                    color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue,
                   ),
                 ),
-                const Text(
+                Text(
                   'Patient Dashboard',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                   ),
                 ),
               ],
@@ -321,6 +390,19 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            key: const Key('patient_home_theme_toggle_button'),
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_outlined,
+              color: isDark ? const Color(0xFFFBBF24) : AppTheme.primaryBlue,
+            ),
+            tooltip: isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme',
+            onPressed: () {
+              if (themeProvider != null) {
+                themeProvider.toggleTheme(context);
+              }
+            },
+          ),
           const NotificationBellButton(),
           IconButton(
             key: const Key('patient_home_settings_button'),
@@ -353,21 +435,21 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       children: [
                         Text(
                           '${_getTimeGreeting()}, $userName 👋',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                             letterSpacing: -0.3,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 1),
-                        const Text(
+                        Text(
                           'How are you feeling today?',
                           style: TextStyle(
                             fontSize: 13,
-                            color: AppTheme.textSecondary,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                           ),
                         ),
                       ],
@@ -389,7 +471,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               const SizedBox(height: 16),
 
               // 3. Quick Services (2x2 Grid)
-              const Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
@@ -397,7 +479,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                     ),
                   ),
                 ],
@@ -411,11 +493,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               const SizedBox(height: 16),
 
               // 5. Today's Vitals Tracking Bar
-              _buildVitalsTrackerCard(),
+              _buildVitalsTrackerCard(context),
               const SizedBox(height: 20),
 
               // 6. Additional Care Services (Records, Reviews, Wellness, Payments)
-              const Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
@@ -423,7 +505,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                     ),
                   ),
                 ],
@@ -464,10 +546,16 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppTheme.darkSurface : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppTheme.darkBorder : AppTheme.border,
+              width: 1,
+            ),
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryBlue.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
               blurRadius: 16,
               offset: const Offset(0, -4),
             ),
@@ -483,12 +571,14 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   icon: Icons.home_rounded,
                   label: 'Home',
                   isSelected: _selectedNavIndex == 0,
+                  isDark: isDark,
                   onTap: () => setState(() => _selectedNavIndex = 0),
                 ),
                 _buildNavItem(
                   icon: Icons.calendar_month_rounded,
                   label: 'Appointments',
                   isSelected: _selectedNavIndex == 1,
+                  isDark: isDark,
                   onTap: () {
                     Navigator.of(context).pushNamed('/patient/my-appointments');
                   },
@@ -497,6 +587,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   icon: Icons.medical_services_rounded,
                   label: 'Doctors',
                   isSelected: _selectedNavIndex == 2,
+                  isDark: isDark,
                   onTap: () {
                     Navigator.of(context).pushNamed('/patient/find-doctor');
                   },
@@ -505,6 +596,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   icon: Icons.person_rounded,
                   label: 'Profile',
                   isSelected: _selectedNavIndex == 3,
+                  isDark: isDark,
                   onTap: () {
                     Navigator.of(context).pushNamed('/patient/profile');
                   },
@@ -522,7 +614,12 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
+    bool isDark = false,
   }) {
+    final activeBg = isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer;
+    final activeFg = isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue;
+    final inactiveFg = isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -535,12 +632,12 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               width: 52,
               height: 28,
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primaryContainer : Colors.transparent,
+                color: isSelected ? activeBg : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 icon,
-                color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                color: isSelected ? activeFg : inactiveFg,
                 size: 22,
               ),
             ),
@@ -550,7 +647,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                color: isSelected ? activeFg : inactiveFg,
               ),
             ),
           ],
@@ -753,6 +850,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
   /// Upcoming Appointment Card
   Widget _buildUpcomingAppointmentCard(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return StitchCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -761,12 +859,12 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Upcoming Appointment',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 ),
               ),
               InkWell(
@@ -818,19 +916,19 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'Dr. Alexander Wright',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                       ),
                     ),
-                    const Text(
+                    Text(
                       'Cardiologist • St. Jude Hospital',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppTheme.textSecondary,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                       ),
                     ),
                   ],
@@ -843,23 +941,33 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceContainerLow,
+              color: isDark ? AppTheme.darkSurfaceContainerLow : AppTheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.videocam_rounded, size: 18, color: AppTheme.primaryBlue),
-                    SizedBox(width: 8),
-                    Text(
-                      'Encrypted Video Consultation',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.videocam_rounded, size: 18, color: AppTheme.primaryBlue),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Encrypted Video Consultation',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                StitchPulseBadge(label: 'READY', dotColor: AppTheme.success),
+                const SizedBox(width: 8),
+                const StitchPulseBadge(label: 'READY', dotColor: AppTheme.success),
               ],
             ),
           ),
@@ -909,6 +1017,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
   /// Quick Services 2x2 Grid
   Widget _buildQuickServicesGrid(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return GridView.count(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
@@ -939,15 +1048,22 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Find a Doctor',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     '120+ Specialists',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -977,15 +1093,22 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Lab & Records',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     'Prescriptions & PDFs',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -1015,15 +1138,22 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Prescriptions',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     'Dose schedules',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -1052,15 +1182,22 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Emergency SOS',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.error),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkError : AppTheme.error,
+                    ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     'Call 1990 Dispatcher',
-                    style: TextStyle(fontSize: 11, color: AppTheme.error),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.darkError : AppTheme.error,
+                    ),
                   ),
                 ],
               ),
@@ -1072,7 +1209,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   /// Today's Vitals Tracking Bar
-  Widget _buildVitalsTrackerCard() {
+  Widget _buildVitalsTrackerCard(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return StitchCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       child: Column(
@@ -1111,12 +1249,12 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text('72', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
-                    const Text('bpm', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    Text('72', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+                    Text('bpm', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
                   ],
                 ),
               ),
-              Container(width: 1, height: 40, color: AppTheme.border),
+              Container(width: 1, height: 40, color: isDark ? AppTheme.darkBorder : AppTheme.border),
               // Blood pressure
               Expanded(
                 child: Column(
@@ -1130,12 +1268,12 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text('118/78', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
-                    const Text('mmHg', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    Text('118/78', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+                    Text('mmHg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
                   ],
                 ),
               ),
-              Container(width: 1, height: 40, color: AppTheme.border),
+              Container(width: 1, height: 40, color: isDark ? AppTheme.darkBorder : AppTheme.border),
               // Sleep
               Expanded(
                 child: Column(
@@ -1149,8 +1287,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text('7h 45m', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
-                    const Text('Restorative', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    Text('7h 45m', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+                    Text('Restorative', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
                   ],
                 ),
               ),
@@ -1163,6 +1301,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
   /// Additional Care Management features
   Widget _buildCareManagementCards(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return Column(
       children: [
         // Doctor Reviews
@@ -1183,22 +1322,29 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 child: Icon(Icons.star_rounded, size: 22, color: Colors.amber.shade800),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'My Doctor Reviews',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      ),
                     ),
                     Text(
                       'Rate consultations & read feedback',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+              Icon(Icons.chevron_right_rounded, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
             ],
           ),
         ),
@@ -1222,22 +1368,29 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 child: const Icon(Icons.spa_rounded, size: 22, color: AppTheme.primaryBlue),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Health & Wellness Guides',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      ),
                     ),
                     Text(
                       'Nutrition, fitness & preventive care',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+              Icon(Icons.chevron_right_rounded, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
             ],
           ),
         ),
@@ -1261,22 +1414,29 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 child: const Icon(Icons.receipt_long_rounded, size: 22, color: Colors.green),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Payment History & Receipts',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      ),
                     ),
                     Text(
                       'Stripe receipts & consultation invoices',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+              Icon(Icons.chevron_right_rounded, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
             ],
           ),
         ),

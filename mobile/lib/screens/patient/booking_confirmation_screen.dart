@@ -47,8 +47,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
   @override
   void initState() {
     super.initState();
-    _appointmentService =
-        widget.appointmentService ?? AppointmentService();
+    _appointmentService = widget.appointmentService ?? AppointmentService();
     _paymentService = widget.paymentService ?? PaymentService();
   }
 
@@ -79,10 +78,12 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
       );
 
       // 2. Request Stripe PaymentIntent from backend
-      final intentResp =
-          await _paymentService.createPaymentIntent(appointment.id);
+      final intentResp = await _paymentService.createPaymentIntent(
+        appointment.id,
+      );
 
-      final isNativeStripeSupported = !kIsWeb &&
+      final isNativeStripeSupported =
+          !kIsWeb &&
           (defaultTargetPlatform == TargetPlatform.android ||
               defaultTargetPlatform == TargetPlatform.iOS);
 
@@ -113,19 +114,23 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
           // proceed directly to backend status query.
         }
       } else {
-        debugPrint('Stripe native PaymentSheet presentation skipped on unsupported platform.');
+        debugPrint(
+          'Stripe native PaymentSheet presentation skipped on unsupported platform.',
+        );
       }
 
       // 4. Authoritatively query backend for confirmed payment and appointment status
-      var statusResult =
-          await _paymentService.getPaymentStatus(intentResp.paymentId);
+      var statusResult = await _paymentService.getPaymentStatus(
+        intentResp.paymentId,
+      );
 
       if (!statusResult.isSucceeded &&
           statusResult.paymentStatus.toUpperCase() == 'PENDING') {
         await Future.delayed(const Duration(seconds: 2));
         if (!mounted) return;
-        statusResult =
-            await _paymentService.getPaymentStatus(intentResp.paymentId);
+        statusResult = await _paymentService.getPaymentStatus(
+          intentResp.paymentId,
+        );
       }
 
       if (!mounted) return;
@@ -153,8 +158,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
       } else {
         setState(() {
           _isSubmitting = false;
-          _errorMessage =
-              'Payment could not be completed. Please try again.';
+          _errorMessage = 'Payment could not be completed. Please try again.';
         });
       }
     } on StripeException catch (e) {
@@ -164,8 +168,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
         if (e.error.code == FailureCode.Canceled) {
           _errorMessage = 'Payment was cancelled.';
         } else {
-          _errorMessage =
-              'Payment could not be completed. Please try again.';
+          _errorMessage = 'Payment could not be completed. Please try again.';
         }
       });
     } on ConflictException catch (e) {
@@ -199,8 +202,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _errorMessage =
-            'Unable to connect to MediConnect. Please check your internet connection and try again.';
+        _errorMessage = 'Unable to connect to MediConnect. Please check your internet connection and try again.';
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -219,7 +221,8 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _errorMessage = e.toString().toLowerCase().contains('socket') ||
+        _errorMessage =
+            e.toString().toLowerCase().contains('socket') ||
                 e.toString().toLowerCase().contains('network') ||
                 e.toString().toLowerCase().contains('timeout') ||
                 e.toString().toLowerCase().contains('connect')
@@ -275,7 +278,11 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
-                          child: const Icon(Icons.person_rounded, size: 24, color: AppTheme.primaryBlue),
+                          child: const Icon(
+                            Icons.person_rounded,
+                            size: 24,
+                            color: AppTheme.primaryBlue,
+                          ),
                         ),
                         Positioned(
                           bottom: -2,
@@ -287,7 +294,11 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                               color: AppTheme.success,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 9),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 9,
+                            ),
                           ),
                         ),
                       ],
@@ -312,7 +323,11 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.verified_rounded, size: 14, color: AppTheme.primaryBlue),
+                              const Icon(
+                                Icons.verified_rounded,
+                                size: 14,
+                                color: AppTheme.primaryBlue,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 2),
@@ -330,12 +345,22 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text('Direct Hold', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue)),
+                      child: const Text(
+                        'Direct Hold',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -344,7 +369,10 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
 
               // 2. Step Progress Indicator
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(10),
@@ -352,11 +380,30 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildStepIndicator(step: '1', label: 'Slot', isDone: true, isActive: false),
-                    Container(width: 24, height: 1.5, color: AppTheme.primaryBlue),
-                    _buildStepIndicator(step: '2', label: 'Details', isDone: false, isActive: true),
+                    _buildStepIndicator(
+                      step: '1',
+                      label: 'Slot',
+                      isDone: true,
+                      isActive: false,
+                    ),
+                    Container(
+                      width: 24,
+                      height: 1.5,
+                      color: AppTheme.primaryBlue,
+                    ),
+                    _buildStepIndicator(
+                      step: '2',
+                      label: 'Details',
+                      isDone: false,
+                      isActive: true,
+                    ),
                     Container(width: 24, height: 1.5, color: AppTheme.border),
-                    _buildStepIndicator(step: '3', label: 'Payment', isDone: false, isActive: false),
+                    _buildStepIndicator(
+                      step: '3',
+                      label: 'Payment',
+                      isDone: false,
+                      isActive: false,
+                    ),
                   ],
                 ),
               ),
@@ -370,29 +417,52 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                       onTap: () => setState(() => _selectedMode = 'video'),
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: _selectedMode == 'video' ? AppTheme.primaryContainer.withValues(alpha: 0.15) : Colors.white,
+                          color: _selectedMode == 'video'
+                              ? AppTheme.primaryContainer.withValues(
+                                  alpha: 0.15,
+                                )
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: _selectedMode == 'video' ? AppTheme.primaryBlue : AppTheme.border,
+                            color: _selectedMode == 'video'
+                                ? AppTheme.primaryBlue
+                                : AppTheme.border,
                             width: _selectedMode == 'video' ? 1.5 : 1,
                           ),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.videocam_rounded, size: 16, color: _selectedMode == 'video' ? AppTheme.primaryBlue : AppTheme.textSecondary),
+                            Icon(
+                              Icons.videocam_rounded,
+                              size: 16,
+                              color: _selectedMode == 'video'
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.textSecondary,
+                            ),
                             const SizedBox(width: 6),
                             const Expanded(
                               child: Text(
                                 'Video Visit',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
                             ),
                             Icon(
-                              _selectedMode == 'video' ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                              _selectedMode == 'video'
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked,
                               size: 14,
-                              color: _selectedMode == 'video' ? AppTheme.primaryBlue : AppTheme.border,
+                              color: _selectedMode == 'video'
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.border,
                             ),
                           ],
                         ),
@@ -405,29 +475,52 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                       onTap: () => setState(() => _selectedMode = 'inperson'),
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: _selectedMode == 'inperson' ? AppTheme.primaryContainer.withValues(alpha: 0.15) : Colors.white,
+                          color: _selectedMode == 'inperson'
+                              ? AppTheme.primaryContainer.withValues(
+                                  alpha: 0.15,
+                                )
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: _selectedMode == 'inperson' ? AppTheme.primaryBlue : AppTheme.border,
+                            color: _selectedMode == 'inperson'
+                                ? AppTheme.primaryBlue
+                                : AppTheme.border,
                             width: _selectedMode == 'inperson' ? 1.5 : 1,
                           ),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.business_rounded, size: 16, color: _selectedMode == 'inperson' ? AppTheme.primaryBlue : AppTheme.textSecondary),
+                            Icon(
+                              Icons.business_rounded,
+                              size: 16,
+                              color: _selectedMode == 'inperson'
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.textSecondary,
+                            ),
                             const SizedBox(width: 6),
                             const Expanded(
                               child: Text(
                                 'In-Clinic',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
                             ),
                             Icon(
-                              _selectedMode == 'inperson' ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                              _selectedMode == 'inperson'
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked,
                               size: 14,
-                              color: _selectedMode == 'inperson' ? AppTheme.primaryBlue : AppTheme.border,
+                              color: _selectedMode == 'inperson'
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.border,
                             ),
                           ],
                         ),
@@ -445,43 +538,75 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.calendar_today_outlined, size: 16, color: AppTheme.primaryBlue),
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 16,
+                          color: AppTheme.primaryBlue,
+                        ),
                         const SizedBox(width: 8),
                         const Text(
                           'Date:',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                         const Spacer(),
                         Text(
                           widget.date,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
                         ),
                       ],
                     ),
                     const Divider(height: 14),
                     Row(
                       children: [
-                        const Icon(Icons.access_time_outlined, size: 16, color: AppTheme.primaryBlue),
+                        const Icon(
+                          Icons.access_time_outlined,
+                          size: 16,
+                          color: AppTheme.primaryBlue,
+                        ),
                         const SizedBox(width: 8),
                         const Text(
                           'Time:',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                         const Spacer(),
                         Text(
                           '${widget.slot.startTime} - ${widget.slot.endTime}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
                         ),
                       ],
                     ),
                     const Divider(height: 14),
                     Row(
                       children: [
-                        const Icon(Icons.payments_outlined, size: 16, color: AppTheme.primaryBlue),
+                        const Icon(
+                          Icons.payments_outlined,
+                          size: 16,
+                          color: AppTheme.primaryBlue,
+                        ),
                         const SizedBox(width: 8),
                         const Text(
                           'Consultation Fee:',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                         const Spacer(),
                         Text(
@@ -508,10 +633,16 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                 maxLength: 500,
                 decoration: InputDecoration(
                   hintText: 'Reason for visit / symptoms (optional)...',
-                  hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                  hintStyle: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textMuted,
+                  ),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: AppTheme.border),
@@ -522,7 +653,10 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryBlue,
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -534,16 +668,26 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                   decoration: BoxDecoration(
                     color: AppTheme.errorContainer,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppTheme.error.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 18),
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: AppTheme.error,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(color: AppTheme.error, fontSize: 12, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            color: AppTheme.error,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -575,7 +719,9 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: _isSubmitting ? null : _startPaymentFlow,
                   child: _isSubmitting
@@ -584,13 +730,19 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.lock_rounded, size: 16, color: Colors.white),
+                            Icon(
+                              Icons.lock_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            ),
                             SizedBox(width: 8),
                             Text(
                               'Continue to Payment',
@@ -624,7 +776,9 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
           width: 22,
           height: 22,
           decoration: BoxDecoration(
-            color: isDone || isActive ? AppTheme.primaryBlue : AppTheme.surfaceContainerHigh,
+            color: isDone || isActive
+                ? AppTheme.primaryBlue
+                : AppTheme.surfaceContainerHigh,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,

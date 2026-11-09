@@ -24,15 +24,25 @@ class MedicalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
+    final effectiveBg = backgroundColor ??
+        (isDark ? AppTheme.darkSurface : AppTheme.surface);
+    final effectiveBorder = border ??
+        BorderSide(
+          color: isDark ? AppTheme.darkBorder : AppTheme.border,
+          width: 1,
+        );
 
     return Material(
-      color: backgroundColor ?? AppTheme.surface,
+      color: effectiveBg,
       elevation: elevation,
-      shadowColor: AppTheme.darkNavy.withValues(alpha: 0.06),
+      shadowColor: isDark
+          ? Colors.black.withValues(alpha: 0.3)
+          : AppTheme.darkNavy.withValues(alpha: 0.06),
       shape: RoundedRectangleBorder(
         borderRadius: effectiveRadius,
-        side: border ?? const BorderSide(color: AppTheme.border, width: 1),
+        side: effectiveBorder,
       ),
       child: InkWell(
         onTap: onTap,
@@ -68,6 +78,7 @@ class MedicalStatusBadge extends StatelessWidget {
     Color fg;
     Color borderColor;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     switch (normalized) {
       case 'CONFIRMED':
       case 'APPROVED':
@@ -75,32 +86,32 @@ class MedicalStatusBadge extends StatelessWidget {
       case 'ACTIVE':
       case 'PAID':
       case 'SUCCEEDED':
-        bg = AppTheme.successContainer;
-        fg = AppTheme.success;
-        borderColor = AppTheme.success.withValues(alpha: 0.25);
+        bg = isDark ? AppTheme.darkSuccessContainer : AppTheme.successContainer;
+        fg = isDark ? AppTheme.darkSuccess : AppTheme.success;
+        borderColor = fg.withValues(alpha: 0.25);
         break;
       case 'PENDING':
       case 'SUBMITTED':
       case 'UPCOMING':
       case 'SCHEDULED':
       case 'IN_PROGRESS':
-        bg = AppTheme.warningContainer;
-        fg = AppTheme.warning;
-        borderColor = AppTheme.warning.withValues(alpha: 0.3);
+        bg = isDark ? AppTheme.darkWarningContainer : AppTheme.warningContainer;
+        fg = isDark ? AppTheme.darkWarning : AppTheme.warning;
+        borderColor = fg.withValues(alpha: 0.3);
         break;
       case 'CANCELLED':
       case 'REJECTED':
       case 'SUSPENDED':
       case 'FAILED':
       case 'DEACTIVATED':
-        bg = AppTheme.errorContainer;
-        fg = AppTheme.error;
-        borderColor = AppTheme.error.withValues(alpha: 0.25);
+        bg = isDark ? AppTheme.darkErrorContainer : AppTheme.errorContainer;
+        fg = isDark ? AppTheme.darkError : AppTheme.error;
+        borderColor = fg.withValues(alpha: 0.25);
         break;
       default:
-        bg = AppTheme.primaryContainer;
-        fg = AppTheme.primaryBlue;
-        borderColor = AppTheme.primaryBlue.withValues(alpha: 0.2);
+        bg = isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer;
+        fg = isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue;
+        borderColor = fg.withValues(alpha: 0.2);
     }
 
     return Container(
@@ -370,21 +381,29 @@ class StitchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveRadius = BorderRadius.circular(borderRadius);
+    final effectiveBg = backgroundColor ??
+        (isDark ? AppTheme.darkSurface : AppTheme.surfaceContainerLowest);
+    final effectiveBorder = border ??
+        BorderSide(
+          color: isDark ? AppTheme.darkBorder : AppTheme.border,
+          width: 1,
+        );
 
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: backgroundColor ?? AppTheme.surfaceContainerLowest,
+        color: effectiveBg,
         borderRadius: effectiveRadius,
-        border: Border.fromBorderSide(
-          border ?? const BorderSide(color: AppTheme.border, width: 1),
-        ),
-        boxShadow: const [
+        border: Border.fromBorderSide(effectiveBorder),
+        boxShadow: [
           BoxShadow(
-            color: Color.fromRGBO(15, 23, 42, 0.04),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.25)
+                : const Color.fromRGBO(15, 23, 42, 0.04),
             blurRadius: 8,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),

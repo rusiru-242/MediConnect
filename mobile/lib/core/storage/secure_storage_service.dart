@@ -8,6 +8,7 @@ class SecureStorageService {
   static const String _refreshTokenKey = 'mediconnect_refresh_token';
   static const String _userCacheKey = 'mediconnect_user_cache';
   static const String _serverUrlKey = 'mediconnect_server_url';
+  static const String _themeModeKey = 'mediconnect_theme_mode';
 
   final FlutterSecureStorage _storage;
 
@@ -83,6 +84,21 @@ class SecureStorageService {
       await _storage.delete(key: _serverUrlKey);
     } catch (_) {
       // Best-effort cleanup
+    }
+  }
+
+
+  /// Persists preferred theme mode ('light', 'dark', 'system').
+  Future<void> saveThemeMode(String themeMode) async {
+    await _storage.write(key: _themeModeKey, value: themeMode);
+  }
+
+  /// Retrieves stored theme mode, or null if absent.
+  Future<String?> getThemeMode() async {
+    try {
+      return await _storage.read(key: _themeModeKey);
+    } catch (_) {
+      return null;
     }
   }
 

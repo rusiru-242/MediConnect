@@ -73,6 +73,30 @@ class AppTheme {
   static const Color primaryLight = Color(0xFF42A5F5); // Blue 400
   static const Color primaryDark = Color(0xFF004D99);
 
+  // Dark Theme Tokens (Phase 41 / Modern Dark Mode Support)
+  static const Color darkBackground = Color(0xFF0F172A); // Slate 900
+  static const Color darkSurface = Color(0xFF1E293B); // Slate 800
+  static const Color darkSurfaceContainerLowest = Color(0xFF0F172A);
+  static const Color darkSurfaceContainerLow = Color(0xFF172033);
+  static const Color darkSurfaceContainer = Color(0xFF1E293B);
+  static const Color darkSurfaceContainerHigh = Color(0xFF283548);
+  static const Color darkBorder = Color(0xFF334155); // Slate 700
+  static const Color darkPrimaryBlue = Color(0xFF38BDF8); // Sky 400
+  static const Color darkPrimaryContainer = Color(0xFF0F2E5C); // Deep blue container
+  static const Color darkTextPrimary = Color(0xFFF8FAFC); // Slate 50
+  static const Color darkTextSecondary = Color(0xFF94A3B8); // Slate 400
+  static const Color darkTextMuted = Color(0xFF64748B); // Slate 500
+  static const Color darkSuccess = Color(0xFF34D399); // Emerald 400
+  static const Color darkSuccessContainer = Color(0xFF064E3B); // Emerald 900
+  static const Color darkWarning = Color(0xFFFBBF24); // Amber 400
+  static const Color darkWarningContainer = Color(0xFF78350F); // Amber 900
+  static const Color darkError = Color(0xFFF87171); // Red 400
+  static const Color darkErrorContainer = Color(0xFF7F1D1D); // Red 900
+
+  /// Helper to check if dark mode is active in the current context.
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
   // Shared Gradients (Stitch Clinical Clarity)
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [stitchPrimary, primaryBlue, secondaryBlue],
@@ -241,6 +265,144 @@ class AppTheme {
       ),
       dividerTheme: const DividerThemeData(
         color: border,
+        thickness: 1,
+        space: 24,
+      ),
+    );
+  }
+
+  /// Dark Theme Definition
+  static ThemeData get darkTheme {
+    final colorScheme = ColorScheme.dark(
+      primary: darkPrimaryBlue,
+      onPrimary: Colors.black,
+      primaryContainer: darkPrimaryContainer,
+      onPrimaryContainer: Colors.white,
+      secondary: secondaryBlue,
+      onSecondary: Colors.white,
+      surface: darkSurface,
+      onSurface: darkTextPrimary,
+      error: darkError,
+      onError: Colors.black,
+      errorContainer: darkErrorContainer,
+      onErrorContainer: Colors.white,
+      outline: darkBorder,
+      outlineVariant: darkBorder,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: darkBackground,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: darkSurface,
+        foregroundColor: darkTextPrimary,
+        elevation: 0,
+        centerTitle: true,
+        scrolledUnderElevation: 0.5,
+        titleTextStyle: TextStyle(
+          color: darkTextPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
+        ),
+        iconTheme: IconThemeData(color: darkTextPrimary),
+      ),
+      cardTheme: CardThemeData(
+        color: darkSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: darkBorder, width: 1),
+        ),
+        margin: EdgeInsets.zero,
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: darkSurface,
+        selectedItemColor: darkPrimaryBlue,
+        unselectedItemColor: darkTextSecondary,
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryBlue,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: darkTextPrimary,
+          side: const BorderSide(color: darkBorder, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: darkPrimaryBlue,
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkSurface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        hintStyle: const TextStyle(
+          color: darkTextMuted,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+        ),
+        labelStyle: const TextStyle(
+          color: darkTextSecondary,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIconColor: darkTextSecondary,
+        suffixIconColor: darkTextSecondary,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkBorder, width: 1.5),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkBorder, width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkPrimaryBlue, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkError, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkError, width: 2),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: darkBorder,
         thickness: 1,
         space: 24,
       ),

@@ -8,6 +8,7 @@ import 'core/constants/api_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/auth/admin_access_blocked_screen.dart';
 import 'screens/auth/create_account_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
@@ -104,12 +105,16 @@ class MediConnectApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
         ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
         ChangeNotifierProvider<NotificationProvider>(
           create: (_) => NotificationProvider(),
         ),
       ],
-      child: MaterialApp(
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) => MaterialApp(
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeProvider.themeMode,
         title: 'MediConnect',
         navigatorKey: FcmService().navigatorKey,
         debugShowCheckedModeBanner: false,
@@ -173,6 +178,6 @@ class MediConnectApp extends StatelessWidget {
               const AddAvailabilityScreen(),
         },
       ),
-    );
+    ));
   }
 }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
@@ -64,17 +65,27 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
         ? (user!.fullName.startsWith('Dr.') ? user.fullName : 'Dr. ${user.fullName}')
         : 'Dr. Doctor';
 
+    ThemeProvider? themeProvider;
+    try {
+      themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    } catch (_) {
+      themeProvider = null;
+    }
+    final isDark = themeProvider != null
+        ? themeProvider.isDark(context)
+        : Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
+      builder: (ctx) => Material(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -84,7 +95,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -93,8 +104,8 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  backgroundColor: AppTheme.primaryContainer,
-                  child: const Icon(Icons.medical_services_rounded, size: 32, color: AppTheme.primaryBlue),
+                  backgroundColor: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
+                  child: Icon(Icons.medical_services_rounded, size: 32, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -103,23 +114,34 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                     children: [
                       Text(
                         doctorName,
-                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         user?.email ?? '',
-                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.successContainer,
+                          color: isDark ? AppTheme.darkSuccessContainer : AppTheme.successContainer,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           appStatus?.verificationStatus.toUpperCase() ?? 'VERIFIED & ACTIVE',
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.stitchTertiary),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppTheme.darkSuccess : AppTheme.stitchTertiary,
+                          ),
                         ),
                       ),
                     ],
@@ -127,7 +149,46 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 ),
               ],
             ),
-            const Divider(height: 32),
+            Divider(height: 28, color: isDark ? AppTheme.darkBorder : AppTheme.border),
+            SwitchListTile.adaptive(
+              key: const Key('doctor_home_dark_mode_switch'),
+              contentPadding: EdgeInsets.zero,
+              secondary: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppTheme.darkPrimaryContainer
+                      : AppTheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                  color: isDark ? const Color(0xFF38BDF8) : AppTheme.primaryBlue,
+                ),
+              ),
+              title: Text(
+                'Dark Theme',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                isDark ? 'Medical Dark Slate active' : 'Clinical Light active',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+              value: isDark,
+              onChanged: themeProvider != null
+                  ? (val) {
+                      themeProvider?.setThemeMode(val ? ThemeMode.dark : ThemeMode.light);
+                      Navigator.pop(ctx);
+                    }
+                  : null,
+            ),
+            Divider(height: 16, color: isDark ? AppTheme.darkBorder : AppTheme.border),
             if (appStatus?.specialty != null && appStatus!.specialty.isNotEmpty)
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -168,7 +229,8 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   @override
@@ -186,10 +248,20 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
         : 'Dr. Doctor';
     final specialty = authProvider.doctorApplicationStatus?.specialty ?? 'Cardiology Specialist';
 
+    ThemeProvider? themeProvider;
+    try {
+      themeProvider = Provider.of<ThemeProvider>(context);
+    } catch (_) {
+      themeProvider = null;
+    }
+    final isDark = themeProvider != null
+        ? themeProvider.isDark(context)
+        : Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
         elevation: 0,
         scrolledUnderElevation: 1,
         titleSpacing: 16,
@@ -207,15 +279,15 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.2,
-                    color: AppTheme.primaryBlue,
+                    color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue,
                   ),
                 ),
-                const Text(
+                Text(
                   'Doctor Dashboard',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                   ),
                 ),
               ],
@@ -223,6 +295,19 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            key: const Key('doctor_home_theme_toggle_button'),
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_outlined,
+              color: isDark ? const Color(0xFFFBBF24) : AppTheme.primaryBlue,
+            ),
+            tooltip: isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme',
+            onPressed: () {
+              if (themeProvider != null) {
+                themeProvider.toggleTheme(context);
+              }
+            },
+          ),
           const NotificationBellButton(),
           IconButton(
             tooltip: 'Logout',
