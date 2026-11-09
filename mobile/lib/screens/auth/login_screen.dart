@@ -77,11 +77,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateAfterLogin(AuthProvider authProvider) {
     if (authProvider.user?.role == 'DOCTOR') {
       final status = authProvider.doctorApplicationStatus;
-      if (status?.isApproved == true || authProvider.user?.accountStatus == 'ACTIVE') {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/doctor/home',
-          (route) => false,
-        );
+      if (status?.isApproved == true ||
+          authProvider.user?.accountStatus == 'ACTIVE') {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/doctor/home', (route) => false);
       } else {
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/doctor/application-status',
@@ -89,10 +88,8 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } else if (authProvider.user?.role == 'PATIENT') {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/patient/home',
-        (route) => false,
-      );
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil('/patient/home', (route) => false);
     } else {
       authProvider.logout();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -148,7 +145,9 @@ class _LoginScreenState extends State<LoginScreen> {
   void _triggerBiometric() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Biometric authentication: Prompting Face ID / Touch ID...'),
+        content: Text(
+          'Biometric authentication: Prompting Face ID / Touch ID...',
+        ),
         duration: Duration(seconds: 2),
       ),
     );
@@ -180,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 2.0),
           child: Form(
             key: _formKey,
             child: Column(
@@ -206,7 +205,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryContainer,
                               borderRadius: BorderRadius.circular(9999),
@@ -233,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
 
                 // 2. Role Selector (Segmented Control)
                 Container(
@@ -253,12 +255,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: _selectedRole == 'patient' ? Colors.white : Colors.transparent,
+                              color: _selectedRole == 'patient'
+                                  ? Colors.white
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: _selectedRole == 'patient'
                                   ? [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.05),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
                                         blurRadius: 4,
                                         offset: const Offset(0, 2),
                                       ),
@@ -271,15 +277,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Icon(
                                   Icons.person_rounded,
                                   size: 18,
-                                  color: _selectedRole == 'patient' ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                                  color: _selectedRole == 'patient'
+                                      ? AppTheme.primaryBlue
+                                      : AppTheme.textSecondary,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Patient',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: _selectedRole == 'patient' ? FontWeight.w700 : FontWeight.w500,
-                                    color: _selectedRole == 'patient' ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                                    fontWeight: _selectedRole == 'patient'
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: _selectedRole == 'patient'
+                                        ? AppTheme.primaryBlue
+                                        : AppTheme.textSecondary,
                                   ),
                                 ),
                               ],
@@ -296,12 +308,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: _selectedRole == 'doctor' ? Colors.white : Colors.transparent,
+                              color: _selectedRole == 'doctor'
+                                  ? Colors.white
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: _selectedRole == 'doctor'
                                   ? [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.05),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
                                         blurRadius: 4,
                                         offset: const Offset(0, 2),
                                       ),
@@ -314,15 +330,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Icon(
                                   Icons.medical_services_outlined,
                                   size: 18,
-                                  color: _selectedRole == 'doctor' ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                                  color: _selectedRole == 'doctor'
+                                      ? AppTheme.primaryBlue
+                                      : AppTheme.textSecondary,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Doctor / Specialist',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: _selectedRole == 'doctor' ? FontWeight.w700 : FontWeight.w500,
-                                    color: _selectedRole == 'doctor' ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                                    fontWeight: _selectedRole == 'doctor'
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: _selectedRole == 'doctor'
+                                        ? AppTheme.primaryBlue
+                                        : AppTheme.textSecondary,
                                   ),
                                 ),
                               ],
@@ -333,7 +355,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 4),
 
                 // Error Banner
                 if (errorMessage != null) ...[
@@ -342,12 +364,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: BoxDecoration(
                       color: AppTheme.errorContainer,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: AppTheme.error.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 20),
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          color: AppTheme.error,
+                          size: 20,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -362,7 +390,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (errorMessage.toLowerCase().contains('connect') ||
                             errorMessage.toLowerCase().contains('network'))
                           IconButton(
-                            icon: const Icon(Icons.refresh_rounded, size: 18, color: AppTheme.primaryBlue),
+                            icon: const Icon(
+                              Icons.refresh_rounded,
+                              size: 18,
+                              color: AppTheme.primaryBlue,
+                            ),
                             onPressed: _retryConnection,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -370,20 +402,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 4),
                 ],
 
                 // 3. Main Login Form Container
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppTheme.border, width: 1),
                     boxShadow: const [
                       BoxShadow(
                         color: Color.fromRGBO(15, 23, 42, 0.04),
-                        blurRadius: 8,
+                        blurRadius: 10,
                         offset: Offset(0, 2),
                       ),
                     ],
@@ -391,6 +426,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Email / Identifier Field
+                      Text(
+                        _selectedRole == 'doctor'
+                            ? 'Provider Email or NPI ID'
+                            : 'Medical ID, Email or Phone',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
                       TextFormField(
                         key: const Key('login_email_input'),
                         controller: _emailController,
@@ -399,15 +446,32 @@ class _LoginScreenState extends State<LoginScreen> {
                         autocorrect: false,
                         textInputAction: TextInputAction.next,
                         decoration: InputDecoration(
-                          labelText: _selectedRole == 'doctor' ? 'Provider Email / NPI' : 'Email Address / Mobile',
-                          hintText: _selectedRole == 'doctor' ? 'doctor@hospital.com' : 'patient@domain.com',
-                          prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          hintText: _selectedRole == 'doctor'
+                              ? 'doctor@hospital.com or NPI'
+                              : 'name@domain.com or phone',
+                          prefixIcon: const Icon(
+                            Icons.alternate_email_rounded,
+                            size: 20,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
                         ),
                         validator: _validateEmail,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 4),
 
+                      // Password Field
+                      const Text(
+                        'Secure Password',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
                       TextFormField(
                         key: const Key('login_password_input'),
                         controller: _passwordController,
@@ -416,13 +480,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _handleSubmit(),
                         decoration: InputDecoration(
-                          labelText: 'Password',
                           hintText: '••••••••••••',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+                          prefixIcon: const Icon(
+                            Icons.lock_outline_rounded,
+                            size: 20,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                              size: 18,
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              size: 20,
                             ),
                             onPressed: () {
                               setState(() {
@@ -430,7 +498,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               });
                             },
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
                         ),
                         validator: _validatePassword,
                       ),
@@ -448,7 +519,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: Checkbox(
                                   value: _rememberMe,
                                   activeColor: AppTheme.primaryBlue,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
                                   onChanged: (val) {
                                     setState(() => _rememberMe = val ?? true);
                                   },
@@ -457,7 +530,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(width: 6),
                               const Text(
                                 'Remember me',
-                                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -471,7 +547,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: const Text(
                               'Forgot Password?',
-                              style: TextStyle(fontSize: 13, color: AppTheme.secondaryBlue, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.secondaryBlue,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -484,13 +564,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           gradient: const LinearGradient(
-                            colors: [AppTheme.stitchPrimary, AppTheme.primaryBlue],
+                            colors: [
+                              AppTheme.stitchPrimary,
+                              AppTheme.primaryBlue,
+                            ],
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primaryBlue.withValues(alpha: 0.25),
+                              color: AppTheme.primaryBlue.withValues(
+                                alpha: 0.25,
+                              ),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
                             ),
@@ -501,7 +586,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.transparent,
                             shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           onPressed: isLoading ? null : _handleSubmit,
                           child: isLoading
@@ -510,7 +597,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
                                   ),
                                 )
                               : const Row(
@@ -518,10 +607,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                   children: [
                                     Text(
                                       'Sign In to MediConnect',
-                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                     SizedBox(width: 8),
-                                    Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
                                   ],
                                 ),
                         ),
@@ -537,12 +634,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: const Row(
                             children: [
-                              Icon(Icons.verified_user_outlined, size: 18, color: AppTheme.secondaryBlue),
+                              Icon(
+                                Icons.verified_user_outlined,
+                                size: 18,
+                                color: AppTheme.secondaryBlue,
+                              ),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'Practitioner accounts require verified clinical credentials upon sign-in.',
-                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -554,12 +658,91 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // 4. Divider with OR continue with
+                // 4. Fast Biometric Login Row
+                InkWell(
+                  onTap: _triggerBiometric,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.fingerprint_rounded,
+                                size: 22,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Fast Biometric Login',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  'Face ID / Touch ID Verified',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const Row(
+                          children: [
+                            Text(
+                              'Tap to scan',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 18,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 5. Divider with OR continue with
                 Row(
                   children: const [
                     Expanded(child: Divider(color: AppTheme.border)),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10.0),
+                      padding: EdgeInsets.symmetric(horizontal: 12.0),
                       child: Text(
                         'OR CONTINUE WITH',
                         style: TextStyle(
@@ -573,9 +756,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     Expanded(child: Divider(color: AppTheme.border)),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
 
-                // 5. Social Sign In Row
+                // 6. Social Sign In Row
                 Row(
                   children: [
                     Expanded(
@@ -585,23 +768,32 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.textPrimary,
                           backgroundColor: Colors.white,
-                          side: const BorderSide(color: AppTheme.border, width: 1),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          minimumSize: const Size(0, 42),
+                          side: const BorderSide(
+                            color: AppTheme.border,
+                            width: 1,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          minimumSize: const Size(0, 46),
                         ),
                         icon: Image.network(
                           'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
                           width: 18,
                           height: 18,
-                          errorBuilder: (context, error, stackTrace) => const Icon(
-                            Icons.g_mobiledata_rounded,
-                            size: 22,
-                            color: AppTheme.primaryBlue,
-                          ),
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                                Icons.g_mobiledata_rounded,
+                                size: 22,
+                                color: AppTheme.primaryBlue,
+                              ),
                         ),
                         label: const Text(
                           'Google',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -610,83 +802,42 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Apple ID Sign-In available on iOS devices.')),
+                            const SnackBar(
+                              content: Text(
+                                'Apple ID Sign-In available on iOS devices.',
+                              ),
+                            ),
                           );
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.textPrimary,
                           backgroundColor: Colors.white,
-                          side: const BorderSide(color: AppTheme.border, width: 1),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          minimumSize: const Size(0, 42),
+                          side: const BorderSide(
+                            color: AppTheme.border,
+                            width: 1,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          minimumSize: const Size(0, 46),
                         ),
-                        icon: const Icon(Icons.apple_rounded, size: 20, color: AppTheme.textPrimary),
+                        icon: const Icon(
+                          Icons.apple_rounded,
+                          size: 20,
+                          color: AppTheme.textPrimary,
+                        ),
                         label: const Text(
                           'Apple',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-
-                // 6. Fast Biometric Login Row
-                InkWell(
-                  onTap: _triggerBiometric,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primaryContainer,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.fingerprint_rounded, size: 18, color: AppTheme.primaryBlue),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'Fast Biometric Login',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                                ),
-                                Text(
-                                  'Face ID / Touch ID Verified',
-                                  style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondary),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const Row(
-                          children: [
-                            Text(
-                              'Tap to scan',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue),
-                            ),
-                            SizedBox(width: 3),
-                            Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.primaryBlue),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 20),
 
                 // 7. Registration Links
                 Row(
@@ -694,7 +845,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const Text(
                       "Don't have an account? ",
-                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                     GestureDetector(
                       onTap: isLoading ? null : _onCreateAccount,
@@ -709,17 +863,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
                       'Are you a medical doctor? ',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                     GestureDetector(
                       key: const Key('login_doctor_register_link'),
-                      onTap: isLoading ? null : () => Navigator.of(context).pushNamed('/doctor/register'),
+                      onTap: isLoading
+                          ? null
+                          : () =>
+                                Navigator.of(context)
+                                    .pushNamed('/doctor/register'),
                       child: const Text(
                         'Register as Doctor',
                         style: TextStyle(
@@ -737,7 +898,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    Icon(Icons.lock_clock_outlined, size: 14, color: AppTheme.textMuted),
+                    Icon(
+                      Icons.lock_clock_outlined,
+                      size: 14,
+                      color: AppTheme.textMuted,
+                    ),
                     SizedBox(width: 6),
                     Text(
                       'HIPAA & GDPR End-to-End Encrypted Portal',

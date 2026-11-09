@@ -16,14 +16,13 @@ class DoctorService {
     String? search,
     String? specialty,
   }) async {
-    final queryParams = <String>[
-      'page=$page',
-      'limit=$limit',
-    ];
+    final queryParams = <String>['page=$page', 'limit=$limit'];
     if (search != null && search.trim().isNotEmpty) {
       queryParams.add('search=${Uri.encodeComponent(search.trim())}');
     }
-    if (specialty != null && specialty.trim().isNotEmpty && specialty.trim().toLowerCase() != 'all') {
+    if (specialty != null &&
+        specialty.trim().isNotEmpty &&
+        specialty.trim().toLowerCase() != 'all') {
       queryParams.add('specialty=${Uri.encodeComponent(specialty.trim())}');
     }
 
@@ -33,7 +32,13 @@ class DoctorService {
     if (response is Map<String, dynamic>) {
       return DoctorListResponse.fromJson(response);
     }
-    return DoctorListResponse(items: [], page: page, limit: limit, total: 0, totalPages: 0);
+    return DoctorListResponse(
+      items: [],
+      page: page,
+      limit: limit,
+      total: 0,
+      totalPages: 0,
+    );
   }
 
   /// Retrieve detailed public profile for a specific approved doctor.
@@ -48,18 +53,27 @@ class DoctorService {
     String doctorId, {
     String? date,
   }) async {
-    final query = (date != null && date.trim().isNotEmpty) ? '?date=${date.trim()}' : '';
+    final query = (date != null && date.trim().isNotEmpty)
+        ? '?date=${date.trim()}'
+        : '';
     final endpoint = '${ApiConstants.doctorSlotsEndpoint(doctorId)}$query';
     final response = await _apiClient.get(endpoint, includeAuth: true);
 
     if (response is List) {
       return response
-          .map((item) => DayAvailabilitySlots.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) =>
+                DayAvailabilitySlots.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
     } else if (response is Map<String, dynamic>) {
-      if (response.containsKey('availabilities') && response['availabilities'] is List) {
+      if (response.containsKey('availabilities') &&
+          response['availabilities'] is List) {
         return (response['availabilities'] as List)
-            .map((item) => DayAvailabilitySlots.fromJson(item as Map<String, dynamic>))
+            .map(
+              (item) =>
+                  DayAvailabilitySlots.fromJson(item as Map<String, dynamic>),
+            )
             .toList();
       }
       return [DayAvailabilitySlots.fromJson(response)];
@@ -74,7 +88,9 @@ class DoctorService {
 
     if (response is List) {
       return response
-          .map((item) => DoctorAvailability.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => DoctorAvailability.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
     }
     return [];
@@ -94,7 +110,11 @@ class DoctorService {
       'endTime': endTime,
       'slotDurationMinutes': slotDurationMinutes,
     };
-    final response = await _apiClient.post(endpoint, body: payload, includeAuth: true);
+    final response = await _apiClient.post(
+      endpoint,
+      body: payload,
+      includeAuth: true,
+    );
     return DoctorAvailability.fromJson(response as Map<String, dynamic>);
   }
 
@@ -107,21 +127,31 @@ class DoctorService {
     int? slotDurationMinutes,
     bool? isActive,
   }) async {
-    final endpoint = ApiConstants.doctorAvailabilityDetailEndpoint(availabilityId);
+    final endpoint = ApiConstants.doctorAvailabilityDetailEndpoint(
+      availabilityId,
+    );
     final payload = <String, dynamic>{};
     if (date != null) payload['date'] = date;
     if (startTime != null) payload['startTime'] = startTime;
     if (endTime != null) payload['endTime'] = endTime;
-    if (slotDurationMinutes != null) payload['slotDurationMinutes'] = slotDurationMinutes;
+    if (slotDurationMinutes != null) {
+      payload['slotDurationMinutes'] = slotDurationMinutes;
+    }
     if (isActive != null) payload['isActive'] = isActive;
 
-    final response = await _apiClient.put(endpoint, body: payload, includeAuth: true);
+    final response = await _apiClient.put(
+      endpoint,
+      body: payload,
+      includeAuth: true,
+    );
     return DoctorAvailability.fromJson(response as Map<String, dynamic>);
   }
 
   /// Soft-delete / deactivate an availability window.
   Future<void> deleteAvailability(String availabilityId) async {
-    final endpoint = ApiConstants.doctorAvailabilityDetailEndpoint(availabilityId);
+    final endpoint = ApiConstants.doctorAvailabilityDetailEndpoint(
+      availabilityId,
+    );
     await _apiClient.delete(endpoint, includeAuth: true);
   }
 }

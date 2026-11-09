@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/doctor.dart';
 import '../../models/doctor_availability.dart';
@@ -74,7 +75,9 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
 
     if (_doctor == null && _effectiveDoctorId != null && !_isLoadingDoctor) {
       _loadDoctorDetail();
-    } else if (_doctor != null && _dayAvailabilities.isEmpty && !_isLoadingAvailability) {
+    } else if (_doctor != null &&
+        _dayAvailabilities.isEmpty &&
+        !_isLoadingAvailability) {
       _loadAvailability();
       _loadReviews();
     }
@@ -115,7 +118,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
 
     try {
       final summary = await _reviewService.getDoctorRatingSummary(docId);
-      final page = await _reviewService.getDoctorReviews(docId, page: 1, pageSize: 20);
+      final page = await _reviewService.getDoctorReviews(
+        docId,
+        page: 1,
+        pageSize: 20,
+      );
       if (!mounted) return;
       setState(() {
         _ratingSummary = summary;
@@ -152,7 +159,8 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _availabilityError = 'Unable to connect to MediConnect. Please try again.';
+        _availabilityError =
+            'Unable to connect to MediConnect. Please try again.';
         _isLoadingAvailability = false;
       });
     }
@@ -162,9 +170,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('Doctor Profile'),
-      ),
+      appBar: AppBar(title: const Text('Doctor Profile')),
       body: _buildBody(),
     );
   }
@@ -181,16 +187,27 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, size: 54, color: AppTheme.error),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 54,
+                color: AppTheme.error,
+              ),
               const SizedBox(height: 16),
               Text(
                 _doctorError!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, color: AppTheme.textSecondary),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppTheme.textSecondary,
+                ),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: _loadDoctorDetail,
+                onPressed: () async {
+                  await ApiConstants.autoDetectBaseUrl(force: true);
+                  _loadDoctorDetail();
+                  _loadAvailability();
+                },
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Retry'),
               ),
@@ -223,7 +240,12 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                       backgroundColor: AppTheme.primaryContainer,
                       child: Text(
                         doctor.fullName.isNotEmpty
-                            ? doctor.fullName.replaceFirst('Dr. ', '').split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join()
+                            ? doctor.fullName
+                                  .replaceFirst('Dr. ', '')
+                                  .split(' ')
+                                  .map((n) => n.isNotEmpty ? n[0] : '')
+                                  .take(2)
+                                  .join()
                             : 'DR',
                         style: const TextStyle(
                           fontSize: 22,
@@ -241,7 +263,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                           color: AppTheme.primaryBlue,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.verified_rounded, size: 14, color: Colors.white),
+                        child: const Icon(
+                          Icons.verified_rounded,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -253,44 +279,72 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                     Flexible(
                       child: Text(
                         doctor.fullName,
-                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.verified_rounded, size: 17, color: AppTheme.primaryBlue),
+                    const Icon(
+                      Icons.verified_rounded,
+                      size: 17,
+                      color: AppTheme.primaryBlue,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 3),
                 Text(
                   doctor.specialty,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryBlue,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 3),
                 Text(
                   doctor.hospitalOrClinic,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.success.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppTheme.success.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified_rounded, size: 14, color: AppTheme.success),
+                      Icon(
+                        Icons.verified_rounded,
+                        size: 14,
+                        color: AppTheme.success,
+                      ),
                       SizedBox(width: 5),
                       Text(
                         'Verified Doctor',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.success),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.success,
+                        ),
                       ),
                     ],
                   ),
@@ -311,16 +365,30 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.schedule_rounded, size: 13, color: AppTheme.primaryBlue),
+                                const Icon(
+                                  Icons.schedule_rounded,
+                                  size: 13,
+                                  color: AppTheme.primaryBlue,
+                                ),
                                 const SizedBox(width: 3),
                                 Text(
                                   '${doctor.experienceYears} Yrs',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.primaryBlue),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.primaryBlue,
+                                  ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 2),
-                            const Text('Experience', style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondary)),
+                            const Text(
+                              'Experience',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -338,18 +406,29 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 14,
+                                  color: Colors.amber,
+                                ),
                                 const SizedBox(width: 2),
                                 Text(
                                   '★ ${_ratingSummary?.averageRating?.toStringAsFixed(1) ?? "4.9"}',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.textPrimary,
+                                  ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 2),
                             const Text(
                               'Rating',
-                              style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondary),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: AppTheme.textSecondary,
+                              ),
                             ),
                           ],
                         ),
@@ -368,16 +447,30 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.groups_rounded, size: 14, color: AppTheme.secondaryBlue),
+                                Icon(
+                                  Icons.groups_rounded,
+                                  size: 14,
+                                  color: AppTheme.secondaryBlue,
+                                ),
                                 SizedBox(width: 3),
                                 Text(
                                   '1.2k+',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.secondaryBlue),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.secondaryBlue,
+                                  ),
                                 ),
                               ],
                             ),
                             SizedBox(height: 2),
-                            Text('Patients', style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondary)),
+                            Text(
+                              'Patients',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -401,7 +494,9 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.15)),
+              border: Border.all(
+                color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+              ),
             ),
             child: Row(
               children: [
@@ -418,7 +513,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.monitor_heart_rounded, color: AppTheme.primaryBlue, size: 18),
+                  child: const Icon(
+                    Icons.monitor_heart_rounded,
+                    color: AppTheme.primaryBlue,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -427,11 +526,18 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                     children: [
                       const Text(
                         'Top Ranked Specialist',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                       Text(
                         'Certified clinical expertise in ',
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -446,29 +552,45 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
           StitchCard(
             padding: const EdgeInsets.all(18.0),
             child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Professional Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 14),
-                  if (doctor.qualifications != null && doctor.qualifications!.isNotEmpty) ...[
-                    _buildDetailRow(Icons.school_outlined, 'Qualifications', doctor.qualifications!),
-                    const Divider(height: 20),
-                  ],
-                  _buildDetailRow(Icons.local_hospital_outlined, 'Hospital / Clinic', doctor.hospitalOrClinic),
-                  const Divider(height: 20),
-                  _buildDetailRow(Icons.work_history_outlined, 'Experience', '${doctor.experienceYears} Years'),
-                  const Divider(height: 20),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Professional Details',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 14),
+                if (doctor.qualifications != null &&
+                    doctor.qualifications!.isNotEmpty) ...[
                   _buildDetailRow(
-                    Icons.payments_outlined,
-                    'Consultation Fee',
-                    'LKR ${doctor.consultationFee.toStringAsFixed(2)}',
+                    Icons.school_outlined,
+                    'Qualifications',
+                    doctor.qualifications!,
                   ),
-                  if (doctor.bio != null && doctor.bio!.isNotEmpty) ...[
-                    const Divider(height: 20),
-                    _buildDetailRow(Icons.info_outline, 'About', doctor.bio!),
-                  ],
+                  const Divider(height: 20),
                 ],
-              ),
+                _buildDetailRow(
+                  Icons.local_hospital_outlined,
+                  'Hospital / Clinic',
+                  doctor.hospitalOrClinic,
+                ),
+                const Divider(height: 20),
+                _buildDetailRow(
+                  Icons.work_history_outlined,
+                  'Experience',
+                  '${doctor.experienceYears} Years',
+                ),
+                const Divider(height: 20),
+                _buildDetailRow(
+                  Icons.payments_outlined,
+                  'Consultation Fee',
+                  'LKR ${doctor.consultationFee.toStringAsFixed(2)}',
+                ),
+                if (doctor.bio != null && doctor.bio!.isNotEmpty) ...[
+                  const Divider(height: 20),
+                  _buildDetailRow(Icons.info_outline, 'About', doctor.bio!),
+                ],
+              ],
+            ),
           ),
 
           const SizedBox(height: 20),
@@ -476,7 +598,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
           // Availability Section
           const Text(
             'Available Dates & Times',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -501,9 +627,22 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
             ],
           ),
         ),
@@ -527,10 +666,16 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              Text(_availabilityError!, style: const TextStyle(color: AppTheme.textSecondary)),
+              Text(
+                _availabilityError!,
+                style: const TextStyle(color: AppTheme.textSecondary),
+              ),
               const SizedBox(height: 12),
               ElevatedButton.icon(
-                onPressed: _loadAvailability,
+                onPressed: () async {
+                  await ApiConstants.autoDetectBaseUrl(force: true);
+                  _loadAvailability();
+                },
                 icon: const Icon(Icons.refresh, size: 16),
                 label: const Text('Retry'),
               ),
@@ -548,11 +693,19 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
           child: Center(
             child: Column(
               children: [
-                Icon(Icons.event_busy_rounded, size: 48, color: AppTheme.textSecondary),
+                Icon(
+                  Icons.event_busy_rounded,
+                  size: 48,
+                  color: AppTheme.textSecondary,
+                ),
                 SizedBox(height: 12),
                 Text(
                   'No available time slots currently.',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.textSecondary),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -569,186 +722,209 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
     return StitchCard(
       padding: const EdgeInsets.all(16.0),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Select Date',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select Date',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
             ),
-            const SizedBox(height: 10),
+          ),
+          const SizedBox(height: 10),
 
-            // Available Dates Selector
-            SizedBox(
-              height: 48,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _dayAvailabilities.length,
-                itemBuilder: (context, index) {
-                  final day = _dayAvailabilities[index];
-                  final isSelected = day.date == _selectedDate;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      key: Key('date_chip_${day.date}'),
-                      selected: isSelected,
-                      label: Text(
-                        day.date,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : AppTheme.textPrimary,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                      selectedColor: AppTheme.primary,
-                      backgroundColor: Colors.white,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() {
-                            _selectedDate = day.date;
-                            _selectedSlotStartTime = null;
-                          });
-                        }
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 10),
-
-            Text(
-              'Available Slots for ${selectedDay.date}',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
-            ),
-            const SizedBox(height: 12),
-
-            // Time Slots Wrap
-            if (selectedDay.slots.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text('No slots remaining on this date.', style: TextStyle(color: AppTheme.textSecondary)),
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: selectedDay.slots.map((slot) {
-                  final isSelected = _selectedSlotStartTime == slot.startTime;
-                  return ChoiceChip(
-                    key: Key('slot_chip_${slot.startTime}'),
+          // Available Dates Selector
+          SizedBox(
+            height: 48,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _dayAvailabilities.length,
+              itemBuilder: (context, index) {
+                final day = _dayAvailabilities[index];
+                final isSelected = day.date == _selectedDate;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ChoiceChip(
+                    key: Key('date_chip_${day.date}'),
                     selected: isSelected,
                     label: Text(
-                      '${slot.startTime} - ${slot.endTime}',
+                      day.date,
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                         color: isSelected ? Colors.white : AppTheme.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
                     ),
                     selectedColor: AppTheme.primary,
-                    backgroundColor: AppTheme.surfaceVariant.withValues(alpha: 0.4),
-                    side: BorderSide(
-                      color: isSelected ? AppTheme.primary : AppTheme.outline.withValues(alpha: 0.3),
-                    ),
+                    backgroundColor: Colors.white,
                     onSelected: (selected) {
-                      setState(() {
-                        _selectedSlotStartTime = selected ? slot.startTime : null;
-                      });
+                      if (selected) {
+                        setState(() {
+                          _selectedDate = day.date;
+                          _selectedSlotStartTime = null;
+                        });
+                      }
                     },
-                  );
-                }).toList(),
-              ),
-
-            const SizedBox(height: 20),
-
-            // Functional Booking Action Button
-            Builder(
-              builder: (context) {
-                TimeSlot? selectedSlot;
-                if (_selectedSlotStartTime != null) {
-                  try {
-                    selectedSlot = selectedDay.slots.firstWhere(
-                      (s) => s.startTime == _selectedSlotStartTime,
-                    );
-                  } catch (_) {}
-                }
-
-                final isEnabled = _selectedSlotStartTime != null &&
-                    _doctor != null &&
-                    selectedSlot != null;
-
-                return Container(
-                  width: double.infinity,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    gradient: isEnabled
-                        ? const LinearGradient(
-                            colors: [AppTheme.stitchPrimary, AppTheme.primaryBlue],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          )
-                        : null,
-                    color: isEnabled ? null : AppTheme.surfaceContainerHigh,
-                    boxShadow: isEnabled
-                        ? [
-                            BoxShadow(
-                              color: AppTheme.primaryBlue.withValues(alpha: 0.25),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: ElevatedButton(
-                    key: const Key('book_appointment_button'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: isEnabled
-                          ? Colors.white
-                          : AppTheme.textSecondary,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: isEnabled
-                        ? () async {
-                            final shouldRefresh = await Navigator.push<bool>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BookingConfirmationScreen(
-                                  doctor: _doctor!,
-                                  date: selectedDay.date,
-                                  slot: selectedSlot!,
-                                ),
-                              ),
-                            );
-                            if (shouldRefresh == true) {
-                              setState(() {
-                                _selectedSlotStartTime = null;
-                              });
-                              _loadAvailability();
-                            }
-                          }
-                        : null,
-                    child: Text(
-                      _selectedSlotStartTime != null
-                          ? 'Continue to Booking ($_selectedSlotStartTime)'
-                          : 'Select a Time Slot',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    ),
                   ),
                 );
               },
             ),
-          ],
-        ),
+          ),
+
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 10),
+
+          Text(
+            'Available Slots for ${selectedDay.date}',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Time Slots Wrap
+          if (selectedDay.slots.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'No slots remaining on this date.',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: selectedDay.slots.map((slot) {
+                final isSelected = _selectedSlotStartTime == slot.startTime;
+                return ChoiceChip(
+                  key: Key('slot_chip_${slot.startTime}'),
+                  selected: isSelected,
+                  label: Text(
+                    '${slot.startTime} - ${slot.endTime}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      color: isSelected ? Colors.white : AppTheme.textPrimary,
+                    ),
+                  ),
+                  selectedColor: AppTheme.primary,
+                  backgroundColor: AppTheme.surfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
+                  side: BorderSide(
+                    color: isSelected
+                        ? AppTheme.primary
+                        : AppTheme.outline.withValues(alpha: 0.3),
+                  ),
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedSlotStartTime = selected ? slot.startTime : null;
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+
+          const SizedBox(height: 20),
+
+          // Functional Booking Action Button
+          Builder(
+            builder: (context) {
+              TimeSlot? selectedSlot;
+              if (_selectedSlotStartTime != null) {
+                try {
+                  selectedSlot = selectedDay.slots.firstWhere(
+                    (s) => s.startTime == _selectedSlotStartTime,
+                  );
+                } catch (_) {}
+              }
+
+              final isEnabled =
+                  _selectedSlotStartTime != null &&
+                  _doctor != null &&
+                  selectedSlot != null;
+
+              return Container(
+                width: double.infinity,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: isEnabled
+                      ? const LinearGradient(
+                          colors: [
+                            AppTheme.stitchPrimary,
+                            AppTheme.primaryBlue,
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        )
+                      : null,
+                  color: isEnabled ? null : AppTheme.surfaceContainerHigh,
+                  boxShadow: isEnabled
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.primaryBlue.withValues(alpha: 0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: ElevatedButton(
+                  key: const Key('book_appointment_button'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: isEnabled
+                        ? Colors.white
+                        : AppTheme.textSecondary,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: isEnabled
+                      ? () async {
+                          final shouldRefresh = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BookingConfirmationScreen(
+                                doctor: _doctor!,
+                                date: selectedDay.date,
+                                slot: selectedSlot!,
+                              ),
+                            ),
+                          );
+                          if (shouldRefresh == true) {
+                            setState(() {
+                              _selectedSlotStartTime = null;
+                            });
+                            _loadAvailability();
+                          }
+                        }
+                      : null,
+                  child: Text(
+                    _selectedSlotStartTime != null
+                        ? 'Continue to Booking ($_selectedSlotStartTime)'
+                        : 'Select a Time Slot',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -762,7 +938,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
             SizedBox(width: 8),
             Text(
               'Patient Reviews & Ratings',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
             ),
           ],
         ),
@@ -772,7 +952,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
         if (_reviews.isNotEmpty) ...[
           const Text(
             'Verified Patient Feedback',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const SizedBox(height: 10),
           ..._reviews.map((r) => _buildReviewCard(r)),
@@ -805,7 +989,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   color: Colors.amber.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.star_outline_rounded, color: Colors.amber, size: 30),
+                child: const Icon(
+                  Icons.star_outline_rounded,
+                  color: Colors.amber,
+                  size: 30,
+                ),
               ),
               const SizedBox(width: 16),
               const Expanded(
@@ -814,12 +1002,20 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   children: [
                     Text(
                       'No reviews yet',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                     SizedBox(height: 4),
                     Text(
                       'Reviews appear after verified patients complete their scheduled appointments.',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ),
@@ -846,7 +1042,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                 children: [
                   Text(
                     summary.averageRating?.toStringAsFixed(1) ?? '0.0',
-                    style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    style: const TextStyle(
+                      fontSize: 38,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -856,7 +1056,9 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                       return Icon(
                         rating >= starValue
                             ? Icons.star_rounded
-                            : (rating >= starValue - 0.5 ? Icons.star_half_rounded : Icons.star_outline_rounded),
+                            : (rating >= starValue - 0.5
+                                  ? Icons.star_half_rounded
+                                  : Icons.star_outline_rounded),
                         color: Colors.amber[700],
                         size: 18,
                       );
@@ -866,7 +1068,10 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   Text(
                     '${summary.totalReviews} verified review${summary.totalReviews > 1 ? "s" : ""}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -878,14 +1083,25 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               child: Column(
                 children: [5, 4, 3, 2, 1].map((star) {
                   final pct = summary.getStarPercentage(star);
-                  final count = summary.ratingDistribution[star.toString()] ?? 0;
+                  final count =
+                      summary.ratingDistribution[star.toString()] ?? 0;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
                       children: [
-                        Text('$star', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        Text(
+                          '$star',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 12,
+                          color: Colors.amber,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: ClipRRect(
@@ -893,8 +1109,12 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                             child: LinearProgressIndicator(
                               value: pct,
                               minHeight: 6,
-                              backgroundColor: AppTheme.outline.withValues(alpha: 0.15),
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.amber[700]!),
+                              backgroundColor: AppTheme.outline.withValues(
+                                alpha: 0.15,
+                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.amber[700]!,
+                              ),
                             ),
                           ),
                         ),
@@ -904,7 +1124,10 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                           child: Text(
                             '$count',
                             textAlign: TextAlign.right,
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
                         ),
                       ],
@@ -935,16 +1158,27 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                 CircleAvatar(
                   radius: 14,
                   backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-                  child: const Icon(Icons.person, size: 16, color: AppTheme.primary),
+                  child: const Icon(
+                    Icons.person,
+                    size: 16,
+                    color: AppTheme.primary,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   review.patientDisplayName,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
@@ -952,9 +1186,20 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.success),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 12,
+                        color: AppTheme.success,
+                      ),
                       SizedBox(width: 3),
-                      Text('Verified', style: TextStyle(fontSize: 10, color: AppTheme.success, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Verified',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.success,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -963,7 +1208,9 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(5, (i) {
                     return Icon(
-                      i < review.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      i < review.rating
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
                       size: 16,
                       color: Colors.amber[700],
                     );
@@ -975,7 +1222,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               const SizedBox(height: 8),
               Text(
                 review.reviewText!,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.35),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                  height: 1.35,
+                ),
               ),
             ],
             const SizedBox(height: 6),
@@ -989,9 +1240,19 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.flag_outlined, size: 13, color: AppTheme.textSecondary),
+                        Icon(
+                          Icons.flag_outlined,
+                          size: 13,
+                          color: AppTheme.textSecondary,
+                        ),
                         SizedBox(width: 4),
-                        Text('Report', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        Text(
+                          'Report',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   ),

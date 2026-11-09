@@ -99,10 +99,11 @@ class ApiConstants {
     } else if (defaultTargetPlatform == TargetPlatform.android) {
       // 1. Physical phone over USB with ADB reverse
       list.add('http://127.0.0.1:8000');
-      // 2. Local Wi-Fi / Hotspot LAN IP of host machine
-      list.add('http://192.168.248.238:8000');
-      // 3. Android Emulator loopback
+      // 2. Android Emulator loopback
       list.add('http://10.0.2.2:8000');
+      // 3. Local Wi-Fi / Hotspot LAN IP of host machine
+      list.add('http://192.168.59.74:8000');
+      list.add('http://192.168.248.238:8000');
     } else {
       list.add('http://127.0.0.1:8000');
     }
@@ -176,9 +177,9 @@ class ApiConstants {
         try {
           final uri = Uri.parse('$host/health');
           // Anonymous GET check only - no auth headers, cookies, or sensitive data
-          final response = await httpClient.get(uri).timeout(
-            const Duration(milliseconds: 1500),
-          );
+          final response = await httpClient
+              .get(uri)
+              .timeout(const Duration(milliseconds: 1500));
           if (response.statusCode == 200) {
             return host;
           }
@@ -187,7 +188,10 @@ class ApiConstants {
       });
 
       final results = await Future.wait(futures);
-      final workingHost = results.firstWhere((h) => h != null, orElse: () => null);
+      final workingHost = results.firstWhere(
+        (h) => h != null,
+        orElse: () => null,
+      );
       if (workingHost != null) {
         setBaseUrl(workingHost);
         if (kDebugMode) {
@@ -227,111 +231,154 @@ class ApiConstants {
   static const String registerDoctorEndpoint = '/auth/register-doctor';
 
   // Doctor endpoints
-  static const String doctorApplicationStatusEndpoint = '/doctors/me/application-status';
+  static const String doctorApplicationStatusEndpoint =
+      '/doctors/me/application-status';
   static const String doctorsEndpoint = '/doctors';
   static String doctorDetailEndpoint(String id) => '/doctors/$id';
   static String doctorSlotsEndpoint(String id) => '/doctors/$id/availability';
   static const String doctorMyAvailabilityEndpoint = '/doctors/me/availability';
-  static String doctorAvailabilityDetailEndpoint(String id) => '/doctors/me/availability/$id';
+  static String doctorAvailabilityDetailEndpoint(String id) =>
+      '/doctors/me/availability/$id';
 
   // AI Recommendation endpoints
-  static const String aiDoctorRecommendationsEndpoint = '/ai/doctor-recommendations';
+  static const String aiDoctorRecommendationsEndpoint =
+      '/ai/doctor-recommendations';
 
   // AI Booking Assistant endpoints (Phase 19)
   static const String aiBookingSessionsEndpoint = '/ai/booking/sessions';
-  static String aiBookingSessionDetailEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId';
-  static String aiBookingSessionMessagesEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/messages';
-  static String aiBookingSessionSelectDoctorEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/select-doctor';
-  static String aiBookingSessionSelectSlotEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/select-slot';
-  static String aiBookingSessionConfirmEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/confirm';
-  static String aiBookingSessionCancelEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/cancel';
-  static String aiBookingSessionPaymentStatusEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/payment-status';
+  static String aiBookingSessionDetailEndpoint(String sessionId) =>
+      '/ai/booking/sessions/$sessionId';
+  static String aiBookingSessionMessagesEndpoint(String sessionId) =>
+      '/ai/booking/sessions/$sessionId/messages';
+  static String aiBookingSessionSelectDoctorEndpoint(String sessionId) =>
+      '/ai/booking/sessions/$sessionId/select-doctor';
+  static String aiBookingSessionSelectSlotEndpoint(String sessionId) =>
+      '/ai/booking/sessions/$sessionId/select-slot';
+  static String aiBookingSessionConfirmEndpoint(String sessionId) =>
+      '/ai/booking/sessions/$sessionId/confirm';
+  static String aiBookingSessionCancelEndpoint(String sessionId) =>
+      '/ai/booking/sessions/$sessionId/cancel';
+  static String aiBookingSessionPaymentStatusEndpoint(String sessionId) =>
+      '/ai/booking/sessions/$sessionId/payment-status';
   static const String aiBookingUploadImageEndpoint = '/ai/booking/upload-image';
-  static String aiBookingSessionImageEndpoint(String sessionId) => '/ai/booking/sessions/$sessionId/image';
+  static String aiBookingSessionImageEndpoint(String sessionId) =>
+      '/ai/booking/sessions/$sessionId/image';
 
   // AI Health Chatbot endpoints (Phase 20)
   static const String aiHealthChatSessionsEndpoint = '/ai/health-chat/sessions';
-  static String aiHealthChatSessionDetailEndpoint(String sessionId) => '/ai/health-chat/sessions/$sessionId';
-  static String aiHealthChatSessionMessagesEndpoint(String sessionId) => '/ai/health-chat/sessions/$sessionId/messages';
+  static String aiHealthChatSessionDetailEndpoint(String sessionId) =>
+      '/ai/health-chat/sessions/$sessionId';
+  static String aiHealthChatSessionMessagesEndpoint(String sessionId) =>
+      '/ai/health-chat/sessions/$sessionId/messages';
 
   // Medical Records & Prescriptions endpoints (Phase 21)
   static const String medicalRecordsEndpoint = '/medical-records';
   static const String myMedicalRecordsEndpoint = '/medical-records/me';
-  static String medicalRecordDetailEndpoint(String recordId) => '/medical-records/$recordId';
+  static String medicalRecordDetailEndpoint(String recordId) =>
+      '/medical-records/$recordId';
 
   static const String prescriptionsEndpoint = '/prescriptions';
   static const String myPrescriptionsEndpoint = '/prescriptions/me';
-  static String prescriptionDetailEndpoint(String prescriptionId) => '/prescriptions/$prescriptionId';
-  static String prescriptionPdfEndpoint(String prescriptionId) => '/prescriptions/$prescriptionId/pdf';
+  static String prescriptionDetailEndpoint(String prescriptionId) =>
+      '/prescriptions/$prescriptionId';
+  static String prescriptionPdfEndpoint(String prescriptionId) =>
+      '/prescriptions/$prescriptionId/pdf';
 
   // Medication Reminder endpoints (Phase 22)
   static const String medicationRemindersEndpoint = '/medication-reminders';
-  static const String todayMedicationScheduleEndpoint = '/medication-reminders/today';
-  static const String medicationRemindersHistoryEndpoint = '/medication-reminders/history';
-  static const String medicationRemindersAdherenceEndpoint = '/medication-reminders/adherence';
-  static String medicationReminderDetailEndpoint(String id) => '/medication-reminders/$id';
-  static String medicationReminderEventsEndpoint(String id) => '/medication-reminders/$id/events';
+  static const String todayMedicationScheduleEndpoint =
+      '/medication-reminders/today';
+  static const String medicationRemindersHistoryEndpoint =
+      '/medication-reminders/history';
+  static const String medicationRemindersAdherenceEndpoint =
+      '/medication-reminders/adherence';
+  static String medicationReminderDetailEndpoint(String id) =>
+      '/medication-reminders/$id';
+  static String medicationReminderEventsEndpoint(String id) =>
+      '/medication-reminders/$id/events';
 
   // Doctor Reviews & Ratings endpoints (Phase 23)
   static const String reviewsEndpoint = '/reviews';
   static const String myReviewsEndpoint = '/reviews/me';
-  static String doctorReviewsEndpoint(String doctorId) => '/doctors/$doctorId/reviews';
-  static String doctorRatingSummaryEndpoint(String doctorId) => '/doctors/$doctorId/rating-summary';
+  static String doctorReviewsEndpoint(String doctorId) =>
+      '/doctors/$doctorId/reviews';
+  static String doctorRatingSummaryEndpoint(String doctorId) =>
+      '/doctors/$doctorId/rating-summary';
   static String reviewDetailEndpoint(String reviewId) => '/reviews/$reviewId';
-  static String reportReviewEndpoint(String reviewId) => '/reviews/$reviewId/report';
+  static String reportReviewEndpoint(String reviewId) =>
+      '/reviews/$reviewId/report';
   static const String adminReportedReviewsEndpoint = '/admin/reviews/reported';
-  static String moderateReviewEndpoint(String reviewId) => '/reviews/$reviewId/moderate';
-
+  static String moderateReviewEndpoint(String reviewId) =>
+      '/reviews/$reviewId/moderate';
 
   // Admin endpoints
-  static const String adminDoctorApplicationsEndpoint = '/admin/doctors/applications';
-  static String adminDoctorApplicationDetailEndpoint(String id) => '/admin/doctors/applications/$id';
+  static const String adminDoctorApplicationsEndpoint =
+      '/admin/doctors/applications';
+  static String adminDoctorApplicationDetailEndpoint(String id) =>
+      '/admin/doctors/applications/$id';
   static String adminDoctorDocumentEndpoint(String id, String docKey) =>
       '/admin/doctors/applications/$id/documents/$docKey';
-  static String adminDoctorApproveEndpoint(String id) => '/admin/doctors/$id/approve';
-  static String adminDoctorRejectEndpoint(String id) => '/admin/doctors/$id/reject';
+  static String adminDoctorApproveEndpoint(String id) =>
+      '/admin/doctors/$id/approve';
+  static String adminDoctorRejectEndpoint(String id) =>
+      '/admin/doctors/$id/reject';
 
   // Admin Health Content endpoints
   static const String adminHealthContentEndpoint = '/admin/content';
-  static String adminHealthContentDetailEndpoint(String id) => '/admin/content/$id';
-  static String adminHealthContentPublishEndpoint(String id) => '/admin/content/$id/publish';
-  static String adminHealthContentArchiveEndpoint(String id) => '/admin/content/$id/archive';
+  static String adminHealthContentDetailEndpoint(String id) =>
+      '/admin/content/$id';
+  static String adminHealthContentPublishEndpoint(String id) =>
+      '/admin/content/$id/publish';
+  static String adminHealthContentArchiveEndpoint(String id) =>
+      '/admin/content/$id/archive';
 
   // Admin Analytics endpoints
-  static const String adminAnalyticsOverviewEndpoint = '/admin/analytics/overview';
-  static const String adminAnalyticsAppointmentsEndpoint = '/admin/analytics/appointments';
-  static const String adminAnalyticsPaymentsEndpoint = '/admin/analytics/payments';
-  static const String adminAnalyticsDoctorsEndpoint = '/admin/analytics/doctors';
-  static const String adminAnalyticsContentEndpoint = '/admin/analytics/content';
+  static const String adminAnalyticsOverviewEndpoint =
+      '/admin/analytics/overview';
+  static const String adminAnalyticsAppointmentsEndpoint =
+      '/admin/analytics/appointments';
+  static const String adminAnalyticsPaymentsEndpoint =
+      '/admin/analytics/payments';
+  static const String adminAnalyticsDoctorsEndpoint =
+      '/admin/analytics/doctors';
+  static const String adminAnalyticsContentEndpoint =
+      '/admin/analytics/content';
 
   // Public & Patient Health Content endpoints
   static const String healthContentEndpoint = '/content';
   static const String healthContentCategoriesEndpoint = '/content/categories';
   static const String healthContentBookmarksEndpoint = '/content/bookmarks';
   static String healthContentDetailEndpoint(String id) => '/content/$id';
-  static String healthContentBookmarkToggleEndpoint(String id) => '/content/bookmarks/$id';
+  static String healthContentBookmarkToggleEndpoint(String id) =>
+      '/content/bookmarks/$id';
 
   // Appointment endpoints
   static const String appointmentsEndpoint = '/appointments';
   static const String myAppointmentsEndpoint = '/appointments/me';
   static String appointmentDetailEndpoint(String id) => '/appointments/$id';
-  static String cancelAppointmentEndpoint(String id) => '/appointments/$id/cancel';
+  static String cancelAppointmentEndpoint(String id) =>
+      '/appointments/$id/cancel';
 
   // Doctor Appointment endpoints
   static const String doctorMyAppointmentsEndpoint = '/doctors/me/appointments';
-  static String doctorConfirmAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/confirm';
-  static String doctorCompleteAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/complete';
-  static String doctorCancelAppointmentEndpoint(String id) => '/doctors/me/appointments/$id/cancel';
+  static String doctorConfirmAppointmentEndpoint(String id) =>
+      '/doctors/me/appointments/$id/confirm';
+  static String doctorCompleteAppointmentEndpoint(String id) =>
+      '/doctors/me/appointments/$id/complete';
+  static String doctorCancelAppointmentEndpoint(String id) =>
+      '/doctors/me/appointments/$id/cancel';
 
   // Payment endpoints
   static const String createPaymentIntentEndpoint = '/payments/create-intent';
-  static String paymentStatusEndpoint(String paymentId) => '/payments/$paymentId/status';
+  static String paymentStatusEndpoint(String paymentId) =>
+      '/payments/$paymentId/status';
   static const String paymentHistoryEndpoint = '/payments/me';
 
   // Notification endpoints
   static const String notificationsEndpoint = '/notifications';
   static const String unreadCountEndpoint = '/notifications/unread-count';
-  static String readNotificationEndpoint(String id) => '/notifications/$id/read';
+  static String readNotificationEndpoint(String id) =>
+      '/notifications/$id/read';
   static const String readAllNotificationsEndpoint = '/notifications/read-all';
   static const String deviceTokensEndpoint = '/notifications/devices';
 

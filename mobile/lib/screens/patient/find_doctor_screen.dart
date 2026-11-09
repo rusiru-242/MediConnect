@@ -1,7 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/constants/specialties.dart';
+import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/doctor.dart';
 import '../../services/doctor_service.dart';
@@ -60,7 +62,8 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       if (!_isLoading && !_isLoadingMore && _currentPage < _totalPages) {
         _loadMoreDoctors();
       }
@@ -193,7 +196,10 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
           // Preserved for automated integration & screen tests
           IconButton(
             key: const Key('find_doctor_ai_health_chat_icon_button'),
-            icon: const Icon(Icons.health_and_safety_rounded, color: AppTheme.primaryBlue),
+            icon: const Icon(
+              Icons.health_and_safety_rounded,
+              color: AppTheme.primaryBlue,
+            ),
             tooltip: 'AI Health Assistant',
             onPressed: () {
               Navigator.of(context).pushNamed('/patient/ai-health-chat');
@@ -201,7 +207,10 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
           ),
           IconButton(
             key: const Key('find_doctor_ai_booking_icon_button'),
-            icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.primaryBlue),
+            icon: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: AppTheme.primaryBlue,
+            ),
             tooltip: 'AI Booking Assistant',
             onPressed: () {
               Navigator.of(context).pushNamed('/patient/ai-booking');
@@ -241,11 +250,22 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                         onChanged: _onSearchChanged,
                         decoration: InputDecoration(
                           hintText: 'Search doctor, specialty, hospital...',
-                          hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                          prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.textMuted, size: 20),
+                          hintStyle: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textMuted,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: AppTheme.textMuted,
+                            size: 20,
+                          ),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.close_rounded, size: 18, color: AppTheme.textSecondary),
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                    color: AppTheme.textSecondary,
+                                  ),
                                   onPressed: () {
                                     _searchController.clear();
                                     _onSearchChanged('');
@@ -256,7 +276,10 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                         ),
                       ),
                     ),
@@ -271,11 +294,19 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                       border: Border.all(color: AppTheme.border),
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.tune_rounded, color: AppTheme.primaryBlue, size: 22),
+                      icon: const Icon(
+                        Icons.tune_rounded,
+                        color: AppTheme.primaryBlue,
+                        size: 22,
+                      ),
                       tooltip: 'Filter Options',
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Filter options: Use specialty carousel & toggles below.')),
+                          const SnackBar(
+                            content: Text(
+                              'Filter options: Use specialty carousel & toggles below.',
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -310,7 +341,9 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                     isActive: _filterAvailableToday,
                     leadingDot: AppTheme.success,
                     onTap: () {
-                      setState(() => _filterAvailableToday = !_filterAvailableToday);
+                      setState(
+                        () => _filterAvailableToday = !_filterAvailableToday,
+                      );
                     },
                   ),
                   _buildQuickToggle(
@@ -345,7 +378,9 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                   Row(
                     children: [
                       Text(
-                        _selectedSpecialty == 'All' ? 'All Specialists' : _selectedSpecialty,
+                        _selectedSpecialty == 'All'
+                            ? 'All Specialists'
+                            : _selectedSpecialty,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -354,7 +389,10 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(9999),
@@ -374,13 +412,24 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                     children: const [
                       Text(
                         'Sorted: ',
-                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                       Text(
                         'Recommended',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.primaryBlue),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryBlue,
+                        ),
                       ),
-                      Icon(Icons.expand_more_rounded, size: 16, color: AppTheme.primaryBlue),
+                      Icon(
+                        Icons.expand_more_rounded,
+                        size: 16,
+                        color: AppTheme.primaryBlue,
+                      ),
                     ],
                   ),
                 ],
@@ -389,9 +438,7 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
             const SizedBox(height: 4),
 
             // 5. Doctor List Content
-            Expanded(
-              child: _buildBody(),
-            ),
+            Expanded(child: _buildBody()),
           ],
         ),
       ),
@@ -427,7 +474,10 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                 Container(
                   width: 6,
                   height: 6,
-                  decoration: BoxDecoration(color: leadingDot, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: leadingDot,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 6),
               ],
@@ -463,7 +513,9 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryBlue : AppTheme.surfaceContainerLow,
+            color: isSelected
+                ? AppTheme.primaryBlue
+                : AppTheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(9999),
             border: Border.all(
               color: isSelected ? AppTheme.primaryBlue : AppTheme.border,
@@ -491,9 +543,7 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_errorMessage != null) {
@@ -503,16 +553,26 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_rounded, size: 54, color: AppTheme.error),
+              const Icon(
+                Icons.cloud_off_rounded,
+                size: 54,
+                color: AppTheme.error,
+              ),
               const SizedBox(height: 16),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, color: AppTheme.textSecondary),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppTheme.textSecondary,
+                ),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: () => _fetchDoctors(initial: true),
+                onPressed: () async {
+                  await ApiConstants.autoDetectBaseUrl(force: true);
+                  _fetchDoctors(initial: true);
+                },
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Try Again'),
               ),
@@ -523,8 +583,11 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
     }
 
     if (_doctors.isEmpty) {
-      final isFiltered = _activeSearchQuery.isNotEmpty || _selectedSpecialty != 'All';
-      final emptyText = isFiltered ? 'No doctors match your search.' : 'No doctors found.';
+      final isFiltered =
+          _activeSearchQuery.isNotEmpty || _selectedSpecialty != 'All';
+      final emptyText = isFiltered
+          ? 'No doctors match your search.'
+          : 'No doctors found.';
 
       return Center(
         child: Padding(
@@ -532,12 +595,20 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.person_search_rounded, size: 56, color: AppTheme.textSecondary.withValues(alpha: 0.6)),
+              Icon(
+                Icons.person_search_rounded,
+                size: 56,
+                color: AppTheme.textSecondary.withValues(alpha: 0.6),
+              ),
               const SizedBox(height: 16),
               Text(
                 emptyText,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.textSecondary),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ],
           ),
@@ -594,7 +665,12 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                     alignment: Alignment.center,
                     child: Text(
                       doctor.fullName.isNotEmpty
-                          ? doctor.fullName.replaceFirst('Dr. ', '').split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join()
+                          ? doctor.fullName
+                                .replaceFirst('Dr. ', '')
+                                .split(' ')
+                                .map((n) => n.isNotEmpty ? n[0] : '')
+                                .take(2)
+                                .join()
                           : 'DR',
                       style: const TextStyle(
                         fontSize: 18,
@@ -613,7 +689,11 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                         color: AppTheme.primaryBlue,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.verified_rounded, color: Colors.white, size: 12),
+                      child: const Icon(
+                        Icons.verified_rounded,
+                        color: Colors.white,
+                        size: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -644,9 +724,13 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                         InkWell(
                           onTap: () => _toggleBookmark(doctor.doctorId),
                           child: Icon(
-                            isBookmarked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            isBookmarked
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
                             size: 20,
-                            color: isBookmarked ? AppTheme.error : AppTheme.textMuted,
+                            color: isBookmarked
+                                ? AppTheme.error
+                                : AppTheme.textMuted,
                           ),
                         ),
                       ],
@@ -674,7 +758,10 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(9999),
@@ -682,11 +769,18 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.location_on_outlined, size: 12, color: AppTheme.textMuted),
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: 12,
+                                color: AppTheme.textMuted,
+                              ),
                               SizedBox(width: 2),
                               Text(
                                 'Nearby',
-                                style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -694,11 +788,27 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                         const SizedBox(width: 8),
                         Row(
                           children: const [
-                            Icon(Icons.star_rounded, size: 15, color: Colors.amber),
+                            Icon(
+                              Icons.star_rounded,
+                              size: 15,
+                              color: Colors.amber,
+                            ),
                             SizedBox(width: 2),
-                            Text('4.9', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                            Text(
+                              '4.9',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                             SizedBox(width: 2),
-                            Text('(120+)', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                            Text(
+                              '(120+)',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.textMuted,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -729,14 +839,31 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                         color: AppTheme.successContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Icon(Icons.schedule_rounded, size: 16, color: AppTheme.success),
+                      child: const Icon(
+                        Icons.schedule_rounded,
+                        size: 16,
+                        color: AppTheme.success,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        Text('Next Slot', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
-                        Text('Today, 2:00 PM', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                        Text(
+                          'Next Slot',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                        Text(
+                          'Today, 2:00 PM',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -744,10 +871,19 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Consultation', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                    const Text(
+                      'Consultation',
+                      style: TextStyle(fontSize: 10, color: AppTheme.textMuted),
+                    ),
                     Text(
-                      doctor.consultationFee > 0 ? 'Rs. ${doctor.consultationFee.toInt()}' : 'Rs. 2,500',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.primaryBlue),
+                      doctor.consultationFee > 0
+                          ? 'Rs. ${doctor.consultationFee.toInt()}'
+                          : 'Rs. 2,500',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryBlue,
+                      ),
                     ),
                   ],
                 ),
@@ -767,13 +903,15 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.videocam_rounded, size: 20, color: AppTheme.primaryBlue),
+                  icon: const Icon(
+                    Icons.videocam_rounded,
+                    size: 20,
+                    color: AppTheme.primaryBlue,
+                  ),
                   tooltip: 'Video Consultation',
                   onPressed: () {
-                    Navigator.of(context).pushNamed(
-                      '/patient/doctor-detail',
-                      arguments: doctor,
-                    );
+                    Navigator.of(context)
+                        .pushNamed('/patient/doctor-detail', arguments: doctor);
                   },
                 ),
               ),
@@ -784,19 +922,25 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryBlue,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     minimumSize: const Size(0, 42),
                   ),
                   onPressed: () {
-                    Navigator.of(context).pushNamed(
-                      '/patient/doctor-detail',
-                      arguments: doctor,
-                    );
+                    Navigator.of(context)
+                        .pushNamed('/patient/doctor-detail', arguments: doctor);
                   },
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Book Now', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                      Text(
+                        'Book Now',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       SizedBox(width: 6),
                       Icon(Icons.arrow_forward_rounded, size: 16),
                     ],
