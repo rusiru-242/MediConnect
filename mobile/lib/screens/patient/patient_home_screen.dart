@@ -390,19 +390,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            key: const Key('patient_home_theme_toggle_button'),
-            icon: Icon(
-              isDark ? Icons.light_mode_rounded : Icons.dark_mode_outlined,
-              color: isDark ? const Color(0xFFFBBF24) : AppTheme.primaryBlue,
-            ),
-            tooltip: isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme',
-            onPressed: () {
-              if (themeProvider != null) {
-                themeProvider.toggleTheme(context);
-              }
-            },
-          ),
           const NotificationBellButton(),
           IconButton(
             key: const Key('patient_home_settings_button'),
