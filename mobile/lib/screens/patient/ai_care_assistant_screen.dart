@@ -262,9 +262,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
           isUrgent: _session!.isUrgent,
           urgencyReason: _session!.urgencyReason,
           activeIntent: _session!.activeIntent,
-          activeMedicineCard: _session!.activeMedicineCard,
-          activeWellnessCard: _session!.activeWellnessCard,
-          activeImageAnalysis: _session!.activeImageAnalysis,
+          activeMedicineCard: null,
+          activeWellnessCard: null,
+          activeImageAnalysis: null,
           createdAt: _session!.createdAt,
           updatedAt: DateTime.now(),
           expiresAt: _session!.expiresAt,
@@ -887,6 +887,16 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
 
   Widget _buildChatBubble(ChatMessage message) {
     final isUser = message.isUser;
+    String displayContent = message.content;
+    if (!isUser) {
+      displayContent = displayContent
+          .replaceAll(RegExp(r'\s*\*\([sS]ee the (?:wellness|medicine|exercise) card below[^\)]*\)\*?'), '')
+          .replaceAll(RegExp(r'\s*\*\([^\)]*card එකෙන් බලන්න[^\)]*\)\*?'), '')
+          .trim();
+      if (displayContent.isEmpty) {
+        return const SizedBox.shrink();
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -926,7 +936,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                 ],
               ),
               child: Text(
-                message.content,
+                isUser ? message.content : displayContent,
                 style: TextStyle(
                   color: isUser ? Colors.white : AppTheme.textPrimary,
                   fontSize: 14.5,
@@ -954,16 +964,19 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Active Educational Medicine Card
-        if (_session!.activeMedicineCard != null)
+        // Active Educational Medicine Card (only when active intent is MEDICINE_INFORMATION)
+        if (_session!.activeMedicineCard != null && _session!.activeIntent == 'MEDICINE_INFORMATION')
           _buildMedicineCard(_session!.activeMedicineCard!),
 
-        // Active Educational Wellness Card
-        if (_session!.activeWellnessCard != null)
+        // Active Educational Wellness Card (only when active intent is wellness)
+        if (_session!.activeWellnessCard != null &&
+            (_session!.activeIntent == 'HEALTHY_FOOD' ||
+                _session!.activeIntent == 'EXERCISE_GUIDANCE' ||
+                _session!.activeIntent == 'GENERAL_WELLNESS'))
           _buildWellnessCard(_session!.activeWellnessCard!),
 
-        // Active Label & Packaging Analysis Card
-        if (_session!.activeImageAnalysis != null)
+        // Active Label & Packaging Analysis Card (only when active intent is image analysis)
+        if (_session!.activeImageAnalysis != null && _session!.activeIntent == 'MEDICINE_IMAGE_ANALYSIS')
           _buildImageAnalysisCard(_session!.activeImageAnalysis!),
 
         // 1. Candidate Doctor Cards
@@ -1040,6 +1053,10 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   Widget _buildMedicineCard(MedicineCardSummary card) {
+    final isSinhala = RegExp(r'[\u0D80-\u0DFF]').hasMatch(card.medicineName) ||
+        card.commonUses.any((u) => RegExp(r'[\u0D80-\u0DFF]').hasMatch(u)) ||
+        card.precautions.any((p) => RegExp(r'[\u0D80-\u0DFF]').hasMatch(p));
+
     return Card(
       key: const Key('ai_medicine_card'),
       elevation: 2,
@@ -1097,7 +1114,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                       border: Border.all(color: Colors.amber.shade300),
                     ),
                     child: Text(
-                      'Rx Required',
+                      isSinhala ? 'වෛද්‍ය නිර්දේශය අවශ්‍යයි (Rx)' : 'Rx Required',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -1109,9 +1126,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             ),
             if (card.commonUses.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text(
-                'Common Uses',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
+              Text(
+                isSinhala ? 'ප්‍රධාන භාවිතයන්' : 'Common Uses',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
               ),
               const SizedBox(height: 4),
               ...card.commonUses.map((u) => Padding(
@@ -1127,9 +1144,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             ],
             if (card.precautions.isNotEmpty) ...[
               const SizedBox(height: 10),
-              const Text(
-                'Precautions',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
+              Text(
+                isSinhala ? 'අවවාද සහ පූර්වාරක්ෂාවන්' : 'Precautions',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
               ),
               const SizedBox(height: 4),
               ...card.precautions.map((p) => Padding(
@@ -1145,9 +1162,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             ],
             if (card.sideEffects.isNotEmpty) ...[
               const SizedBox(height: 10),
-              const Text(
-                'Possible Side Effects',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
+              Text(
+                isSinhala ? 'විය හැකි අතුරු ආබාධ' : 'Possible Side Effects',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
               ),
               const SizedBox(height: 4),
               ...card.sideEffects.map((s) => Padding(
@@ -1179,7 +1196,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                         Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red.shade700),
                         const SizedBox(width: 6),
                         Text(
-                          'Important Warnings',
+                          isSinhala ? 'වැදගත් අනතුරු ඇඟවීම්' : 'Important Warnings',
                           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.red.shade900),
                         ),
                       ],
@@ -1203,13 +1220,13 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.local_pharmacy_outlined, size: 16, color: AppTheme.primary),
-                        SizedBox(width: 6),
+                        const Icon(Icons.local_pharmacy_outlined, size: 16, color: AppTheme.primary),
+                        const SizedBox(width: 6),
                         Text(
-                          'Consult a Doctor or Pharmacist if:',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                          isSinhala ? 'වෛද්‍ය උපදෙස් පැතිය යුතු අවස්ථා:' : 'Consult a Doctor or Pharmacist if:',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
                         ),
                       ],
                     ),
@@ -1222,9 +1239,11 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 8),
-            const Text(
-              'Educational information only. MediConnect AI never provides personal dosages or alters doctor prescriptions. Always consult a qualified physician or pharmacist.',
-              style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
+            Text(
+              isSinhala
+                  ? 'සාමාන්‍ය දැනුවත් කිරීම සඳහා පමණි. ඖෂධ භාවිතයේදී සුදුසුකම්ලත් වෛද්‍යවරයෙකුගේ හෝ ඖෂධවේදියෙකුගේ උපදෙස් පිළිපදින්න.'
+                  : 'Educational information only. MediConnect AI never provides personal dosages or alters doctor prescriptions. Always consult a qualified physician or pharmacist.',
+              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -1233,6 +1252,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   Widget _buildWellnessCard(WellnessCardSummary card) {
+    final isSinhala = RegExp(r'[\u0D80-\u0DFF]').hasMatch(card.title) ||
+        RegExp(r'[\u0D80-\u0DFF]').hasMatch(card.summary);
     IconData icon;
     Color accentColor;
     switch (card.category.toUpperCase()) {
@@ -1313,9 +1334,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             ),
             if (card.tips.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text(
-                'Key Practical Recommendations',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
+              Text(
+                isSinhala ? 'වැදගත් ප්‍රායෝගික නිර්දේශ' : 'Key Practical Recommendations',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
               ),
               const SizedBox(height: 4),
               ...card.tips.map((tip) => Padding(
@@ -1348,7 +1369,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                         Icon(Icons.eco_rounded, size: 16, color: Colors.green.shade800),
                         const SizedBox(width: 6),
                         Text(
-                          'Sri Lankan Healthy Choices',
+                          isSinhala
+                              ? (card.category.toUpperCase() == 'FOOD' ? 'ශ්‍රී ලාංකික සෞඛ්‍ය සම්පන්න ආහාර' : 'ප්‍රායෝගික ව්‍යායාම විකල්ප')
+                              : 'Sri Lankan Healthy Choices',
                           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.green.shade900),
                         ),
                       ],

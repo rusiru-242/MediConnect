@@ -273,63 +273,97 @@ class MedicineKnowledge:
         return None
 
     @classmethod
-    def generate_educational_response(cls, query: str) -> Dict[str, Any]:
+    def generate_educational_response(cls, query: str, lang: str = "en") -> Dict[str, Any]:
         """Generate safe, evidence-based educational text for a medicine inquiry."""
         med = cls.find_medicine(query)
 
+        is_si = (lang == "si") or bool(re.search(r"[\u0D80-\u0DFF]", query)) or any(
+            w in query.lower().split() for w in ["bonne", "mktda", "mokatada", "monawada", "beheth", "danna", "sinhalen"]
+        )
+
         if not med:
-            return {
-                "found": False,
-                "medicineName": None,
-                "text": (
+            if is_si:
+                err_text = (
+                    "සමාවන්න, එම ඖෂධ නාමය සඳහා තහවුරු කළ වෛද්‍ය තොරතුරු අපගේ දත්ත ගබඩාවේ හමු නොවීය. "
+                    "ඔබගේ ආරක්ෂාව සඳහා කරුණාකර වෛද්‍යවරයෙකුගෙන් හෝ ලියාපදිංචි ඖෂධවේදියෙකුගෙන් (Pharmacist) විමසන්න."
+                )
+            else:
+                err_text = (
                     "I could not locate verified pharmacological information for that specific medication name in our database. "
                     "For your safety, I never guess or invent medicine details. Please verify the exact generic or brand spelling "
                     "on your prescription or packaging, or speak directly with a registered pharmacist or qualified physician before "
                     "taking any medication."
-                ),
+                )
+            return {
+                "found": False,
+                "medicineName": None,
+                "text": err_text,
                 "card": None,
                 "disclaimer": "This information is for general educational purposes only and is not a prescription or clinical diagnosis.",
             }
 
         name = med["genericName"]
-        brands = ", ".join(med["brandNames"][:4])
-        top_uses = ", ".join(med["commonUses"][:2])
-        key_precaution = med["precautions"][0] if med.get("precautions") else "Consult a doctor or pharmacist."
-
-        is_si = bool(re.search(r"[\u0D80-\u0DFF]", query)) or any(
-            w in query.lower().split() for w in ["bonne", "mktda", "mokatada", "monawada", "beheth", "danna"]
-        )
 
         if is_si:
-            formatted_text = (
-                f"💊 **{name}** ({med['activeIngredient']})\n\n"
-                f"• **ප්‍රධාන භාවිතය (Uses):** {top_uses}\n"
-                f"• **වෙළඳ නාම (Brands):** {brands}\n"
-                f"• **වැදගත් අවවාදය:** {key_precaution}\n\n"
-                f"*(සම්පූර්ණ විස්තර සහ අතුරු ආබාධ පහත medicine card එකෙන් බලන්න)*"
-            )
+            lead_in = f"💊 {name} පිළිබඳ වෛද්‍ය තොරතුරු මෙන්න:"
+            # Sinhala translations for common medication cards
+            si_med_map = {
+                "paracetamol": {
+                    "uses": ["මෘදු හෝ මධ්‍යස්ථ වේදනාවන් (හිසරදය, දත් කැක්කුම, කොන්දේ කැක්කුම) සමනය කිරීම", "උණ සහ සෙම්ප්‍රතිශ්‍යාව අවම කිරීම", "මෘදු සන්ධි වේදනා සමනය කිරීම"],
+                    "precautions": ["දිනකට උපරිම නිර්දේශිත මාත්‍රාව (පෙති 8 / 4000mg) නොඉක්මවන්න.", "ඔබ ගන්නා වෙනත් ඖෂධවල පැරසිටමෝල් අඩංගු දැයි පරීක්ෂා කරන්න.", "අක්මා රෝග ඇත්නම් වෛද්‍ය උපදෙස් ලබාගන්න."],
+                    "sideEffects": ["නිර්දේශිත මාත්‍රාවලදී සාමාන්‍යයෙන් ආරක්ෂිතයි.", "කලාතුරකින්: ඔක්කාරය හෝ සමේ පළු දැමීම.", "අධික මාත්‍රාවක් ගැනීමෙන් අක්මාවට බරපතල හානි සිදුවිය හැක."],
+                    "warnings": ["දිනකට පෙති 8කට වඩා ගැනීමෙන් වළකින්න.", "ඇස් හෝ සම කහ වීමක් දුටුවහොත් වහාම වෛද්‍ය ප්‍රතිකාර පතන්න."],
+                    "consult": "දින 3කට වඩා උණ හෝ දින 5කට වඩා වේදනාව පවතී නම්, හෝ ගර්භනී අවස්ථාවේදී.",
+                },
+                "amoxicillin": {
+                    "uses": ["බැක්ටීරියා ආසාදන (කන්, උගුර, සයිනස් ආසාදන) සුව කිරීම", "ශ්වසන පද්ධතියේ බැක්ටීරියා ආසාදන", "දත් මුල් ආසාදන සහ මුත්‍රා ආසාදන"],
+                    "precautions": ["වෛරස් ආසාදන (සෙම්ප්‍රතිශ්‍යාව, ඉන්ෆ්ලුවෙන්සා) සඳහා භාවිතා නොකරන්න.", "වෛද්‍යවරයා නියම කළ සම්පූර්ණ මාත්‍රා කාලයම අවසන් කරන්න.", "පෙනිසිලින් ආසාත්මිකතා ඇත්නම් වෛද්‍යවරයාට දන්වන්න."],
+                    "sideEffects": ["බඩ බුරුල් වීම හෝ පාචනය.", "ඔක්කාරය හෝ බඩේ අපහසුතාවය.", "සමේ කැසීම් හෝ පළු දැමීමක් ඇති වුවහොත් භාවිතය නතර කර වෛද්‍යවරයා හමුවන්න."],
+                    "warnings": ["මුහුණ ඉදිමීම හෝ හුස්ම ගැනීමේ අපහසුවක් ඇති වුවහොත් වහාම 1990 අමතන්න."],
+                    "consult": "පෙනිසිලින් ආසාත්මිකතා ඇති විට හෝ දිගින් දිගටම පාචනය පවතී නම්.",
+                },
+                "metformin": {
+                    "uses": ["දෙවන වර්ගයේ දියවැඩියාවේදී (Type 2 Diabetes) රුධිර සීනි මට්ටම පාලනය කිරීම", "ඉන්සියුලින් ක්‍රියාකාරීත්වය වැඩි දියුණු කිරීම"],
+                    "precautions": ["ආහාර සමඟ හෝ ආහාර වේලකට පසුව ලබාගන්න.", "වකුගඩු හා අක්මා ක්‍රියාකාරීත්වය නිරන්තරයෙන් පරීක්ෂා කරගන්න."],
+                    "sideEffects": ["ආහාර රුචිය අඩුවීම, ඔක්කාරය හෝ පාචනය.", "මුඛයේ ලෝහමය රසයක් දැනීම."],
+                    "warnings": ["අධික මත්පැන් පානය සමඟ ගැනීමෙන් වළකින්න."],
+                    "consult": "දැඩි තෙහෙට්ටුව, හුස්ම ගැනීමේ අපහසුවක් ඇති වුවහොත්.",
+                },
+            }
+            key = name.lower()
+            if key in si_med_map:
+                common_uses = si_med_map[key]["uses"]
+                precautions = si_med_map[key]["precautions"]
+                side_effects = si_med_map[key]["sideEffects"]
+                warnings = si_med_map[key]["warnings"]
+                consult_pharmacist = si_med_map[key]["consult"]
+            else:
+                common_uses = med["commonUses"]
+                precautions = med["precautions"]
+                side_effects = med["sideEffects"]
+                warnings = med["warnings"]
+                consult_pharmacist = med["consultPharmacistWhen"]
         else:
-            formatted_text = (
-                f"💊 **{name}** ({med['drugClass']})\n\n"
-                f"• **Active Ingredient:** {med['activeIngredient']}\n"
-                f"• **Common Brands:** {brands}\n"
-                f"• **Common Uses:** {top_uses}\n"
-                f"• **Key Safety:** {key_precaution}\n\n"
-                f"*(See the medicine card below for full precautions and side effects)*"
-            )
+            uses_summary = f"{med['commonUses'][0]} and fever reduction" if "fever" in " ".join(med.get("commonUses", [])).lower() else med.get("commonUses", ["General use"])[0]
+            lead_in = f"💊 {name} ({med['activeIngredient']}): Indicated for {uses_summary}."
+            common_uses = med["commonUses"]
+            precautions = med["precautions"]
+            side_effects = med["sideEffects"]
+            warnings = med["warnings"]
+            consult_pharmacist = med["consultPharmacistWhen"]
 
         return {
             "found": True,
             "medicineName": name,
-            "text": formatted_text,
+            "text": lead_in,
             "card": {
                 "medicineName": name,
                 "activeIngredient": med["activeIngredient"],
-                "commonUses": med["commonUses"],
-                "precautions": med["precautions"],
-                "sideEffects": med["sideEffects"],
-                "warnings": med["warnings"],
-                "consultPharmacistWhen": med["consultPharmacistWhen"],
+                "commonUses": common_uses,
+                "precautions": precautions,
+                "sideEffects": side_effects,
+                "warnings": warnings,
+                "consultPharmacistWhen": consult_pharmacist,
                 "isPrescriptionRequired": med["isPrescriptionRequired"],
             },
             "disclaimer": "This information is for general educational purposes only and is not a prescription or clinical diagnosis.",

@@ -409,10 +409,33 @@ def get_sl_now() -> datetime:
     return datetime.now(SL_TIMEZONE)
 
 
+SINGLISH_HEALTH_KEYWORDS = {
+    "kanna", "kama", "keema", "udeta", "ude", "reeta", "dawalata", "dawal",
+    "hoda", "monawada", "mowada", "kohomada", "sinhalen", "sinhala",
+    "beheth", "bonne", "mokatada", "mktda", "pethi", "gena", "kiyanna", "danna",
+    "doctor", "dosthara", "dostara", "dothara", "kenek", "hoyala", "denna",
+    "mata", "asanipai", "kakkuma", "kakkumak", "ridenawa", "ninda",
+    "kettu", "bara", "adu", "karaganna", "karanna", "karannada",
+    "badagini", "semprathishyawa", "oluwa", "bada", "panadol", "paracetamol"
+}
+
+
 def detect_language(text: str) -> str:
-    """Detect if text contains Sinhala characters, else default to English."""
+    """Detect if text contains Sinhala Unicode characters or common Singlish healthcare terms."""
     if re.search(r"[\u0d80-\u0dff]", text):
         return "si"
+
+    words = set(re.findall(r"[a-zA-Z]+", text.lower()))
+    if "sinhalen" in words or "sinhala" in words:
+        return "si"
+
+    if any(w in words for w in ["monawada", "mowada", "kohomada", "mokatada"]):
+        return "si"
+
+    singlish_matches = sum(1 for w in words if w in SINGLISH_HEALTH_KEYWORDS)
+    if singlish_matches >= 2:
+        return "si"
+
     return "en"
 
 
