@@ -345,3 +345,121 @@ class MedicalSectionHeader extends StatelessWidget {
   }
 }
 
+
+
+/// Google Stitch Clinical Clarity Reusable Card with subtle elevation and border.
+class StitchCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
+  final VoidCallback? onTap;
+  final Color? backgroundColor;
+  final double borderRadius;
+  final BorderSide? border;
+
+  const StitchCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16.0),
+    this.margin,
+    this.onTap,
+    this.backgroundColor,
+    this.borderRadius = 16.0,
+    this.border,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveRadius = BorderRadius.circular(borderRadius);
+
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        color: backgroundColor ?? AppTheme.surfaceContainerLowest,
+        borderRadius: effectiveRadius,
+        border: Border.fromBorderSide(
+          border ?? const BorderSide(color: AppTheme.border, width: 1),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(15, 23, 42, 0.04),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: effectiveRadius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: effectiveRadius,
+          splashColor: AppTheme.primaryBlue.withValues(alpha: 0.08),
+          highlightColor: AppTheme.primaryBlue.withValues(alpha: 0.04),
+          child: Padding(
+            padding: padding,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Google Stitch Clinical Clarity Pulse Badge (e.g., "Vitals: Normal", "Ready", "On Duty").
+class StitchPulseBadge extends StatelessWidget {
+  final String label;
+  final Color dotColor;
+  final Color backgroundColor;
+  final Color textColor;
+  final IconData? icon;
+
+  const StitchPulseBadge({
+    super.key,
+    required this.label,
+    this.dotColor = AppTheme.success,
+    this.backgroundColor = AppTheme.successContainer,
+    this.textColor = AppTheme.stitchTertiary,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(9999),
+        border: Border.all(color: dotColor.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: textColor),
+            const SizedBox(width: 4),
+          ] else ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

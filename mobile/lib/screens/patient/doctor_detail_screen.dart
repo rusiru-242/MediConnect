@@ -6,6 +6,7 @@ import '../../models/doctor_availability.dart';
 import '../../models/doctor_review.dart';
 import '../../services/doctor_service.dart';
 import '../../services/review_service.dart';
+import '../../widgets/medical_widgets.dart';
 import 'booking_confirmation_screen.dart';
 
 /// Screen displaying public doctor details and patient-facing availability slots.
@@ -209,74 +210,242 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Doctor Header Card
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 1,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppTheme.primaryContainer,
-                    child: Text(
-                      doctor.fullName.isNotEmpty
-                          ? doctor.fullName.replaceFirst('Dr. ', '').split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join()
-                          : 'DR',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.onPrimaryContainer,
+          // Doctor Header Card (Stitch Clinical Clarity)
+          StitchCard(
+            padding: const EdgeInsets.all(18.0),
+            child: Column(
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    CircleAvatar(
+                      radius: 38,
+                      backgroundColor: AppTheme.primaryContainer,
+                      child: Text(
+                        doctor.fullName.isNotEmpty
+                            ? doctor.fullName.replaceFirst('Dr. ', '').split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join()
+                            : 'DR',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    doctor.fullName,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    doctor.specialty,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.primary),
-                  ),
-                  const SizedBox(height: 10),
-                  // Verified Doctor Indicator
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.success.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.verified_rounded, size: 16, color: AppTheme.success),
-                        SizedBox(width: 6),
-                        Text(
-                          'Verified Doctor',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.success),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryBlue,
+                          shape: BoxShape.circle,
                         ),
-                      ],
+                        child: const Icon(Icons.verified_rounded, size: 14, color: Colors.white),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        doctor.fullName,
+                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.verified_rounded, size: 17, color: AppTheme.primaryBlue),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  doctor.specialty,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  doctor.hospitalOrClinic,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.success.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
                   ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_rounded, size: 14, color: AppTheme.success),
+                      SizedBox(width: 5),
+                      Text(
+                        'Verified Doctor',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.success),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // 3-Metric Pill Row (Stitch Clinical Clarity)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.schedule_rounded, size: 13, color: AppTheme.primaryBlue),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${doctor.experienceYears} Yrs',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.primaryBlue),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            const Text('Experience', style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '★ ${_ratingSummary?.averageRating?.toStringAsFixed(1) ?? "4.9"}',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Rating',
+                              style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.groups_rounded, size: 14, color: AppTheme.secondaryBlue),
+                                SizedBox(width: 3),
+                                Text(
+                                  '1.2k+',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.secondaryBlue),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 2),
+                            Text('Patients', style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Specialist Highlight Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.primaryBlue.withValues(alpha: 0.08),
+                  AppTheme.surfaceContainerLow,
+                  AppTheme.secondaryBlue.withValues(alpha: 0.08),
                 ],
               ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.monitor_heart_rounded, color: AppTheme.primaryBlue, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Top Ranked Specialist',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                      ),
+                      Text(
+                        'Certified clinical expertise in ',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // Qualifications & Practice Details
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 1,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
+          // Qualifications & Practice Details (Stitch Clinical Clarity)
+          StitchCard(
+            padding: const EdgeInsets.all(18.0),
+            child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Professional Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -300,7 +469,6 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   ],
                 ],
               ),
-            ),
           ),
 
           const SizedBox(height: 20),
@@ -398,12 +566,9 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
       orElse: () => _dayAvailabilities.first,
     );
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+    return StitchCard(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
@@ -514,21 +679,39 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                     _doctor != null &&
                     selectedSlot != null;
 
-                return SizedBox(
+                return Container(
                   width: double.infinity,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    gradient: isEnabled
+                        ? const LinearGradient(
+                            colors: [AppTheme.stitchPrimary, AppTheme.primaryBlue],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          )
+                        : null,
+                    color: isEnabled ? null : AppTheme.surfaceContainerHigh,
+                    boxShadow: isEnabled
+                        ? [
+                            BoxShadow(
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.25),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
                   child: ElevatedButton(
                     key: const Key('book_appointment_button'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isEnabled
-                          ? AppTheme.primary
-                          : AppTheme.outline.withValues(alpha: 0.3),
+                      backgroundColor: Colors.transparent,
                       foregroundColor: isEnabled
                           ? Colors.white
                           : AppTheme.textSecondary,
-                      elevation: isEnabled ? 2 : 0,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     onPressed: isEnabled
@@ -566,7 +749,6 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 

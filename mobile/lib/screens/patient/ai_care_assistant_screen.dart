@@ -738,6 +738,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Stitch Clinical Clarity Informational Disclaimer Banner
+            _buildStitchDisclaimerBanner(),
+
             // Emergency Red-Flag Banner
             if (_session?.isUrgent == true) _buildEmergencyBanner(),
 
@@ -763,6 +766,34 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             _buildInputArea(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStitchDisclaimerBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.primaryBlue),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Informational Assistant • For medical emergencies, call 1990 immediately.',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
