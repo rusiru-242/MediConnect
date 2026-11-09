@@ -1,7 +1,7 @@
 """Pydantic schemas for Conversational AI Booking Assistant."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -68,7 +68,7 @@ class MedicineCard(BaseModel):
     precautions: List[str] = Field(default_factory=list)
     sideEffects: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
-    consultPharmacistWhen: Optional[str] = None
+    consultPharmacistWhen: Optional[Union[str, List[str]]] = None
     isPrescriptionRequired: Optional[bool] = None
 
 

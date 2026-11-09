@@ -205,7 +205,7 @@ class _DoctorApplicationStatusScreenState
           ),
           const SizedBox(height: 12),
           const Text(
-            'Your email has been verified and your doctor application has been submitted successfully.',
+            'Your doctor application has been submitted successfully and is currently under administrative review.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
@@ -215,7 +215,7 @@ class _DoctorApplicationStatusScreenState
           ),
           const SizedBox(height: 10),
           const Text(
-            'Our team will review your professional information and verification documents.',
+            'Our medical administration team is reviewing your professional information and verification documents. Once approved, you will receive an approval email with your registration details and portal login link.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,

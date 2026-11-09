@@ -89,7 +89,7 @@ def test_admin_doctor_verification_workflow():
     doc_a_token = create_access_token(doc_a_id, role=UserRole.DOCTOR.value)
     doc_a_headers = {"Authorization": f"Bearer {doc_a_token}"}
 
-    # 4. Register Doctor B (email NOT verified)
+    # 4. Register Doctor B (pending application, will test reject validation in TEST 13)
     doc_b_email = f"dr.b_{timestamp}@mediconnect.lk"
     doc_b_files = {
         "identityDocument": _get_valid_pdf_file(),
@@ -113,6 +113,32 @@ def test_admin_doctor_verification_workflow():
     user_b = db["users"].find_one({"email": doc_b_email})
     profile_b = db["doctor_profiles"].find_one({"userId": str(user_b["_id"])})
     prof_b_id = str(profile_b["_id"])
+
+    # 4b. Register Doctor D (submits application without pre-verifying email, approved directly in TEST 9)
+    doc_d_email = f"dr.d_{timestamp}@mediconnect.lk"
+    doc_d_files = {
+        "identityDocument": _get_valid_pdf_file(),
+        "medicalRegistrationDocument": _get_valid_pdf_file(),
+        "qualificationDocument": _get_valid_pdf_file(),
+    }
+    doc_d_data = {
+        "fullName": "Dr. David Warnakula",
+        "email": doc_d_email,
+        "phone": "0771234504",
+        "password": "DoctorPassword@123",
+        "specialty": "Neurologist",
+        "medicalRegistrationNumber": f"SLMC-D{timestamp % 10000:04d}",
+        "qualifications": "MBBS, MD Neurology",
+        "hospitalOrClinic": "Lanka Hospitals",
+        "experienceYears": 9,
+        "bio": "Neurology specialist.",
+    }
+    reg_d_res = client.post("/api/auth/register-doctor", data=doc_d_data, files=doc_d_files)
+    assert reg_d_res.status_code == 201
+    user_d = db["users"].find_one({"email": doc_d_email})
+    profile_d = db["doctor_profiles"].find_one({"userId": str(user_d["_id"])})
+    prof_d_id = str(profile_d["_id"])
+    doc_d_id = str(user_d["_id"])
 
     # 5. Register Doctor C (will be rejected with reason)
     doc_c_email = f"dr.c_{timestamp}@mediconnect.lk"
@@ -226,14 +252,19 @@ def test_admin_doctor_verification_workflow():
     assert res_t8_invalid.status_code == 404
 
     # ---------------------------------------------------------
-    # TEST 9: Approve doctor whose email is not verified -> rejected
+    # TEST 9: Admin approves pending doctor application without prior OTP verification
+    # (Sets verificationStatus to APPROVED, user account to ACTIVE, emailVerified to True, and dispatches approval email)
     # ---------------------------------------------------------
-    res_t9 = client.post(f"/api/admin/doctors/{prof_b_id}/approve", headers=admin_headers)
-    assert res_t9.status_code == 400
-    assert "email is not verified" in res_t9.json()["detail"].lower()
+    res_t9 = client.post(f"/api/admin/doctors/{prof_d_id}/approve", headers=admin_headers)
+    assert res_t9.status_code == 200
+    assert "approved successfully" in res_t9.json()["message"].lower()
+
+    updated_user_d = db["users"].find_one({"_id": ObjectId(doc_d_id)})
+    assert updated_user_d["accountStatus"] == AccountStatus.ACTIVE.value
+    assert updated_user_d["emailVerified"] is True
 
     # ---------------------------------------------------------
-    # TEST 10: Approve valid pending verified doctor -> APPROVED, ACTIVE, audit set
+    # TEST 10: Approve valid pending doctor -> APPROVED, ACTIVE, audit set
     # ---------------------------------------------------------
     res_t10 = client.post(f"/api/admin/doctors/{prof_a_id}/approve", headers=admin_headers)
     assert res_t10.status_code == 200

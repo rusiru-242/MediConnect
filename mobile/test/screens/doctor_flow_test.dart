@@ -9,6 +9,7 @@ import 'package:mediconnect/providers/auth_provider.dart';
 import 'package:mediconnect/screens/auth/login_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_application_status_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_home_screen.dart';
+import 'package:mediconnect/screens/doctor/doctor_application_submitted_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_registration_screen.dart';
 import 'package:mediconnect/screens/welcome_screen.dart';
 import 'package:mediconnect/services/auth_api_service.dart';
@@ -215,11 +216,11 @@ void main() {
 
       expect(find.text('Application Under Review'), findsOneWidget);
       expect(
-        find.text('Your email has been verified and your doctor application has been submitted successfully.'),
+        find.text('Your doctor application has been submitted successfully and is currently under administrative review.'),
         findsOneWidget,
       );
       expect(
-        find.text('Our team will review your professional information and verification documents.'),
+        find.text('Our medical administration team is reviewing your professional information and verification documents. Once approved, you will receive an approval email with your registration details and portal login link.'),
         findsOneWidget,
       );
       expect(find.text('Status: Pending'), findsOneWidget);
@@ -323,6 +324,51 @@ void main() {
 
       expect(authProvider.isAuthenticated, isFalse);
       expect(find.byType(WelcomeScreen), findsOneWidget);
+    });
+    testWidgets('TEST 19: DoctorApplicationSubmittedScreen displays waiting notice, submitted details and login navigation',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      final authProvider = AuthProvider(authApiService: mockService);
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorApplicationSubmittedScreen(
+          fullName: 'Kamal Perera',
+          email: 'kamal.p@doctor.lk',
+          phone: '0771234567',
+          specialty: 'Cardiologist',
+          medicalRegistrationNumber: 'SLMC-987654',
+          hospitalOrClinic: 'Colombo National Hospital',
+        ),
+        authProvider: authProvider,
+      ));
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Application Submitted Successfully!'), findsOneWidget);
+      expect(find.text('Awaiting Administrative Review'), findsOneWidget);
+      expect(find.text('Pending Review'), findsOneWidget);
+      expect(find.text('Dr. Kamal Perera'), findsOneWidget);
+      expect(find.text('kamal.p@doctor.lk'), findsOneWidget);
+      expect(find.text('SLMC-987654'), findsOneWidget);
+      expect(find.text('Cardiologist'), findsOneWidget);
+      expect(find.text('Colombo National Hospital'), findsOneWidget);
+      expect(find.byKey(const Key('submitted_back_to_login_button')), findsOneWidget);
+      expect(find.byKey(const Key('submitted_back_to_home_button')), findsOneWidget);
+
+      // Scroll and tap Back to Login
+      await tester.ensureVisible(find.byKey(const Key('submitted_back_to_login_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('submitted_back_to_login_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
     });
   });
 }

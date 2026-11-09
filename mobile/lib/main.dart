@@ -47,7 +47,8 @@ void main() async {
   // Initialize Stripe SDK on supported native mobile platforms only (Android / iOS).
   // MediConnect currently targets Android for Stripe testing.
   // Native flutter_stripe is skipped cleanly on web to prevent MissingPluginException.
-  final isNativeStripeSupported = !kIsWeb &&
+  final isNativeStripeSupported =
+      !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
@@ -57,11 +58,15 @@ void main() async {
       await Stripe.instance.applySettings();
     } catch (e, stackTrace) {
       // Do not swallow genuine native Stripe initialization failures silently
-      debugPrint('CRITICAL: Failed to initialize Stripe on native platform: $e\n$stackTrace');
+      debugPrint(
+        'CRITICAL: Failed to initialize Stripe on native platform: $e\n$stackTrace',
+      );
       rethrow;
     }
   } else {
-    debugPrint('Stripe native initialization skipped cleanly on unsupported platform.');
+    debugPrint(
+      'Stripe native initialization skipped cleanly on unsupported platform.',
+    );
   }
 
   // Initialize Firebase Cloud Messaging safely (graceful fallback if unconfigured)
@@ -82,7 +87,9 @@ void main() async {
   await ApiConstants.initialize();
 
   if (kDebugMode) {
-    debugPrint('[ApiConfig] Active API Base URL: ${ApiConstants.baseUrl} (Host: ${ApiConstants.hostBaseUrl})');
+    debugPrint(
+      '[ApiConfig] Active API Base URL: ${ApiConstants.baseUrl} (Host: ${ApiConstants.hostBaseUrl})',
+    );
   }
 
   runApp(const MediConnectApp());
@@ -96,9 +103,7 @@ class MediConnectApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthProvider>(
-          create: (_) => AuthProvider(),
-        ),
+        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
         ChangeNotifierProvider<NotificationProvider>(
           create: (_) => NotificationProvider(),
         ),
@@ -129,30 +134,41 @@ class MediConnectApp extends StatelessWidget {
           '/notifications': (context) => const NotificationsScreen(),
           '/patient/home': (context) => const PatientHomeScreen(),
           '/patient/ai-assistant': (context) => const AiCareAssistantScreen(),
-          '/patient/ai-care-assistant': (context) => const AiCareAssistantScreen(),
+          '/patient/ai-care-assistant': (context) =>
+              const AiCareAssistantScreen(),
           '/patient/ai-companion': (context) => const AiCareAssistantScreen(),
-          '/patient/ai-recommendations': (context) => const AiDoctorRecommendationScreen(),
+          '/patient/ai-recommendations': (context) =>
+              const AiDoctorRecommendationScreen(),
           '/patient/ai-booking': (context) => const AiBookingAssistantScreen(),
-          '/patient/ai-health-chat': (context) => const AiHealthAssistantScreen(),
+          '/patient/ai-health-chat': (context) =>
+              const AiHealthAssistantScreen(),
           '/patient/find-doctor': (context) => const FindDoctorScreen(),
           '/patient/medical-records': (context) => const MedicalRecordsScreen(),
-          '/patient/medication-reminders': (context) => const MedicationRemindersScreen(),
-          '/medication-reminders': (context) => const MedicationRemindersScreen(),
+          '/patient/medication-reminders': (context) =>
+              const MedicationRemindersScreen(),
+          '/medication-reminders': (context) =>
+              const MedicationRemindersScreen(),
 
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
           '/patient/health-wellness': (context) => const HealthWellnessScreen(),
           '/patient/my-appointments': (context) => const MyAppointmentsScreen(),
           '/patient/my-reviews': (context) => const MyReviewsScreen(),
-          '/patient/appointment-detail': (context) => const AppointmentDetailScreen(),
+          '/patient/appointment-detail': (context) =>
+              const AppointmentDetailScreen(),
           '/patient/payments': (context) => const PaymentHistoryScreen(),
           '/doctor/register': (context) => const DoctorRegistrationScreen(),
-          '/doctor/application-status': (context) => const DoctorApplicationStatusScreen(),
+          '/doctor/application-status': (context) =>
+              const DoctorApplicationStatusScreen(),
           '/doctor/home': (context) => const DoctorHomeScreen(),
           '/doctor/appointments': (context) => const DoctorAppointmentsScreen(),
-          '/doctor/appointment-detail': (context) => const DoctorAppointmentDetailScreen(),
-          '/doctor/consultations': (context) => const DoctorConsultationsScreen(),
-          '/doctor/manage-availability': (context) => const ManageAvailabilityScreen(),
-          '/doctor/add-availability': (context) => const AddAvailabilityScreen(),
+          '/doctor/appointment-detail': (context) =>
+              const DoctorAppointmentDetailScreen(),
+          '/doctor/consultations': (context) =>
+              const DoctorConsultationsScreen(),
+          '/doctor/manage-availability': (context) =>
+              const ManageAvailabilityScreen(),
+          '/doctor/add-availability': (context) =>
+              const AddAvailabilityScreen(),
         },
       ),
     );

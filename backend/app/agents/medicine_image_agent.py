@@ -120,16 +120,11 @@ class MedicineImageAgent:
             uses = ", ".join(med_data["commonUses"][:2])
 
             response_text = (
-                f"📷 **Medicine Packaging Analysis**\n\n"
-                f"**Visible Label Information:** Identified text corresponds to **{med_name}** (Active: {med_data['activeIngredient']}).\n"
-                f"**Brand Associations:** {brands}\n\n"
-                f"**General Therapeutic Uses:** {uses}.\n\n"
-                f"**Important Safety & Precaution Notice:**\n"
-                f"• {med_data['precautions'][0]}\n"
-                f"• {med_data['warnings'][0]}\n\n"
-                f"⚠️ **Clinical Disclaimer & Uncertainty Notice:**\n"
-                f"Visual image interpretation cannot verify chemical authenticity, proper storage conditions, or expiration dates. "
-                f"Do not take this or any medicine without consulting the official packaging leaflet, a registered pharmacist, or your doctor."
+                f"📷 **Identified Medicine:** **{med_name}** ({med_data['activeIngredient']})\n\n"
+                f"• **Brands:** {brands}\n"
+                f"• **Common Uses:** {uses}\n"
+                f"• **Safety Note:** {med_data['precautions'][0]}\n\n"
+                f"⚠️ *Visual image interpretation cannot verify chemical authenticity or expiration. Consult your pharmacist.*"
             )
 
             return {

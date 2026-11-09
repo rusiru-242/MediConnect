@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 
+import '../../core/network/api_error_mapper.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/booking_session.dart';
@@ -230,12 +231,47 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     final imageBytesToSend = _selectedImageBytes;
     final imageNameToSend = _selectedImage?.name ?? 'label.jpg';
 
+    // Optimistically show user's message in the transcript immediately
+    final tempUserMsg = ChatMessage(
+      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      sender: 'user',
+      content: text.isNotEmpty ? text : (hasImage ? '[Attached Image]' : ''),
+      timestamp: DateTime.now(),
+    );
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
       _selectedImage = null;
       _selectedImageBytes = null;
+      if (_session != null) {
+        _session = BookingSession(
+          id: _session!.id,
+          patientUserId: _session!.patientUserId,
+          state: _session!.state,
+          preferences: _session!.preferences,
+          selectedDoctor: _session!.selectedDoctor,
+          selectedSlot: _session!.selectedSlot,
+          bookingSummary: _session!.bookingSummary,
+          candidateDoctors: _session!.candidateDoctors,
+          candidateSlots: _session!.candidateSlots,
+          appointmentId: _session!.appointmentId,
+          paymentId: _session!.paymentId,
+          holdExpiresAt: _session!.holdExpiresAt,
+          messages: [..._session!.messages, tempUserMsg],
+          isUrgent: _session!.isUrgent,
+          urgencyReason: _session!.urgencyReason,
+          activeIntent: _session!.activeIntent,
+          activeMedicineCard: _session!.activeMedicineCard,
+          activeWellnessCard: _session!.activeWellnessCard,
+          activeImageAnalysis: _session!.activeImageAnalysis,
+          createdAt: _session!.createdAt,
+          updatedAt: DateTime.now(),
+          expiresAt: _session!.expiresAt,
+        );
+      }
     });
+    _scrollToBottom();
 
     try {
       final BookingSession updated;
@@ -263,12 +299,19 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       setState(() {
         _isLoading = false;
         _errorMessage = e.message;
+        if (_textController.text.isEmpty && text.isNotEmpty) {
+          _textController.text = text;
+        }
       });
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[AiCareAssistant] Failed to send message: $e\n$stack');
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to send message. Please check your connection.';
+        _errorMessage = ApiErrorMapper.mapException(e);
+        if (_textController.text.isEmpty && text.isNotEmpty) {
+          _textController.text = text;
+        }
       });
     }
   }

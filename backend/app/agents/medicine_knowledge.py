@@ -292,27 +292,31 @@ class MedicineKnowledge:
             }
 
         name = med["genericName"]
-        brands = ", ".join(med["brandNames"])
-        uses = "\n".join([f"• {u}" for u in med["commonUses"]])
-        precautions = "\n".join([f"• {p}" for p in med["precautions"]])
-        side_effects = "\n".join([f"• {s}" for s in med["sideEffects"]])
-        warnings = "\n".join([f"• {w}" for w in med["warnings"]])
+        brands = ", ".join(med["brandNames"][:4])
+        top_uses = ", ".join(med["commonUses"][:2])
+        key_precaution = med["precautions"][0] if med.get("precautions") else "Consult a doctor or pharmacist."
 
-        rx_status = "Prescription medication (requires a valid doctor's prescription)" if med["isPrescriptionRequired"] else "Available over-the-counter (OTC) under pharmacy guidance"
-
-        formatted_text = (
-            f"**{name}** ({med['drugClass']})\n\n"
-            f"**Common Brand Names:** {brands}\n"
-            f"**Classification:** {rx_status}\n"
-            f"**Active Ingredient:** {med['activeIngredient']}\n\n"
-            f"**Common Medical Uses:**\n{uses}\n\n"
-            f"**Important Precautions:**\n{precautions}\n\n"
-            f"**Potential Side Effects:**\n{side_effects}\n\n"
-            f"**Safety Warnings:**\n{warnings}\n\n"
-            f"**When to Consult a Professional:** {med['consultPharmacistWhen']}\n\n"
-            f"*Disclaimer: This information is strictly educational. MediConnect does not prescribe personalized dosages or recommend changes to your prescribed treatment. "
-            f"Always consult your doctor or pharmacist regarding personal medical conditions, pregnancy, or potential drug interactions.*"
+        is_si = bool(re.search(r"[\u0D80-\u0DFF]", query)) or any(
+            w in query.lower().split() for w in ["bonne", "mktda", "mokatada", "monawada", "beheth", "danna"]
         )
+
+        if is_si:
+            formatted_text = (
+                f"💊 **{name}** ({med['activeIngredient']})\n\n"
+                f"• **ප්‍රධාන භාවිතය (Uses):** {top_uses}\n"
+                f"• **වෙළඳ නාම (Brands):** {brands}\n"
+                f"• **වැදගත් අවවාදය:** {key_precaution}\n\n"
+                f"*(සම්පූර්ණ විස්තර සහ අතුරු ආබාධ පහත medicine card එකෙන් බලන්න)*"
+            )
+        else:
+            formatted_text = (
+                f"💊 **{name}** ({med['drugClass']})\n\n"
+                f"• **Active Ingredient:** {med['activeIngredient']}\n"
+                f"• **Common Brands:** {brands}\n"
+                f"• **Common Uses:** {top_uses}\n"
+                f"• **Key Safety:** {key_precaution}\n\n"
+                f"*(See the medicine card below for full precautions and side effects)*"
+            )
 
         return {
             "found": True,

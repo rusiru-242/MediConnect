@@ -1,5 +1,6 @@
 """Admin service for managing doctor applications, verification, and documents."""
 
+import logging
 import math
 import re
 from datetime import datetime, timezone
@@ -9,6 +10,7 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
+from app.config.settings import settings
 from app.models.doctor_profile import DoctorVerificationStatus, utc_now
 from app.models.user import AccountStatus, UserRole
 from app.schemas.admin import (
@@ -28,6 +30,9 @@ from app.schemas.admin import (
     AdminUserListResponse,
 )
 from app.services.document_storage_service import document_storage
+from app.services.email_service import EmailService
+
+logger = logging.getLogger(__name__)
 
 
 DOCUMENT_TITLES = {
@@ -296,12 +301,6 @@ class AdminService:
                 detail="User account does not have DOCTOR role.",
             )
 
-        if not user.get("emailVerified"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot approve doctor whose email is not verified.",
-            )
-
         # Validate professional documents exist
         docs = profile.get("verificationDocuments", {})
         required_keys = {"identityDocument", "medicalRegistrationDocument", "qualificationDocument"}
@@ -337,16 +336,33 @@ class AdminService:
                 detail="Application status was modified by another administrator.",
             )
 
-        # Update User account status to ACTIVE
+        # Update User account status to ACTIVE and emailVerified to True
         db["users"].update_one(
             {"_id": user["_id"]},
             {
                 "$set": {
                     "accountStatus": AccountStatus.ACTIVE.value,
+                    "emailVerified": True,
                     "updatedAt": now,
                 }
             },
         )
+
+        # Dispatch approval email with doctor's personal details and login portal link
+        login_url = settings.DOCTOR_PORTAL_URL or "https://mediconnect-admin-staging.vercel.app/login"
+        try:
+            EmailService.send_doctor_approval_email(
+                to_email=user.get("email", ""),
+                doctor_name=user.get("fullName", "Doctor"),
+                specialty=profile.get("specialty", ""),
+                medical_registration_number=profile.get("medicalRegistrationNumber", ""),
+                hospital_or_clinic=profile.get("hospitalOrClinic", ""),
+                phone=user.get("phone"),
+                qualifications=profile.get("qualifications"),
+                login_url=login_url,
+            )
+        except Exception as exc:
+            logger.error("Failed to send doctor approval email to %s: %s", user.get("email"), exc)
 
         return AdminActionResponse(message="Doctor application approved successfully.")
 

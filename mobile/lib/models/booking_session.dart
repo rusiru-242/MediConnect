@@ -1,6 +1,16 @@
 import 'doctor.dart';
 import 'doctor_availability.dart';
 
+/// Helper to safely parse strings or lists of strings from JSON without throwing TypeErrors.
+List<String> _parseStringList(dynamic value) {
+  if (value == null) return const [];
+  if (value is List) {
+    return value.map((e) => e.toString()).toList();
+  }
+  final str = value.toString().trim();
+  return str.isNotEmpty ? [str] : const [];
+}
+
 /// Represents a single conversational message in an AI booking session.
 class ChatMessage {
   final String id;
@@ -198,14 +208,15 @@ class DoctorCardSummary {
       matchScore: (json['matchScore'] as num?)?.toDouble(),
       nextAvailableDate: json['nextAvailableDate'] as String?,
       matchReason: json['matchReason'] as String?,
-      matchReasons: (json['matchReasons'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          (json['matchReason'] != null ? [json['matchReason'].toString()] : const []),
-      availableSlots: (json['availableSlots'] as List<dynamic>?)
-              ?.map((e) => SlotCardSummary.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      matchReasons: _parseStringList(json['matchReasons']).isNotEmpty
+          ? _parseStringList(json['matchReasons'])
+          : (json['matchReason'] != null ? [json['matchReason'].toString()] : const []),
+      availableSlots: (json['availableSlots'] is List)
+          ? (json['availableSlots'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map((e) => SlotCardSummary.fromJson(e))
+              .toList()
+          : const [],
     );
   }
 
@@ -327,28 +338,13 @@ class MedicineCardSummary {
     return MedicineCardSummary(
       medicineName: json['medicineName'] as String? ?? 'Medicine',
       activeIngredient: json['activeIngredient'] as String?,
-      commonUses: (json['commonUses'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
-      precautions: (json['precautions'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
-      sideEffects: (json['sideEffects'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
-      warnings: (json['warnings'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
-      consultPharmacistWhen: (json['consultPharmacistWhen'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
-      isPrescriptionRequired:
-          json['isPrescriptionRequired'] as bool? ?? false,
+      commonUses: _parseStringList(json['commonUses']),
+      precautions: _parseStringList(json['precautions']),
+      sideEffects: _parseStringList(json['sideEffects']),
+      warnings: _parseStringList(json['warnings']),
+      consultPharmacistWhen: _parseStringList(json['consultPharmacistWhen']),
+      isPrescriptionRequired: json['isPrescriptionRequired'] == true ||
+          json['isPrescriptionRequired']?.toString().toLowerCase() == 'true',
     );
   }
 
@@ -389,12 +385,8 @@ class WellnessCardSummary {
       category: json['category'] as String? ?? 'WELLNESS',
       title: json['title'] as String? ?? 'Wellness Guidance',
       summary: json['summary'] as String? ?? '',
-      tips: (json['tips'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
-          const [],
-      sriLankanOptions: (json['sriLankanOptions'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
+      tips: _parseStringList(json['tips']),
+      sriLankanOptions: _parseStringList(json['sriLankanOptions']),
       safetyNote: json['safetyNote'] as String?,
     );
   }
@@ -521,61 +513,68 @@ class BookingSession {
 
   factory BookingSession.fromJson(Map<String, dynamic> json) {
     return BookingSession(
-      id: json['id'] as String? ?? '',
+      id: json['id'] as String? ?? json['_id'] as String? ?? '',
       patientUserId: json['patientUserId'] as String? ?? '',
       state: json['state'] as String? ?? 'COLLECTING_PREFERENCES',
-      preferences: json['preferences'] != null
+      preferences: json['preferences'] is Map<String, dynamic>
           ? BookingPreferences.fromJson(json['preferences'] as Map<String, dynamic>)
           : const BookingPreferences(),
-      selectedDoctor: json['selectedDoctor'] != null
+      selectedDoctor: json['selectedDoctor'] is Map<String, dynamic>
           ? DoctorCardSummary.fromJson(json['selectedDoctor'] as Map<String, dynamic>)
           : null,
-      selectedSlot: json['selectedSlot'] != null
+      selectedSlot: json['selectedSlot'] is Map<String, dynamic>
           ? SlotCardSummary.fromJson(json['selectedSlot'] as Map<String, dynamic>)
           : null,
-      bookingSummary: json['bookingSummary'] != null
+      bookingSummary: json['bookingSummary'] is Map<String, dynamic>
           ? BookingSummary.fromJson(json['bookingSummary'] as Map<String, dynamic>)
           : null,
-      candidateDoctors: (json['candidateDoctors'] as List<dynamic>?)
-              ?.map((e) => DoctorCardSummary.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      candidateSlots: (json['candidateSlots'] as List<dynamic>?)
-              ?.map((e) => SlotCardSummary.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      candidateDoctors: (json['candidateDoctors'] is List)
+          ? (json['candidateDoctors'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map((e) => DoctorCardSummary.fromJson(e))
+              .toList()
+          : const [],
+      candidateSlots: (json['candidateSlots'] is List)
+          ? (json['candidateSlots'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map((e) => SlotCardSummary.fromJson(e))
+              .toList()
+          : const [],
       appointmentId: json['appointmentId'] as String?,
       paymentId: json['paymentId'] as String?,
       holdExpiresAt: json['holdExpiresAt'] != null
-          ? DateTime.tryParse(json['holdExpiresAt'] as String)
+          ? DateTime.tryParse(json['holdExpiresAt'].toString())
           : null,
-      messages: (json['messages'] as List<dynamic>?)
-              ?.map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      isUrgent: json['isUrgent'] as bool? ?? false,
+      messages: (json['messages'] is List)
+          ? (json['messages'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map((e) => ChatMessage.fromJson(e))
+              .toList()
+          : const [],
+      isUrgent: json['isUrgent'] == true ||
+          json['isUrgent']?.toString().toLowerCase() == 'true',
       urgencyReason: json['urgencyReason'] as String?,
       activeIntent: json['activeIntent'] as String?,
-      activeMedicineCard: json['activeMedicineCard'] != null
+      activeMedicineCard: json['activeMedicineCard'] is Map<String, dynamic>
           ? MedicineCardSummary.fromJson(
               json['activeMedicineCard'] as Map<String, dynamic>)
           : null,
-      activeWellnessCard: json['activeWellnessCard'] != null
+      activeWellnessCard: json['activeWellnessCard'] is Map<String, dynamic>
           ? WellnessCardSummary.fromJson(
               json['activeWellnessCard'] as Map<String, dynamic>)
           : null,
-      activeImageAnalysis: json['activeImageAnalysis'] != null
+      activeImageAnalysis: json['activeImageAnalysis'] is Map<String, dynamic>
           ? ImageAnalysisSummary.fromJson(
               json['activeImageAnalysis'] as Map<String, dynamic>)
           : null,
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.tryParse(json['updatedAt'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['updatedAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
       expiresAt: json['expiresAt'] != null
-          ? DateTime.tryParse(json['expiresAt'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['expiresAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }

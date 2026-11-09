@@ -131,5 +131,57 @@ void main() {
       expect(summary.totalAmount, 2500.0);
       expect(summary.currency, 'lkr');
     });
+
+    test('5. MedicineCardSummary deserializes string consultPharmacistWhen and list fields safely', () {
+      final json = {
+        'medicineName': 'Paracetamol',
+        'activeIngredient': 'Acetaminophen 500mg',
+        'commonUses': ['Relief of mild pain', 'Fever reduction'],
+        'precautions': ['Do not exceed 4000mg/day'],
+        'sideEffects': ['Rare nausea'],
+        'warnings': ['Severe liver damage risk if overdosed'],
+        'consultPharmacistWhen': 'Pain persists for more than 5 days, or fever over 3 days.',
+        'isPrescriptionRequired': false,
+      };
+
+      final medCard = MedicineCardSummary.fromJson(json);
+      expect(medCard.medicineName, 'Paracetamol');
+      expect(medCard.activeIngredient, 'Acetaminophen 500mg');
+      expect(medCard.commonUses.length, 2);
+      expect(medCard.consultPharmacistWhen, [
+        'Pain persists for more than 5 days, or fever over 3 days.'
+      ]);
+      expect(medCard.isPrescriptionRequired, isFalse);
+    });
+
+    test('6. WellnessCardSummary and ImageAnalysisSummary deserialize resiliently', () {
+      final wellnessJson = {
+        'category': 'FOOD',
+        'title': 'Balanced Nutrition',
+        'summary': 'Nutritious Sri Lankan diet advice',
+        'tips': 'Drink plenty of water and eat greens',
+        'sriLankanOptions': ['Gotukola sambol', 'Red rice'],
+        'safetyNote': 'Consult nutritionist if diabetic',
+      };
+
+      final wellness = WellnessCardSummary.fromJson(wellnessJson);
+      expect(wellness.category, 'FOOD');
+      expect(wellness.tips, ['Drink plenty of water and eat greens']);
+      expect(wellness.sriLankanOptions.length, 2);
+
+      final imageJson = {
+        'detectedText': 'AMOXICILLIN 500MG',
+        'identifiedMedicine': 'Amoxicillin',
+        'confidenceLevel': 'HIGH',
+        'uncertaintyExplanation': 'Clear package view',
+        'safetyAdvice': 'Prescription antibiotic',
+        'requiresClearerPhoto': false,
+      };
+
+      final analysis = ImageAnalysisSummary.fromJson(imageJson);
+      expect(analysis.detectedText, 'AMOXICILLIN 500MG');
+      expect(analysis.identifiedMedicine, 'Amoxicillin');
+      expect(analysis.confidenceLevel, 'HIGH');
+    });
   });
 }

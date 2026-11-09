@@ -8,7 +8,7 @@ import '../../core/constants/specialties.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
-import '../auth/email_verification_screen.dart';
+import 'doctor_application_submitted_screen.dart';
 
 class DoctorRegistrationScreen extends StatefulWidget {
   const DoctorRegistrationScreen({super.key});
@@ -176,16 +176,20 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppTheme.success,
-          content: Text('Doctor application submitted! Please verify your email with the OTP code.'),
+          content: Text('Doctor application submitted successfully! It is now under administrative review.'),
           duration: Duration(seconds: 4),
         ),
       );
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => EmailVerificationScreen(
+          builder: (_) => DoctorApplicationSubmittedScreen(
+            fullName: _fullNameController.text.trim(),
             email: _emailController.text.trim(),
-            isDoctor: true,
+            phone: _phoneController.text.trim(),
+            specialty: _selectedSpecialty ?? '',
+            medicalRegistrationNumber: _medRegNumController.text.trim(),
+            hospitalOrClinic: _hospitalClinicController.text.trim(),
           ),
         ),
       );
@@ -845,7 +849,7 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'After submitting, you will verify your email via a 6-digit OTP code. Your application will then enter administrative review before clinical features are activated.',
+                  'After submitting, your application will enter administrative review. Once verified and approved by the administration team, you will receive an approval confirmation email with your registration details and doctor portal login link.',
                   style: TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.4),
                 ),
               ),

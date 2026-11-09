@@ -99,15 +99,15 @@ class WellnessKnowledge:
             ),
         }
 
-        bullet_tips = "\n".join([f"• {t}" for t in tips])
-        bullet_opts = "\n".join([f"• {o}" for o in options])
+        top_tips = "\n".join([f"• {t}" for t in tips[:2]])
+        top_opts = ", ".join([o.split(":")[0] for o in options[:3]])
 
         text = (
-            f"### 🥗 {title}\n\n"
-            f"{summary}\n\n"
-            f"**Healthy Guidelines:**\n{bullet_tips}\n\n"
-            f"**Recommended Options:**\n{bullet_opts}\n\n"
-            f"*{card['safetyNote']}*"
+            f"🥗 **{title}**\n\n"
+            f"{summary}\n"
+            f"{top_tips}\n\n"
+            f"• **Recommended:** {top_opts}.\n\n"
+            f"*(See the wellness card below for complete meal options and dietary notes)*"
         )
 
         return {
@@ -164,15 +164,15 @@ class WellnessKnowledge:
             ),
         }
 
-        bullet_tips = "\n".join([f"• {t}" for t in tips])
-        bullet_opts = "\n".join([f"• {o}" for o in options])
+        top_tips = "\n".join([f"• {t}" for t in tips[:2]])
+        top_opts = ", ".join([o.split(":")[0] for o in options[:3]])
 
         text = (
-            f"### 🏃 {title}\n\n"
-            f"{summary}\n\n"
-            f"**Key Principles:**\n{bullet_tips}\n\n"
-            f"**Recommended Starter Routine:**\n{bullet_opts}\n\n"
-            f"*{card['safetyNote']}*"
+            f"🏃 **{title}**\n\n"
+            f"{summary}\n"
+            f"{top_tips}\n\n"
+            f"• **Starter routine:** {top_opts}.\n\n"
+            f"*(See the exercise card below for step-by-step guidance)*"
         )
 
         return {
@@ -242,15 +242,14 @@ class WellnessKnowledge:
             ),
         }
 
-        bullet_tips = "\n".join([f"• {t}" for t in tips])
-        bullet_opts = "\n".join([f"• {o}" for o in options])
+        top_tips = "\n".join([f"• {t}" for t in tips[:2]])
+        top_opts = ", ".join([o.split(":")[0] for o in options[:3]])
 
         text = (
-            f"### 🧘 {title}\n\n"
-            f"{summary}\n\n"
-            f"**Wellness Guidelines:**\n{bullet_tips}\n\n"
-            f"**Recommended Routine:**\n{bullet_opts}\n\n"
-            f"*{card['safetyNote']}*"
+            f"🧘 **{title}**\n\n"
+            f"{summary}\n"
+            f"{top_tips}\n\n"
+            f"• **Recommended routine:** {top_opts}."
         )
 
         return {
