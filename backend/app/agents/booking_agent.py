@@ -387,6 +387,7 @@ class BookingAgent:
                         break
 
         if matched_doctor:
+            session_data["activeIntent"] = CompanionIntent.BOOK_APPOINTMENT.value
             session_data["selectedDoctor"] = matched_doctor
             selected_doctor = matched_doctor
             slots = await cls._fetch_available_slots(db, matched_doctor["doctorId"], prefs.get("date"))
@@ -425,6 +426,7 @@ class BookingAgent:
                     matched_slot = candidate_slots[slot_ord]
 
         if matched_slot:
+            session_data["activeIntent"] = CompanionIntent.BOOK_APPOINTMENT.value
             session_data["selectedSlot"] = matched_slot
             summary = cls._build_booking_summary(selected_doctor, matched_slot)
             session_data["bookingSummary"] = summary
@@ -464,6 +466,7 @@ class BookingAgent:
 
         # 10. Doctor Discovery Search (specialty, symptoms, or location specified)
         if prefs.get("specialty") or prefs.get("city") or prefs.get("symptoms"):
+            session_data["activeIntent"] = CompanionIntent.FIND_DOCTOR.value
             target_state = BookingAgentState.SEARCHING_DOCTORS.value
             if validate_state_transition(current_state, target_state):
                 session_data["state"] = target_state

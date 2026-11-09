@@ -36,6 +36,7 @@ FOOD_PATTERNS = [
     r"\b(?:food|diet|nutrition|breakfast|lunch|dinner|meal|meals|eat|eating|snack)\b",
     r"\b(?:sugar|sweet|sweetener|protein|calorie|calories|carbs|vegetable|vegetables|fruit|fruits)\b",
     r"\b(?:kola\s+kenda|red\s+rice|parippu|dhal|sambol|kurakkan|pittu|string\s+hoppers?)\b",
+    r"\b(?:kama|keema|kanna|udeta|ude|reeta|dawal|seeni|poshana)\b",
     r"(?:කෑම|ආහාර|උදේ|උදෑසන|සීනි|පෝෂණය)",
 ]
 
@@ -44,6 +45,7 @@ EXERCISE_PATTERNS = [
     r"\b(?:exercise|exercises|workout|walking|walk|jogging|run|running|gym)\b",
     r"\b(?:strength|stretch|stretching|mobility|cardio|push-?up|squats?|aerobic)\b",
     r"\b(?:physical\s+activity|fitness|bodyweight|training)\b",
+    r"\b(?:kettu|viyama|angasampath|anga|adukaranna)\b",
     r"(?:ව්‍යායාම|ඇවිදීම)",
 ]
 
@@ -52,6 +54,7 @@ WELLNESS_PATTERNS = [
     r"\b(?:sleep|insomnia|tired|fatigue|rest|bedtime|nap)\b",
     r"\b(?:stress|anxiety|calm|relax|relaxation|meditation|mindfulness|mental\s+health)\b",
     r"\b(?:water|hydration|hydrate|daily\s+habit|habits|lifestyle)\b",
+    r"\b(?:ninda|nidaganna|nidimathe|peedanaya|manasika|wathura)\b",
     r"(?:නින්ද|පීඩනය|සුවතාවය)",
 ]
 
@@ -61,6 +64,7 @@ MEDICINE_PATTERNS = [
     r"\b(?:paracetamol|panadol|amoxicillin|augmentin|metformin|glucophage|omeprazole|omez|atorvastatin|lipitor)\b",
     r"\b(?:cetirizine|zyrtec|ibuprofen|brufen|salbutamol|ventolin|losartan|cozaar|aspirin|piriton|antibiotic)\b",
     r"\b(?:side\s+effects?|precaution|precautions|active\s+ingredient|contraindications?|dosage|dose|used\s+for)\b",
+    r"\b(?:beheth|pethi|bonne|mokatada|mktda|gena)\b",
     r"(?:බෙහෙත්|පෙති|ඖෂධ|පැරසිටමෝල්|පැනඩෝල්|ඇමොක්සිසිලින්)",
 ]
 
@@ -77,6 +81,8 @@ DOCTOR_PATTERNS = [
     r"\b(?:gastroenterologist|endocrinologist|oncologist|urologist|nephrologist|pulmonologist|rheumatologist)\b",
     r"\b(?:ent\s+doctor|eye\s+doctor|orthopedic|general\s+practitioner)\b",
     r"\b(?:doctor\s+(?:in|near|around)|hospital|clinic)\b",
+    r"\b(?:near|in|around)\s+(?:colombo|kandy|galle|jaffna|negombo|gampaha|matara|kurunegala|ratnapura|badulla)\b",
+    r"\b(?:dosthara|dostara|dothara|doctor\s+kenek|hamba\s+wenna|pennanna)\b",
     r"(?:දොස්තර|වෛද්‍ය|වෛද්‍යවර|හෘද\s*රෝග)",
 ]
 
@@ -84,6 +90,7 @@ DOCTOR_PATTERNS = [
 BOOKING_PATTERNS = [
     r"\b(?:book|booking|appointment|slot|reserve|schedule|confirm\s+booking)\b",
     r"\b(?:select\s+doctor|select\s+slot|first\s+doctor|second\s+doctor|1st\s+doctor|2nd\s+doctor)\b",
+    r"\b(?:book\s+karanna|danna|appointment\s+ekak)\b",
     r"(?:වෙන්\s+කරන්න|ඇපොයින්ට්මන්ට්)",
 ]
 
