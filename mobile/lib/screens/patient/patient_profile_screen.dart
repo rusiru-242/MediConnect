@@ -264,6 +264,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             children: [
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                   visualDensity: VisualDensity.compact,
                                   foregroundColor: AppTheme.primaryBlue,
                                   side: const BorderSide(
