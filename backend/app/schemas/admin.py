@@ -17,9 +17,11 @@ class AdminDoctorApplicationSummary(BaseModel):
     phone: Optional[str] = None
     specialty: str
     medicalRegistrationNumber: str
+    qualifications: Optional[str] = None
     hospitalOrClinic: str
     experienceYears: int
     verificationStatus: str
+    emailVerified: bool = True
     submittedAt: datetime
 
 
@@ -54,6 +56,8 @@ class AdminDoctorApplicationDetail(BaseModel):
     bio: Optional[str] = None
     verificationStatus: str
     rejectionReason: Optional[str] = None
+    emailVerified: bool = True
+    emailVerifiedAt: Optional[datetime] = None
     submittedAt: datetime
     verifiedAt: Optional[datetime] = None
     verifiedBy: Optional[str] = None

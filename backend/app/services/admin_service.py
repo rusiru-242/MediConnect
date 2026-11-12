@@ -63,15 +63,26 @@ class AdminService:
         status_filter: Optional[str] = "PENDING",
     ) -> List[AdminDoctorApplicationSummary]:
         """List doctor applications with optional status filtering (default: PENDING)."""
-        query = {}
-        if status_filter and status_filter.upper() != "ALL":
-            clean_status = status_filter.strip().upper()
+        clean_status = (status_filter or "PENDING").strip().upper()
+        query: Dict[str, Any] = {}
+        filter_verified_only = False
+
+        if clean_status in ("PENDING", "PENDING_ADMIN_APPROVAL"):
+            query["verificationStatus"] = {
+                "$in": [
+                    DoctorVerificationStatus.PENDING.value,
+                    DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+                ]
+            }
+            filter_verified_only = True
+        elif clean_status == "PENDING_EMAIL_VERIFICATION":
+            query["verificationStatus"] = DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value
+        elif clean_status != "ALL":
             if clean_status in {s.value for s in DoctorVerificationStatus}:
                 query["verificationStatus"] = clean_status
             else:
                 query["verificationStatus"] = DoctorVerificationStatus.PENDING.value
-        elif not status_filter:
-            query["verificationStatus"] = DoctorVerificationStatus.PENDING.value
+                filter_verified_only = True
 
         profiles = list(db["doctor_profiles"].find(query).sort("submittedAt", -1))
         if not profiles:
@@ -95,6 +106,11 @@ class AdminService:
             uid_str = str(p.get("userId", ""))
             user = users_by_id.get(uid_str, {})
 
+            email_verified = bool(user.get("emailVerified", False))
+            # Pending approvals section only lists email-verified applications
+            if filter_verified_only and not email_verified:
+                continue
+
             # Ensure UTC submittedAt
             sub_at = p.get("submittedAt")
             if isinstance(sub_at, datetime) and sub_at.tzinfo is None:
@@ -111,9 +127,11 @@ class AdminService:
                     phone=user.get("phone"),
                     specialty=p.get("specialty", ""),
                     medicalRegistrationNumber=p.get("medicalRegistrationNumber", ""),
+                    qualifications=p.get("qualifications", ""),
                     hospitalOrClinic=p.get("hospitalOrClinic", ""),
                     experienceYears=int(p.get("experienceYears", 0)),
                     verificationStatus=p.get("verificationStatus", DoctorVerificationStatus.PENDING.value),
+                    emailVerified=email_verified,
                     submittedAt=sub_at,
                 )
             )
@@ -198,6 +216,8 @@ class AdminService:
             bio=profile.get("bio"),
             verificationStatus=profile.get("verificationStatus", DoctorVerificationStatus.PENDING.value),
             rejectionReason=profile.get("rejectionReason"),
+            emailVerified=bool(user.get("emailVerified", False)),
+            emailVerifiedAt=profile.get("emailVerifiedAt"),
             submittedAt=sub_at,
             verifiedAt=ver_at,
             verifiedBy=profile.get("verifiedBy"),
@@ -275,12 +295,16 @@ class AdminService:
             )
 
         current_status = profile.get("verificationStatus")
+        pending_statuses = [
+            DoctorVerificationStatus.PENDING.value,
+            DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+        ]
 
-        # Concurrency / Double Action Protection: Only PENDING applications can be approved
-        if current_status != DoctorVerificationStatus.PENDING.value:
+        # Concurrency / Double Action Protection: Only pending applications can be approved
+        if current_status not in pending_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot approve application with status '{current_status}'. Only PENDING applications can be approved.",
+                detail=f"Cannot approve application with status '{current_status}'. Only pending applications can be approved.",
             )
 
         user_id_val = profile.get("userId")
@@ -303,6 +327,12 @@ class AdminService:
                 detail="User account does not have DOCTOR role.",
             )
 
+        if not user.get("emailVerified"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Doctor's email must be verified before the application can be approved.",
+            )
+
         # Validate professional documents exist
         docs = profile.get("verificationDocuments", {})
         required_keys = {"identityDocument", "medicalRegistrationDocument", "qualificationDocument"}
@@ -318,7 +348,7 @@ class AdminService:
         update_result = db["doctor_profiles"].update_one(
             {
                 "_id": prof_oid,
-                "verificationStatus": DoctorVerificationStatus.PENDING.value,
+                "verificationStatus": {"$in": pending_statuses},
             },
             {
                 "$set": {
@@ -326,7 +356,7 @@ class AdminService:
                     "verifiedAt": now,
                     "verifiedBy": str(admin_user_id),
                     "rejectionReason": None,
-                    "previousStatus": DoctorVerificationStatus.PENDING.value,
+                    "previousStatus": current_status,
                     "updatedAt": now,
                 }
             },
@@ -404,12 +434,17 @@ class AdminService:
             )
 
         current_status = profile.get("verificationStatus")
+        pending_statuses = [
+            DoctorVerificationStatus.PENDING.value,
+            DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value,
+            DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+        ]
 
-        # Concurrency / Double Action Protection: Only PENDING applications can be rejected
-        if current_status != DoctorVerificationStatus.PENDING.value:
+        # Concurrency / Double Action Protection: Only pending applications can be rejected
+        if current_status not in pending_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot reject application with status '{current_status}'. Only PENDING applications can be rejected.",
+                detail=f"Cannot reject application with status '{current_status}'. Only pending applications can be rejected.",
             )
 
         now = utc_now()
@@ -417,7 +452,7 @@ class AdminService:
         update_result = db["doctor_profiles"].update_one(
             {
                 "_id": prof_oid,
-                "verificationStatus": DoctorVerificationStatus.PENDING.value,
+                "verificationStatus": {"$in": pending_statuses},
             },
             {
                 "$set": {
@@ -425,7 +460,7 @@ class AdminService:
                     "rejectionReason": clean_reason,
                     "verifiedAt": now,
                     "verifiedBy": str(admin_user_id),
-                    "previousStatus": DoctorVerificationStatus.PENDING.value,
+                    "previousStatus": current_status,
                     "updatedAt": now,
                 }
             },

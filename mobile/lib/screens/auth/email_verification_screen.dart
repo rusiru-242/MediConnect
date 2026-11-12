@@ -7,17 +7,28 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/mediconnect_logo.dart';
+import '../doctor/doctor_application_submitted_screen.dart';
 
 /// Screen for entering and verifying 6-digit email OTP.
 /// Includes cooldown timer for resending OTP and navigates to Login on success.
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
   final bool isDoctor;
+  final String? doctorFullName;
+  final String? doctorSpecialty;
+  final String? doctorMedReg;
+  final String? doctorHospital;
+  final String? doctorPhone;
 
   const EmailVerificationScreen({
     super.key,
     required this.email,
     this.isDoctor = false,
+    this.doctorFullName,
+    this.doctorSpecialty,
+    this.doctorMedReg,
+    this.doctorHospital,
+    this.doctorPhone,
   });
 
   @override
@@ -111,9 +122,20 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
         );
 
-        // Navigate to Doctor Application Status screen
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/doctor/application-status',
+        // Navigate to "Your Application Is Under Review" screen
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => DoctorApplicationSubmittedScreen(
+              fullName: widget.doctorFullName ?? 'Doctor',
+              email: widget.email,
+              phone: widget.doctorPhone,
+              specialty: widget.doctorSpecialty ?? '',
+              medicalRegistrationNumber: widget.doctorMedReg ?? '',
+              hospitalOrClinic: widget.doctorHospital ?? '',
+              redirectDelay: const Duration(seconds: 4),
+              autoRedirect: true,
+            ),
+          ),
           (route) => false,
         );
       } else {

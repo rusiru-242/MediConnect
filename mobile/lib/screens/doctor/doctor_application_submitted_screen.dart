@@ -24,7 +24,7 @@ class DoctorApplicationSubmittedScreen extends StatefulWidget {
     required this.specialty,
     required this.medicalRegistrationNumber,
     required this.hospitalOrClinic,
-    this.redirectDelay = const Duration(seconds: 3),
+    this.redirectDelay = const Duration(seconds: 4),
     this.autoRedirect = true,
   });
 
@@ -113,7 +113,7 @@ class _DoctorApplicationSubmittedScreenState
 
                 // Main Title as specified in requirements
                 Text(
-                  'Thank You for Your Application!',
+                  'Your Application Is Under Review',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
@@ -121,19 +121,29 @@ class _DoctorApplicationSubmittedScreenState
                         letterSpacing: -0.5,
                       ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                const Text(
+                  'Thank You for Your Application!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+                const SizedBox(height: 8),
 
-                // Badge preserving compatibility with tests
+                // Badge: Pending Admin Approval
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                     decoration: BoxDecoration(
                       color: AppTheme.softBlue,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppTheme.border),
                     ),
                     child: const Text(
-                      'Application Submitted Successfully!',
+                      'Pending Admin Approval',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -160,7 +170,7 @@ class _DoctorApplicationSubmittedScreenState
                     ],
                   ),
                   child: const Text(
-                    'Your doctor registration application has been submitted successfully. Our admin team will review your details. You will be notified once your application is approved.',
+                    'Thank you for registering with MediConnect! Your email has been verified successfully. Your doctor registration application has been submitted for admin review. We will notify you once your application has been reviewed.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,

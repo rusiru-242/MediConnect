@@ -10,6 +10,8 @@ from pymongo.database import Database
 
 class DoctorVerificationStatus(str, Enum):
     PENDING = "PENDING"
+    PENDING_EMAIL_VERIFICATION = "PENDING_EMAIL_VERIFICATION"
+    PENDING_ADMIN_APPROVAL = "PENDING_ADMIN_APPROVAL"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
 
@@ -42,6 +44,7 @@ class DoctorProfileDocument(BaseModel):
     verificationStatus: DoctorVerificationStatus = Field(default=DoctorVerificationStatus.PENDING)
     rejectionReason: Optional[str] = Field(default=None)
     submittedAt: datetime = Field(default_factory=utc_now)
+    emailVerifiedAt: Optional[datetime] = None
     verifiedAt: Optional[datetime] = None
     verifiedBy: Optional[str] = Field(default=None, description="Admin userId who verified the application")
     previousStatus: Optional[str] = Field(default=None, description="Previous verification status for audit")

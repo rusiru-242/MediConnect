@@ -140,13 +140,18 @@ def require_approved_doctor(
     if ver_status == "REJECTED":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your doctor registration was not approved. Please contact administrative support.",
+            detail="Your doctor registration application was not approved. Please contact MediConnect support for further information.",
         )
 
     if current_user.accountStatus != AccountStatus.ACTIVE.value or ver_status != "APPROVED":
+        if not current_user.emailVerified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Please verify your email before continuing.",
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your doctor registration is pending admin approval.",
+            detail="Your doctor registration is currently under review. You can access your doctor dashboard once an administrator approves your application.",
         )
 
     return current_user

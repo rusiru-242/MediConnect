@@ -331,9 +331,10 @@ class AuthService:
                 "medicalRegistrationDocument": med_doc_meta,
                 "qualificationDocument": qual_doc_meta,
             },
-            "verificationStatus": DoctorVerificationStatus.PENDING.value,
+            "verificationStatus": DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value,
             "rejectionReason": None,
             "submittedAt": now,
+            "emailVerifiedAt": None,
             "verifiedAt": None,
             "createdAt": now,
             "updatedAt": now,
@@ -508,6 +509,18 @@ class AuthService:
                     },
                 },
             )
+
+            if user_role == UserRole.DOCTOR.value:
+                db["doctor_profiles"].update_one(
+                    {"userId": str(user["_id"])},
+                    {
+                        "$set": {
+                            "verificationStatus": DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+                            "emailVerifiedAt": now,
+                            "updatedAt": now,
+                        }
+                    },
+                )
         except PyMongoError as exc:
             logger.error("Failed to activate verified user: %s", type(exc).__name__)
             raise HTTPException(
@@ -620,7 +633,13 @@ class AuthService:
             )
 
         # Check email verification status
+        user_role = user.get("role", UserRole.PATIENT.value)
         if not user.get("emailVerified"):
+            if user_role == UserRole.DOCTOR.value:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Please verify your email before continuing.",
+                )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Email verification is required before logging in. Please verify your email.",
@@ -628,7 +647,6 @@ class AuthService:
 
         # Check account status
         account_status = user.get("accountStatus")
-        user_role = user.get("role", UserRole.PATIENT.value)
 
         if account_status == AccountStatus.SUSPENDED.value:
             raise HTTPException(
@@ -642,7 +660,7 @@ class AuthService:
             if doc_profile and doc_profile.get("verificationStatus") == DoctorVerificationStatus.REJECTED.value:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Your doctor registration was not approved. Please contact administrative support.",
+                    detail="Your doctor registration application was not approved. Please contact MediConnect support for further information.",
                 )
 
         # Allow DOCTOR with verified email and PENDING status for restricted application-status sessions

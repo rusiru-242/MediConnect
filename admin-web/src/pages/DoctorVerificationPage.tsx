@@ -131,6 +131,9 @@ export const DoctorVerificationPage: React.FC = () => {
             <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-700 border border-brand-200">
               Doctor Approvals
             </span>
+            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 border border-amber-200">
+              Pending: {filteredApps.filter((a) => a.verificationStatus === 'PENDING' || a.verificationStatus === 'PENDING_ADMIN_APPROVAL').length}
+            </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Audit professional medical credentials and approve or reject prospective doctors.
@@ -206,9 +209,10 @@ export const DoctorVerificationPage: React.FC = () => {
               <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-6 py-3.5">Doctor</th>
-                  <th className="px-6 py-3.5">Specialty</th>
+                  <th className="px-6 py-3.5">Specialty & Qualifications</th>
                   <th className="px-6 py-3.5">Medical Reg No</th>
                   <th className="px-6 py-3.5">Hospital / Clinic</th>
+                  <th className="px-6 py-3.5">Email Status</th>
                   <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5">Submitted</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
@@ -219,13 +223,28 @@ export const DoctorVerificationPage: React.FC = () => {
                   <tr key={app.doctorProfileId} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-900">{app.fullName}</div>
-                      <div className="text-[11px] text-slate-400">{app.email}</div>
+                      <div className="text-[11px] text-slate-400">
+                        {app.email} {app.phone ? `• ${app.phone}` : ''}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-700 font-medium">{app.specialty}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-slate-700">{app.specialty}</div>
+                      {app.qualifications && (
+                        <div className="text-[11px] text-slate-400 truncate max-w-[180px]">
+                          {app.qualifications}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 font-mono text-[11px] text-slate-600">
                       {app.medicalRegistrationNumber}
                     </td>
                     <td className="px-6 py-4 text-slate-600">{app.hospitalOrClinic}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        Verified
+                      </span>
+                    </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={app.verificationStatus} />
                     </td>
@@ -242,7 +261,8 @@ export const DoctorVerificationPage: React.FC = () => {
                         >
                           Review
                         </Button>
-                        {app.verificationStatus === 'PENDING' && (
+                        {(app.verificationStatus === 'PENDING' ||
+                          app.verificationStatus === 'PENDING_ADMIN_APPROVAL') && (
                           <>
                             <Button
                               variant="primary"
@@ -315,6 +335,21 @@ export const DoctorVerificationPage: React.FC = () => {
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Experience</span>
                 <p className="font-semibold text-slate-900 mt-0.5">{appDetail.experienceYears} Years</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Email Status</span>
+                <p className="mt-0.5">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    Verified
+                  </span>
+                </p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Approval Status</span>
+                <div className="mt-0.5">
+                  <StatusBadge status={appDetail.verificationStatus} />
+                </div>
               </div>
             </div>
 
@@ -389,7 +424,8 @@ export const DoctorVerificationPage: React.FC = () => {
               <Button variant="outline" onClick={() => setSelectedAppId(null)}>
                 Close
               </Button>
-              {appDetail.verificationStatus === 'PENDING' && (
+              {(appDetail.verificationStatus === 'PENDING' ||
+                appDetail.verificationStatus === 'PENDING_ADMIN_APPROVAL') && (
                 <>
                   <Button
                     variant="danger"

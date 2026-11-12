@@ -352,10 +352,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Thank You for Your Application!'), findsOneWidget);
-      expect(find.text('Application Submitted Successfully!'), findsOneWidget);
+      expect(find.text('Your Application Is Under Review'), findsOneWidget);
+      expect(find.text('Pending Admin Approval'), findsWidgets);
       expect(
-        find.text('Your doctor registration application has been submitted successfully. Our admin team will review your details. You will be notified once your application is approved.'),
+        find.text('Thank you for registering with MediConnect! Your email has been verified successfully. Your doctor registration application has been submitted for admin review. We will notify you once your application has been reviewed.'),
         findsOneWidget,
       );
       expect(find.text('Awaiting Administrative Review'), findsOneWidget);

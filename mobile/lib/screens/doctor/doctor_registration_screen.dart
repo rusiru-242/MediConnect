@@ -12,7 +12,7 @@ import '../../core/constants/specialties.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
-import 'doctor_application_submitted_screen.dart';
+import '../auth/email_verification_screen.dart';
 
 /// Concrete [PlatformFile] wrapper for locally generated sample and test documents.
 base class LocalPlatformFile extends PlatformFile {
@@ -412,20 +412,21 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: AppTheme.success,
-            content: Text('Doctor application submitted successfully! It is now under administrative review.'),
+            content: Text('Doctor registration submitted! Please verify your email with the 6-digit OTP.'),
             duration: Duration(seconds: 4),
           ),
         );
 
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => DoctorApplicationSubmittedScreen(
-              fullName: _fullNameController.text.trim(),
+            builder: (_) => EmailVerificationScreen(
               email: _emailController.text.trim(),
-              phone: _phoneController.text.trim(),
-              specialty: _selectedSpecialty ?? '',
-              medicalRegistrationNumber: _medRegNumController.text.trim(),
-              hospitalOrClinic: _hospitalClinicController.text.trim(),
+              isDoctor: true,
+              doctorFullName: _fullNameController.text.trim(),
+              doctorSpecialty: _selectedSpecialty ?? '',
+              doctorMedReg: _medRegNumController.text.trim(),
+              doctorHospital: _hospitalClinicController.text.trim(),
+              doctorPhone: _phoneController.text.trim(),
             ),
           ),
         );
