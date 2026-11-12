@@ -540,6 +540,118 @@ void main() {
       expect(find.byKey(const Key('identity_doc_picker')), findsOneWidget);
       expect(find.byKey(const Key('med_reg_doc_picker')), findsOneWidget);
       expect(find.byKey(const Key('qual_doc_picker')), findsOneWidget);
+      expect(find.byKey(const Key('identity_doc_picker_sample_btn')), findsOneWidget);
+      expect(find.byKey(const Key('med_reg_doc_picker_sample_btn')), findsOneWidget);
+      expect(find.byKey(const Key('qual_doc_picker_sample_btn')), findsOneWidget);
+    });
+
+    testWidgets('TEST 23: DoctorRegistrationScreen attaches sample documents and advances to Step 4 Review',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      final authProvider = AuthProvider(authApiService: mockService);
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorRegistrationScreen(),
+        authProvider: authProvider,
+      ));
+
+      // Step 1: Personal
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Full Name (with Dr. prefix)'),
+        'Dr. Jayani Perera',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Email Address'),
+        'jayani@example.com',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Mobile Phone'),
+        '0771234567',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Password'),
+        'Password123!',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Confirm Password'),
+        'Password123!',
+      );
+
+      await tester.tap(find.byKey(const Key('doctor_reg_continue_button')));
+      await tester.pumpAndSettle();
+
+      // Step 2: Professional
+      await tester.tap(find.byKey(const Key('doctor_specialty_select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cardiologist').last);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('doctor_med_reg_num_input')),
+        'SLMC-98765',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_qualifications_input')),
+        'MBBS, MD (Cardiology)',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_hospital_clinic_input')),
+        'National Hospital',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_experience_years_input')),
+        '10',
+      );
+
+      await tester.tap(find.byKey(const Key('doctor_reg_continue_button')));
+      await tester.pumpAndSettle();
+
+      // Step 3: Attach sample documents
+      expect(find.text('Verification Documents'), findsOneWidget);
+      expect(find.byKey(const Key('identity_doc_picker_sample_btn')), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('identity_doc_picker_sample_btn')));
+      await tester.tap(find.byKey(const Key('identity_doc_picker_sample_btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('med_reg_doc_picker_sample_btn')));
+      await tester.tap(find.byKey(const Key('med_reg_doc_picker_sample_btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('qual_doc_picker_sample_btn')));
+      await tester.tap(find.byKey(const Key('qual_doc_picker_sample_btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      // All 3 documents should now show 'Change' button
+      expect(find.text('Change'), findsNWidgets(3));
+
+      // Clear any snackbar before clicking continue button
+      ScaffoldMessenger.of(tester.element(find.byType(Scaffold))).clearSnackBars();
+      await tester.pumpAndSettle();
+
+      // Advance to Step 4: Review
+      await tester.tap(find.byKey(const Key('doctor_reg_continue_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Review Your Application'), findsOneWidget);
+      expect(find.text('Personal Details'), findsOneWidget);
+      expect(find.text('Professional Details'), findsOneWidget);
+      expect(find.text('Attached Documents'), findsOneWidget);
+      expect(find.text('Dr. Jayani Perera'), findsOneWidget);
+      expect(find.text('SLMC-98765'), findsOneWidget);
+      expect(find.text('Submit Application'), findsOneWidget);
     });
   });
 }

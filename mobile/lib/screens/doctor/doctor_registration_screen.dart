@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/specialties.dart';
@@ -11,6 +13,41 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import 'doctor_application_submitted_screen.dart';
+
+/// Concrete [PlatformFile] wrapper for locally generated sample and test documents.
+base class LocalPlatformFile extends PlatformFile {
+  LocalPlatformFile({
+    required this.name,
+    required this.localPath,
+    required this.fileBytes,
+  });
+
+  @override
+  final String name;
+  final String localPath;
+  final Uint8List fileBytes;
+
+  @override
+  Uri get uri => Uri.file(localPath);
+
+  @override
+  String? get path => localPath;
+
+  @override
+  XFile get xFile => XFile(localPath, name: name);
+
+  @override
+  int? lengthSync() => fileBytes.length;
+
+  @override
+  Future<int?> length() async => fileBytes.length;
+
+  @override
+  Future<Uint8List> readAsBytes() async => fileBytes;
+
+  @override
+  Stream<Uint8List> readAsByteStream() => Stream.value(fileBytes);
+}
 
 class DoctorRegistrationScreen extends StatefulWidget {
   const DoctorRegistrationScreen({super.key});
@@ -66,17 +103,155 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
     super.dispose();
   }
 
+  MediaType _resolveMediaType(String filename) {
+    final ext = filename.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return MediaType('application', 'pdf');
+      case 'png':
+        return MediaType('image', 'png');
+      case 'jpg':
+      case 'jpeg':
+      default:
+        return MediaType('image', 'jpeg');
+    }
+  }
+
+  Future<PlatformFile> _generateSampleDocument(String docKey) async {
+    final tempDir = Directory.systemTemp;
+    final String filename;
+    final Uint8List bytes;
+
+    if (docKey.contains('identity')) {
+      filename = 'sample_national_identity_card.png';
+      bytes = Uint8List.fromList([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+        0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+        0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
+        0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+        0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+        0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+        0x42, 0x60, 0x82,
+      ]);
+    } else if (docKey.contains('reg') || docKey.contains('registration')) {
+      filename = 'sample_slmc_registration_certificate.pdf';
+      bytes = Uint8List.fromList(
+        '%PDF-1.4\n% MediConnect Verified SLMC Certificate Sample\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000010 00000 n \n0000000060 00000 n \n0000000117 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n190\n%%EOF\n'.codeUnits,
+      );
+    } else {
+      filename = 'sample_medical_degree_qualification.pdf';
+      bytes = Uint8List.fromList(
+        '%PDF-1.4\n% MediConnect Medical Degree Qualification Sample\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000010 00000 n \n0000000060 00000 n \n0000000117 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n190\n%%EOF\n'.codeUnits,
+      );
+    }
+
+    final sampleFile = File('${tempDir.path}${Platform.pathSeparator}$filename');
+    sampleFile.writeAsBytesSync(bytes, flush: true);
+
+    return LocalPlatformFile(
+      name: filename,
+      localPath: sampleFile.path,
+      fileBytes: bytes,
+    );
+  }
+
+  Future<void> _attachSampleDocument(
+    String docKey,
+    Function(PlatformFile file) onSelected,
+  ) async {
+    try {
+      final sample = await _generateSampleDocument(docKey);
+      if (mounted) {
+        setState(() {
+          _documentError = null;
+          onSelected(sample);
+        });
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Attached official sample: ${sample.name}'),
+            backgroundColor: AppTheme.success,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[DoctorRegistration] Error generating sample document: $e');
+      if (mounted) {
+        setState(() {
+          _documentError = 'Failed to generate sample document: $e';
+        });
+      }
+    }
+  }
+
   Future<void> _pickDocument({
     required String docKey,
     required Function(PlatformFile file) onSelected,
   }) async {
     if (_isPickingDocument) return;
+
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(
+                  'Upload Verification Document',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: AppTheme.primary),
+                title: const Text('Choose Photo / Image (Gallery)'),
+                subtitle: const Text('JPG or PNG image (Lightweight)'),
+                onTap: () => Navigator.of(ctx).pop('image'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.description_outlined, color: AppTheme.primary),
+                title: const Text('Choose PDF / Document File'),
+                subtitle: const Text('PDF, JPG, or PNG from device storage'),
+                onTap: () => Navigator.of(ctx).pop('file'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.auto_awesome, color: AppTheme.success),
+                title: const Text('Use Official Sample Document'),
+                subtitle: const Text('Instant attachment for test & verification'),
+                onTap: () => Navigator.of(ctx).pop('sample'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (choice == null) return;
+
+    if (choice == 'sample') {
+      await _attachSampleDocument(docKey, onSelected);
+      return;
+    }
+
     _isPickingDocument = true;
 
     try {
+      final FileType pickType = (choice == 'image') ? FileType.image : FileType.custom;
+      final List<String>? extensions = (choice == 'image') ? null : ['pdf', 'jpg', 'jpeg', 'png'];
+
       final files = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        type: pickType,
+        allowedExtensions: extensions,
       );
 
       if (files.isNotEmpty) {
@@ -168,6 +343,7 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
   }
 
   Future<http.MultipartFile> _createMultipartFile(String fieldName, PlatformFile file) async {
+    final mediaType = _resolveMediaType(file.name);
     try {
       if (file.path != null && file.path!.isNotEmpty) {
         final ioFile = File(file.path!);
@@ -176,6 +352,7 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
             fieldName,
             file.path!,
             filename: file.name,
+            contentType: mediaType,
           );
         }
       }
@@ -184,6 +361,7 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
         fieldName,
         bytes,
         filename: file.name,
+        contentType: mediaType,
       );
     } catch (e) {
       debugPrint('[DoctorRegistration] Error preparing file for $fieldName: $e');
@@ -192,6 +370,7 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
         fieldName,
         bytes,
         filename: file.name,
+        contentType: mediaType,
       );
     }
   }
@@ -749,6 +928,10 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
             docKey: 'identity',
             onSelected: (f) => _identityFile = f,
           ),
+          onUseSample: () => _attachSampleDocument(
+            'identity',
+            (f) => _identityFile = f,
+          ),
         ),
         const SizedBox(height: 16),
 
@@ -760,6 +943,10 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
           onPick: () => _pickDocument(
             docKey: 'registration',
             onSelected: (f) => _registrationFile = f,
+          ),
+          onUseSample: () => _attachSampleDocument(
+            'registration',
+            (f) => _registrationFile = f,
           ),
         ),
         const SizedBox(height: 16),
@@ -773,6 +960,10 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
             docKey: 'qualification',
             onSelected: (f) => _qualificationFile = f,
           ),
+          onUseSample: () => _attachSampleDocument(
+            'qualification',
+            (f) => _qualificationFile = f,
+          ),
         ),
       ],
     );
@@ -784,6 +975,7 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
     required PlatformFile? file,
     required String docKey,
     required VoidCallback onPick,
+    required VoidCallback onUseSample,
   }) {
     final hasFile = file != null;
 
@@ -845,11 +1037,23 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
               ),
             ),
           ] else ...[
-            OutlinedButton.icon(
-              key: Key(docKey),
-              onPressed: _isPickingDocument ? null : onPick,
-              icon: const Icon(Icons.attach_file, size: 18),
-              label: Text(_isPickingDocument ? 'Selecting...' : 'Select File'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: Key(docKey),
+                  onPressed: _isPickingDocument ? null : onPick,
+                  icon: const Icon(Icons.attach_file, size: 18),
+                  label: Text(_isPickingDocument ? 'Selecting...' : 'Select File'),
+                ),
+                TextButton.icon(
+                  key: Key('${docKey}_sample_btn'),
+                  onPressed: _isPickingDocument ? null : onUseSample,
+                  icon: const Icon(Icons.auto_awesome, size: 16, color: AppTheme.primary),
+                  label: const Text('Use Sample', style: TextStyle(fontSize: 12)),
+                ),
+              ],
             ),
           ],
         ],
