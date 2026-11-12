@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -44,6 +46,8 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
   PlatformFile? _registrationFile;
   PlatformFile? _qualificationFile;
   String? _documentError;
+  bool _isPickingDocument = false;
+  bool _isSubmitting = false;
 
   static const int maxFileSize = 5 * 1024 * 1024; // 5MB
 
@@ -66,6 +70,9 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
     required String docKey,
     required Function(PlatformFile file) onSelected,
   }) async {
+    if (_isPickingDocument) return;
+    _isPickingDocument = true;
+
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -74,23 +81,48 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
 
       if (files.isNotEmpty) {
         final file = files.first;
-        final fileSize = file.lengthSync() ?? (await file.length()) ?? 0;
-        if (fileSize > maxFileSize) {
-          setState(() {
-            _documentError = 'File "${file.name}" exceeds maximum allowed size of 5MB.';
-          });
+        int? fileSize = file.lengthSync();
+        if (fileSize == null || fileSize == 0) {
+          try {
+            fileSize = await file.length();
+          } catch (_) {}
+        }
+        if (fileSize == null || fileSize == 0) {
+          if (file.path != null && file.path!.isNotEmpty) {
+            try {
+              final ioFile = File(file.path!);
+              if (await ioFile.exists()) {
+                fileSize = await ioFile.length();
+              }
+            } catch (_) {}
+          }
+        }
+
+        if ((fileSize ?? 0) > maxFileSize) {
+          if (mounted) {
+            setState(() {
+              _documentError = 'File "${file.name}" exceeds maximum allowed size of 5MB.';
+            });
+          }
           return;
         }
 
-        setState(() {
-          _documentError = null;
-          onSelected(file);
-        });
+        if (mounted) {
+          setState(() {
+            _documentError = null;
+            onSelected(file);
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        _documentError = 'Unable to pick document. Please try again.';
-      });
+      debugPrint('[DoctorRegistration] Error picking document: $e');
+      if (mounted) {
+        setState(() {
+          _documentError = 'Unable to pick document. Please try again.';
+        });
+      }
+    } finally {
+      _isPickingDocument = false;
     }
   }
 
@@ -136,67 +168,109 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
   }
 
   Future<http.MultipartFile> _createMultipartFile(String fieldName, PlatformFile file) async {
-    final bytes = await file.readAsBytes();
-    return http.MultipartFile.fromBytes(
-      fieldName,
-      bytes,
-      filename: file.name,
-    );
-  }
-
-  Future<void> _handleSubmit() async {
-    final authProvider = context.read<AuthProvider>();
-    authProvider.clearError();
-
-    final identityPart = await _createMultipartFile('identityDocument', _identityFile!);
-    final regPart = await _createMultipartFile('medicalRegistrationDocument', _registrationFile!);
-    final qualPart = await _createMultipartFile('qualificationDocument', _qualificationFile!);
-
-    final expYears = int.tryParse(_experienceYearsController.text.trim()) ?? 0;
-
-    final success = await authProvider.registerDoctor(
-      fullName: _fullNameController.text.trim(),
-      email: _emailController.text.trim(),
-      phone: _phoneController.text.trim(),
-      password: _passwordController.text,
-      specialty: _selectedSpecialty!,
-      medicalRegistrationNumber: _medRegNumController.text.trim(),
-      qualifications: _qualificationsController.text.trim(),
-      hospitalOrClinic: _hospitalClinicController.text.trim(),
-      experienceYears: expYears,
-      bio: _bioController.text.trim().isNotEmpty ? _bioController.text.trim() : null,
-      identityDocument: identityPart,
-      medicalRegistrationDocument: regPart,
-      qualificationDocument: qualPart,
-    );
-
-    if (!mounted) return;
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppTheme.success,
-          content: Text('Doctor application submitted successfully! It is now under administrative review.'),
-          duration: Duration(seconds: 4),
-        ),
+    try {
+      if (file.path != null && file.path!.isNotEmpty) {
+        final ioFile = File(file.path!);
+        if (await ioFile.exists()) {
+          return await http.MultipartFile.fromPath(
+            fieldName,
+            file.path!,
+            filename: file.name,
+          );
+        }
+      }
+      final bytes = await file.readAsBytes();
+      return http.MultipartFile.fromBytes(
+        fieldName,
+        bytes,
+        filename: file.name,
       );
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => DoctorApplicationSubmittedScreen(
-            fullName: _fullNameController.text.trim(),
-            email: _emailController.text.trim(),
-            phone: _phoneController.text.trim(),
-            specialty: _selectedSpecialty ?? '',
-            medicalRegistrationNumber: _medRegNumController.text.trim(),
-            hospitalOrClinic: _hospitalClinicController.text.trim(),
-          ),
-        ),
+    } catch (e) {
+      debugPrint('[DoctorRegistration] Error preparing file for $fieldName: $e');
+      final bytes = await file.readAsBytes();
+      return http.MultipartFile.fromBytes(
+        fieldName,
+        bytes,
+        filename: file.name,
       );
     }
   }
 
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
+
+    final authProvider = context.read<AuthProvider>();
+    authProvider.clearError();
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final identityPart = await _createMultipartFile('identityDocument', _identityFile!);
+      final regPart = await _createMultipartFile('medicalRegistrationDocument', _registrationFile!);
+      final qualPart = await _createMultipartFile('qualificationDocument', _qualificationFile!);
+
+      final expYears = int.tryParse(_experienceYearsController.text.trim()) ?? 0;
+
+      final success = await authProvider.registerDoctor(
+        fullName: _fullNameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+        specialty: _selectedSpecialty!,
+        medicalRegistrationNumber: _medRegNumController.text.trim(),
+        qualifications: _qualificationsController.text.trim(),
+        hospitalOrClinic: _hospitalClinicController.text.trim(),
+        experienceYears: expYears,
+        bio: _bioController.text.trim().isNotEmpty ? _bioController.text.trim() : null,
+        identityDocument: identityPart,
+        medicalRegistrationDocument: regPart,
+        qualificationDocument: qualPart,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppTheme.success,
+            content: Text('Doctor application submitted successfully! It is now under administrative review.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => DoctorApplicationSubmittedScreen(
+              fullName: _fullNameController.text.trim(),
+              email: _emailController.text.trim(),
+              phone: _phoneController.text.trim(),
+              specialty: _selectedSpecialty ?? '',
+              medicalRegistrationNumber: _medRegNumController.text.trim(),
+              hospitalOrClinic: _hospitalClinicController.text.trim(),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[DoctorRegistration] Error during submission: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppTheme.error,
+            content: Text('Failed to process documents: $e'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
   String _formatFileSize(int bytes) {
+    if (bytes <= 0) return 'Attached';
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
@@ -205,7 +279,7 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final isLoading = authProvider.isLoading;
+    final isLoading = authProvider.isLoading || _isSubmitting;
     final errorMessage = authProvider.errorMessage;
 
     return Scaffold(
@@ -764,7 +838,7 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: onPick,
+                    onPressed: _isPickingDocument ? null : onPick,
                     child: const Text('Change', style: TextStyle(fontSize: 12)),
                   ),
                 ],
@@ -773,9 +847,9 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
           ] else ...[
             OutlinedButton.icon(
               key: Key(docKey),
-              onPressed: onPick,
+              onPressed: _isPickingDocument ? null : onPick,
               icon: const Icon(Icons.attach_file, size: 18),
-              label: const Text('Select File'),
+              label: Text(_isPickingDocument ? 'Selecting...' : 'Select File'),
             ),
           ],
         ],
