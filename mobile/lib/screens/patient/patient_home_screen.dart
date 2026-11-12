@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
@@ -79,6 +82,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   void _showSettingsAndProfile() {
     final authProvider = context.read<AuthProvider>();
     final user = authProvider.user;
+    final l10n = AppLocalizations.of(context);
 
     ThemeProvider? themeProvider;
     try {
@@ -187,6 +191,30 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       Navigator.pop(ctx);
                     }
                   : null,
+            ),
+            Divider(height: 16, color: isDark ? AppTheme.darkBorder : AppTheme.border),
+            Consumer<LocaleProvider>(
+              builder: (context, localeProvider, _) {
+                final langName = localeProvider.currentLanguage.displayName;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.language_rounded, color: AppTheme.primaryBlue),
+                  ),
+                  title: Text(l10n?.language ?? 'Language', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(langName, style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    LanguageSelectorSheet.show(context);
+                  },
+                );
+              },
             ),
             Divider(height: 16, color: isDark ? AppTheme.darkBorder : AppTheme.border),
             ListTile(

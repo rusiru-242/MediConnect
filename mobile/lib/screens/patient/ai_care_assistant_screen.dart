@@ -74,6 +74,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     'Dermatologist tomorrow morning',
     'Show me doctors with lower consultation fees',
     'ළමා වෛද්‍යවරයෙක් අවශ්‍යයි',
+    'கொழும்பில் இதய மருத்துவர்',
   ];
 
   @override

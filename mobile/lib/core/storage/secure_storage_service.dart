@@ -9,6 +9,7 @@ class SecureStorageService {
   static const String _userCacheKey = 'mediconnect_user_cache';
   static const String _serverUrlKey = 'mediconnect_server_url';
   static const String _themeModeKey = 'mediconnect_theme_mode';
+  static const String _localeKey = 'mediconnect_user_locale';
 
   final FlutterSecureStorage _storage;
 
@@ -97,6 +98,20 @@ class SecureStorageService {
   Future<String?> getThemeMode() async {
     try {
       return await _storage.read(key: _themeModeKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Persists preferred user locale language code ('en', 'si', 'ta').
+  Future<void> saveLocale(String languageCode) async {
+    await _storage.write(key: _localeKey, value: languageCode);
+  }
+
+  /// Retrieves stored user locale language code, or null if absent.
+  Future<String?> getLocale() async {
+    try {
+      return await _storage.read(key: _localeKey);
     } catch (_) {
       return null;
     }

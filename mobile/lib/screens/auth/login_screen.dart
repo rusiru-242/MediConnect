@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/server_settings_sheet.dart';
 
@@ -159,6 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = context.watch<AuthProvider>();
     final isLoading = authProvider.isLoading;
     final errorMessage = authProvider.errorMessage;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -170,6 +173,11 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: isLoading ? null : () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.language_rounded),
+            tooltip: l10n?.language ?? 'Language',
+            onPressed: isLoading ? null : () => LanguageSelectorSheet.show(context),
+          ),
           IconButton(
             icon: const Icon(Icons.dns_rounded),
             tooltip: 'Server Settings',
@@ -260,7 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'Patient',
+                                  l10n?.patient ?? 'Patient',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: _selectedRole == 'patient'
@@ -311,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'Doctor',
+                                  l10n?.doctor ?? 'Doctor',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: _selectedRole == 'doctor'
@@ -389,7 +397,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   autocorrect: false,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: _selectedRole == 'doctor' ? 'Doctor Email' : 'Email Address',
+                    labelText: l10n?.email ?? 'Email Address',
                     hintText: _selectedRole == 'doctor'
                         ? 'doctor@hospital.com'
                         : 'name@domain.com',
@@ -412,8 +420,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _handleSubmit(),
                   decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Enter your password',
+                    labelText: l10n?.password ?? 'Password',
+                    hintText: l10n?.password ?? 'Enter your password',
                     prefixIcon: const Icon(
                       Icons.lock_outline_rounded,
                       size: 20,
@@ -477,9 +485,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: const Text(
-                        'Forgot Password?',
-                        style: TextStyle(
+                      child: Text(
+                        l10n?.forgotPassword ?? 'Forgot Password?',
+                        style: const TextStyle(
                           fontSize: 13,
                           color: AppTheme.primary,
                           fontWeight: FontWeight.w600,
@@ -512,9 +520,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
-                          'Login',
-                          style: TextStyle(
+                      : Text(
+                          l10n?.login ?? 'Login',
+                          style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
@@ -575,7 +583,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                   label: Text(
-                    isLoading ? 'Connecting...' : 'Continue with Google',
+                    isLoading
+                        ? (l10n?.loading ?? 'Connecting...')
+                        : (l10n?.continueWithGoogle ?? 'Continue with Google'),
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.w500,
@@ -589,18 +599,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      "Don't have an account? ",
-                      style: TextStyle(
+                    Text(
+                      l10n?.dontHaveAccount ?? "Don't have an account? ",
+                      style: const TextStyle(
                         fontSize: 13,
                         color: AppTheme.textSecondary,
                       ),
                     ),
                     GestureDetector(
                       onTap: isLoading ? null : _onCreateAccount,
-                      child: const Text(
-                        'Create Account',
-                        style: TextStyle(
+                      child: Text(
+                        l10n?.createAccount ?? 'Create Account',
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.primary,
@@ -615,9 +625,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Are you a doctor? ',
-                      style: TextStyle(
+                    Text(
+                      l10n?.areYouADoctor ?? 'Are you a doctor? ',
+                      style: const TextStyle(
                         fontSize: 13,
                         color: AppTheme.textSecondary,
                       ),
@@ -627,9 +637,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       onTap: isLoading
                           ? null
                           : () => Navigator.of(context).pushNamed('/doctor/register'),
-                      child: const Text(
-                        'Register as a Doctor',
-                        style: TextStyle(
+                      child: Text(
+                        l10n?.registerAsDoctor ?? 'Register as a Doctor',
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.primary,

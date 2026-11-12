@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
@@ -95,6 +98,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
     final authProvider = context.read<AuthProvider>();
     final user = authProvider.user;
     final appStatus = authProvider.doctorApplicationStatus;
+    final l10n = AppLocalizations.of(context);
 
     final doctorName = user?.fullName.isNotEmpty == true
         ? (user!.fullName.startsWith('Dr.') ? user.fullName : 'Dr. ${user.fullName}')
@@ -240,6 +244,28 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               onTap: () {
                 Navigator.pop(ctx);
                 Navigator.of(context).pushNamed('/doctor/application-status');
+              },
+            ),
+            Consumer<LocaleProvider>(
+              builder: (context, localeProvider, _) {
+                final langName = localeProvider.currentLanguage.displayName;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.language_rounded, color: AppTheme.primaryBlue),
+                  title: Text(
+                    l10n?.language ?? 'Language',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  subtitle: Text(
+                    langName,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    LanguageSelectorSheet.show(context);
+                  },
+                );
               },
             ),
             ListTile(

@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 
 import 'core/constants/api_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'l10n/app_localizations.dart';
 import 'providers/auth_provider.dart';
+import 'providers/locale_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/auth/admin_access_blocked_screen.dart';
@@ -106,16 +108,20 @@ class MediConnectApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider<LocaleProvider>(create: (_) => LocaleProvider()),
         ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
         ChangeNotifierProvider<NotificationProvider>(
           create: (_) => NotificationProvider(),
         ),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, _) => MaterialApp(
+      child: Consumer2<ThemeProvider, LocaleProvider>(
+        builder: (context, themeProvider, localeProvider, _) => MaterialApp(
+          locale: localeProvider.locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.themeMode,
-        title: 'MediConnect',
+          title: 'MediConnect',
         navigatorKey: FcmService().navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,

@@ -49,6 +49,13 @@ EMERGENCY_SI_ALERT = (
     "හෝ 1990 සුවසැරිය ගිලන්රථ සේවය අමතන්න. සායන වේලාවක් වෙන්කරවා ගැනීම සඳහා කාලය ප්‍රමාද නොකරන්න."
 )
 
+EMERGENCY_TA_ALERT = (
+    "அவசர மருத்துவ கவனிப்பு தேவைப்படலாம்: திடீர் நெஞ்சு வலி, மூச்சுத்திணறல், "
+    "திடீர் மரத்துப்போதல், கடுமையான இரத்தப்போக்கு அல்லது மயக்கம் போன்ற அறிகுறிகள் இருந்தால், "
+    "உடனடியாக அருகிலுள்ள அவசர சிகிச்சை பிரிவுக்கு (ETU) செல்லவும் அல்லது 1990 அவசர ஆம்புலன்ஸ் "
+    "சேவையை அழைக்கவும். கிளினிக் சந்திப்புக்காக நேரத்தை வீணடிக்க வேண்டாம்."
+)
+
 
 def validate_state_transition(from_state: str, to_state: str) -> bool:
     """Check if the transition between two booking agent states is permitted."""
@@ -79,8 +86,14 @@ class BookingAgent:
         if is_urgent:
             session_data["isUrgent"] = True
             session_data["urgencyReason"] = urgency_reason
-            lang = prefs.get("language", "en")
-            emergency_text = EMERGENCY_SI_ALERT if lang == "si" else EMERGENCY_EN_ALERT
+            detected = detect_language(clean_text)
+            lang = detected if detected in ("si", "ta") else prefs.get("language", "en")
+            if lang == "si":
+                emergency_text = EMERGENCY_SI_ALERT
+            elif lang == "ta":
+                emergency_text = EMERGENCY_TA_ALERT
+            else:
+                emergency_text = EMERGENCY_EN_ALERT
 
             # Append user message and emergency assistant response
             session_data["messages"].append({

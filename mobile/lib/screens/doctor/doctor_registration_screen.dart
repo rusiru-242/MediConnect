@@ -11,7 +11,9 @@ import 'package:provider/provider.dart';
 import '../../core/constants/specialties.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 import '../auth/email_verification_screen.dart';
 
 /// Concrete [PlatformFile] wrapper for locally generated sample and test documents.
@@ -461,15 +463,24 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
     final authProvider = context.watch<AuthProvider>();
     final isLoading = authProvider.isLoading || _isSubmitting;
     final errorMessage = authProvider.errorMessage;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Doctor Registration'),
+        title: Text(l10n?.doctorRegistrationTitle ?? 'Doctor Registration'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: isLoading ? null : _previousStep,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.language_rounded),
+            tooltip: l10n?.language ?? 'Language',
+            onPressed: isLoading ? null : () => LanguageSelectorSheet.show(context),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: Column(

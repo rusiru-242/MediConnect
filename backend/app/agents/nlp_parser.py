@@ -51,6 +51,17 @@ EMERGENCY_KEYWORDS_SI = [
     "කැස්සට ලේ",
 ]
 
+EMERGENCY_KEYWORDS_TA = [
+    "நெஞ்சு வலி",
+    "மூச்சுத்திணறல்",
+    "சுவாசிக்க முடியவில்லை",
+    "மயக்கம்",
+    "இரத்தப்போக்கு",
+    "பக்கவாதம்",
+    "மாரடைப்பு",
+    "நினைவிழப்பு",
+]
+
 # ---------------------------------------------------------------------------
 # SPECIALTY MAPPINGS (SYMPTOMS & KEYWORDS IN ENGLISH & SINHALA)
 # ---------------------------------------------------------------------------
@@ -421,11 +432,19 @@ SINGLISH_HEALTH_KEYWORDS = {
 
 
 def detect_language(text: str) -> str:
-    """Detect if text contains Sinhala Unicode characters or common Singlish healthcare terms."""
+    """Detect if text contains Tamil Unicode, Sinhala Unicode, or English."""
+    # Tamil Unicode block: U+0B80 - U+0BFF
+    if re.search(r"[\u0b80-\u0bff]", text):
+        return "ta"
+
+    # Sinhala Unicode block: U+0D80 - U+0DFF
     if re.search(r"[\u0d80-\u0dff]", text):
         return "si"
 
     words = set(re.findall(r"[a-zA-Z]+", text.lower()))
+    if "tamil" in words or "tamizh" in words:
+        return "ta"
+
     if "sinhalen" in words or "sinhala" in words:
         return "si"
 
@@ -440,7 +459,7 @@ def detect_language(text: str) -> str:
 
 
 def check_urgency(text: str) -> Tuple[bool, Optional[str]]:
-    """Scan query for urgent/emergency symptom patterns."""
+    """Scan query for urgent/emergency symptom patterns across English, Sinhala, and Tamil."""
     text_lower = text.lower()
 
     for pattern in EMERGENCY_KEYWORDS_EN:
@@ -455,6 +474,13 @@ def check_urgency(text: str) -> Tuple[bool, Optional[str]]:
             return True, (
                 "හදිසි වෛද්‍ය ප්‍රතිකාර අවශ්‍ය විය හැකි තත්ත්වයක් නිරීක්ෂණය විය. "
                 "කරුණාකර ප්‍රමාද නොවී ළඟම ඇති රෝහලේ හදිසි ප්‍රතිකාර ඒකකයට (ETU) යොමු වන්න හෝ 1990 අමතන්න."
+            )
+
+    for keyword in EMERGENCY_KEYWORDS_TA:
+        if keyword in text:
+            return True, (
+                "அவசர மருத்துவ கவனிப்பு தேவைப்படலாம். "
+                "உடனடியாக அருகிலுள்ள மருத்துவமனை அவசர சிகிச்சைப் பிரிவுக்குச் செல்லவும் அல்லது 1990 ஐ அழைக்கவும்."
             )
 
     return False, None

@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/server_settings_sheet.dart';
 import 'email_verification_screen.dart';
@@ -117,16 +119,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     final authProvider = context.watch<AuthProvider>();
     final isLoading = authProvider.isLoading;
     final errorMessage = authProvider.errorMessage;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Create Account'),
+        title: Text(l10n?.createAccount ?? 'Create Account'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: isLoading ? null : () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.language_rounded),
+            tooltip: l10n?.language ?? 'Language',
+            onPressed: isLoading ? null : () => LanguageSelectorSheet.show(context),
+          ),
           IconButton(
             icon: const Icon(Icons.dns_rounded),
             tooltip: 'Server Settings',
@@ -211,10 +219,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   enabled: !isLoading,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
+                  decoration: InputDecoration(
+                    labelText: l10n?.fullName ?? 'Full Name',
                     hintText: 'John Doe',
-                    prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
+                    prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
                   ),
                   validator: Validators.validateFullName,
                 ),
@@ -228,10 +236,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address',
+                  decoration: InputDecoration(
+                    labelText: l10n?.email ?? 'Email Address',
                     hintText: 'patient@example.com',
-                    prefixIcon: Icon(Icons.email_outlined, size: 20),
+                    prefixIcon: const Icon(Icons.email_outlined, size: 20),
                   ),
                   validator: (value) {
                     final basicError = Validators.validateEmail(value);
@@ -248,10 +256,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   enabled: !isLoading,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile Number',
+                  decoration: InputDecoration(
+                    labelText: l10n?.phoneNumber ?? 'Mobile Number',
                     hintText: '0771234567 or +94771234567',
-                    prefixIcon: Icon(Icons.phone_outlined, size: 20),
+                    prefixIcon: const Icon(Icons.phone_outlined, size: 20),
                   ),
                   validator: Validators.validatePhone,
                 ),
@@ -265,7 +273,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: l10n?.password ?? 'Password',
                     hintText: 'At least 8 characters with symbol & number',
                     prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
                     suffixIcon: IconButton(
@@ -295,7 +303,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _handleSubmit(),
                   decoration: InputDecoration(
-                    labelText: 'Confirm Password',
+                    labelText: l10n?.confirmPassword ?? 'Confirm Password',
                     hintText: 'Re-enter your password',
                     prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
                     suffixIcon: IconButton(
@@ -332,7 +340,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('Create Account'),
+                      : Text(l10n?.createAccount ?? 'Create Account'),
                 ),
                 const SizedBox(height: 20),
 
@@ -340,9 +348,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Already have an account? ',
-                      style: TextStyle(
+                    Text(
+                      l10n?.alreadyHaveAccount ?? 'Already have an account? ',
+                      style: const TextStyle(
                         fontSize: 14,
                         color: AppTheme.textSecondary,
                       ),
@@ -354,9 +362,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           : () {
                               Navigator.of(context).pushReplacementNamed('/login');
                             },
-                      child: const Text(
-                        'Login',
-                        style: TextStyle(
+                      child: Text(
+                        l10n?.login ?? 'Login',
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.primary,

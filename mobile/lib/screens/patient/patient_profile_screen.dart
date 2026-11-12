@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/locale_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/server_settings_sheet.dart';
@@ -113,6 +116,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         : 'Patient';
     final userEmail = user?.email ?? 'patient@example.com';
     final userPhone = user?.phone ?? '+94 77 123 4567';
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -121,12 +125,12 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         elevation: 0,
         scrolledUnderElevation: 1,
         title: Row(
-          children: const [
-            MediConnectLogo(size: 26),
-            SizedBox(width: 8),
+          children: [
+            const MediConnectLogo(size: 26),
+            const SizedBox(width: 8),
             Text(
-              'Patient Profile',
-              style: TextStyle(
+              l10n?.profile ?? 'Patient Profile',
+              style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary,
@@ -136,13 +140,18 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.language_rounded),
+            tooltip: l10n?.language ?? 'Language',
+            onPressed: () => LanguageSelectorSheet.show(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.dns_rounded),
             tooltip: 'Server Settings',
             onPressed: () => ServerSettingsSheet.show(context),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Logout',
+            tooltip: l10n?.logout ?? 'Logout',
             onPressed: _isLoggingOut ? null : _handleLogout,
           ),
           const SizedBox(width: 6),
@@ -737,6 +746,63 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                       },
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 6. Settings & Language Preferences
+              Text(
+                l10n?.settings ?? 'Settings',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              StitchCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Consumer<LocaleProvider>(
+                  builder: (context, localeProvider, _) {
+                    final langName = localeProvider.currentLanguage.displayName;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.language_rounded,
+                          color: AppTheme.primary,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        l10n?.language ?? 'Language',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        langName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppTheme.textSecondary,
+                      ),
+                      onTap: () => LanguageSelectorSheet.show(context),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 24),
