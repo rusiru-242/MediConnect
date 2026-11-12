@@ -123,7 +123,7 @@ class _DoctorApplicationSubmittedScreenState
                 ),
                 const SizedBox(height: 6),
 
-                // Badge / Subtitle preserving compatibility with legacy test expectations
+                // Badge preserving compatibility with tests
                 Center(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -171,7 +171,7 @@ class _DoctorApplicationSubmittedScreenState
                 ),
                 const SizedBox(height: 20),
 
-                // Auto-Redirect Countdown Indicator
+                // Auto-Redirect Notice
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
@@ -364,7 +364,10 @@ class _DoctorApplicationSubmittedScreenState
                   key: const Key('submitted_back_to_login_button'),
                   onPressed: _navigateToLogin,
                   icon: const Icon(Icons.login_rounded, size: 20),
-                  label: const Text('Back to Login'),
+                  label: const Text(
+                    'Back to Login',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryBlue,
                     foregroundColor: Colors.white,
@@ -372,6 +375,7 @@ class _DoctorApplicationSubmittedScreenState
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 2,
                   ),
                 ),
                 const SizedBox(height: 12),
