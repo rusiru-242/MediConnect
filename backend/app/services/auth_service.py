@@ -357,6 +357,23 @@ class AuthService:
 
         EmailService.send_verification_otp(clean_email, otp)
 
+        # Dispatch in-app notification to administrators for review
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            admins = list(db["users"].find({"role": UserRole.ADMIN.value}))
+            for admin in admins:
+                NotificationService.create_notification(
+                    db=db,
+                    recipient_user_id=str(admin["_id"]),
+                    type=NotificationType.SYSTEM,
+                    title="New Doctor Registration Application",
+                    body=f"Dr. {clean_name} ({clean_specialty}) has submitted a registration application for review.",
+                )
+        except Exception as exc:
+            logger.warning("Failed to dispatch admin notification for doctor registration: %s", exc)
+
         user_response = UserResponseSchema(
             id=temp_user_id,
             fullName=clean_name,
@@ -618,6 +635,15 @@ class AuthService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is suspended. Please contact support.",
             )
+
+        # Check if doctor has been rejected
+        if user_role == UserRole.DOCTOR.value:
+            doc_profile = db["doctor_profiles"].find_one({"userId": str(user["_id"])})
+            if doc_profile and doc_profile.get("verificationStatus") == DoctorVerificationStatus.REJECTED.value:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your doctor registration was not approved. Please contact administrative support.",
+                )
 
         # Allow DOCTOR with verified email and PENDING status for restricted application-status sessions
         is_pending_verified_doctor = (

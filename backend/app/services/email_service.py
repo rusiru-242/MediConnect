@@ -293,3 +293,68 @@ class EmailService:
 </body>
 </html>"""
         return cls._send_email(to_email, subject, text_content, html_content)
+
+    @classmethod
+    def send_doctor_rejection_email(
+        cls,
+        to_email: str,
+        doctor_name: str,
+        reason: Optional[str] = None,
+    ) -> bool:
+        """Send a notification email to a doctor whose application was not approved."""
+        from_name = settings.SMTP_FROM_NAME or "MediConnect"
+        subject = f"Update on Your Doctor Application - {from_name}"
+
+        clean_reason = (reason or "").strip()
+        reason_text = f"\nReason: {clean_reason}\n" if clean_reason else ""
+        reason_html = (
+            f"""<div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+  <strong style="color: #991b1b; font-size: 13px;">Reviewer Notes:</strong>
+  <p style="margin: 4px 0 0; font-size: 13px; color: #7f1d1d;">{clean_reason}</p>
+</div>"""
+            if clean_reason
+            else ""
+        )
+
+        text_content = (
+            f"Dear Dr. {doctor_name},\n\n"
+            f"Thank you for your interest in joining the {from_name} network. "
+            f"Following a review of your application by our medical administration team, "
+            f"we regret to inform you that your registration could not be approved at this time.{reason_text}\n"
+            f"If you believe this was in error or if you have updated credentials, "
+            f"please contact our administrative support team.\n\n"
+            f"Best regards,\n"
+            f"The {from_name} Medical Administration Team"
+        )
+
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{subject}</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f5f8fc; margin: 0; padding: 24px; color: #172b4d;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5eaf2; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+    <div style="background-color: #1565C0; padding: 24px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">{from_name}</h1>
+      <p style="color: #e3f2fd; margin: 6px 0 0; font-size: 14px;">Healthcare Platform</p>
+    </div>
+    <div style="padding: 32px 28px;">
+      <h2 style="color: #172b4d; margin-top: 0; font-size: 20px;">Doctor Application Status</h2>
+      <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+        Dear <strong>Dr. {doctor_name}</strong>, thank you for submitting your application to join {from_name}.
+        Following review by our medical administration team, we regret to inform you that your registration could not be approved at this time.
+      </p>
+      {reason_html}
+      <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
+        If you have questions, require clarification, or would like to submit updated credentials, please reach out to our administrative support team.
+      </p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+      <p style="font-size: 12px; color: #94a3b8; margin: 0; text-align: center;">
+        The {from_name} Medical Administration Team
+      </p>
+    </div>
+  </div>
+</body>
+</html>"""
+        return cls._send_email(to_email, subject, text_content, html_content)

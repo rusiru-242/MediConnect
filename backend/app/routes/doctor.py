@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from pymongo.database import Database
 
 from app.config.database import get_database
-from app.middleware.auth import get_current_user, require_doctor
+from app.middleware.auth import get_current_user, require_doctor, require_doctor_applicant
 from app.schemas.appointment import (
     AppointmentListResponse,
     AppointmentResponse,
@@ -40,7 +40,7 @@ doctor_router = APIRouter(prefix="/doctors", tags=["Doctors"])
     description="Returns verification status and submission details for the authenticated doctor. Does not expose internal documents.",
 )
 def get_application_status(
-    current_user: UserResponseSchema = Depends(require_doctor),
+    current_user: UserResponseSchema = Depends(require_doctor_applicant),
     db: Database = Depends(get_database),
 ) -> DoctorApplicationStatusResponse:
     """Fetch current doctor's application status."""

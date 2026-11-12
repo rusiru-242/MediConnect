@@ -124,11 +124,16 @@ export const DoctorVerificationPage: React.FC = () => {
       {/* Page Title & Status Alerts */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            Doctor Verification Management
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">
+              Doctor Verification Management
+            </h1>
+            <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-700 border border-brand-200">
+              Doctor Approvals
+            </span>
+          </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Audit professional medical credentials and approve qualified practitioners.
+            Audit professional medical credentials and approve or reject prospective doctors.
           </p>
         </div>
 

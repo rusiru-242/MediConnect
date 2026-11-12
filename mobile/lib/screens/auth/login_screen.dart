@@ -77,11 +77,24 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateAfterLogin(AuthProvider authProvider) {
     if (authProvider.user?.role == 'DOCTOR') {
       final status = authProvider.doctorApplicationStatus;
-      if (status?.isApproved == true ||
-          authProvider.user?.accountStatus == 'ACTIVE') {
+      final isApproved = status?.isApproved == true ||
+          (authProvider.user?.accountStatus == 'ACTIVE' && status?.isPending != true);
+      if (isApproved) {
         Navigator.of(context)
             .pushNamedAndRemoveUntil('/doctor/home', (route) => false);
       } else {
+        final isRejected = status?.isRejected == true ||
+            status?.verificationStatus.toUpperCase() == 'REJECTED';
+        final message = isRejected
+            ? 'Your doctor registration application was not approved. Please contact administrative support.'
+            : 'Your doctor registration is pending admin approval.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: isRejected ? AppTheme.error : Colors.amber.shade800,
+            duration: const Duration(seconds: 4),
+          ),
+        );
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/doctor/application-status',
           (route) => false,

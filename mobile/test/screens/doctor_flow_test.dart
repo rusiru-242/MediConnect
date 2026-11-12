@@ -345,13 +345,19 @@ void main() {
           specialty: 'Cardiologist',
           medicalRegistrationNumber: 'SLMC-987654',
           hospitalOrClinic: 'Colombo National Hospital',
+          autoRedirect: false,
         ),
         authProvider: authProvider,
       ));
 
       await tester.pumpAndSettle();
 
+      expect(find.text('Thank You for Your Application!'), findsOneWidget);
       expect(find.text('Application Submitted Successfully!'), findsOneWidget);
+      expect(
+        find.text('Your doctor registration application has been submitted successfully. Our admin team will review your details. You will be notified once your application is approved.'),
+        findsOneWidget,
+      );
       expect(find.text('Awaiting Administrative Review'), findsOneWidget);
       expect(find.text('Pending Review'), findsOneWidget);
       expect(find.text('Dr. Kamal Perera'), findsOneWidget);
@@ -369,6 +375,91 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
+    testWidgets('TEST 20: DoctorApplicationSubmittedScreen automatically redirects to Login screen after delay',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      final authProvider = AuthProvider(authApiService: mockService);
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorApplicationSubmittedScreen(
+          fullName: 'Nimali Senanayake',
+          email: 'nimali@doctor.lk',
+          phone: '0779876543',
+          specialty: 'Dermatologist',
+          medicalRegistrationNumber: 'SLMC-123456',
+          hospitalOrClinic: 'Kandy National Hospital',
+          redirectDelay: Duration(seconds: 3),
+        ),
+        authProvider: authProvider,
+      ));
+
+      expect(find.byType(DoctorApplicationSubmittedScreen), findsOneWidget);
+      expect(find.text('Thank You for Your Application!'), findsOneWidget);
+
+      // Advance clock past the 3-second redirect delay
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      // Verified redirect to Login screen
+      expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
+    testWidgets('TEST 21: DoctorHomeScreen intercepts pending doctor and redirects to Application Status screen',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      mockService.currentStatus = DoctorApplicationStatus(
+        doctorId: 'DOC-999999',
+        specialty: 'Surgeon',
+        verificationStatus: 'PENDING',
+        submittedAt: DateTime.parse('2026-10-01T10:00:00Z'),
+        rejectionReason: null,
+      );
+
+      final authProvider = AuthProvider(authApiService: mockService);
+      authProvider.setSessionForTesting(const AuthSession(
+        message: 'Doctor authenticated',
+        accessToken: 'access_doc_token',
+        refreshToken: 'refresh_doc_token',
+        expiresIn: 3600,
+        user: UserModel(
+          id: 'doc_pending',
+          fullName: 'Kasun Bandara',
+          email: 'kasun@doctor.lk',
+          role: 'DOCTOR',
+          emailVerified: true,
+          accountStatus: 'PENDING',
+          authProviders: ['LOCAL'],
+        ),
+      ));
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorHomeScreen(),
+        authProvider: authProvider,
+      ));
+
+      await tester.pumpAndSettle();
+
+      // Guard redirects pending doctor away from DoctorHomeScreen to status screen
+      expect(find.byType(DoctorApplicationStatusScreen), findsOneWidget);
+      expect(find.text('Your doctor registration is pending admin approval.'), findsAtLeastNWidgets(1));
     });
   });
 }

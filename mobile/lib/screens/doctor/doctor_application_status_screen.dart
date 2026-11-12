@@ -195,12 +195,22 @@ class _DoctorApplicationStatusScreenState
           ),
           const SizedBox(height: 20),
           const Text(
+            'Your doctor registration is pending admin approval.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
             'Application Under Review',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.amber,
             ),
           ),
           const SizedBox(height: 12),

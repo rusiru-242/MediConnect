@@ -338,3 +338,64 @@ def test_admin_doctor_verification_workflow():
     )
     assert res_t15.status_code == 400
     assert "cannot approve" in res_t15.json()["detail"].lower()
+
+    # ---------------------------------------------------------
+    # TEST 16: Pending doctor attempts to access protected doctor endpoint -> 403
+    # ---------------------------------------------------------
+    db["users"].update_one({"_id": user_b["_id"]}, {"$set": {"emailVerified": True}})
+    doc_b_token = create_access_token(str(user_b["_id"]), role=UserRole.DOCTOR.value)
+    doc_b_headers = {"Authorization": f"Bearer {doc_b_token}"}
+
+    res_t16 = client.get("/api/doctors/me/availability", headers=doc_b_headers)
+    assert res_t16.status_code == 403
+    assert "pending admin approval" in res_t16.json()["detail"].lower()
+
+    # ---------------------------------------------------------
+    # TEST 17: Rejected doctor attempts to access protected doctor endpoint -> 403
+    # ---------------------------------------------------------
+    res_t17 = client.get("/api/doctors/me/availability", headers=doc_c_headers)
+    assert res_t17.status_code == 403
+    assert "not approved" in res_t17.json()["detail"].lower()
+
+    # ---------------------------------------------------------
+    # TEST 18: Approved doctor can access protected doctor endpoints -> 200
+    # ---------------------------------------------------------
+    res_t18 = client.get("/api/doctors/me/availability", headers=doc_a_headers)
+    assert res_t18.status_code == 200
+    assert isinstance(res_t18.json(), list)
+
+    # ---------------------------------------------------------
+    # TEST 19: Duplicate doctor application rejection -> 409
+    # ---------------------------------------------------------
+    dup_files = {
+        "identityDocument": _get_valid_pdf_file(),
+        "medicalRegistrationDocument": _get_valid_pdf_file(),
+        "qualificationDocument": _get_valid_pdf_file(),
+    }
+    dup_data = dict(doc_a_data)
+    dup_data["email"] = f"other_{timestamp}@mediconnect.lk"
+    # Duplicate SLMC registration number
+    res_dup_reg = client.post("/api/auth/register-doctor", data=dup_data, files=dup_files)
+    assert res_dup_reg.status_code == 409
+
+    # ---------------------------------------------------------
+    # TEST 20: Rejected doctor login is rejected with clear non-sensitive message
+    # ---------------------------------------------------------
+    res_t20 = client.post("/api/auth/login", json={"email": doc_c_email, "password": "DoctorPassword@123"})
+    assert res_t20.status_code == 403
+    assert "not approved" in res_t20.json()["detail"].lower()
+
+    # ---------------------------------------------------------
+    # TEST 21: Approved doctor, Patient, and Admin login succeed
+    # ---------------------------------------------------------
+    res_t21_doc = client.post("/api/auth/login", json={"email": doc_a_email, "password": "DoctorPassword@123"})
+    assert res_t21_doc.status_code == 200
+    assert "accessToken" in res_t21_doc.json()
+
+    res_t21_patient = client.post("/api/auth/login", json={"email": patient_email, "password": "PatientSecure@123"})
+    assert res_t21_patient.status_code == 200
+    assert "accessToken" in res_t21_patient.json()
+
+    res_t21_admin = client.post("/api/auth/login", json={"email": admin_email, "password": "AdminSecure@123"})
+    assert res_t21_admin.status_code == 200
+    assert "accessToken" in res_t21_admin.json()

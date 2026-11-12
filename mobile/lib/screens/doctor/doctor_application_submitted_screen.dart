@@ -1,17 +1,20 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 
 /// Screen displayed immediately after a doctor submits their registration application.
-/// Informs the doctor that their application is under administrative review and that
-/// upon approval, an email will be sent with their registration details and doctor portal login link.
-class DoctorApplicationSubmittedScreen extends StatelessWidget {
+/// Displays "Thank You for Your Application!" with professional clinical clarity styling,
+/// shows approval pending status, and automatically redirects to the Login screen after ~3 seconds.
+class DoctorApplicationSubmittedScreen extends StatefulWidget {
   final String fullName;
   final String email;
   final String? phone;
   final String specialty;
   final String medicalRegistrationNumber;
   final String hospitalOrClinic;
+  final Duration redirectDelay;
+  final bool autoRedirect;
 
   const DoctorApplicationSubmittedScreen({
     super.key,
@@ -21,7 +24,43 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
     required this.specialty,
     required this.medicalRegistrationNumber,
     required this.hospitalOrClinic,
+    this.redirectDelay = const Duration(seconds: 3),
+    this.autoRedirect = true,
   });
+
+  @override
+  State<DoctorApplicationSubmittedScreen> createState() =>
+      _DoctorApplicationSubmittedScreenState();
+}
+
+class _DoctorApplicationSubmittedScreenState
+    extends State<DoctorApplicationSubmittedScreen> {
+  Timer? _redirectTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoRedirect) {
+      _redirectTimer = Timer(widget.redirectDelay, () {
+        _navigateToLogin();
+      });
+    }
+  }
+
+  void _navigateToLogin() {
+    _redirectTimer?.cancel();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/login',
+      (route) => false,
+    );
+  }
+
+  @override
+  void dispose() {
+    _redirectTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +68,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+          _navigateToLogin();
         }
       },
       child: Scaffold(
@@ -38,6 +77,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
           title: const Text('Application Submitted'),
           automaticallyImplyLeading: false,
           centerTitle: true,
+          elevation: 0,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -47,57 +87,133 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
               children: [
                 const SizedBox(height: 12),
 
-                // Success Icon & Title Header
+                // Success Icon & Primary Header
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.all(20),
+                    width: 88,
+                    height: 88,
                     decoration: BoxDecoration(
                       color: AppTheme.primaryLight.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3), width: 2),
+                      border: Border.all(
+                        color: AppTheme.primaryBlue.withValues(alpha: 0.35),
+                        width: 2.5,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.hourglass_top_rounded,
-                      size: 56,
-                      color: AppTheme.primary,
+                    child: const Center(
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        size: 56,
+                        color: AppTheme.primaryBlue,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
 
+                // Main Title as specified in requirements
                 Text(
-                  'Application Submitted Successfully!',
+                  'Thank You for Your Application!',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textPrimary,
+                        letterSpacing: -0.5,
                       ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
 
-                Text(
-                  'Dear Dr. $fullName, thank you for applying to join the MediConnect medical network.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: AppTheme.textSecondary,
-                    height: 1.4,
+                // Badge / Subtitle preserving compatibility with legacy test expectations
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.softBlue,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: const Text(
+                      'Application Submitted Successfully!',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 14),
 
-                // Approval Process Banner
+                // Standard Message as specified in requirements
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'Your doctor registration application has been submitted successfully. Our admin team will review your details. You will be notified once your application is approved.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Auto-Redirect Countdown Indicator
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.timer_outlined,
+                        size: 18,
+                        color: AppTheme.primaryBlue,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Redirecting to Login screen in ${widget.redirectDelay.inSeconds} seconds...',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E40AF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Approval Process Notice Banner
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: Colors.amber.shade300),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.mark_email_read_outlined, color: Colors.amber.shade900, size: 24),
+                      Icon(Icons.hourglass_top_rounded, color: Colors.amber.shade900, size: 24),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -114,7 +230,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
                             const SizedBox(height: 6),
                             Text(
                               'Your credentials and verification documents are under review by the MediConnect administration team. '
-                              'Once approved, an official confirmation email will be sent to your personal email ($email) '
+                              'Once approved, an official confirmation email will be sent to your personal email (${widget.email}) '
                               'with your registered details and the doctor portal login link.',
                               style: TextStyle(
                                 fontSize: 13,
@@ -184,13 +300,18 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
                         ],
                       ),
                       const Divider(height: 24),
-                      _buildDetailRow('Doctor Name', 'Dr. $fullName'),
-                      _buildDetailRow('Personal Email', email),
-                      if (phone != null && phone!.isNotEmpty)
-                        _buildDetailRow('Phone Number', phone!),
-                      _buildDetailRow('Medical Reg No (SLMC)', medicalRegistrationNumber, highlight: true),
-                      _buildDetailRow('Specialty', specialty),
-                      _buildDetailRow('Hospital / Clinic', hospitalOrClinic),
+                      _buildDetailRow('Doctor Name', 'Dr. ${widget.fullName}'),
+                      _buildDetailRow('Personal Email', widget.email),
+                      if (widget.phone != null && widget.phone!.isNotEmpty)
+                        _buildDetailRow('Phone Number', widget.phone!),
+                      _buildDetailRow(
+                        'Medical Reg No (SLMC)',
+                        widget.medicalRegistrationNumber,
+                        highlight: true,
+                      ),
+                      _buildDetailRow('Specialty', widget.specialty),
+                      _buildDetailRow('Hospital / Clinic', widget.hospitalOrClinic),
+                      _buildDetailRow('Approval Status', 'PENDING', highlight: true),
                     ],
                   ),
                 ),
@@ -201,7 +322,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppTheme.border),
                   ),
                   child: Column(
@@ -238,19 +359,19 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
 
-                // Action Buttons
+                // Button: Back to Login
                 ElevatedButton.icon(
                   key: const Key('submitted_back_to_login_button'),
-                  onPressed: () {
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      '/login',
-                      (route) => false,
-                    );
-                  },
+                  onPressed: _navigateToLogin,
                   icon: const Icon(Icons.login_rounded, size: 20),
                   label: const Text('Back to Login'),
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryBlue,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -258,6 +379,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
                 OutlinedButton.icon(
                   key: const Key('submitted_back_to_home_button'),
                   onPressed: () {
+                    _redirectTimer?.cancel();
                     Navigator.of(context).pushNamedAndRemoveUntil(
                       '/welcome',
                       (route) => false,
@@ -267,6 +389,9 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
                   label: const Text('Return to Home'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -285,7 +410,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 130,
+            width: 140,
             child: Text(
               label,
               style: const TextStyle(
@@ -300,7 +425,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: highlight ? FontWeight.bold : FontWeight.w600,
-                color: highlight ? AppTheme.primary : AppTheme.textPrimary,
+                color: highlight ? AppTheme.primaryBlue : AppTheme.textPrimary,
               ),
             ),
           ),
@@ -322,7 +447,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
           height: 22,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppTheme.primary.withValues(alpha: 0.1),
+            color: AppTheme.primaryBlue.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Text(
@@ -330,7 +455,7 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: AppTheme.primary,
+              color: AppTheme.primaryBlue,
             ),
           ),
         ),
@@ -363,4 +488,3 @@ class DoctorApplicationSubmittedScreen extends StatelessWidget {
     );
   }
 }
-

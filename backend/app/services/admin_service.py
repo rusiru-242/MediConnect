@@ -31,6 +31,8 @@ from app.schemas.admin import (
 )
 from app.services.document_storage_service import document_storage
 from app.services.email_service import EmailService
+from app.services.notification_service import NotificationService
+from app.models.notification import NotificationType
 
 logger = logging.getLogger(__name__)
 
@@ -364,6 +366,18 @@ class AdminService:
         except Exception as exc:
             logger.error("Failed to send doctor approval email to %s: %s", user.get("email"), exc)
 
+        # Create in-app approval notification for the doctor
+        try:
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(user["_id"]),
+                type=NotificationType.SYSTEM,
+                title="Doctor Application Approved",
+                body=f"Congratulations Dr. {user.get('fullName', 'Doctor')}! Your medical credentials have been verified and approved. You now have full clinical access.",
+            )
+        except Exception as exc:
+            logger.warning("Failed to create in-app notification for approved doctor: %s", exc)
+
         return AdminActionResponse(message="Doctor application approved successfully.")
 
     @staticmethod
@@ -423,7 +437,35 @@ class AdminService:
                 detail="Application status was modified by another administrator.",
             )
 
-        # Doctor user account remains PENDING (restricted, not active)
+        # Notify doctor via email and in-app notification
+        user_id_val = profile.get("userId")
+        user_query = {}
+        if ObjectId.is_valid(user_id_val):
+            user_query = {"$or": [{"_id": ObjectId(user_id_val)}, {"_id": user_id_val}]}
+        else:
+            user_query = {"_id": user_id_val}
+
+        user = db["users"].find_one(user_query)
+        if user:
+            try:
+                EmailService.send_doctor_rejection_email(
+                    to_email=user.get("email", ""),
+                    doctor_name=user.get("fullName", "Doctor"),
+                    reason=clean_reason,
+                )
+            except Exception as exc:
+                logger.error("Failed to send doctor rejection email to %s: %s", user.get("email"), exc)
+
+            try:
+                NotificationService.create_notification(
+                    db=db,
+                    recipient_user_id=str(user["_id"]),
+                    type=NotificationType.SYSTEM,
+                    title="Doctor Application Status Update",
+                    body="Your doctor registration application was not approved. Please contact administrative support for further information.",
+                )
+            except Exception as exc:
+                logger.warning("Failed to create in-app notification for rejected doctor: %s", exc)
 
         return AdminActionResponse(message="Doctor application rejected.")
 

@@ -65,6 +65,7 @@ class AppTheme {
   static const Color primaryContainer = Color(
     0xFFE3F2FD,
   ); // Soft Ice Blue #E3F2FD
+  static const Color softBlue = primaryContainer; // Soft Blue #E3F2FD
   static const Color onPrimaryContainer = Color(
     0xFF004D99,
   ); // Deep Blue #004D99

@@ -22,6 +22,41 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
   bool _isOnDuty = true;
   bool _showAlert = true;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _verifyDoctorApproval();
+    });
+  }
+
+  void _verifyDoctorApproval() {
+    if (!mounted) return;
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.user;
+    final status = authProvider.doctorApplicationStatus;
+    final isApproved = (status != null && status.isApproved) ||
+        (user?.accountStatus == 'ACTIVE' && status?.isPending != true);
+    if (user != null && user.role == 'DOCTOR' && !isApproved) {
+      final isRejected = status?.isRejected == true ||
+          status?.verificationStatus.toUpperCase() == 'REJECTED';
+      final message = isRejected
+          ? 'Your doctor registration application was not approved. Please contact administrative support.'
+          : 'Your doctor registration is pending admin approval.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isRejected ? AppTheme.error : Colors.amber.shade800,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/doctor/application-status',
+        (route) => false,
+      );
+    }
+  }
+
   Future<void> _handleLogout(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
