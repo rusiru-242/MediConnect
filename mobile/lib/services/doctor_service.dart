@@ -154,4 +154,137 @@ class DoctorService {
     );
     await _apiClient.delete(endpoint, includeAuth: true);
   }
+
+  // -------------------------------------------------------------
+  // Phase 54: Weekly Schedule, Leave, Blocked Time & Calendar
+  // -------------------------------------------------------------
+
+  /// Retrieve the authenticated doctor's weekly recurring schedule.
+  Future<DoctorWeeklySchedule> getWeeklySchedule() async {
+    final endpoint = ApiConstants.doctorWeeklyScheduleEndpoint;
+    final response = await _apiClient.get(endpoint, includeAuth: true);
+    return DoctorWeeklySchedule.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// Update the doctor's weekly recurring schedule.
+  Future<DoctorWeeklySchedule> updateWeeklySchedule({
+    required List<WeekdaySchedule> weekdays,
+    String timezone = 'Asia/Colombo',
+    int slotDurationMinutes = 30,
+  }) async {
+    final endpoint = ApiConstants.doctorWeeklyScheduleEndpoint;
+    final payload = {
+      'timezone': timezone,
+      'slotDurationMinutes': slotDurationMinutes,
+      'weekdays': weekdays.map((w) => w.toJson()).toList(),
+    };
+    final response = await _apiClient.put(
+      endpoint,
+      body: payload,
+      includeAuth: true,
+    );
+    return DoctorWeeklySchedule.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// Apply for or schedule leave.
+  Future<DoctorLeave> createLeave({
+    required String leaveType,
+    required String startDate,
+    required String endDate,
+    String? startTime,
+    String? endTime,
+    String? reason,
+    bool resolveConflicts = false,
+  }) async {
+    final endpoint = ApiConstants.doctorLeaveEndpoint;
+    final payload = <String, dynamic>{
+      'leaveType': leaveType,
+      'startDate': startDate,
+      'endDate': endDate,
+      'resolveConflicts': resolveConflicts,
+    };
+    if (startTime != null) payload['startTime'] = startTime;
+    if (endTime != null) payload['endTime'] = endTime;
+    if (reason != null) payload['reason'] = reason;
+    final response = await _apiClient.post(
+      endpoint,
+      body: payload,
+      includeAuth: true,
+    );
+    return DoctorLeave.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// List the doctor's leaves.
+  Future<List<DoctorLeave>> getMyLeaves({String? status}) async {
+    var endpoint = ApiConstants.doctorLeaveEndpoint;
+    if (status != null) {
+      endpoint = '$endpoint?status=$status';
+    }
+    final response = await _apiClient.get(endpoint, includeAuth: true);
+    if (response is List) {
+      return response
+          .map((item) => DoctorLeave.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  /// Cancel an active leave record.
+  Future<void> cancelLeave(String leaveId) async {
+    final endpoint = ApiConstants.doctorLeaveDetailEndpoint(leaveId);
+    await _apiClient.delete(endpoint, includeAuth: true);
+  }
+
+  /// Block a specific date and time range.
+  Future<DoctorBlockedTime> createBlockedTime({
+    required String date,
+    required String startTime,
+    required String endTime,
+    String? reason,
+  }) async {
+    final endpoint = ApiConstants.doctorBlockedTimeEndpoint;
+    final payload = <String, dynamic>{
+      'date': date,
+      'startTime': startTime,
+      'endTime': endTime,
+    };
+    if (reason != null) payload['reason'] = reason;
+    final response = await _apiClient.post(
+      endpoint,
+      body: payload,
+      includeAuth: true,
+    );
+    return DoctorBlockedTime.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// List blocked times.
+  Future<List<DoctorBlockedTime>> getMyBlockedTimes({String? date}) async {
+    var endpoint = ApiConstants.doctorBlockedTimeEndpoint;
+    if (date != null) {
+      endpoint = '$endpoint?date=$date';
+    }
+    final response = await _apiClient.get(endpoint, includeAuth: true);
+    if (response is List) {
+      return response
+          .map((item) => DoctorBlockedTime.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  /// Delete a blocked time interval.
+  Future<void> deleteBlockedTime(String blockId) async {
+    final endpoint = ApiConstants.doctorBlockedTimeDetailEndpoint(blockId);
+    await _apiClient.delete(endpoint, includeAuth: true);
+  }
+
+  /// Retrieve the monthly calendar overview for the doctor.
+  Future<DoctorCalendarOverview> getCalendarOverview({String? month}) async {
+    var endpoint = ApiConstants.doctorCalendarOverviewEndpoint;
+    if (month != null) {
+      endpoint = '$endpoint?month=$month';
+    }
+    final response = await _apiClient.get(endpoint, includeAuth: true);
+    return DoctorCalendarOverview.fromJson(response as Map<String, dynamic>);
+  }
 }

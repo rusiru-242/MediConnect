@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.schemas.user import UserResponseSchema
 
 
@@ -148,3 +148,159 @@ class DoctorSlotsResponse(BaseModel):
 
     doctorId: str
     availabilities: List[DayAvailabilitySlots]
+
+
+# ---------------------------------------------------------------------------
+# Phase 54: Weekly Schedule, Leave & Blocked Time Schemas
+# ---------------------------------------------------------------------------
+
+class WorkingSessionSchema(BaseModel):
+    """A working consultation window within a day."""
+
+    startTime: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="Start time in HH:MM format")
+    endTime: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="End time in HH:MM format")
+
+
+class WeekdayScheduleSchema(BaseModel):
+    """Schedule configuration for a weekday."""
+
+    day: str = Field(..., description="monday, tuesday, wednesday, thursday, friday, saturday, sunday")
+    isEnabled: bool = Field(default=True, description="Whether available on this day")
+    sessions: List[WorkingSessionSchema] = Field(default_factory=list, description="Working sessions")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_day_field(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "day" not in data and "weekday" in data:
+                data["day"] = data["weekday"]
+        return data
+
+
+class UpdateWeeklyScheduleRequest(BaseModel):
+    """Request payload to configure weekly recurring schedule."""
+
+    timezone: Optional[str] = Field(default="Asia/Colombo", description="Doctor IANA time zone")
+    slotDurationMinutes: Optional[int] = Field(default=30, ge=10, le=120, description="Slot duration in minutes")
+    weekdays: List[WeekdayScheduleSchema] = Field(..., description="List of 7 weekday configurations")
+
+
+class DoctorWeeklyScheduleResponse(BaseModel):
+    """Response representing doctor weekly recurring schedule."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = None
+    doctorUserId: str
+    doctorProfileId: str
+    timezone: str = "Asia/Colombo"
+    slotDurationMinutes: int = 30
+    weekdays: List[WeekdayScheduleSchema] = Field(default_factory=list)
+    createdAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
+
+
+class CreateLeaveRequest(BaseModel):
+    """Request payload to apply for or schedule leave."""
+
+    leaveType: str = Field(default="PERSONAL", description="PERSONAL | MEDICAL | VACATION | PUBLIC_HOLIDAY | OTHER")
+    startDate: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="Start date YYYY-MM-DD")
+    endDate: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="End date YYYY-MM-DD")
+    startTime: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$", description="Start time HH:MM for partial-day")
+    endTime: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$", description="End time HH:MM for partial-day")
+    reason: Optional[str] = Field(default=None, max_length=500, description="Optional private reason")
+    resolveConflicts: bool = Field(default=False, description="Whether to auto-cancel conflicting appointments")
+
+
+class DoctorLeaveResponse(BaseModel):
+    """Response representing a doctor leave record."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    doctorUserId: str
+    doctorProfileId: str
+    leaveType: str
+    startDate: str
+    endDate: str
+    startTime: Optional[str] = None
+    endTime: Optional[str] = None
+    reason: Optional[str] = None
+    status: str = "ACTIVE"
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class ConflictingAppointmentSummary(BaseModel):
+    """Summary of appointment conflicting with scheduled leave."""
+
+    appointmentId: str
+    patientName: str
+    appointmentDate: str
+    startTime: str
+    endTime: str
+    status: str
+
+
+class LeaveConflictResponse(BaseModel):
+    """Response when leave conflicts with existing appointments."""
+
+    detail: str
+    conflictCount: int
+    conflicts: List[ConflictingAppointmentSummary]
+
+
+class CreateBlockedTimeRequest(BaseModel):
+    """Request payload to block a specific date and time range."""
+
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="Date in YYYY-MM-DD format")
+    startTime: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="Start time HH:MM")
+    endTime: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="End time HH:MM")
+    reason: Optional[str] = Field(default=None, max_length=200, description="Optional reason")
+
+
+class DoctorBlockedTimeResponse(BaseModel):
+    """Response representing blocked time interval."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    doctorUserId: str
+    doctorProfileId: str
+    date: str
+    startTime: str
+    endTime: str
+    reason: Optional[str] = None
+    createdAt: datetime
+
+
+class CalendarDayAppointment(BaseModel):
+    """Summary of appointment on a specific calendar day."""
+
+    appointmentId: str
+    patientName: str
+    startTime: str
+    endTime: str
+    status: str
+
+
+class CalendarDayOverview(BaseModel):
+    """Summary for a single calendar day in doctor calendar."""
+
+    date: str
+    weekday: str
+    status: str = Field(description="AVAILABLE | UNAVAILABLE | LEAVE | BLOCKED")
+    availableSlotsCount: int = 0
+    bookedAppointmentsCount: int = 0
+    leave: Optional[DoctorLeaveResponse] = None
+    blockedTimes: List[DoctorBlockedTimeResponse] = Field(default_factory=list)
+    appointments: List[CalendarDayAppointment] = Field(default_factory=list)
+    slots: List[TimeSlot] = Field(default_factory=list)
+
+
+class DoctorCalendarOverviewResponse(BaseModel):
+    """Overview of calendar for a given month or date range."""
+
+    month: str
+    days: List[CalendarDayOverview]
+

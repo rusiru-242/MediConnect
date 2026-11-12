@@ -239,6 +239,14 @@ class ApiConstants {
   static const String doctorMyAvailabilityEndpoint = '/doctors/me/availability';
   static String doctorAvailabilityDetailEndpoint(String id) =>
       '/doctors/me/availability/$id';
+  static const String doctorWeeklyScheduleEndpoint = '/doctors/me/weekly-schedule';
+  static const String doctorLeaveEndpoint = '/doctors/me/leave';
+  static String doctorLeaveDetailEndpoint(String id) => '/doctors/me/leave/$id';
+  static const String doctorBlockedTimeEndpoint = '/doctors/me/blocked-time';
+  static String doctorBlockedTimeDetailEndpoint(String id) =>
+      '/doctors/me/blocked-time/$id';
+  static const String doctorCalendarOverviewEndpoint =
+      '/doctors/me/calendar-overview';
 
   // AI Recommendation endpoints
   static const String aiDoctorRecommendationsEndpoint =

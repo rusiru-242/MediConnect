@@ -168,17 +168,45 @@ class AppointmentService:
         doctor_profile_id = str(doctor_profile["_id"])
         target_date = req.appointmentDate or req.date
 
+        req_start_h, req_start_m = _parse_hhmm(req.startTime)
+        req_start_total = req_start_h * 60 + req_start_m
+
+        # Phase 54: Check doctor active leaves covering this date
+        active_leaves = list(db["doctor_leaves"].find({
+            "doctorUserId": doctor_user_id,
+            "status": "ACTIVE",
+            "startDate": {"$lte": target_date},
+            "endDate": {"$gte": target_date},
+        }))
+        for l in active_leaves:
+            l_start = l.get("startTime")
+            l_end = l.get("endTime")
+            if not l_start or not l_end:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is on leave on this date.")
+            lh_s, lm_s = _parse_hhmm(l_start)
+            if req.startTime < l_end and (req_start_total + 15) > (lh_s * 60 + lm_s):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is on leave during this time slot.")
+
+        # Phase 54: Check doctor blocked times covering this date
+        blocked_records = list(db["doctor_blocked_times"].find({
+            "doctorUserId": doctor_user_id,
+            "date": target_date,
+        }))
+        for b in blocked_records:
+            b_start = b.get("startTime")
+            b_end = b.get("endTime")
+            if b_start and b_end:
+                bh_s, bm_s = _parse_hhmm(b_start)
+                if req.startTime < b_end and (req_start_total + 15) > (bh_s * 60 + bm_s):
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This time slot is blocked by the doctor.")
+
         # 3. Resolve and validate the availability window
         avail_doc = None
         if req.availabilityId and req.availabilityId.strip():
             avail_id_raw = req.availabilityId.strip()
-            if not ObjectId.is_valid(avail_id_raw):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid availabilityId format.",
-                )
-            avail_doc = db["doctor_availabilities"].find_one({"_id": ObjectId(avail_id_raw)})
-        else:
+            if ObjectId.is_valid(avail_id_raw):
+                avail_doc = db["doctor_availabilities"].find_one({"_id": ObjectId(avail_id_raw)})
+        if not avail_doc:
             # Lookup active availability window for this doctor matching date
             avail_doc = db["doctor_availabilities"].find_one({
                 "doctorUserId": doctor_user_id,
@@ -187,6 +215,27 @@ class AppointmentService:
                 "startTime": {"$lte": req.startTime},
                 "endTime": {"$gt": req.startTime},
             })
+
+        # Phase 54: If no specific date availability record, check recurring weekly schedule
+        if not avail_doc:
+            weekday_name = _dt.strptime(target_date, "%Y-%m-%d").strftime("%A").lower()
+            ws_doc = db["doctor_weekly_schedules"].find_one({"doctorUserId": doctor_user_id})
+            if ws_doc:
+                for w in ws_doc.get("weekdays", []):
+                    if w.get("day") == weekday_name and w.get("isEnabled"):
+                        for sess in w.get("sessions", []):
+                            if sess.get("startTime") <= req.startTime and sess.get("endTime") > req.startTime:
+                                avail_doc = {
+                                    "_id": str(ws_doc["_id"]),
+                                    "doctorUserId": doctor_user_id,
+                                    "doctorProfileId": doctor_profile_id,
+                                    "date": target_date,
+                                    "startTime": sess.get("startTime"),
+                                    "endTime": sess.get("endTime"),
+                                    "slotDurationMinutes": int(ws_doc.get("slotDurationMinutes", 30)),
+                                    "isActive": True,
+                                }
+                                break
 
         if not avail_doc:
             raise HTTPException(
