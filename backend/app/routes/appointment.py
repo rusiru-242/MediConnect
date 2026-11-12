@@ -12,6 +12,7 @@ from app.schemas.appointment import (
     CancelAppointmentRequest,
     CreateAppointmentRequest,
     CreateAppointmentResponse,
+    RescheduleAppointmentRequest,
     UpdateAppointmentStatusRequest,
 )
 from app.schemas.user import UserResponseSchema
@@ -83,6 +84,28 @@ async def cancel_appointment(
         patient_user=current_user,
         appointment_id=appointmentId,
         reason=req.reason if req else None,
+    )
+
+
+@appointment_router.post(
+    "/{appointmentId}/reschedule",
+    response_model=AppointmentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reschedule appointment",
+    description="Reschedules an existing appointment to a new date and time slot. Invalidates previous reminders.",
+)
+async def reschedule_appointment(
+    appointmentId: str,
+    req: RescheduleAppointmentRequest,
+    current_user: UserResponseSchema = Depends(get_current_user),
+    db: Database = Depends(get_database),
+) -> AppointmentResponse:
+    """Reschedule an appointment (patient, doctor, or admin access)."""
+    return await AppointmentService.reschedule_appointment(
+        db=db,
+        requester=current_user,
+        appointment_id=appointmentId,
+        req=req,
     )
 
 

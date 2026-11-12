@@ -45,6 +45,7 @@ class AppointmentResponse(BaseModel):
     patientNote: Optional[str] = None
     cancelledBy: Optional[str] = None
     cancellationReason: Optional[str] = None
+    appointmentVersion: Optional[int] = 1
     createdAt: datetime
     updatedAt: datetime
 
@@ -95,3 +96,11 @@ class AppointmentListResponse(BaseModel):
     limit: int
     total: int
     totalPages: int
+
+
+class RescheduleAppointmentRequest(BaseModel):
+    """Payload to reschedule an existing appointment to a new date and time."""
+
+    newDate: str = Field(..., description="Target date in YYYY-MM-DD format (Sri Lanka local)")
+    newStartTime: str = Field(..., description="Slot start time in HH:MM (24-hour)")
+    newEndTime: Optional[str] = Field(default=None, description="Optional slot end time in HH:MM (24-hour)")

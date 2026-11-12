@@ -355,3 +355,151 @@ def test_push_delivery_failure_isolation(db):
         )
         assert notif is not None
         assert notif.title == "Safe Alert"
+
+
+def test_notification_preferences_get_and_update(db):
+    """Test getting and updating notification preferences for a user."""
+    user = _make_test_user(db, "prefs")
+    headers = {"Authorization": f"Bearer {user['token']}"}
+
+    # 1. Fetch default preferences
+    res = client.get("/api/notifications/preferences", headers=headers)
+    assert res.status_code == 200
+    prefs = res.json()
+    assert prefs["appointmentConfirmation"] is True
+    assert prefs["reminder24h"] is True
+    assert prefs["reminder1h"] is True
+    assert prefs["pushNotifications"] is True
+
+    # 2. Update preferences
+    update_res = client.put(
+        "/api/notifications/preferences",
+        headers=headers,
+        json={"reminder24h": False, "pushNotifications": False},
+    )
+    assert update_res.status_code == 200
+    updated_prefs = update_res.json()
+    assert updated_prefs["reminder24h"] is False
+    assert updated_prefs["reminder1h"] is True
+    assert updated_prefs["pushNotifications"] is False
+
+    # 3. Verify persistence
+    get_again = client.get("/api/notifications/preferences", headers=headers)
+    assert get_again.status_code == 200
+    assert get_again.json()["reminder24h"] is False
+
+
+def test_notification_preferences_respected_by_reminders(db):
+    """When a patient has opted out of 24h reminders, none should be sent."""
+    user = _make_test_user(db, "optout_24h")
+    # Disable 24h reminder in preferences
+    db["users"].update_one(
+        {"_id": ObjectId(user["id"])},
+        {"$set": {"notificationPreferences.reminder24h": False}},
+    )
+
+    now_sl = datetime.now(SL_TIMEZONE)
+    appt_24h_time = now_sl + timedelta(hours=20)
+
+    appt = {
+        "_id": ObjectId(),
+        "patientUserId": user["id"],
+        "doctorUserId": str(ObjectId()),
+        "doctorProfileId": str(ObjectId()),
+        "availabilityId": str(ObjectId()),
+        "appointmentDate": appt_24h_time.strftime("%Y-%m-%d"),
+        "startTime": appt_24h_time.strftime("%H:%M"),
+        "endTime": "12:00",
+        "status": AppointmentStatus.CONFIRMED.value,
+        "createdAt": utc_now(),
+        "updatedAt": utc_now(),
+        "remindersSent": [],
+    }
+    db["appointments"].insert_one(appt)
+
+    sent = NotificationService.check_and_send_appointment_reminders(db)
+    # The appointment for this user should NOT have triggered a 24h reminder
+    user_notifs = list(get_notification_collection(db).find({
+        "recipientUserId": user["id"],
+        "type": NotificationType.APPOINTMENT_REMINDER_24H.value,
+    }))
+    assert len(user_notifs) == 0
+
+
+def test_reschedule_appointment_invalidates_reminders_and_notifies(db):
+    """Rescheduling an appointment resets remindersSent and sends reschedule notifications."""
+    pt_user = _make_test_user(db, "pt_resched", role=UserRole.PATIENT.value)
+    dr_user = _make_test_user(db, "dr_resched", role=UserRole.DOCTOR.value)
+
+    dr_profile = {
+        "_id": ObjectId(),
+        "userId": dr_user["id"],
+        "doctorId": f"DOC-{_uid()}",
+        "medicalRegistrationNumber": f"SLMC-{_uid()}",
+        "specialty": "Cardiology",
+        "hospitalOrClinic": "Colombo General Hospital",
+        "verificationStatus": "APPROVED",
+        "isActive": True,
+        "consultationFee": 2500.0,
+    }
+    db["doctor_profiles"].insert_one(dr_profile)
+
+    now_sl = datetime.now(SL_TIMEZONE)
+    orig_date = (now_sl + timedelta(days=2)).strftime("%Y-%m-%d")
+    new_date = (now_sl + timedelta(days=5)).strftime("%Y-%m-%d")
+
+    appt = {
+        "_id": ObjectId(),
+        "patientUserId": pt_user["id"],
+        "doctorUserId": dr_user["id"],
+        "doctorProfileId": str(dr_profile["_id"]),
+        "availabilityId": str(ObjectId()),
+        "appointmentDate": orig_date,
+        "startTime": "10:00",
+        "endTime": "10:30",
+        "status": AppointmentStatus.CONFIRMED.value,
+        "appointmentVersion": 1,
+        "remindersSent": ["24h"],  # Pretend 24h was already sent for old date
+        "createdAt": utc_now(),
+        "updatedAt": utc_now(),
+    }
+    db["appointments"].insert_one(appt)
+
+    # Patient calls reschedule
+    pt_headers = {"Authorization": f"Bearer {pt_user['token']}"}
+    res = client.post(
+        f"/api/appointments/{appt['_id']}/reschedule",
+        headers=pt_headers,
+        json={
+            "newDate": new_date,
+            "newStartTime": "14:00",
+        },
+    )
+    assert res.status_code == 200
+    res_data = res.json()
+    assert res_data["appointmentDate"] == new_date
+    assert res_data["startTime"] == "14:00"
+    assert res_data["appointmentVersion"] == 2
+
+    # Check database doc
+    updated_appt = db["appointments"].find_one({"_id": appt["_id"]})
+    assert updated_appt["appointmentVersion"] == 2
+    assert updated_appt["remindersSent"] == []  # Cleared!
+
+    # Check patient notification: "Your appointment has been moved to [New Date] at [New Time]."
+    pt_notif = get_notification_collection(db).find_one({
+        "recipientUserId": pt_user["id"],
+        "type": NotificationType.APPOINTMENT_RESCHEDULED.value,
+    })
+    assert pt_notif is not None
+    assert pt_notif["title"] == "Appointment Rescheduled"
+    assert f"Your appointment has been moved to {new_date} at 14:00." in pt_notif["body"]
+
+    # Check doctor notification
+    dr_notif = get_notification_collection(db).find_one({
+        "recipientUserId": dr_user["id"],
+        "type": NotificationType.APPOINTMENT_RESCHEDULED.value,
+    })
+    assert dr_notif is not None
+    assert dr_notif["title"] == "Appointment Rescheduled"
+

@@ -10,6 +10,7 @@ enum NotificationType {
   paymentFailed,
   appointmentReminder24h,
   appointmentReminder1h,
+  appointmentRescheduled,
   system,
 }
 
@@ -32,6 +33,8 @@ extension NotificationTypeExtension on NotificationType {
         return NotificationType.appointmentReminder24h;
       case 'APPOINTMENT_REMINDER_1H':
         return NotificationType.appointmentReminder1h;
+      case 'APPOINTMENT_RESCHEDULED':
+        return NotificationType.appointmentRescheduled;
       default:
         return NotificationType.system;
     }
@@ -55,6 +58,8 @@ extension NotificationTypeExtension on NotificationType {
         return 'APPOINTMENT_REMINDER_24H';
       case NotificationType.appointmentReminder1h:
         return 'APPOINTMENT_REMINDER_1H';
+      case NotificationType.appointmentRescheduled:
+        return 'APPOINTMENT_RESCHEDULED';
       case NotificationType.system:
         return 'SYSTEM';
     }
@@ -149,6 +154,8 @@ class NotificationModel {
       case NotificationType.appointmentReminder24h:
       case NotificationType.appointmentReminder1h:
         return Icons.alarm_rounded;
+      case NotificationType.appointmentRescheduled:
+        return Icons.edit_calendar_rounded;
       case NotificationType.system:
         return Icons.notifications_rounded;
     }
@@ -171,6 +178,8 @@ class NotificationModel {
       case NotificationType.appointmentReminder24h:
       case NotificationType.appointmentReminder1h:
         return const Color(0xFFF57C00); // Orange
+      case NotificationType.appointmentRescheduled:
+        return const Color(0xFF0288D1); // Light Blue / Cyan
       case NotificationType.system:
         return const Color(0xFF5E35B1); // Purple
     }

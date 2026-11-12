@@ -71,6 +71,10 @@ class AppointmentDocument(BaseModel):
     cancelledBy: Optional[str] = Field(default=None, description="PATIENT | DOCTOR | ADMIN")
     cancellationReason: Optional[str] = Field(default=None, max_length=500)
 
+    # Reminders and version tracking (for invalidating old reminders upon reschedule)
+    remindersSent: list[str] = Field(default_factory=list)
+    appointmentVersion: int = Field(default=1)
+
     # Audit timestamps (UTC)
     createdAt: datetime = Field(default_factory=utc_now)
     updatedAt: datetime = Field(default_factory=utc_now)
