@@ -4,6 +4,7 @@ import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/appointment.dart';
 import '../../services/appointment_service.dart';
+import 'create_care_plan_screen.dart';
 
 /// Doctor's detail view for managing an assigned appointment.
 /// Supports state transitions:
@@ -751,6 +752,42 @@ class _DoctorAppointmentDetailScreenState
                                 onPressed: _isActionInProgress
                                     ? null
                                     : _cancelAppointment,
+                              ),
+                            ),
+                          ],
+
+                          if (_appointment!.isConfirmed || _appointment!.isCompleted) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                key: const Key('doctor_create_care_plan_button'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primary,
+                                  side: const BorderSide(color: AppTheme.primary),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.assignment_add),
+                                label: const Text(
+                                  'Create Follow-up Care Plan',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => CreateCarePlanScreen(
+                                        appointment: _appointment,
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
                           ],

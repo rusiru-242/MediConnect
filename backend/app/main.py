@@ -25,9 +25,11 @@ from app.routes import (
     content_router,
     admin_content_router,
     analytics_router,
+    care_plan_router,
 )
 
 from app.services.notification_service import NotificationService
+from app.services.care_plan_service import CarePlanService
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,7 @@ async def _run_reminder_worker():
             if db_status.get("connected"):
                 db = DatabaseManager.get_database()
                 NotificationService.check_and_send_appointment_reminders(db)
+                CarePlanService.check_and_send_care_plan_reminders(db)
         except asyncio.CancelledError:
             logger.info("Appointment reminder background worker stopping.")
             break
@@ -141,6 +144,7 @@ app.include_router(review_router, prefix="/api")
 app.include_router(content_router, prefix="/api")
 app.include_router(admin_content_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
+app.include_router(care_plan_router, prefix="/api")
 
 
 

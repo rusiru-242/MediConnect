@@ -16,6 +16,7 @@ import 'screens/auth/create_account_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/doctor/add_availability_screen.dart';
+import 'screens/doctor/create_care_plan_screen.dart';
 import 'screens/doctor/doctor_application_status_screen.dart';
 import 'screens/doctor/doctor_appointment_detail_screen.dart';
 import 'screens/doctor/doctor_appointments_screen.dart';
@@ -31,6 +32,7 @@ import 'screens/patient/ai_health_assistant_screen.dart';
 import 'screens/patient/appointment_detail_screen.dart';
 import 'screens/patient/medical_records_screen.dart';
 import 'screens/patient/medication_reminders_screen.dart';
+import 'screens/patient/patient_care_plans_screen.dart';
 
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
@@ -161,6 +163,7 @@ class MediConnectApp extends StatelessWidget {
               const MedicationRemindersScreen(),
           '/medication-reminders': (context) =>
               const MedicationRemindersScreen(),
+          '/patient/care-plans': (context) => const PatientCarePlansScreen(),
 
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
           '/patient/health-wellness': (context) => const HealthWellnessScreen(),
@@ -176,6 +179,8 @@ class MediConnectApp extends StatelessWidget {
           '/doctor/appointments': (context) => const DoctorAppointmentsScreen(),
           '/doctor/appointment-detail': (context) =>
               const DoctorAppointmentDetailScreen(),
+          '/doctor/create-care-plan': (context) =>
+              const CreateCarePlanScreen(),
           '/doctor/consultations': (context) =>
               const DoctorConsultationsScreen(),
           '/doctor/manage-availability': (context) =>

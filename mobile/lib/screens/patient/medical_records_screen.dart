@@ -141,6 +141,16 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> with Single
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Medical Records & Rx'),
+        actions: [
+          IconButton(
+            key: const Key('patient_records_care_plans_button'),
+            icon: const Icon(Icons.assignment_turned_in_outlined),
+            tooltip: 'Care Plans',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/patient/care-plans');
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppTheme.primary,

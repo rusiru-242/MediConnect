@@ -1319,6 +1319,52 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     final isDark = AppTheme.isDark(context);
     return Column(
       children: [
+        // Follow-up Care Plans
+        StitchCard(
+          key: const Key('patient_home_care_plans_button'),
+          onTap: () {
+            Navigator.of(context).pushNamed('/patient/care-plans');
+          },
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryBlue.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.assignment_turned_in_rounded, size: 22, color: AppTheme.secondaryBlue),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Follow-up Care Plans',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Doctor instructions, recovery tasks & follow-up bookings',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
         // Doctor Reviews
         StitchCard(
           key: const Key('patient_home_my_reviews_button'),

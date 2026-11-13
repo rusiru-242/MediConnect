@@ -390,6 +390,17 @@ class ApiConstants {
   static const String readAllNotificationsEndpoint = '/notifications/read-all';
   static const String deviceTokensEndpoint = '/notifications/devices';
 
+  // Care Plan endpoints (Phase 56)
+  static const String carePlansEndpoint = '/care-plans';
+  static const String carePlansDoctorEndpoint = '/care-plans/doctor';
+  static const String carePlansPatientEndpoint = '/care-plans/patient';
+  static String carePlanDetailEndpoint(String id) => '/care-plans/$id';
+  static String carePlanCancelEndpoint(String id) => '/care-plans/$id/cancel';
+  static String carePlanTaskStatusEndpoint(String planId, String taskId) =>
+      '/care-plans/$planId/tasks/$taskId';
+  static String carePlanLinkAppointmentEndpoint(String id) =>
+      '/care-plans/$id/link-appointment';
+
   /// Stripe Publishable Key (safe for mobile client).
   /// Backend returns publishableKey in create-intent response, or can be passed via env.
   static const String defaultStripePublishableKey = String.fromEnvironment(
