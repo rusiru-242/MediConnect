@@ -401,6 +401,20 @@ class ApiConstants {
   static String carePlanLinkAppointmentEndpoint(String id) =>
       '/care-plans/$id/link-appointment';
 
+  // Doctor Daily Schedule & Consultation endpoints (Phase 57)
+  static const String doctorScheduleTodayEndpoint = '/doctor/schedule/today';
+  static const String doctorScheduleEndpoint = '/doctor/schedule';
+  static String doctorScheduleDateEndpoint(String date) =>
+      '/doctor/schedule?date=$date';
+  static String doctorScheduleSummaryEndpoint([String? date]) =>
+      date != null ? '/doctor/schedule/summary?date=$date' : '/doctor/schedule/summary';
+  static String doctorConsultationDetailEndpoint(String id) =>
+      '/doctor/consultations/$id';
+  static String doctorConsultationStartEndpoint(String id) =>
+      '/doctor/consultations/$id/start';
+  static String doctorConsultationCompleteEndpoint(String id) =>
+      '/doctor/consultations/$id/complete';
+
   /// Stripe Publishable Key (safe for mobile client).
   /// Backend returns publishableKey in create-intent response, or can be passed via env.
   static const String defaultStripePublishableKey = String.fromEnvironment(

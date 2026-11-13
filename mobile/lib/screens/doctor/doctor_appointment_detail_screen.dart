@@ -4,6 +4,7 @@ import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/appointment.dart';
 import '../../services/appointment_service.dart';
+import 'consultation_details_screen.dart';
 import 'create_care_plan_screen.dart';
 
 /// Doctor's detail view for managing an assigned appointment.
@@ -678,6 +679,38 @@ class _DoctorAppointmentDetailScreenState
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
+                                key: const Key('doctor_consultation_management_button'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1565C0),
+                                  side: const BorderSide(color: Color(0xFF1565C0)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.medical_services_outlined),
+                                label: const Text(
+                                  'Consultation Management',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ConsultationDetailsScreen(
+                                        appointmentId: _appointment!.id,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
                                 key: const Key('doctor_cancel_button'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppTheme.error,
@@ -757,6 +790,39 @@ class _DoctorAppointmentDetailScreenState
                           ],
 
                           if (_appointment!.isConfirmed || _appointment!.isCompleted) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                key: const Key('doctor_consultation_management_button'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1565C0),
+                                  side: const BorderSide(color: Color(0xFF1565C0)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.medical_services_outlined),
+                                label: const Text(
+                                  'Consultation Management',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ConsultationDetailsScreen(
+                                        appointmentId: _appointment!.id,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                             const SizedBox(height: 12),
                             SizedBox(
                               width: double.infinity,

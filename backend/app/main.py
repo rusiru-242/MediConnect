@@ -26,6 +26,7 @@ from app.routes import (
     admin_content_router,
     analytics_router,
     care_plan_router,
+    doctor_schedule_router,
 )
 
 from app.services.notification_service import NotificationService
@@ -145,6 +146,7 @@ app.include_router(content_router, prefix="/api")
 app.include_router(admin_content_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(care_plan_router, prefix="/api")
+app.include_router(doctor_schedule_router, prefix="/api")
 
 
 

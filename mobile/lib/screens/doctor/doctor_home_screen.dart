@@ -710,6 +710,21 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               ),
               const SizedBox(height: 10),
 
+              // 0. Today's Schedule & Consultations (Phase 57)
+              _buildSectionCard(
+                key: const Key('doctor_home_today_schedule_card'),
+                icon: Icons.today_rounded,
+                iconColor: const Color(0xFF1565C0),
+                title: "Today's Schedule & Consultations",
+                subtitle: 'Chronological schedule, next patient, start & complete consultations',
+                badgeText: 'Phase 57',
+                badgeColor: const Color(0xFF1565C0),
+                onTap: () {
+                  Navigator.of(context).pushNamed('/doctor/schedule');
+                },
+              ),
+              const SizedBox(height: 10),
+
               // 1. Appointments Card
               _buildSectionCard(
                 key: const Key('doctor_home_appointments_card'),
