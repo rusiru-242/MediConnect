@@ -415,6 +415,14 @@ class ApiConstants {
   static String doctorConsultationCompleteEndpoint(String id) =>
       '/doctor/consultations/$id/complete';
 
+  // Patient Healthcare Timeline & Visit History endpoints (Phase 58)
+  static const String patientHealthcareTimelineEndpoint =
+      '/patients/me/healthcare-timeline';
+  static const String patientHealthcareTimelineSummaryEndpoint =
+      '/patients/me/healthcare-timeline/summary';
+  static String patientVisitDetailEndpoint(String appointmentId) =>
+      '/patients/me/visits/$appointmentId';
+
   /// Stripe Publishable Key (safe for mobile client).
   /// Backend returns publishableKey in create-intent response, or can be passed via env.
   static const String defaultStripePublishableKey = String.fromEnvironment(

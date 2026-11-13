@@ -143,6 +143,14 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> with Single
         title: const Text('Medical Records & Rx'),
         actions: [
           IconButton(
+            key: const Key('patient_records_timeline_button'),
+            icon: const Icon(Icons.timeline_rounded),
+            tooltip: 'Healthcare Timeline',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/patient/timeline');
+            },
+          ),
+          IconButton(
             key: const Key('patient_records_care_plans_button'),
             icon: const Icon(Icons.assignment_turned_in_outlined),
             tooltip: 'Care Plans',

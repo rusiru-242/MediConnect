@@ -32,9 +32,11 @@ import 'screens/patient/ai_care_assistant_screen.dart';
 import 'screens/patient/ai_doctor_recommendation_screen.dart';
 import 'screens/patient/ai_health_assistant_screen.dart';
 import 'screens/patient/appointment_detail_screen.dart';
+import 'screens/patient/healthcare_timeline_screen.dart';
 import 'screens/patient/medical_records_screen.dart';
 import 'screens/patient/medication_reminders_screen.dart';
 import 'screens/patient/patient_care_plans_screen.dart';
+import 'screens/patient/patient_visit_detail_screen.dart';
 
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
@@ -166,6 +168,8 @@ class MediConnectApp extends StatelessWidget {
           '/medication-reminders': (context) =>
               const MedicationRemindersScreen(),
           '/patient/care-plans': (context) => const PatientCarePlansScreen(),
+          '/patient/timeline': (context) => const HealthcareTimelineScreen(),
+          '/patient/visit-detail': (context) => const PatientVisitDetailScreen(appointmentId: ''),
 
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
           '/patient/health-wellness': (context) => const HealthWellnessScreen(),

@@ -1319,6 +1319,52 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     final isDark = AppTheme.isDark(context);
     return Column(
       children: [
+        // Healthcare Timeline & Visit History (Phase 58)
+        StitchCard(
+          key: const Key('patient_home_timeline_button'),
+          onTap: () {
+            Navigator.of(context).pushNamed('/patient/timeline');
+          },
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.timeline_rounded, size: 22, color: Color(0xFF1565C0)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Healthcare Timeline',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Chronological journey of appointments, visits & prescriptions',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
         // Follow-up Care Plans
         StitchCard(
           key: const Key('patient_home_care_plans_button'),
