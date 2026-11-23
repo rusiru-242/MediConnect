@@ -346,28 +346,34 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
           children: [
             const MediConnectLogo(size: 26),
             const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'MEDICONNECT',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'MEDICONNECT',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  l10n?.doctorDashboard ?? (isSi ? 'වෛද්‍ය පුවරුව' : (isTa ? 'மருத்துவர் டாஷ்போர்டு' : 'Doctor Dashboard')),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  Text(
+                    l10n?.doctorDashboard ?? (isSi ? 'වෛද්‍ය පුවරුව' : (isTa ? 'மருத்துவர் டாஷ்போர்டு' : 'Doctor Dashboard')),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -432,10 +438,10 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                                   Flexible(
                                     child: Text(
                                       doctorName,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: AppTheme.textPrimary,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -453,6 +459,8 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.secondaryBlue,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
@@ -499,21 +507,43 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                       ],
                     ),
                     const Divider(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         Row(
-                          children: const [
-                            Icon(Icons.apartment_rounded, size: 15, color: AppTheme.secondaryBlue),
-                            SizedBox(width: 4),
-                            Text('National Hospital Center', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.apartment_rounded, size: 15, color: AppTheme.secondaryBlue),
+                            const SizedBox(width: 4),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 160),
+                              child: Text(
+                                'National Hospital Center',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                         Row(
-                          children: const [
-                            Icon(Icons.today_rounded, size: 15, color: AppTheme.textSecondary),
-                            SizedBox(width: 4),
-                            Text('Today\'s Practice', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.today_rounded, size: 15, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Today\'s Practice',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -551,10 +581,14 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'CRITICAL TELEMETRY ALERT',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.error, letterSpacing: 0.5),
+                                const Expanded(
+                                  child: Text(
+                                    'CRITICAL TELEMETRY ALERT',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.error, letterSpacing: 0.5),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 const Text('3m ago', style: TextStyle(fontSize: 10, color: AppTheme.error)),
                               ],
                             ),
@@ -564,7 +598,10 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                               style: TextStyle(fontSize: 12, color: Color(0xFF93000A), height: 1.3),
                             ),
                             const SizedBox(height: 10),
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
@@ -582,7 +619,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                                   icon: const Icon(Icons.monitor_heart_rounded, size: 14),
                                   label: const Text('Review Strip', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                 ),
-                                const SizedBox(width: 8),
                                 TextButton(
                                   style: TextButton.styleFrom(
                                     visualDensity: VisualDensity.compact,
@@ -606,14 +642,18 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    isSi ? 'ප්‍රතිකාර දළ විශ්ලේෂණය' : (isTa ? 'பயிற்சி கண்ணோட்டம்' : 'Practice Overview'),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  Expanded(
+                    child: Text(
+                      isSi ? 'ප්‍රතිකාර දළ විශ්ලේෂණය' : (isTa ? 'பயிற்சி கண்ணோட்டம்' : 'Practice Overview'),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   StitchPulseBadge(
                     label: isSi ? 'සජීවී' : (isTa ? 'நேரலை' : 'LIVE STREAM'),
                     dotColor: AppTheme.secondaryBlue,
@@ -633,10 +673,14 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                isSi ? 'හමුවීම්' : (isTa ? 'சந்திப்புகள்' : 'Appointments'),
-                                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                              Expanded(
+                                child: Text(
+                                  isSi ? 'හමුවීම්' : (isTa ? 'சந்திப்புகள்' : 'Appointments'),
+                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              const SizedBox(width: 4),
                               const Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.primaryBlue),
                             ],
                           ),
@@ -664,10 +708,14 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                isSi ? 'පොරොත්තු කාමරය' : (isTa ? 'காத்திருப்பு அறை' : 'Waiting Room'),
-                                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                              Expanded(
+                                child: Text(
+                                  isSi ? 'පොරොත්තු කාමරය' : (isTa ? 'காத்திருப்பு அறை' : 'Waiting Room'),
+                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              const SizedBox(width: 4),
                               const Icon(Icons.hourglass_top_rounded, size: 16, color: AppTheme.secondaryBlue),
                             ],
                           ),
@@ -699,10 +747,14 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                isSi ? 'පරීක්ෂණ වාර්තා' : (isTa ? 'ஆய்வக மதிப்புரைகள்' : 'Lab Reviews'),
-                                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                              Expanded(
+                                child: Text(
+                                  isSi ? 'පරීක්ෂණ වාර්තා' : (isTa ? 'ஆய்வக மதிப்புரைகள்' : 'Lab Reviews'),
+                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              const SizedBox(width: 4),
                               Icon(Icons.biotech_rounded, size: 16, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                             ],
                           ),
@@ -730,10 +782,14 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                isSi ? 'අද දින එකතුව' : (isTa ? 'இன்றைய மொத்தம்' : 'Today\'s Total'),
-                                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                              Expanded(
+                                child: Text(
+                                  isSi ? 'අද දින එකතුව' : (isTa ? 'இன்றைய மொத்தம்' : 'Today\'s Total'),
+                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              const SizedBox(width: 4),
                               Icon(Icons.payments_rounded, size: 16, color: isDark ? AppTheme.darkSuccess : AppTheme.success),
                             ],
                           ),
@@ -925,12 +981,16 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (badgeText != null) ...[
