@@ -50,9 +50,40 @@ class TopContentItem(BaseModel):
     bookmarksCount: int
 
 
+class OverviewTotalsSchema(BaseModel):
+    """Aggregated user, doctor, and appointment count totals."""
+    totalUsers: int = 0
+    totalPatients: int = 0
+    totalDoctors: int = 0
+    verifiedDoctors: int = 0
+    pendingDoctorApprovals: int = 0
+    totalAppointments: int = 0
+    completedAppointments: int = 0
+    cancelledAppointments: int = 0
+
+
+class PaymentRevenueBreakdownSchema(BaseModel):
+    """Payment transaction counts and revenue map per currency."""
+    totalRevenueByCurrency: Dict[str, float] = Field(default_factory=dict)
+    succeededTransactions: int = 0
+    failedTransactions: int = 0
+    pendingTransactions: int = 0
+
+
+class RecentActivityItemSchema(BaseModel):
+    """Platform audit action record."""
+    type: str
+    description: str
+    timestamp: datetime
+    actorId: Optional[str] = None
+
+
 class AnalyticsOverviewResponse(BaseModel):
     """High-level platform overview metrics."""
+    # Flat overview properties (for backwards-compatibility & direct access)
+    totalUsers: int = 0
     totalPatients: int = 0
+    totalDoctors: int = 0
     totalVerifiedDoctors: int = 0
     pendingDoctorApprovals: int = 0
     rejectedDoctorApplications: int = 0
@@ -77,6 +108,11 @@ class AnalyticsOverviewResponse(BaseModel):
     endDate: Optional[str] = None
     generatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    # Structured nested fields expected by admin-web
+    totals: Optional[OverviewTotalsSchema] = None
+    payments: Optional[PaymentRevenueBreakdownSchema] = None
+    recentActivity: List[RecentActivityItemSchema] = Field(default_factory=list)
+
 
 class AppointmentAnalyticsResponse(BaseModel):
     """Appointment detailed analytics and trends."""
@@ -87,6 +123,13 @@ class AppointmentAnalyticsResponse(BaseModel):
     cancellationRate: float = Field(0.0, description="Percentage of cancelled vs total")
     startDate: Optional[str] = None
     endDate: Optional[str] = None
+
+    # Admin Web Compatibility fields
+    totalBookings: int = 0
+    completedBookings: int = 0
+    cancelledBookings: int = 0
+    completionRatePercent: float = 0.0
+    dailyTrends: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class PaymentTransactionSummary(BaseModel):
@@ -113,6 +156,12 @@ class PaymentAnalyticsResponse(BaseModel):
     recentTransactions: List[PaymentTransactionSummary] = Field(default_factory=list)
     startDate: Optional[str] = None
     endDate: Optional[str] = None
+
+    # Admin Web Compatibility fields
+    totalTransactions: int = 0
+    succeededCount: int = 0
+    failedCount: int = 0
+    dailyTrends: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class DoctorAnalyticsResponse(BaseModel):
