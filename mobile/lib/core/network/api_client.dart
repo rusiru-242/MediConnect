@@ -112,14 +112,29 @@ class ApiClient {
     );
   }
 
-  /// DELETE request
-  Future<dynamic> delete(
+  /// PATCH request
+  Future<dynamic> patch(
     String endpoint, {
+    Map<String, dynamic>? body,
     Map<String, String>? headers,
     bool includeAuth = true,
   }) async {
     return _sendWithRetry(
-      () => _rawDelete(endpoint, headers: headers, includeAuth: includeAuth),
+      () => _rawPatch(endpoint, body: body, headers: headers, includeAuth: includeAuth),
+      endpoint: endpoint,
+      includeAuth: includeAuth,
+    );
+  }
+
+  /// DELETE request
+  Future<dynamic> delete(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+    bool includeAuth = true,
+  }) async {
+    return _sendWithRetry(
+      () => _rawDelete(endpoint, body: body, headers: headers, includeAuth: includeAuth),
       endpoint: endpoint,
       includeAuth: includeAuth,
     );
@@ -226,8 +241,28 @@ class ApiClient {
         .timeout(ApiConstants.timeoutDuration);
   }
 
+  Future<http.Response> _rawPatch(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+    bool includeAuth = true,
+  }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    _safeLogRequest('PATCH', uri);
+    final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
+
+    return _httpClient
+        .patch(
+          uri,
+          headers: combinedHeaders,
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(ApiConstants.timeoutDuration);
+  }
+
   Future<http.Response> _rawDelete(
     String endpoint, {
+    Map<String, dynamic>? body,
     Map<String, String>? headers,
     bool includeAuth = true,
   }) async {
@@ -239,6 +274,7 @@ class ApiClient {
         .delete(
           uri,
           headers: combinedHeaders,
+          body: body != null ? jsonEncode(body) : null,
         )
         .timeout(ApiConstants.timeoutDuration);
   }
@@ -404,6 +440,19 @@ class ApiClient {
       if (storedRefreshToken == null || storedRefreshToken.isEmpty) {
         _refreshCompleter?.complete(false);
         return false;
+      }
+
+      // Phase 32: Do not refresh admin sessions on mobile
+      final cachedJson = await _storageService.getUserJson();
+      if (cachedJson != null) {
+        try {
+          final decoded = jsonDecode(cachedJson) as Map<String, dynamic>;
+          if (decoded['role'] == 'ADMIN') {
+            await _storageService.clearAll();
+            _refreshCompleter?.complete(false);
+            return false;
+          }
+        } catch (_) {}
       }
 
       final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.refreshEndpoint}');

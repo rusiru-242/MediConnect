@@ -337,6 +337,36 @@ class PaymentService:
                 )
 
             logger.info(f"Payment succeeded for appointment {appt_id_str}, intent {intent_id}.")
+
+            # Send notifications safely (guaranteed isolation: never fails webhook)
+            try:
+                from app.models.notification import NotificationType
+                from app.services.notification_service import NotificationService
+
+                NotificationService.create_notification(
+                    db=db,
+                    recipient_user_id=str(payment["patientUserId"]),
+                    type=NotificationType.PAYMENT_SUCCESS,
+                    title="Payment Successful",
+                    body=f"Your payment of LKR {float(payment.get('amount', 2500)):,.0f} was successful. Your appointment has been confirmed.",
+                    related_appointment_id=appt_id_str,
+                    related_payment_id=str(payment["_id"]),
+                    idempotency_key=f"pay_success_{payment['_id']}",
+                )
+
+                NotificationService.create_notification(
+                    db=db,
+                    recipient_user_id=str(payment["doctorUserId"]),
+                    type=NotificationType.APPOINTMENT_CONFIRMED,
+                    title="Appointment Confirmed",
+                    body="A patient has completed payment and confirmed their appointment.",
+                    related_appointment_id=appt_id_str,
+                    related_payment_id=str(payment["_id"]),
+                    idempotency_key=f"doc_confirmed_{payment['_id']}",
+                )
+            except Exception as notif_err:
+                logger.warning("Failed to send payment success notification: %s", notif_err)
+
             return {"status": "success", "appointmentId": appt_id_str}
 
         # Handle payment_intent.payment_failed
@@ -374,6 +404,25 @@ class PaymentService:
                 )
 
             logger.info(f"Payment failed for appointment {appt_id_str}, intent {intent_id}: {error_msg}")
+
+            # Send failure notification safely
+            try:
+                from app.models.notification import NotificationType
+                from app.services.notification_service import NotificationService
+
+                NotificationService.create_notification(
+                    db=db,
+                    recipient_user_id=str(payment["patientUserId"]),
+                    type=NotificationType.PAYMENT_FAILED,
+                    title="Payment Failed",
+                    body="Your payment transaction could not be completed. Please try again to confirm your appointment.",
+                    related_appointment_id=appt_id_str,
+                    related_payment_id=str(payment["_id"]),
+                    idempotency_key=f"pay_failed_{payment['_id']}",
+                )
+            except Exception as notif_err:
+                logger.warning("Failed to send payment failure notification: %s", notif_err)
+
             return {"status": "failed_recorded", "appointmentId": appt_id_str}
 
         return {"status": "ignored", "event_type": event_type}
@@ -433,6 +482,23 @@ class PaymentService:
                             {"_id": ObjectId(appt_id_str)},
                             {"$set": {"status": AppointmentStatus.CONFIRMED.value, "paymentStatus": AppointmentPaymentStatus.PAID.value, "updatedAt": now}},
                         )
+
+                    try:
+                        from app.models.notification import NotificationType
+                        from app.services.notification_service import NotificationService
+
+                        NotificationService.create_notification(
+                            db=db,
+                            recipient_user_id=str(payment["patientUserId"]),
+                            type=NotificationType.PAYMENT_SUCCESS,
+                            title="Payment Successful",
+                            body=f"Your payment of LKR {float(payment.get('amount', 2500)):,.0f} was successful. Your appointment has been confirmed.",
+                            related_appointment_id=appt_id_str,
+                            related_payment_id=str(payment["_id"]),
+                            idempotency_key=f"pay_success_{payment['_id']}",
+                        )
+                    except Exception as fallback_err:
+                        logger.warning("Failed to dispatch fallback payment notification: %s", fallback_err)
                 elif intent.status in ["canceled", "requires_payment_method"]:
                     if intent.last_payment_error:
                         payment_col.update_one(

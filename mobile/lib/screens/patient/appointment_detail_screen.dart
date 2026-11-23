@@ -4,6 +4,7 @@ import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/appointment.dart';
 import '../../services/appointment_service.dart';
+import 'submit_review_dialog.dart';
 
 /// Screen displaying complete details of an appointment for a patient.
 /// Allows cancellation if status is PENDING or CONFIRMED.
@@ -165,6 +166,25 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         SnackBar(
           content: Text(e is ApiException ? e.message : 'Failed to cancel appointment.'),
           backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _promptRateDoctor() async {
+    if (_appointment == null) return;
+    final result = await SubmitReviewDialog.show(
+      context,
+      appointmentId: _appointment!.id,
+      doctorName: _appointment!.doctorName,
+    );
+
+    if (result != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Thank you! Your verified review has been published.'),
+          backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -545,6 +565,31 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                                 onPressed: _isCancelling
                                     ? null
                                     : _promptCancelAppointment,
+                              ),
+                            ),
+                          ],
+
+                          // Rate & Review Doctor Action (Completed Appointments)
+                          if (_appointment!.isCompleted) ...[
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                key: const Key('rate_doctor_button'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.star_rounded, color: Colors.amber),
+                                label: const Text(
+                                  'Rate & Review Doctor',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                                onPressed: _promptRateDoctor,
                               ),
                             ),
                           ],

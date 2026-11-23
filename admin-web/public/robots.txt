@@ -1,0 +1,4 @@
+# MediConnect Administrative Portal
+# Disallow search engine crawlers from indexing private administration endpoints
+User-agent: *
+Disallow: /

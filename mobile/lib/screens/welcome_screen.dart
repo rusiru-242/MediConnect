@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/language_selector_sheet.dart';
 import '../widgets/mediconnect_logo.dart';
 import '../widgets/server_settings_sheet.dart';
 
@@ -42,6 +44,7 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final isLoading = authProvider.isLoading;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -50,6 +53,11 @@ class WelcomeScreen extends StatelessWidget {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.language_rounded),
+            tooltip: l10n?.language ?? 'Language',
+            onPressed: () => LanguageSelectorSheet.show(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.dns_rounded),
             tooltip: 'Server Settings',
             onPressed: () => ServerSettingsSheet.show(context),
@@ -57,14 +65,15 @@ class WelcomeScreen extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Spacer(flex: 2),
+              const SizedBox(height: 16),
               const Center(
-                child: MediConnectLogo(size: 80),
+                child: MediConnectLogo(size: 72),
               ),
               const SizedBox(height: 24),
               const Center(
@@ -90,16 +99,35 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Find trusted doctors, manage appointments, and access healthcare support from one secure place.',
+              Text(
+                l10n?.welcomeSubtitle ?? 'Your trusted digital healthcare companion',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 15,
                   height: 1.5,
                   color: AppTheme.textSecondary,
                 ),
               ),
-              const Spacer(flex: 3),
+              const SizedBox(height: 20),
+
+              // Lightweight First-Launch Language Selector
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    l10n?.chooseLanguage ?? 'Choose Your Language',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const WelcomeLanguageBar(),
+                ],
+              ),
+              const SizedBox(height: 20),
+
               // Login Button
               ElevatedButton(
                 key: const Key('welcome_login_button'),
@@ -108,14 +136,14 @@ class WelcomeScreen extends StatelessWidget {
                     : () {
                         Navigator.of(context).pushNamed('/login');
                       },
-                child: const Text('Login'),
+                child: Text(l10n?.login ?? 'Login'),
               ),
               const SizedBox(height: 12),
               // Create Account Button
               OutlinedButton(
                 key: const Key('welcome_create_account_button'),
                 onPressed: isLoading ? null : () => _onCreateAccountPressed(context),
-                child: const Text('Create Account'),
+                child: Text(l10n?.createAccount ?? 'Create Account'),
               ),
               const SizedBox(height: 20),
               // Divider with OR
@@ -161,7 +189,9 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                       ),
                 label: Text(
-                  isLoading ? 'Connecting...' : 'Continue with Google',
+                  isLoading
+                      ? (l10n?.loading ?? 'Connecting...')
+                      : (l10n?.continueWithGoogle ?? 'Continue with Google'),
                   style: const TextStyle(
                     color: AppTheme.textPrimary,
                     fontWeight: FontWeight.w500,
@@ -173,9 +203,9 @@ class WelcomeScreen extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    'Are you a doctor? ',
-                    style: TextStyle(
+                  Text(
+                    l10n?.areYouADoctor ?? 'Are you a doctor? ',
+                    style: const TextStyle(
                       fontSize: 14,
                       color: AppTheme.textSecondary,
                     ),
@@ -185,9 +215,9 @@ class WelcomeScreen extends StatelessWidget {
                     onTap: isLoading
                         ? null
                         : () => Navigator.of(context).pushNamed('/doctor/register'),
-                    child: const Text(
-                      'Register as a Doctor',
-                      style: TextStyle(
+                    child: Text(
+                      l10n?.registerAsDoctor ?? 'Register as a Doctor',
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.primary,
@@ -196,11 +226,12 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: 16),
             ],
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

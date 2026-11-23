@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo import ASCENDING
 from pymongo.collection import Collection
 from pymongo.database import Database
+from pymongo.errors import PyMongoError
 
 
 class AppointmentStatus(str, Enum):
@@ -70,6 +71,10 @@ class AppointmentDocument(BaseModel):
     cancelledBy: Optional[str] = Field(default=None, description="PATIENT | DOCTOR | ADMIN")
     cancellationReason: Optional[str] = Field(default=None, max_length=500)
 
+    # Reminders and version tracking (for invalidating old reminders upon reschedule)
+    remindersSent: list[str] = Field(default_factory=list)
+    appointmentVersion: int = Field(default=1)
+
     # Audit timestamps (UTC)
     createdAt: datetime = Field(default_factory=utc_now)
     updatedAt: datetime = Field(default_factory=utc_now)
@@ -116,36 +121,46 @@ def create_appointment_indexes(db: Database) -> None:
     # Patient lookup
     collection.create_index(
         [("patientUserId", ASCENDING), ("appointmentDate", ASCENDING), ("startTime", ASCENDING)],
-        name="idx_appt_patient_date",
+        name="idx_appt_patient_date_time",
     )
 
     # Doctor lookup
     collection.create_index(
         [("doctorUserId", ASCENDING), ("appointmentDate", ASCENDING), ("startTime", ASCENDING)],
-        name="idx_appt_doctor_date",
+        name="idx_appt_doctor_date_time",
     )
 
     # Double-booking protection: unique per active slot (excludes CANCELLED)
-    collection.create_index(
-        [
-            ("doctorUserId", ASCENDING),
-            ("appointmentDate", ASCENDING),
-            ("startTime", ASCENDING),
-        ],
-        unique=True,
-        partialFilterExpression={
-            "status": {"$in": [
-                AppointmentStatus.HOLD.value,
-                AppointmentStatus.PENDING.value,
-                AppointmentStatus.CONFIRMED.value,
-                AppointmentStatus.COMPLETED.value,
-            ]}
-        },
-        name="idx_appt_doctor_slot_unique_active",
-    )
+    existing_idx_names = {idx.get("name") for idx in collection.list_indexes()}
+    if "idx_appt_doctor_slot_unique_active" not in existing_idx_names:
+        try:
+            collection.create_index(
+                [
+                    ("doctorUserId", ASCENDING),
+                    ("appointmentDate", ASCENDING),
+                    ("startTime", ASCENDING),
+                ],
+                unique=True,
+                partialFilterExpression={
+                    "status": {"$in": [
+                        AppointmentStatus.HOLD.value,
+                        AppointmentStatus.PENDING.value,
+                        AppointmentStatus.CONFIRMED.value,
+                        AppointmentStatus.COMPLETED.value,
+                    ]}
+                },
+                name="idx_appt_doctor_slot_unique_active",
+            )
+        except PyMongoError as exc:
+            # Code 85 (IndexOptionsConflict) or 86 (IndexKeySpecsConflict): index already active in DB
+            if getattr(exc, "code", None) in (85, 86) or "Index" in str(exc):
+                pass
+            else:
+                raise
 
     # Availability linkage index
-    collection.create_index(
-        [("availabilityId", ASCENDING), ("status", ASCENDING)],
-        name="idx_appt_availability_status",
-    )
+    if "idx_appt_availability_status" not in existing_idx_names:
+        collection.create_index(
+            [("availabilityId", ASCENDING), ("status", ASCENDING)],
+            name="idx_appt_availability_status",
+        )

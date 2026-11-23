@@ -50,8 +50,9 @@ def create_admin():
         print("Error: Admin password must be at least 8 characters.", file=sys.stderr)
         sys.exit(1)
 
-    # Connect to MongoDB
-    client = MongoClient(settings.MONGODB_URI)
+    # Connect to MongoDB using managed DNS resolution
+    from app.config.database import DatabaseManager
+    client = DatabaseManager.get_client()
     db = client[settings.DATABASE_NAME]
     users_collection = db["users"]
 

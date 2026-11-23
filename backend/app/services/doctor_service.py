@@ -1,17 +1,36 @@
 """Doctor service handling profiles, discovery for patients, and availability management."""
 
+import calendar
 from datetime import datetime, timedelta, timezone
 import math
 import re
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo, available_timezones
 from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
+from app.models.appointment import AppointmentStatus
 from app.models.doctor_availability import (
     DoctorAvailabilityDocument,
     get_doctor_availability_collection,
     utc_now,
+)
+from app.models.doctor_weekly_schedule import (
+    DoctorWeeklyScheduleDocument,
+    WeekdaySchedule,
+    WorkingSession,
+    get_doctor_weekly_schedule_collection,
+)
+from app.models.doctor_leave import (
+    DoctorLeaveDocument,
+    LeaveStatus,
+    LeaveType,
+    get_doctor_leave_collection,
+)
+from app.models.doctor_blocked_time import (
+    DoctorBlockedTimeDocument,
+    get_doctor_blocked_time_collection,
 )
 from app.models.doctor_profile import (
     DoctorVerificationStatus,
@@ -19,16 +38,29 @@ from app.models.doctor_profile import (
 )
 from app.models.user import AccountStatus, UserRole
 from app.schemas.doctor import (
+    CalendarDayAppointment,
+    CalendarDayOverview,
+    ConflictingAppointmentSummary,
     CreateAvailabilityRequest,
+    CreateBlockedTimeRequest,
+    CreateLeaveRequest,
     DayAvailabilitySlots,
     DoctorApplicationStatusResponse,
     DoctorAvailabilityResponse,
+    DoctorBlockedTimeResponse,
+    DoctorCalendarOverviewResponse,
     DoctorDetailResponse,
+    DoctorLeaveResponse,
     DoctorListItem,
     DoctorListResponse,
     DoctorSlotsResponse,
+    DoctorWeeklyScheduleResponse,
+    LeaveConflictResponse,
     TimeSlot,
     UpdateAvailabilityRequest,
+    UpdateWeeklyScheduleRequest,
+    WeekdayScheduleSchema,
+    WorkingSessionSchema,
 )
 from app.schemas.user import UserResponseSchema
 
@@ -534,6 +566,673 @@ class DoctorService:
         return {"message": "Doctor availability removed successfully."}
 
     # -------------------------------------------------------------
+    # Phase 54: WEEKLY SCHEDULE, LEAVE & BLOCKED TIME MANAGEMENT
+    # -------------------------------------------------------------
+    @staticmethod
+    def _default_weekdays_config() -> List[Dict[str, Any]]:
+        return [
+            {"day": "monday", "isEnabled": True, "sessions": [{"startTime": "09:00", "endTime": "12:00"}, {"startTime": "14:00", "endTime": "17:00"}]},
+            {"day": "tuesday", "isEnabled": True, "sessions": [{"startTime": "09:00", "endTime": "13:00"}]},
+            {"day": "wednesday", "isEnabled": False, "sessions": []},
+            {"day": "thursday", "isEnabled": True, "sessions": [{"startTime": "09:00", "endTime": "17:00"}]},
+            {"day": "friday", "isEnabled": True, "sessions": [{"startTime": "09:00", "endTime": "12:00"}]},
+            {"day": "saturday", "isEnabled": False, "sessions": []},
+            {"day": "sunday", "isEnabled": False, "sessions": []},
+        ]
+
+    @classmethod
+    def _get_doctor_profile_or_404(cls, db: Database, user_id: str) -> Dict[str, Any]:
+        """Retrieve approved doctor profile by user ID or raise 404/403."""
+        profile = db["doctor_profiles"].find_one({"userId": str(user_id)})
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Doctor profile not found.",
+            )
+        if profile.get("verificationStatus") != DoctorVerificationStatus.APPROVED.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only approved doctors can manage availability.",
+            )
+        return profile
+
+    @classmethod
+    async def get_doctor_weekly_schedule(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+    ) -> DoctorWeeklyScheduleResponse:
+        """Fetch weekly recurring schedule for the authenticated doctor."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can access weekly schedule.")
+
+        profile = cls._get_doctor_profile_or_404(db, str(doctor_user.id))
+        coll = get_doctor_weekly_schedule_collection(db)
+        existing = coll.find_one({"doctorUserId": str(doctor_user.id)})
+
+        if existing:
+            return DoctorWeeklyScheduleResponse(
+                id=str(existing["_id"]),
+                doctorUserId=str(existing["doctorUserId"]),
+                doctorProfileId=str(existing["doctorProfileId"]),
+                timezone=existing.get("timezone", "Asia/Colombo"),
+                slotDurationMinutes=int(existing.get("slotDurationMinutes", 30)),
+                weekdays=[
+                    WeekdayScheduleSchema(
+                        day=w["day"],
+                        isEnabled=w.get("isEnabled", True),
+                        sessions=[
+                            WorkingSessionSchema(startTime=s["startTime"], endTime=s["endTime"])
+                            for s in w.get("sessions", [])
+                        ],
+                    )
+                    for w in existing.get("weekdays", [])
+                ],
+                createdAt=existing.get("createdAt"),
+                updatedAt=existing.get("updatedAt"),
+            )
+
+        # Return default schedule if not yet saved in DB
+        return DoctorWeeklyScheduleResponse(
+            doctorUserId=str(doctor_user.id),
+            doctorProfileId=str(profile["_id"]),
+            timezone="Asia/Colombo",
+            slotDurationMinutes=30,
+            weekdays=[
+                WeekdayScheduleSchema(
+                    day=w["day"],
+                    isEnabled=w["isEnabled"],
+                    sessions=[
+                        WorkingSessionSchema(startTime=s["startTime"], endTime=s["endTime"])
+                        for s in w["sessions"]
+                    ],
+                )
+                for w in cls._default_weekdays_config()
+            ],
+        )
+
+    @classmethod
+    async def update_doctor_weekly_schedule(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        req: UpdateWeeklyScheduleRequest,
+    ) -> DoctorWeeklyScheduleResponse:
+        """Configure or update weekly recurring working hours for the doctor."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can modify weekly schedule.")
+
+        profile = cls._get_doctor_profile_or_404(db, str(doctor_user.id))
+        if profile.get("verificationStatus") != DoctorVerificationStatus.APPROVED.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only approved doctors can update availability.")
+
+        # Timezone validation
+        tz_str = req.timezone or "Asia/Colombo"
+        if tz_str not in available_timezones():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid IANA timezone: {tz_str}")
+
+        # Slot duration validation
+        slot_dur = req.slotDurationMinutes or 30
+        if slot_dur not in ALLOWED_SLOT_DURATIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Slot duration must be one of {sorted(ALLOWED_SLOT_DURATIONS)} minutes.",
+            )
+
+        # Validate weekdays and sessions
+        valid_days = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+        provided_days = {w.day.lower() for w in req.weekdays}
+        if not provided_days.issubset(valid_days):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid weekday name provided.")
+
+        normalized_weekdays = []
+        for w in req.weekdays:
+            day_name = w.day.lower()
+            if not w.isEnabled or not w.sessions:
+                normalized_weekdays.append(WeekdayScheduleSchema(day=day_name, isEnabled=w.isEnabled, sessions=[]))
+                continue
+
+            # Validate each session
+            parsed_sessions = []
+            for s in w.sessions:
+                cls._validate_time_format(s.startTime)
+                cls._validate_time_format(s.endTime)
+                sh, sm = int(s.startTime[:2]), int(s.startTime[3:5])
+                eh, em = int(s.endTime[:2]), int(s.endTime[3:5])
+                start_mins = sh * 60 + sm
+                end_mins = eh * 60 + em
+                if start_mins >= end_mins:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Session start time ({s.startTime}) must be strictly earlier than end time ({s.endTime}) on {day_name}.",
+                    )
+                if (end_mins - start_mins) < slot_dur:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Session duration on {day_name} ({end_mins - start_mins} min) must be at least slot duration ({slot_dur} min).",
+                    )
+                parsed_sessions.append((start_mins, end_mins, s.startTime, s.endTime))
+
+            # Sort sessions by start time and verify non-overlapping
+            parsed_sessions.sort(key=lambda x: x[0])
+            for i in range(len(parsed_sessions) - 1):
+                if parsed_sessions[i][1] > parsed_sessions[i + 1][0]:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Overlapping working sessions on {day_name}: {parsed_sessions[i][2]}-{parsed_sessions[i][3]} and {parsed_sessions[i+1][2]}-{parsed_sessions[i+1][3]}.",
+                    )
+
+            normalized_weekdays.append(
+                WeekdayScheduleSchema(
+                    day=day_name,
+                    isEnabled=True,
+                    sessions=[WorkingSessionSchema(startTime=ps[2], endTime=ps[3]) for ps in parsed_sessions],
+                )
+            )
+
+        coll = get_doctor_weekly_schedule_collection(db)
+        now = utc_now()
+        payload = {
+            "doctorProfileId": str(profile["_id"]),
+            "timezone": tz_str,
+            "slotDurationMinutes": slot_dur,
+            "weekdays": [w.model_dump() for w in normalized_weekdays],
+            "updatedAt": now,
+        }
+        res = coll.find_one_and_update(
+            {"doctorUserId": str(doctor_user.id)},
+            {"$set": payload, "$setOnInsert": {"createdAt": now, "doctorUserId": str(doctor_user.id)}},
+            upsert=True,
+            return_document=True,
+        )
+
+        return DoctorWeeklyScheduleResponse(
+            id=str(res["_id"]),
+            doctorUserId=str(res["doctorUserId"]),
+            doctorProfileId=str(res["doctorProfileId"]),
+            timezone=res.get("timezone", "Asia/Colombo"),
+            slotDurationMinutes=int(res.get("slotDurationMinutes", 30)),
+            weekdays=normalized_weekdays,
+            createdAt=res.get("createdAt"),
+            updatedAt=res.get("updatedAt"),
+        )
+
+    @classmethod
+    async def create_doctor_leave(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        req: CreateLeaveRequest,
+    ) -> Any:
+        """Create a full-day, multi-day, or partial-day leave entry with conflict resolution."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can manage leave.")
+
+        profile = cls._get_doctor_profile_or_404(db, str(doctor_user.id))
+        if profile.get("verificationStatus") != DoctorVerificationStatus.APPROVED.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only approved doctors can apply for leave.")
+
+        # Date validations
+        cls._validate_date_string(req.startDate)
+        cls._validate_date_string(req.endDate)
+        if req.startDate > req.endDate:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Leave start date cannot be after end date.")
+
+        # Partial day validation
+        is_partial = bool(req.startTime or req.endTime)
+        if is_partial:
+            if not (req.startTime and req.endTime):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Partial-day leave requires both start time and end time.")
+            if req.startDate != req.endDate:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Partial-day leave must start and end on the same date.")
+            cls._validate_time_format(req.startTime)
+            cls._validate_time_format(req.endTime)
+            sh, sm = int(req.startTime[:2]), int(req.startTime[3:5])
+            eh, em = int(req.endTime[:2]), int(req.endTime[3:5])
+            if (sh * 60 + sm) >= (eh * 60 + em):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Leave start time must be earlier than end time.")
+
+        # Overlapping leave check (avoid duplicate overlapping active records)
+        leave_coll = get_doctor_leave_collection(db)
+        overlap_query = {
+            "doctorUserId": str(doctor_user.id),
+            "status": LeaveStatus.ACTIVE.value,
+            "startDate": {"$lte": req.endDate},
+            "endDate": {"$gte": req.startDate},
+        }
+        for existing_l in leave_coll.find(overlap_query):
+            ex_start_t = existing_l.get("startTime")
+            ex_end_t = existing_l.get("endTime")
+            # If either is full day, it overlaps
+            if not is_partial or not (ex_start_t and ex_end_t):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Leave overlaps with an existing leave schedule.")
+            # Both are partial day on same date
+            if req.startTime < ex_end_t and req.endTime > ex_start_t:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Partial leave overlaps with an existing partial leave.")
+
+        # Check existing appointment conflicts
+        doctor_profile_id = str(profile["_id"])
+        doctor_id_num = profile.get("doctorId")
+        appt_query = {
+            "$or": [
+                {"doctorUserId": str(doctor_user.id)},
+                {"doctorProfileId": doctor_profile_id},
+                {"doctorId": doctor_id_num},
+            ],
+            "status": {"$in": ["HOLD", "PENDING", "CONFIRMED"]},
+            "appointmentDate": {"$gte": req.startDate, "$lte": req.endDate},
+        }
+        now = utc_now()
+        candidate_appts = list(db["appointments"].find(appt_query))
+        conflicts = []
+        for a in candidate_appts:
+            hold = a.get("holdExpiresAt")
+            paid = a.get("paymentStatus") == "PAID"
+            st = a.get("status")
+            if st in ["HOLD", "PENDING"] and not paid and hold:
+                if hold.tzinfo is None:
+                    hold = hold.replace(tzinfo=timezone.utc)
+                if hold <= now:
+                    continue  # Expired hold is not a conflict
+
+            # If partial day, verify time overlap
+            if is_partial:
+                a_start = a.get("startTime", "00:00")
+                a_end = a.get("endTime", "23:59")
+                if not (a_start < req.endTime and a_end > req.startTime):
+                    continue
+
+            # Fetch patient name for summary
+            p_user = db["users"].find_one({"_id": ObjectId(a["patientUserId"])}) if ObjectId.is_valid(str(a.get("patientUserId"))) else None
+            p_name = (p_user.get("fullName") if p_user else None) or "Patient"
+
+            conflicts.append(
+                ConflictingAppointmentSummary(
+                    appointmentId=str(a["_id"]),
+                    patientName=p_name,
+                    appointmentDate=a.get("appointmentDate", ""),
+                    startTime=a.get("startTime", ""),
+                    endTime=a.get("endTime", ""),
+                    status=a.get("status", ""),
+                )
+            )
+
+        # Conflict resolution policy
+        if conflicts and not req.resolveConflicts:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Leave conflicts with {len(conflicts)} active appointment(s). Explicit resolution required.",
+            )
+
+        # If conflicts exist and resolveConflicts is True: explicitly cancel and notify
+        if conflicts and req.resolveConflicts:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            dr_name = doctor_user.fullName or "Doctor"
+            if not dr_name.startswith("Dr.") and not dr_name.startswith("Dr "):
+                dr_name = f"Dr. {dr_name}"
+
+            for c in conflicts:
+                db["appointments"].update_one(
+                    {"_id": ObjectId(c.appointmentId)},
+                    {
+                        "$set": {
+                            "status": AppointmentStatus.CANCELLED.value,
+                            "cancelledBy": "DOCTOR",
+                            "cancellationReason": f"Doctor on Leave: {req.reason or 'Scheduled leave'}",
+                            "updatedAt": now,
+                        }
+                    },
+                )
+                # Fetch appt doc to get patientUserId
+                appt_doc = db["appointments"].find_one({"_id": ObjectId(c.appointmentId)})
+                if appt_doc and appt_doc.get("patientUserId"):
+                    try:
+                        NotificationService.create_notification(
+                            db=db,
+                            recipient_user_id=str(appt_doc["patientUserId"]),
+                            type=NotificationType.APPOINTMENT_CANCELLED,
+                            title="Appointment Cancelled Due to Doctor Leave",
+                            body=f"Your appointment with {dr_name} on {c.appointmentDate} at {c.startTime} has been cancelled because the doctor is on leave.",
+                            related_appointment_id=c.appointmentId,
+                            idempotency_key=f"leave_cancel_{c.appointmentId}",
+                        )
+                    except Exception as notif_err:
+                        pass
+
+        # Save leave
+        leave_doc = DoctorLeaveDocument(
+            doctorUserId=str(doctor_user.id),
+            doctorProfileId=str(profile["_id"]),
+            leaveType=req.leaveType,
+            startDate=req.startDate,
+            endDate=req.endDate,
+            startTime=req.startTime,
+            endTime=req.endTime,
+            reason=req.reason,
+            status=LeaveStatus.ACTIVE,
+            createdAt=now,
+            updatedAt=now,
+        )
+        res = leave_coll.insert_one(leave_doc.to_mongo_dict())
+        return DoctorLeaveResponse(
+            id=str(res.inserted_id),
+            doctorUserId=str(doctor_user.id),
+            doctorProfileId=str(profile["_id"]),
+            leaveType=req.leaveType,
+            startDate=req.startDate,
+            endDate=req.endDate,
+            startTime=req.startTime,
+            endTime=req.endTime,
+            reason=req.reason,
+            status=LeaveStatus.ACTIVE.value,
+            createdAt=now,
+            updatedAt=now,
+        )
+
+    @classmethod
+    async def list_doctor_leaves(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        status_filter: Optional[str] = None,
+    ) -> List[DoctorLeaveResponse]:
+        """List leave records for the authenticated doctor."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can view leave records.")
+
+        leave_coll = get_doctor_leave_collection(db)
+        q: Dict[str, Any] = {"doctorUserId": str(doctor_user.id)}
+        if status_filter:
+            q["status"] = status_filter.upper()
+
+        records = list(leave_coll.find(q).sort([("startDate", -1)]))
+        return [
+            DoctorLeaveResponse(
+                id=str(r["_id"]),
+                doctorUserId=str(r["doctorUserId"]),
+                doctorProfileId=str(r["doctorProfileId"]),
+                leaveType=r.get("leaveType", "PERSONAL"),
+                startDate=r["startDate"],
+                endDate=r["endDate"],
+                startTime=r.get("startTime"),
+                endTime=r.get("endTime"),
+                reason=r.get("reason"),
+                status=r.get("status", "ACTIVE"),
+                createdAt=r.get("createdAt", utc_now()),
+                updatedAt=r.get("updatedAt", utc_now()),
+            )
+            for r in records
+        ]
+
+    @classmethod
+    async def cancel_doctor_leave(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        leave_id: str,
+    ) -> Dict[str, str]:
+        """Cancel an existing leave record."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can cancel leave.")
+
+        if not ObjectId.is_valid(leave_id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid leave ID format.")
+
+        leave_coll = get_doctor_leave_collection(db)
+        existing = leave_coll.find_one({"_id": ObjectId(leave_id)})
+        if not existing:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Leave record not found.")
+
+        if str(existing.get("doctorUserId")) != str(doctor_user.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this leave record.")
+
+        leave_coll.update_one(
+            {"_id": ObjectId(leave_id)},
+            {"$set": {"status": LeaveStatus.CANCELLED.value, "updatedAt": utc_now()}},
+        )
+        return {"message": "Leave cancelled successfully."}
+
+    @classmethod
+    async def create_doctor_blocked_time(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        req: CreateBlockedTimeRequest,
+    ) -> DoctorBlockedTimeResponse:
+        """Create a blocked time interval for the authenticated doctor."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can block time.")
+
+        profile = cls._get_doctor_profile_or_404(db, str(doctor_user.id))
+        if profile.get("verificationStatus") != DoctorVerificationStatus.APPROVED.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only approved doctors can block time.")
+
+        cls._validate_date_string(req.date)
+        cls._validate_time_format(req.startTime)
+        cls._validate_time_format(req.endTime)
+        sh, sm = int(req.startTime[:2]), int(req.startTime[3:5])
+        eh, em = int(req.endTime[:2]), int(req.endTime[3:5])
+        if (sh * 60 + sm) >= (eh * 60 + em):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start time must be earlier than end time.")
+
+        coll = get_doctor_blocked_time_collection(db)
+        now = utc_now()
+        doc = DoctorBlockedTimeDocument(
+            doctorUserId=str(doctor_user.id),
+            doctorProfileId=str(profile["_id"]),
+            date=req.date,
+            startTime=req.startTime,
+            endTime=req.endTime,
+            reason=req.reason,
+            createdAt=now,
+        )
+        res = coll.insert_one(doc.to_mongo_dict())
+        return DoctorBlockedTimeResponse(
+            id=str(res.inserted_id),
+            doctorUserId=str(doctor_user.id),
+            doctorProfileId=str(profile["_id"]),
+            date=req.date,
+            startTime=req.startTime,
+            endTime=req.endTime,
+            reason=req.reason,
+            createdAt=now,
+        )
+
+    @classmethod
+    async def list_doctor_blocked_times(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        date_filter: Optional[str] = None,
+    ) -> List[DoctorBlockedTimeResponse]:
+        """List blocked time intervals for the doctor."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can view blocked times.")
+
+        coll = get_doctor_blocked_time_collection(db)
+        q: Dict[str, Any] = {"doctorUserId": str(doctor_user.id)}
+        if date_filter:
+            q["date"] = date_filter
+        records = list(coll.find(q).sort([("date", 1), ("startTime", 1)]))
+        return [
+            DoctorBlockedTimeResponse(
+                id=str(r["_id"]),
+                doctorUserId=str(r["doctorUserId"]),
+                doctorProfileId=str(r["doctorProfileId"]),
+                date=r["date"],
+                startTime=r["startTime"],
+                endTime=r["endTime"],
+                reason=r.get("reason"),
+                createdAt=r.get("createdAt", utc_now()),
+            )
+            for r in records
+        ]
+
+    @classmethod
+    async def delete_doctor_blocked_time(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        block_id: str,
+    ) -> Dict[str, str]:
+        """Remove a blocked time interval."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can delete blocked time.")
+
+        if not ObjectId.is_valid(block_id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block ID format.")
+
+        coll = get_doctor_blocked_time_collection(db)
+        existing = coll.find_one({"_id": ObjectId(block_id)})
+        if not existing:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Blocked time record not found.")
+
+        if str(existing.get("doctorUserId")) != str(doctor_user.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this blocked time record.")
+
+        coll.delete_one({"_id": ObjectId(block_id)})
+        return {"message": "Blocked time removed successfully."}
+
+    @classmethod
+    async def get_doctor_calendar_overview(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        month_str: Optional[str] = None,
+    ) -> DoctorCalendarOverviewResponse:
+        """Provide detailed monthly calendar overview with day-by-day status, leaves, blocks, and appointments."""
+        if doctor_user.role != UserRole.DOCTOR.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can access calendar overview.")
+
+        profile = cls._get_doctor_profile_or_404(db, str(doctor_user.id))
+        target_month = month_str.strip() if month_str and month_str.strip() else get_sl_now().strftime("%Y-%m")
+        if not re.match(r"^\d{4}-\d{2}$", target_month):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Month must be in YYYY-MM format.")
+
+        year, month_num = int(target_month[:4]), int(target_month[5:7])
+        num_days = calendar.monthrange(year, month_num)[1]
+        start_date = f"{target_month}-01"
+        end_date = f"{target_month}-{num_days:02d}"
+
+        # Fetch active leaves in this month
+        leave_coll = get_doctor_leave_collection(db)
+        leaves = list(leave_coll.find({
+            "doctorUserId": str(doctor_user.id),
+            "status": LeaveStatus.ACTIVE.value,
+            "startDate": {"$lte": end_date},
+            "endDate": {"$gte": start_date},
+        }))
+
+        # Fetch blocked times in this month
+        block_coll = get_doctor_blocked_time_collection(db)
+        blocks = list(block_coll.find({
+            "doctorUserId": str(doctor_user.id),
+            "date": {"$gte": start_date, "$lte": end_date},
+        }))
+
+        # Fetch appointments in this month
+        appts = list(db["appointments"].find({
+            "doctorUserId": str(doctor_user.id),
+            "appointmentDate": {"$gte": start_date, "$lte": end_date},
+            "status": {"$in": ["HOLD", "PENDING", "CONFIRMED", "COMPLETED"]},
+        }))
+
+        # Fetch generated slots for each day
+        days_overview: List[CalendarDayOverview] = []
+        for day_i in range(1, num_days + 1):
+            curr_date = f"{target_month}-{day_i:02d}"
+            curr_weekday = datetime.strptime(curr_date, "%Y-%m-%d").strftime("%A").lower()
+
+            # Check leave for this day
+            day_leave_doc = None
+            for l in leaves:
+                if l["startDate"] <= curr_date <= l["endDate"]:
+                    day_leave_doc = l
+                    break
+
+            # Check blocked times for this day
+            day_blocks = [
+                DoctorBlockedTimeResponse(
+                    id=str(b["_id"]),
+                    doctorUserId=str(b["doctorUserId"]),
+                    doctorProfileId=str(b["doctorProfileId"]),
+                    date=b["date"],
+                    startTime=b["startTime"],
+                    endTime=b["endTime"],
+                    reason=b.get("reason"),
+                    createdAt=b.get("createdAt", utc_now()),
+                )
+                for b in blocks
+                if b["date"] == curr_date
+            ]
+
+            # Day appointments
+            day_appts = []
+            for a in appts:
+                if a.get("appointmentDate") == curr_date:
+                    p_doc = db["users"].find_one({"_id": ObjectId(a["patientUserId"])}) if ObjectId.is_valid(str(a.get("patientUserId"))) else None
+                    p_name = (p_doc.get("fullName") if p_doc else None) or "Patient"
+                    day_appts.append(
+                        CalendarDayAppointment(
+                            appointmentId=str(a["_id"]),
+                            patientName=p_name,
+                            startTime=a.get("startTime", ""),
+                            endTime=a.get("endTime", ""),
+                            status=a.get("status", ""),
+                        )
+                    )
+
+            # Slots calculation for this day
+            if curr_date < get_sl_today_str():
+                day_slots = []
+            else:
+                day_slots_res = await cls.get_doctor_patient_slots(db, str(profile["_id"]), date_filter=curr_date)
+                day_slots = day_slots_res.slots if hasattr(day_slots_res, "slots") else []
+
+            # Determine Day Status
+            if day_leave_doc and not day_leave_doc.get("startTime"):
+                day_status = "LEAVE"
+            elif day_leave_doc:
+                day_status = "LEAVE"  # Partial leave
+            elif day_blocks and len(day_slots) == 0:
+                day_status = "BLOCKED"
+            elif len(day_slots) > 0:
+                day_status = "AVAILABLE"
+            else:
+                day_status = "UNAVAILABLE"
+
+            days_overview.append(
+                CalendarDayOverview(
+                    date=curr_date,
+                    weekday=curr_weekday,
+                    status=day_status,
+                    availableSlotsCount=len(day_slots),
+                    bookedAppointmentsCount=len(day_appts),
+                    leave=DoctorLeaveResponse(
+                        id=str(day_leave_doc["_id"]),
+                        doctorUserId=str(day_leave_doc["doctorUserId"]),
+                        doctorProfileId=str(day_leave_doc["doctorProfileId"]),
+                        leaveType=day_leave_doc.get("leaveType", "PERSONAL"),
+                        startDate=day_leave_doc["startDate"],
+                        endDate=day_leave_doc["endDate"],
+                        startTime=day_leave_doc.get("startTime"),
+                        endTime=day_leave_doc.get("endTime"),
+                        reason=day_leave_doc.get("reason"),
+                        status=day_leave_doc.get("status", "ACTIVE"),
+                        createdAt=day_leave_doc.get("createdAt", utc_now()),
+                        updatedAt=day_leave_doc.get("updatedAt", utc_now()),
+                    ) if day_leave_doc else None,
+                    blockedTimes=day_blocks,
+                    appointments=day_appts,
+                    slots=day_slots,
+                )
+            )
+
+        return DoctorCalendarOverviewResponse(month=target_month, days=days_overview)
+
+    # -------------------------------------------------------------
     # GENERATE PATIENT-VISIBLE SLOTS
     # -------------------------------------------------------------
     @staticmethod
@@ -586,7 +1285,7 @@ class DoctorService:
         doctor_id: str,
         date_filter: Optional[str] = None,
     ) -> Any:
-        """Generate and return available time slots for an APPROVED doctor, removing booked slots."""
+        """Generate and return available time slots for an APPROVED doctor, removing booked slots, leaves, and blocks."""
         clean_id = doctor_id.strip()
 
         # 1. Verify doctor is APPROVED + ACTIVE
@@ -606,38 +1305,65 @@ class DoctorService:
         if not user or user.get("role") != UserRole.DOCTOR.value or user.get("accountStatus") != AccountStatus.ACTIVE.value:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor not found or not currently active.")
 
-        # 2. Query active availabilities
-        sl_today = get_sl_today_str()
-        avail_query: Dict[str, Any] = {
-            "doctorProfileId": str(profile["_id"]),
-            "isActive": True,
-        }
+        doctor_user_id = str(user["_id"])
+        doctor_profile_id = str(profile["_id"])
 
+        # Fetch weekly schedule if exists
+        weekly_sched = db["doctor_weekly_schedules"].find_one({"doctorUserId": doctor_user_id})
+
+        # Dates to calculate
+        sl_today = get_sl_today_str()
+        dates_to_eval = []
         if date_filter and date_filter.strip():
             clean_date = date_filter.strip()
             DoctorService._validate_date_string(clean_date)
-            avail_query["date"] = clean_date
+            dates_to_eval = [clean_date]
         else:
-            avail_query["date"] = {"$gte": sl_today}
+            # Query all future dates that have legacy records or evaluate next 14 days
+            base_date = get_sl_now().date()
+            future_days = {(base_date + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(14)}
+            legacy_dates = {
+                r["date"]
+                for r in db["doctor_availabilities"].find(
+                    {"doctorProfileId": doctor_profile_id, "isActive": True, "date": {"$gte": sl_today}},
+                    {"date": 1},
+                )
+            }
+            dates_to_eval = sorted(future_days.union(legacy_dates))
 
-        collection = get_doctor_availability_collection(db)
-        avail_records = list(collection.find(avail_query).sort([("date", 1), ("startTime", 1)]))
-
-        # 3. Query active bookings occupying slots for this doctor
-        doctor_user_id = str(user["_id"])
-        appt_query: Dict[str, Any] = {
+        # Fetch active leaves covering dates
+        min_date = dates_to_eval[0]
+        max_date = dates_to_eval[-1]
+        leaves = list(db["doctor_leaves"].find({
             "doctorUserId": doctor_user_id,
-            "status": {"$in": ["HOLD", "PENDING", "CONFIRMED", "COMPLETED"]},
-        }
-        if date_filter and date_filter.strip():
-            appt_query["appointmentDate"] = date_filter.strip()
-        else:
-            appt_query["appointmentDate"] = {"$gte": sl_today}
+            "status": LeaveStatus.ACTIVE.value,
+            "startDate": {"$lte": max_date},
+            "endDate": {"$gte": min_date},
+        }))
 
+        # Fetch blocked times covering dates
+        blocks = list(db["doctor_blocked_times"].find({
+            "doctorUserId": doctor_user_id,
+            "date": {"$gte": min_date, "$lte": max_date},
+        }))
+
+        # Fetch legacy date-specific availability records
+        legacy_coll = get_doctor_availability_collection(db)
+        legacy_records = list(legacy_coll.find({
+            "doctorProfileId": doctor_profile_id,
+            "isActive": True,
+            "date": {"$in": dates_to_eval},
+        }).sort([("startTime", 1)]))
+
+        # Fetch active appointments
         now = datetime.now(timezone.utc)
         active_appts = list(
             db["appointments"].find(
-                appt_query,
+                {
+                    "doctorUserId": doctor_user_id,
+                    "appointmentDate": {"$in": dates_to_eval},
+                    "status": {"$in": ["HOLD", "PENDING", "CONFIRMED", "COMPLETED"]},
+                },
                 {"appointmentDate": 1, "startTime": 1, "status": 1, "holdExpiresAt": 1, "paymentStatus": 1},
             )
         )
@@ -650,32 +1376,92 @@ class DoctorService:
                 if hold.tzinfo is None:
                     hold = hold.replace(tzinfo=timezone.utc)
                 if hold <= now:
-                    continue  # Expired hold does not block slot
+                    continue  # Expired hold
             booked_slots.add((a["appointmentDate"], a["startTime"]))
 
-        # 4. Group and generate slots by date, excluding booked slots
         grouped_slots: Dict[str, List[TimeSlot]] = {}
-        for rec in avail_records:
-            date_key = rec["date"]
-            start_t = rec["startTime"]
-            end_t = rec["endTime"]
-            duration = int(rec.get("slotDurationMinutes", 30))
-            avail_id_str = str(rec["_id"])
+        for d_str in dates_to_eval:
+            # 1. Check full-day leave
+            full_day_leave = False
+            partial_leaves = []
+            for l in leaves:
+                if l["startDate"] <= d_str <= l["endDate"]:
+                    if not l.get("startTime") or not l.get("endTime"):
+                        full_day_leave = True
+                        break
+                    else:
+                        partial_leaves.append((l["startTime"], l["endTime"]))
+            if full_day_leave:
+                grouped_slots[d_str] = []
+                continue
 
-            generated = DoctorService._generate_slots_for_window(
-                date_key, start_t, end_t, duration, availability_id=avail_id_str
-            )
-            # Remove booked slots
-            available_slots = [s for s in generated if (date_key, s.startTime) not in booked_slots]
+            day_blocks = [(b["startTime"], b["endTime"]) for b in blocks if b["date"] == d_str]
 
-            if available_slots:
-                if date_key not in grouped_slots:
-                    grouped_slots[date_key] = []
-                grouped_slots[date_key].extend(available_slots)
+            # 2. Find sessions for this date
+            day_sessions = []
+            # Check legacy availability for this date first
+            date_legacy = [r for r in legacy_records if r["date"] == d_str]
+            if date_legacy:
+                for rec in date_legacy:
+                    day_sessions.append({
+                        "startTime": rec["startTime"],
+                        "endTime": rec["endTime"],
+                        "slotDuration": int(rec.get("slotDurationMinutes", 30)),
+                        "availId": str(rec["_id"]),
+                    })
+            elif weekly_sched:
+                weekday_name = datetime.strptime(d_str, "%Y-%m-%d").strftime("%A").lower()
+                slot_dur = int(weekly_sched.get("slotDurationMinutes", 30))
+                for w in weekly_sched.get("weekdays", []):
+                    if w.get("day") == weekday_name and w.get("isEnabled"):
+                        for s in w.get("sessions", []):
+                            day_sessions.append({
+                                "startTime": s["startTime"],
+                                "endTime": s["endTime"],
+                                "slotDuration": slot_dur,
+                                "availId": str(weekly_sched["_id"]),
+                            })
+
+            # 3. Generate slots for each session
+            day_available_slots: List[TimeSlot] = []
+            for s_info in day_sessions:
+                raw_slots = DoctorService._generate_slots_for_window(
+                    date_str=d_str,
+                    start_time_str=s_info["startTime"],
+                    end_time_str=s_info["endTime"],
+                    slot_duration_mins=s_info["slotDuration"],
+                    availability_id=s_info["availId"],
+                )
+                for slot in raw_slots:
+                    # Filter out partial leave overlaps
+                    slot_in_leave = any(
+                        slot.startTime < pleave[1] and slot.endTime > pleave[0]
+                        for pleave in partial_leaves
+                    )
+                    if slot_in_leave:
+                        continue
+
+                    # Filter out blocked time overlaps
+                    slot_in_block = any(
+                        slot.startTime < pblock[1] and slot.endTime > pblock[0]
+                        for pblock in day_blocks
+                    )
+                    if slot_in_block:
+                        continue
+
+                    # Filter out booked slots
+                    if (d_str, slot.startTime) in booked_slots:
+                        continue
+
+                    day_available_slots.append(slot)
+
+            if day_available_slots or (date_filter and date_filter.strip()):
+                grouped_slots[d_str] = day_available_slots
 
         day_availabilities = [
             DayAvailabilitySlots(date=d, slots=slots)
             for d, slots in sorted(grouped_slots.items(), key=lambda x: x[0])
+            if slots or (date_filter and date_filter.strip())
         ]
 
         if date_filter and date_filter.strip():

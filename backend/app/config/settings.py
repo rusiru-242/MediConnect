@@ -65,6 +65,45 @@ class Settings(BaseModel):
     STRIPE_PUBLISHABLE_KEY: Optional[str] = Field(
         default_factory=lambda: (os.getenv("STRIPE_PUBLISHABLE_KEY") or "").strip() or None
     )
+    FIREBASE_CREDENTIALS_PATH: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("FIREBASE_CREDENTIALS_PATH") or "").strip() or None
+    )
+    FIREBASE_SERVICE_ACCOUNT_JSON: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON") or "").strip() or None
+    )
+    REMINDER_CHECK_INTERVAL_SECONDS: int = Field(
+        default_factory=lambda: int((os.getenv("REMINDER_CHECK_INTERVAL_SECONDS") or "60").strip())
+    )
+    GEMINI_API_KEY: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("GEMINI_API_KEY") or "").strip() or None
+    )
+    GEMINI_MODEL: str = Field(
+        default_factory=lambda: (os.getenv("GEMINI_MODEL") or "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+    )
+    OPENAI_API_KEY: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("OPENAI_API_KEY") or "").strip() or None
+    )
+    OPENAI_MODEL: str = Field(
+        default_factory=lambda: (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip() or "gpt-4o-mini"
+    )
+    AI_TIMEOUT_SECONDS: int = Field(
+        default_factory=lambda: int((os.getenv("AI_TIMEOUT_SECONDS") or "5").strip())
+    )
+    AI_MAX_RECOMMENDATIONS: int = Field(
+        default_factory=lambda: int((os.getenv("AI_MAX_RECOMMENDATIONS") or "10").strip())
+    )
+    ENVIRONMENT: str = Field(
+        default_factory=lambda: (os.getenv("ENVIRONMENT") or "development").strip().lower()
+    )
+    ALLOWED_ORIGINS: str = Field(
+        default_factory=lambda: (os.getenv("ALLOWED_ORIGINS") or "*").strip()
+    )
+    SECURE_HEADERS_ENABLED: bool = Field(
+        default_factory=lambda: (os.getenv("SECURE_HEADERS_ENABLED") or "true").strip().lower() in ("true", "1", "yes")
+    )
+    DOCTOR_PORTAL_URL: str = Field(
+        default_factory=lambda: (os.getenv("DOCTOR_PORTAL_URL") or "https://mediconnect-admin-staging.vercel.app/login").strip()
+    )
 
 
 settings = Settings()

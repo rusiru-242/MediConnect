@@ -86,10 +86,11 @@ def test_admin_doctor_verification_workflow():
 
     # Mark Doctor A email as verified (like after entering OTP)
     db["users"].update_one({"_id": user_a["_id"]}, {"$set": {"emailVerified": True}})
+    db["doctor_profiles"].update_one({"_id": ObjectId(prof_a_id)}, {"$set": {"verificationStatus": "PENDING_ADMIN_APPROVAL"}})
     doc_a_token = create_access_token(doc_a_id, role=UserRole.DOCTOR.value)
     doc_a_headers = {"Authorization": f"Bearer {doc_a_token}"}
 
-    # 4. Register Doctor B (email NOT verified)
+    # 4. Register Doctor B (pending application, will test reject validation in TEST 13)
     doc_b_email = f"dr.b_{timestamp}@mediconnect.lk"
     doc_b_files = {
         "identityDocument": _get_valid_pdf_file(),
@@ -113,6 +114,32 @@ def test_admin_doctor_verification_workflow():
     user_b = db["users"].find_one({"email": doc_b_email})
     profile_b = db["doctor_profiles"].find_one({"userId": str(user_b["_id"])})
     prof_b_id = str(profile_b["_id"])
+
+    # 4b. Register Doctor D (submits application without pre-verifying email, approved directly in TEST 9)
+    doc_d_email = f"dr.d_{timestamp}@mediconnect.lk"
+    doc_d_files = {
+        "identityDocument": _get_valid_pdf_file(),
+        "medicalRegistrationDocument": _get_valid_pdf_file(),
+        "qualificationDocument": _get_valid_pdf_file(),
+    }
+    doc_d_data = {
+        "fullName": "Dr. David Warnakula",
+        "email": doc_d_email,
+        "phone": "0771234504",
+        "password": "DoctorPassword@123",
+        "specialty": "Neurologist",
+        "medicalRegistrationNumber": f"SLMC-D{timestamp % 10000:04d}",
+        "qualifications": "MBBS, MD Neurology",
+        "hospitalOrClinic": "Lanka Hospitals",
+        "experienceYears": 9,
+        "bio": "Neurology specialist.",
+    }
+    reg_d_res = client.post("/api/auth/register-doctor", data=doc_d_data, files=doc_d_files)
+    assert reg_d_res.status_code == 201
+    user_d = db["users"].find_one({"email": doc_d_email})
+    profile_d = db["doctor_profiles"].find_one({"userId": str(user_d["_id"])})
+    prof_d_id = str(profile_d["_id"])
+    doc_d_id = str(user_d["_id"])
 
     # 5. Register Doctor C (will be rejected with reason)
     doc_c_email = f"dr.c_{timestamp}@mediconnect.lk"
@@ -140,6 +167,7 @@ def test_admin_doctor_verification_workflow():
     prof_c_id = str(profile_c["_id"])
     doc_c_id = str(user_c["_id"])
     db["users"].update_one({"_id": user_c["_id"]}, {"$set": {"emailVerified": True}})
+    db["doctor_profiles"].update_one({"_id": ObjectId(prof_c_id)}, {"$set": {"verificationStatus": "PENDING_ADMIN_APPROVAL"}})
     doc_c_token = create_access_token(doc_c_id, role=UserRole.DOCTOR.value)
     doc_c_headers = {"Authorization": f"Bearer {doc_c_token}"}
 
@@ -173,7 +201,7 @@ def test_admin_doctor_verification_workflow():
     detail_a = res_t4.json()
     assert detail_a["fullName"] == "Dr. Alice Perera"
     assert detail_a["specialty"] == "Cardiologist"
-    assert detail_a["verificationStatus"] == "PENDING"
+    assert detail_a["verificationStatus"] in ("PENDING", "PENDING_ADMIN_APPROVAL")
     assert len(detail_a["documents"]) == 3
     # Verify no raw internal filesystem path is leaked
     for doc_meta in detail_a["documents"]:
@@ -226,14 +254,39 @@ def test_admin_doctor_verification_workflow():
     assert res_t8_invalid.status_code == 404
 
     # ---------------------------------------------------------
-    # TEST 9: Approve doctor whose email is not verified -> rejected
+    # TEST 9: Unverified doctor rejected for approval, verified doctor approved
     # ---------------------------------------------------------
-    res_t9 = client.post(f"/api/admin/doctors/{prof_b_id}/approve", headers=admin_headers)
-    assert res_t9.status_code == 400
-    assert "email is not verified" in res_t9.json()["detail"].lower()
+    # Scenario 9: Unverified application cannot be approved by admin (must verify email first)
+    res_t9_unverified = client.post(f"/api/admin/doctors/{prof_d_id}/approve", headers=admin_headers)
+    assert res_t9_unverified.status_code == 400
+    assert "email must be verified" in res_t9_unverified.json()["detail"].lower()
+
+    # Verify unverified Doctor D does not appear in admin PENDING list
+    pending_before = client.get("/api/admin/doctors/applications?status=PENDING", headers=admin_headers).json()
+    assert not any(item["doctorProfileId"] == prof_d_id for item in pending_before)
+
+    # Doctor D completes email OTP verification -> PENDING_ADMIN_APPROVAL
+    db["users"].update_one({"_id": user_d["_id"]}, {"$set": {"emailVerified": True}})
+    db["doctor_profiles"].update_one(
+        {"_id": ObjectId(prof_d_id)},
+        {"$set": {"verificationStatus": "PENDING_ADMIN_APPROVAL"}}
+    )
+
+    # Scenario 10: Verified application now appears in Admin Pending list
+    pending_after = client.get("/api/admin/doctors/applications?status=PENDING", headers=admin_headers).json()
+    assert any(item["doctorProfileId"] == prof_d_id for item in pending_after)
+
+    # Admin approves verified doctor
+    res_t9 = client.post(f"/api/admin/doctors/{prof_d_id}/approve", headers=admin_headers)
+    assert res_t9.status_code == 200
+    assert "approved successfully" in res_t9.json()["message"].lower()
+
+    updated_user_d = db["users"].find_one({"_id": ObjectId(doc_d_id)})
+    assert updated_user_d["accountStatus"] == AccountStatus.ACTIVE.value
+    assert updated_user_d["emailVerified"] is True
 
     # ---------------------------------------------------------
-    # TEST 10: Approve valid pending verified doctor -> APPROVED, ACTIVE, audit set
+    # TEST 10: Approve valid pending doctor -> APPROVED, ACTIVE, audit set
     # ---------------------------------------------------------
     res_t10 = client.post(f"/api/admin/doctors/{prof_a_id}/approve", headers=admin_headers)
     assert res_t10.status_code == 200
@@ -307,3 +360,64 @@ def test_admin_doctor_verification_workflow():
     )
     assert res_t15.status_code == 400
     assert "cannot approve" in res_t15.json()["detail"].lower()
+
+    # ---------------------------------------------------------
+    # TEST 16: Pending doctor attempts to access protected doctor endpoint -> 403
+    # ---------------------------------------------------------
+    db["users"].update_one({"_id": user_b["_id"]}, {"$set": {"emailVerified": True}})
+    doc_b_token = create_access_token(str(user_b["_id"]), role=UserRole.DOCTOR.value)
+    doc_b_headers = {"Authorization": f"Bearer {doc_b_token}"}
+
+    res_t16 = client.get("/api/doctors/me/availability", headers=doc_b_headers)
+    assert res_t16.status_code == 403
+    assert "pending admin approval" in res_t16.json()["detail"].lower()
+
+    # ---------------------------------------------------------
+    # TEST 17: Rejected doctor attempts to access protected doctor endpoint -> 403
+    # ---------------------------------------------------------
+    res_t17 = client.get("/api/doctors/me/availability", headers=doc_c_headers)
+    assert res_t17.status_code == 403
+    assert "not approved" in res_t17.json()["detail"].lower()
+
+    # ---------------------------------------------------------
+    # TEST 18: Approved doctor can access protected doctor endpoints -> 200
+    # ---------------------------------------------------------
+    res_t18 = client.get("/api/doctors/me/availability", headers=doc_a_headers)
+    assert res_t18.status_code == 200
+    assert isinstance(res_t18.json(), list)
+
+    # ---------------------------------------------------------
+    # TEST 19: Duplicate doctor application rejection -> 409
+    # ---------------------------------------------------------
+    dup_files = {
+        "identityDocument": _get_valid_pdf_file(),
+        "medicalRegistrationDocument": _get_valid_pdf_file(),
+        "qualificationDocument": _get_valid_pdf_file(),
+    }
+    dup_data = dict(doc_a_data)
+    dup_data["email"] = f"other_{timestamp}@mediconnect.lk"
+    # Duplicate SLMC registration number
+    res_dup_reg = client.post("/api/auth/register-doctor", data=dup_data, files=dup_files)
+    assert res_dup_reg.status_code == 409
+
+    # ---------------------------------------------------------
+    # TEST 20: Rejected doctor login is rejected with clear non-sensitive message
+    # ---------------------------------------------------------
+    res_t20 = client.post("/api/auth/login", json={"email": doc_c_email, "password": "DoctorPassword@123"})
+    assert res_t20.status_code == 403
+    assert "not approved" in res_t20.json()["detail"].lower()
+
+    # ---------------------------------------------------------
+    # TEST 21: Approved doctor, Patient, and Admin login succeed
+    # ---------------------------------------------------------
+    res_t21_doc = client.post("/api/auth/login", json={"email": doc_a_email, "password": "DoctorPassword@123"})
+    assert res_t21_doc.status_code == 200
+    assert "accessToken" in res_t21_doc.json()
+
+    res_t21_patient = client.post("/api/auth/login", json={"email": patient_email, "password": "PatientSecure@123"})
+    assert res_t21_patient.status_code == 200
+    assert "accessToken" in res_t21_patient.json()
+
+    res_t21_admin = client.post("/api/auth/login", json={"email": admin_email, "password": "AdminSecure@123"})
+    assert res_t21_admin.status_code == 200
+    assert "accessToken" in res_t21_admin.json()

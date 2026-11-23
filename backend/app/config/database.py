@@ -26,6 +26,8 @@ class DatabaseManager:
                     import dns.resolver
 
                     resolver = dns.resolver.get_default_resolver()
+                    resolver.lifetime = 25.0
+                    resolver.timeout = 10.0
                     resolver.nameservers = ["8.8.8.8", "1.1.1.1"] + [
                         ns for ns in resolver.nameservers if ns not in ["8.8.8.8", "1.1.1.1"]
                     ]
@@ -68,26 +70,60 @@ def get_database() -> Database:
 def ensure_indexes(db: Optional[Database] = None) -> bool:
     """Create required MongoDB indexes for users, refresh tokens, and password resets."""
     from app.models.appointment import create_appointment_indexes
+    from app.models.booking_session import create_booking_session_indexes
     from app.models.doctor_availability import create_doctor_availability_indexes
     from app.models.doctor_profile import create_doctor_profile_indexes
+    from app.models.health_chat import create_health_chat_indexes
+    from app.models.medication_reminder import create_medication_reminder_indexes
+    from app.models.medical_record import create_medical_record_indexes
+    from app.models.notification import create_notification_indexes
     from app.models.password_reset import create_password_reset_indexes
     from app.models.payment import create_payment_indexes
+    from app.models.health_content import create_health_content_indexes
+    from app.models.prescription import create_prescription_indexes
+    from app.models.review import create_review_indexes
     from app.models.token import create_token_indexes
     from app.models.user import create_user_indexes
+    from app.models.doctor_weekly_schedule import create_doctor_weekly_schedule_indexes
+    from app.models.doctor_leave import create_doctor_leave_indexes
+    from app.models.doctor_blocked_time import create_doctor_blocked_time_indexes
+    from app.models.care_plan import create_care_plan_indexes
+    from app.models.consultation import create_consultation_indexes
 
-    try:
-        target_db = db if db is not None else DatabaseManager.get_database()
-        create_user_indexes(target_db)
-        create_token_indexes(target_db)
-        create_password_reset_indexes(target_db)
-        create_doctor_profile_indexes(target_db)
-        create_doctor_availability_indexes(target_db)
-        create_appointment_indexes(target_db)
-        create_payment_indexes(target_db)
-        return True
-    except (ConnectionError, ConnectionFailure, PyMongoError) as exc:
-        logger.warning("Could not create MongoDB indexes at this time: %s", type(exc).__name__)
-        return False
+    index_creators = [
+        ("users", create_user_indexes),
+        ("tokens", create_token_indexes),
+        ("password_resets", create_password_reset_indexes),
+        ("doctor_profiles", create_doctor_profile_indexes),
+        ("doctor_availabilities", create_doctor_availability_indexes),
+        ("doctor_weekly_schedules", create_doctor_weekly_schedule_indexes),
+        ("doctor_leaves", create_doctor_leave_indexes),
+        ("doctor_blocked_times", create_doctor_blocked_time_indexes),
+        ("care_plans", create_care_plan_indexes),
+        ("consultation_sessions", create_consultation_indexes),
+        ("appointments", create_appointment_indexes),
+        ("payments", create_payment_indexes),
+        ("notifications", create_notification_indexes),
+        ("booking_sessions", create_booking_session_indexes),
+        ("health_chat", create_health_chat_indexes),
+        ("medical_records", create_medical_record_indexes),
+        ("prescriptions", create_prescription_indexes),
+        ("medication_reminders", create_medication_reminder_indexes),
+        ("reviews", create_review_indexes),
+        ("health_content", create_health_content_indexes),
+    ]
+
+    target_db = db if db is not None else DatabaseManager.get_database()
+    all_success = True
+
+    for collection_name, creator in index_creators:
+        try:
+            creator(target_db)
+        except (ConnectionError, ConnectionFailure, PyMongoError) as exc:
+            logger.warning("Could not create MongoDB indexes for '%s': %s (%s)", collection_name, type(exc).__name__, exc)
+            all_success = False
+
+    return all_success
 
 
 def check_database_connection() -> Dict[str, Any]:

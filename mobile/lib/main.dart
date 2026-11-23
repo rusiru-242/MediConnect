@@ -6,28 +6,50 @@ import 'package:provider/provider.dart';
 
 import 'core/constants/api_constants.dart';
 import 'core/theme/app_theme.dart';
-import 'providers/admin_provider.dart';
+import 'l10n/app_localizations.dart';
 import 'providers/auth_provider.dart';
-import 'screens/admin/admin_dashboard_screen.dart';
-import 'screens/admin/doctor_applications_screen.dart';
+import 'providers/locale_provider.dart';
+import 'providers/notification_provider.dart';
+import 'providers/theme_provider.dart';
+import 'screens/auth/admin_access_blocked_screen.dart';
 import 'screens/auth/create_account_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/doctor/add_availability_screen.dart';
+import 'screens/doctor/consultation_details_screen.dart';
+import 'screens/doctor/create_care_plan_screen.dart';
 import 'screens/doctor/doctor_application_status_screen.dart';
 import 'screens/doctor/doctor_appointment_detail_screen.dart';
 import 'screens/doctor/doctor_appointments_screen.dart';
+import 'screens/doctor/doctor_consultations_screen.dart';
 import 'screens/doctor/doctor_home_screen.dart';
 import 'screens/doctor/doctor_registration_screen.dart';
+import 'screens/doctor/doctor_schedule_screen.dart';
 import 'screens/doctor/manage_availability_screen.dart';
+import 'screens/notifications/notifications_screen.dart';
+import 'screens/patient/ai_booking_assistant_screen.dart';
+import 'screens/patient/ai_care_assistant_screen.dart';
+import 'screens/patient/ai_doctor_recommendation_screen.dart';
+import 'screens/patient/ai_health_assistant_screen.dart';
 import 'screens/patient/appointment_detail_screen.dart';
+import 'screens/patient/healthcare_timeline_screen.dart';
+import 'screens/patient/medical_records_screen.dart';
+import 'screens/patient/medication_reminders_screen.dart';
+import 'screens/patient/patient_care_plans_screen.dart';
+import 'screens/patient/patient_visit_detail_screen.dart';
+
 import 'screens/patient/doctor_detail_screen.dart';
 import 'screens/patient/find_doctor_screen.dart';
+import 'screens/patient/health_wellness_screen.dart';
 import 'screens/patient/my_appointments_screen.dart';
+import 'screens/patient/my_reviews_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
+import 'screens/patient/patient_profile_screen.dart';
 import 'screens/patient/payment_history_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
+import 'services/fcm_service.dart';
+import 'services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +57,8 @@ void main() async {
   // Initialize Stripe SDK on supported native mobile platforms only (Android / iOS).
   // MediConnect currently targets Android for Stripe testing.
   // Native flutter_stripe is skipped cleanly on web to prevent MissingPluginException.
-  final isNativeStripeSupported = !kIsWeb &&
+  final isNativeStripeSupported =
+      !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
@@ -45,12 +68,22 @@ void main() async {
       await Stripe.instance.applySettings();
     } catch (e, stackTrace) {
       // Do not swallow genuine native Stripe initialization failures silently
-      debugPrint('CRITICAL: Failed to initialize Stripe on native platform: $e\n$stackTrace');
+      debugPrint(
+        'CRITICAL: Failed to initialize Stripe on native platform: $e\n$stackTrace',
+      );
       rethrow;
     }
   } else {
-    debugPrint('Stripe native initialization skipped cleanly on unsupported platform.');
+    debugPrint(
+      'Stripe native initialization skipped cleanly on unsupported platform.',
+    );
   }
+
+  // Initialize Firebase Cloud Messaging safely (graceful fallback if unconfigured)
+  await FcmService().initialize();
+
+  // Initialize Local Notifications for Medication Reminders (Phase 22)
+  await LocalNotificationService().initialize();
 
   // Set system UI overlay style for modern look
   SystemChrome.setSystemUIOverlayStyle(
@@ -64,7 +97,9 @@ void main() async {
   await ApiConstants.initialize();
 
   if (kDebugMode) {
-    debugPrint('[ApiConfig] Active API Base URL: ${ApiConstants.baseUrl} (Host: ${ApiConstants.hostBaseUrl})');
+    debugPrint(
+      '[ApiConfig] Active API Base URL: ${ApiConstants.baseUrl} (Host: ${ApiConstants.hostBaseUrl})',
+    );
   }
 
   runApp(const MediConnectApp());
@@ -78,41 +113,91 @@ class MediConnectApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthProvider>(
-          create: (_) => AuthProvider(),
-        ),
-        ChangeNotifierProvider<AdminProvider>(
-          create: (_) => AdminProvider(),
+        ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider<LocaleProvider>(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
+        ChangeNotifierProvider<NotificationProvider>(
+          create: (_) => NotificationProvider(),
         ),
       ],
-      child: MaterialApp(
-        title: 'MediConnect',
+      child: Consumer2<ThemeProvider, LocaleProvider>(
+        builder: (context, themeProvider, localeProvider, _) => MaterialApp(
+          locale: localeProvider.locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeProvider.themeMode,
+          title: 'MediConnect',
+        navigatorKey: FcmService().navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         initialRoute: '/',
+        onGenerateRoute: (settings) {
+          // Route guard & deep-link interception (Phase 32)
+          // Admin functions are solely accessible via the React Web Admin Portal.
+          if (settings.name != null && settings.name!.startsWith('/admin')) {
+            return MaterialPageRoute(
+              builder: (context) => const AdminAccessBlockedScreen(),
+              settings: settings,
+            );
+          }
+          return null;
+        },
         routes: {
           '/': (context) => const SplashScreen(),
           '/welcome': (context) => const WelcomeScreen(),
           '/register': (context) => const CreateAccountScreen(),
           '/forgot-password': (context) => const ForgotPasswordScreen(),
           '/login': (context) => const LoginScreen(),
+          '/notifications': (context) => const NotificationsScreen(),
           '/patient/home': (context) => const PatientHomeScreen(),
+          '/patient/profile': (context) => const PatientProfileScreen(),
+          '/patient/ai-assistant': (context) => const AiCareAssistantScreen(),
+          '/patient/ai-care-assistant': (context) =>
+              const AiCareAssistantScreen(),
+          '/patient/ai-companion': (context) => const AiCareAssistantScreen(),
+          '/patient/ai-recommendations': (context) =>
+              const AiDoctorRecommendationScreen(),
+          '/patient/ai-booking': (context) => const AiBookingAssistantScreen(),
+          '/patient/ai-health-chat': (context) =>
+              const AiHealthAssistantScreen(),
           '/patient/find-doctor': (context) => const FindDoctorScreen(),
+          '/patient/medical-records': (context) => const MedicalRecordsScreen(),
+          '/patient/medication-reminders': (context) =>
+              const MedicationRemindersScreen(),
+          '/medication-reminders': (context) =>
+              const MedicationRemindersScreen(),
+          '/patient/care-plans': (context) => const PatientCarePlansScreen(),
+          '/patient/timeline': (context) => const HealthcareTimelineScreen(),
+          '/patient/visit-detail': (context) => const PatientVisitDetailScreen(appointmentId: ''),
+
           '/patient/doctor-detail': (context) => const DoctorDetailScreen(),
+          '/patient/health-wellness': (context) => const HealthWellnessScreen(),
           '/patient/my-appointments': (context) => const MyAppointmentsScreen(),
-          '/patient/appointment-detail': (context) => const AppointmentDetailScreen(),
+          '/patient/my-reviews': (context) => const MyReviewsScreen(),
+          '/patient/appointment-detail': (context) =>
+              const AppointmentDetailScreen(),
           '/patient/payments': (context) => const PaymentHistoryScreen(),
           '/doctor/register': (context) => const DoctorRegistrationScreen(),
-          '/doctor/application-status': (context) => const DoctorApplicationStatusScreen(),
+          '/doctor/application-status': (context) =>
+              const DoctorApplicationStatusScreen(),
           '/doctor/home': (context) => const DoctorHomeScreen(),
           '/doctor/appointments': (context) => const DoctorAppointmentsScreen(),
-          '/doctor/appointment-detail': (context) => const DoctorAppointmentDetailScreen(),
-          '/doctor/manage-availability': (context) => const ManageAvailabilityScreen(),
-          '/doctor/add-availability': (context) => const AddAvailabilityScreen(),
-          '/admin/dashboard': (context) => const AdminDashboardScreen(),
-          '/admin/doctor-applications': (context) => const DoctorApplicationsScreen(),
+          '/doctor/appointment-detail': (context) =>
+              const DoctorAppointmentDetailScreen(),
+          '/doctor/schedule': (context) => const DoctorScheduleScreen(),
+          '/doctor/consultation-detail': (context) =>
+              const ConsultationDetailsScreen(appointmentId: ''),
+          '/doctor/create-care-plan': (context) =>
+              const CreateCarePlanScreen(),
+          '/doctor/consultations': (context) =>
+              const DoctorConsultationsScreen(),
+          '/doctor/manage-availability': (context) =>
+              const ManageAvailabilityScreen(),
+          '/doctor/add-availability': (context) =>
+              const AddAvailabilityScreen(),
         },
       ),
-    );
+    ));
   }
 }

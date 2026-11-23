@@ -9,6 +9,7 @@ import 'package:mediconnect/providers/auth_provider.dart';
 import 'package:mediconnect/screens/auth/login_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_application_status_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_home_screen.dart';
+import 'package:mediconnect/screens/doctor/doctor_application_submitted_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_registration_screen.dart';
 import 'package:mediconnect/screens/welcome_screen.dart';
 import 'package:mediconnect/services/auth_api_service.dart';
@@ -215,11 +216,11 @@ void main() {
 
       expect(find.text('Application Under Review'), findsOneWidget);
       expect(
-        find.text('Your email has been verified and your doctor application has been submitted successfully.'),
+        find.text('Your doctor application has been submitted successfully and is currently under administrative review.'),
         findsOneWidget,
       );
       expect(
-        find.text('Our team will review your professional information and verification documents.'),
+        find.text('Our medical administration team is reviewing your professional information and verification documents. Once approved, you will receive an approval email with your registration details and portal login link.'),
         findsOneWidget,
       );
       expect(find.text('Status: Pending'), findsOneWidget);
@@ -323,6 +324,334 @@ void main() {
 
       expect(authProvider.isAuthenticated, isFalse);
       expect(find.byType(WelcomeScreen), findsOneWidget);
+    });
+    testWidgets('TEST 19: DoctorApplicationSubmittedScreen displays waiting notice, submitted details and login navigation',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      final authProvider = AuthProvider(authApiService: mockService);
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorApplicationSubmittedScreen(
+          fullName: 'Kamal Perera',
+          email: 'kamal.p@doctor.lk',
+          phone: '0771234567',
+          specialty: 'Cardiologist',
+          medicalRegistrationNumber: 'SLMC-987654',
+          hospitalOrClinic: 'Colombo National Hospital',
+          autoRedirect: false,
+        ),
+        authProvider: authProvider,
+      ));
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Your Application Is Under Review'), findsOneWidget);
+      expect(find.text('Pending Admin Approval'), findsWidgets);
+      expect(
+        find.text('Thank you for registering with MediConnect! Your email has been verified successfully. Your doctor registration application has been submitted for admin review. We will notify you once your application has been reviewed.'),
+        findsOneWidget,
+      );
+      expect(find.text('Awaiting Administrative Review'), findsOneWidget);
+      expect(find.text('Pending Review'), findsOneWidget);
+      expect(find.text('Dr. Kamal Perera'), findsOneWidget);
+      expect(find.text('kamal.p@doctor.lk'), findsOneWidget);
+      expect(find.text('SLMC-987654'), findsOneWidget);
+      expect(find.text('Cardiologist'), findsOneWidget);
+      expect(find.text('Colombo National Hospital'), findsOneWidget);
+      expect(find.byKey(const Key('submitted_back_to_login_button')), findsOneWidget);
+      expect(find.byKey(const Key('submitted_back_to_home_button')), findsOneWidget);
+
+      // Scroll and tap Back to Login
+      await tester.ensureVisible(find.byKey(const Key('submitted_back_to_login_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('submitted_back_to_login_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
+    testWidgets('TEST 20: DoctorApplicationSubmittedScreen automatically redirects to Login screen after delay',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      final authProvider = AuthProvider(authApiService: mockService);
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorApplicationSubmittedScreen(
+          fullName: 'Nimali Senanayake',
+          email: 'nimali@doctor.lk',
+          phone: '0779876543',
+          specialty: 'Dermatologist',
+          medicalRegistrationNumber: 'SLMC-123456',
+          hospitalOrClinic: 'Kandy National Hospital',
+          redirectDelay: Duration(seconds: 3),
+        ),
+        authProvider: authProvider,
+      ));
+
+      expect(find.byType(DoctorApplicationSubmittedScreen), findsOneWidget);
+      expect(find.text('Thank You for Your Application!'), findsOneWidget);
+
+      // Advance clock past the 3-second redirect delay
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      // Verified redirect to Login screen
+      expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
+    testWidgets('TEST 21: DoctorHomeScreen intercepts pending doctor and redirects to Application Status screen',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      mockService.currentStatus = DoctorApplicationStatus(
+        doctorId: 'DOC-999999',
+        specialty: 'Surgeon',
+        verificationStatus: 'PENDING',
+        submittedAt: DateTime.parse('2026-10-01T10:00:00Z'),
+        rejectionReason: null,
+      );
+
+      final authProvider = AuthProvider(authApiService: mockService);
+      authProvider.setSessionForTesting(const AuthSession(
+        message: 'Doctor authenticated',
+        accessToken: 'access_doc_token',
+        refreshToken: 'refresh_doc_token',
+        expiresIn: 3600,
+        user: UserModel(
+          id: 'doc_pending',
+          fullName: 'Kasun Bandara',
+          email: 'kasun@doctor.lk',
+          role: 'DOCTOR',
+          emailVerified: true,
+          accountStatus: 'PENDING',
+          authProviders: ['LOCAL'],
+        ),
+      ));
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorHomeScreen(),
+        authProvider: authProvider,
+      ));
+
+      await tester.pumpAndSettle();
+
+      // Guard redirects pending doctor away from DoctorHomeScreen to status screen
+      expect(find.byType(DoctorApplicationStatusScreen), findsOneWidget);
+      expect(find.text('Your doctor registration is pending admin approval.'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('TEST 22: DoctorRegistrationScreen progresses to Step 3 documents with all 3 upload targets',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      final authProvider = AuthProvider(authApiService: mockService);
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorRegistrationScreen(),
+        authProvider: authProvider,
+      ));
+
+      // Step 1: Personal
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Full Name (with Dr. prefix)'),
+        'Dr. Jayani Perera',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Email Address'),
+        'jayani@example.com',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Mobile Phone'),
+        '0771234567',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Password'),
+        'SecurePassword123!',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Confirm Password'),
+        'SecurePassword123!',
+      );
+
+      await tester.tap(find.byKey(const Key('doctor_reg_continue_button')));
+      await tester.pumpAndSettle();
+
+      // Step 2: Professional
+      expect(find.text('Professional Information'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('doctor_specialty_select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cardiologist').last);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('doctor_med_reg_num_input')),
+        'SLMC-78901',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_qualifications_input')),
+        'MBBS (Colombo), MD (Cardiology)',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_hospital_clinic_input')),
+        'National Hospital Colombo',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_experience_years_input')),
+        '10',
+      );
+
+      await tester.tap(find.byKey(const Key('doctor_reg_continue_button')));
+      await tester.pumpAndSettle();
+
+      // Step 3: Documents
+      expect(find.text('Verification Documents'), findsOneWidget);
+      expect(find.text('1. Identity Document'), findsOneWidget);
+      expect(find.text('2. Medical Registration Document'), findsOneWidget);
+      expect(find.text('3. Qualification Certificate'), findsOneWidget);
+
+      expect(find.byKey(const Key('identity_doc_picker')), findsOneWidget);
+      expect(find.byKey(const Key('med_reg_doc_picker')), findsOneWidget);
+      expect(find.byKey(const Key('qual_doc_picker')), findsOneWidget);
+      expect(find.byKey(const Key('identity_doc_picker_sample_btn')), findsOneWidget);
+      expect(find.byKey(const Key('med_reg_doc_picker_sample_btn')), findsOneWidget);
+      expect(find.byKey(const Key('qual_doc_picker_sample_btn')), findsOneWidget);
+    });
+
+    testWidgets('TEST 23: DoctorRegistrationScreen attaches sample documents and advances to Step 4 Review',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockService = MockDoctorAuthApiService();
+      final authProvider = AuthProvider(authApiService: mockService);
+
+      await tester.pumpWidget(buildTestApp(
+        child: const DoctorRegistrationScreen(),
+        authProvider: authProvider,
+      ));
+
+      // Step 1: Personal
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Full Name (with Dr. prefix)'),
+        'Dr. Jayani Perera',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Email Address'),
+        'jayani@example.com',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Mobile Phone'),
+        '0771234567',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Password'),
+        'Password123!',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Confirm Password'),
+        'Password123!',
+      );
+
+      await tester.tap(find.byKey(const Key('doctor_reg_continue_button')));
+      await tester.pumpAndSettle();
+
+      // Step 2: Professional
+      await tester.tap(find.byKey(const Key('doctor_specialty_select')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cardiologist').last);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('doctor_med_reg_num_input')),
+        'SLMC-98765',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_qualifications_input')),
+        'MBBS, MD (Cardiology)',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_hospital_clinic_input')),
+        'National Hospital',
+      );
+      await tester.enterText(
+        find.byKey(const Key('doctor_experience_years_input')),
+        '10',
+      );
+
+      await tester.tap(find.byKey(const Key('doctor_reg_continue_button')));
+      await tester.pumpAndSettle();
+
+      // Step 3: Attach sample documents
+      expect(find.text('Verification Documents'), findsOneWidget);
+      expect(find.byKey(const Key('identity_doc_picker_sample_btn')), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('identity_doc_picker_sample_btn')));
+      await tester.tap(find.byKey(const Key('identity_doc_picker_sample_btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('med_reg_doc_picker_sample_btn')));
+      await tester.tap(find.byKey(const Key('med_reg_doc_picker_sample_btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('qual_doc_picker_sample_btn')));
+      await tester.tap(find.byKey(const Key('qual_doc_picker_sample_btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      // All 3 documents should now show 'Change' button
+      expect(find.text('Change'), findsNWidgets(3));
+
+      // Clear any snackbar before clicking continue button
+      ScaffoldMessenger.of(tester.element(find.byType(Scaffold))).clearSnackBars();
+      await tester.pumpAndSettle();
+
+      // Advance to Step 4: Review
+      await tester.tap(find.byKey(const Key('doctor_reg_continue_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Review Your Application'), findsOneWidget);
+      expect(find.text('Personal Details'), findsOneWidget);
+      expect(find.text('Professional Details'), findsOneWidget);
+      expect(find.text('Attached Documents'), findsOneWidget);
+      expect(find.text('Dr. Jayani Perera'), findsOneWidget);
+      expect(find.text('SLMC-98765'), findsOneWidget);
+      expect(find.text('Submit Application'), findsOneWidget);
     });
   });
 }

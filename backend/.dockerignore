@@ -1,0 +1,36 @@
+# Git and IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Python cache & virtual environment
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.pytest_cache/
+
+# Tests & Test Coverage
+tests/
+.coverage
+htmlcov/
+
+# Local Environment Secrets & Sensitive Files
+.env
+.env.*
+!.env.production.example
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
+*service-account*.json
+firebase-adminsdk*.json
+
+# User Uploads and Temporary Files
+uploads/
+*.pdf
+scratch/

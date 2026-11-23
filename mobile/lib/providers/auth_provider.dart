@@ -11,6 +11,7 @@ import '../models/auth_session.dart';
 import '../models/doctor_application_status.dart';
 import '../models/user_model.dart';
 import '../services/auth_api_service.dart';
+import '../services/fcm_service.dart';
 import '../services/google_auth_service.dart';
 
 enum AuthStatus {
@@ -48,8 +49,19 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
+  /// Error message displayed when an Admin account attempts mobile login or session restoration.
+  static const String adminWebOnlyMessage =
+      'Admin accounts are supported on the MediConnect Web Admin Portal. Please sign in through the web portal.';
+
   @visibleForTesting
   void setSessionForTesting(AuthSession session) {
+    if (session.user.role == 'ADMIN') {
+      _user = null;
+      _status = AuthStatus.unauthenticated;
+      _errorMessage = adminWebOnlyMessage;
+      notifyListeners();
+      return;
+    }
     _user = session.user;
     _status = AuthStatus.authenticated;
     notifyListeners();
@@ -83,9 +95,22 @@ class AuthProvider extends ChangeNotifier {
       // Token exists, verify with backend GET /api/auth/me
       // Note: ApiClient handles automatic refresh rotation on 401 if refresh token is available
       final user = await _authApiService.getCurrentUser();
+
+      // Phase 32: Mobile app is strictly for Patients and Doctors.
+      // If an Admin account session is detected, safely clear mobile tokens and reject session.
+      if (user.role == 'ADMIN') {
+        await _storageService.clearAll();
+        _user = null;
+        _status = AuthStatus.unauthenticated;
+        _errorMessage = adminWebOnlyMessage;
+        notifyListeners();
+        return;
+      }
+
       _user = user;
       _status = AuthStatus.authenticated;
       await _storageService.saveUserJson(jsonEncode(user.toJson()));
+      FcmService().syncTokenWithBackend().catchError((_) {});
       notifyListeners();
     } on AuthException {
       // Token is invalid/expired and refresh failed
@@ -99,7 +124,16 @@ class AuthProvider extends ChangeNotifier {
       if (cachedJson != null) {
         try {
           final decoded = jsonDecode(cachedJson) as Map<String, dynamic>;
-          _user = UserModel.fromJson(decoded);
+          final cachedUser = UserModel.fromJson(decoded);
+          if (cachedUser.role == 'ADMIN') {
+            await _storageService.clearAll();
+            _user = null;
+            _status = AuthStatus.unauthenticated;
+            _errorMessage = adminWebOnlyMessage;
+            notifyListeners();
+            return;
+          }
+          _user = cachedUser;
           _status = AuthStatus.authenticated;
           notifyListeners();
           return;
@@ -132,6 +166,18 @@ class AuthProvider extends ChangeNotifier {
         password: password,
       );
 
+      // Phase 32: Mobile app is strictly for Patients and Doctors.
+      // Admin accounts are supported exclusively on the React Web Admin Portal.
+      if (session.user.role == 'ADMIN') {
+        await _storageService.clearAll();
+        _user = null;
+        _status = AuthStatus.unauthenticated;
+        _errorMessage = adminWebOnlyMessage;
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
       // Store tokens securely
       await _storageService.saveTokens(
         accessToken: session.accessToken,
@@ -143,6 +189,7 @@ class AuthProvider extends ChangeNotifier {
 
       _user = session.user;
       _status = AuthStatus.authenticated;
+      FcmService().syncTokenWithBackend().catchError((_) {});
 
       if (_user?.role == 'DOCTOR') {
         try {
@@ -201,6 +248,17 @@ class AuthProvider extends ChangeNotifier {
         idToken: idToken,
       );
 
+      // Phase 32: Mobile app is strictly for Patients and Doctors.
+      if (session.user.role == 'ADMIN') {
+        await _storageService.clearAll();
+        _user = null;
+        _status = AuthStatus.unauthenticated;
+        _errorMessage = adminWebOnlyMessage;
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
       // Store tokens securely in MediConnect storage
       await _storageService.saveTokens(
         accessToken: session.accessToken,
@@ -212,6 +270,7 @@ class AuthProvider extends ChangeNotifier {
 
       _user = session.user;
       _status = AuthStatus.authenticated;
+      FcmService().syncTokenWithBackend().catchError((_) {});
       _isLoading = false;
       notifyListeners();
       return true;
@@ -496,6 +555,9 @@ class AuthProvider extends ChangeNotifier {
         }
       }
     } finally {
+      // Remove FCM device token on logout so device stops receiving push notifications
+      await FcmService().removeTokenOnLogout().catchError((_) {});
+
       // Clear Google sign-in session to allow re-selection of account on subsequent sign-in
       await _googleAuthService.signOut();
 

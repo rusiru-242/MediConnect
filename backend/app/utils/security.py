@@ -71,6 +71,7 @@ def decode_access_token(token: str) -> Dict[str, Any]:
             token,
             settings.JWT_SECRET,
             algorithms=[settings.JWT_ALGORITHM],
+            options={"require": ["exp", "iat", "sub", "role"]},
         )
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -96,6 +97,13 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token subject.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not payload.get("role") or not isinstance(payload.get("role"), str):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token role.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

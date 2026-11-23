@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
 from pymongo.database import Database
 
 from app.config.database import get_database
@@ -29,6 +29,13 @@ from app.schemas.auth import (
 from app.schemas.doctor import DoctorRegisterResponse
 from app.schemas.user import UserResponseSchema
 from app.services.auth_service import AuthService
+from app.utils.rate_limiter import (
+    auth_login_limiter,
+    auth_otp_limiter,
+    auth_password_reset_limiter,
+    auth_register_limiter,
+    get_client_ip,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -42,9 +49,11 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 )
 def register_patient(
     payload: PatientRegisterRequest,
+    request: Request,
     db: Database = Depends(get_database),
 ) -> PatientRegisterResponse:
     """Handle patient registration."""
+    auth_register_limiter.check(get_client_ip(request))
     return AuthService.register_patient(payload, db)
 
 
@@ -56,6 +65,7 @@ def register_patient(
     description="Submits doctor personal details, professional qualifications, and verification documents as multipart/form-data.",
 )
 async def register_doctor(
+    request: Request,
     fullName: str = Form(..., description="Doctor's full name"),
     email: str = Form(..., description="Doctor's email address"),
     phone: str = Form(..., description="Doctor's phone number"),
@@ -72,6 +82,7 @@ async def register_doctor(
     db: Database = Depends(get_database),
 ) -> DoctorRegisterResponse:
     """Handle doctor registration with document uploads."""
+    auth_register_limiter.check(get_client_ip(request))
     return await AuthService.register_doctor(
         full_name=fullName,
         email=email,
@@ -114,9 +125,11 @@ def verify_email(
 )
 def resend_verification(
     payload: ResendVerificationRequest,
+    request: Request,
     db: Database = Depends(get_database),
 ) -> ResendVerificationResponse:
     """Handle resending verification code."""
+    auth_otp_limiter.check(get_client_ip(request))
     return AuthService.resend_verification(payload, db)
 
 
@@ -129,9 +142,11 @@ def resend_verification(
 )
 def login(
     payload: LoginRequest,
+    request: Request,
     db: Database = Depends(get_database),
 ) -> LoginResponse:
     """Handle user login and session initialization."""
+    auth_login_limiter.check(get_client_ip(request))
     return AuthService.login(payload, db)
 
 
@@ -188,9 +203,11 @@ def logout(
 )
 def forgot_password(
     payload: ForgotPasswordRequest,
+    request: Request,
     db: Database = Depends(get_database),
 ) -> ForgotPasswordResponse:
     """Handle password reset request."""
+    auth_password_reset_limiter.check(get_client_ip(request))
     return AuthService.forgot_password(payload, db)
 
 
@@ -203,9 +220,11 @@ def forgot_password(
 )
 def verify_reset_otp(
     payload: VerifyResetOtpRequest,
+    request: Request,
     db: Database = Depends(get_database),
 ) -> VerifyResetOtpResponse:
     """Handle verification of password reset OTP."""
+    auth_password_reset_limiter.check(get_client_ip(request))
     return AuthService.verify_reset_otp(payload, db)
 
 

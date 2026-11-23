@@ -1,0 +1,22 @@
+# Git and IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Node modules and build output
+node_modules/
+dist/
+.eslintcache
+
+# Tests and temporary files
+src/test/
+*.test.ts
+*.test.tsx
+.coverage/
+coverage/
+
+# Local Environment Secrets
+.env
+.env.*
+!.env.example
