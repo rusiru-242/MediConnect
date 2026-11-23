@@ -420,6 +420,9 @@ class AppointmentService:
         page: int = 1,
         limit: int = 20,
         status_filter: Optional[str] = None,
+        *,
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None,
     ) -> AppointmentListResponse:
         """Return paginated appointment history for the authenticated patient."""
         if patient_user.role != UserRole.PATIENT.value:
@@ -436,6 +439,9 @@ class AppointmentService:
                 raise HTTPException(status_code=400, detail=f"Invalid status filter: {status_filter}.")
             query["status"] = clean
 
+        bounds = {op: value for op, value in (("$gte", from_date), ("$lte", to_date)) if value}
+        if bounds:
+            query["appointmentDate"] = bounds
         collection = get_appointment_collection(db)
         total = collection.count_documents(query)
         cursor = (

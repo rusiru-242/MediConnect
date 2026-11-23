@@ -537,6 +537,18 @@ def extract_date(text: str) -> Optional[str]:
         except ValueError:
             pass
 
+    months = ("january february march april may june july august september october november december").split()
+    month_day = re.search(r"\b(" + "|".join(months) + r")\s+(\d{1,2})(?:st|nd|rd|th)?\b", text_lower)
+    if month_day:
+        month = months.index(month_day[1]) + 1
+        try:
+            target = sl_today.replace(month=month, day=int(month_day[2]))
+            if target < sl_today:
+                target = target.replace(year=target.year + 1)
+            return target.isoformat()
+        except ValueError:
+            return None
+
     # 2. Relative dates in English and Sinhala
     if "today" in text_lower or "අද" in text:
         return sl_today.strftime("%Y-%m-%d")
@@ -544,7 +556,7 @@ def extract_date(text: str) -> Optional[str]:
     if "day after tomorrow" in text_lower or "අනිද්දා" in text:
         return (sl_today + timedelta(days=2)).strftime("%Y-%m-%d")
 
-    if "tomorrow" in text_lower or "හෙට" in text:
+    if re.search(r"\b(?:tomorrow|heta|hetta)\b", text_lower) or "හෙට" in text:
         return (sl_today + timedelta(days=1)).strftime("%Y-%m-%d")
 
     # 3. Days of the week (e.g., "this friday", "next monday", "සිකුරාදා")
@@ -557,6 +569,22 @@ def extract_date(text: str) -> Optional[str]:
             return (sl_today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
     return None
+
+
+def extract_appointment_time(text: str) -> Optional[str]:
+    match = re.search(
+        r"\b(?:(hawasa|havasa|ude)\s+)?(\d{1,2})(?::([0-5]\d))?\s*(am|pm|ta)\b",
+        text.casefold(),
+    )
+    if not match or not 1 <= int(match[2]) <= 12:
+        return None
+    period = match[4] if match[4] != "ta" else (
+        "pm" if match[1] in {"hawasa", "havasa"} else "am" if match[1] == "ude" else None
+    )
+    if period is None:
+        return None
+    hour = int(match[2]) % 12 + (12 if period == "pm" else 0)
+    return f"{hour:02d}:{int(match[3] or 0):02d}"
 
 
 def extract_time_range(text: str) -> Optional[str]:

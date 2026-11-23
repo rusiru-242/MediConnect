@@ -87,6 +87,11 @@ class GeminiAIProvider(AIProvider):
         self.timeout_seconds = timeout_seconds
         self.fallback = DeterministicNLPProvider()
 
+    def tool_turn(self, system, messages, tools, exchanges):
+        from app.agents.tool_provider import provider_turn
+
+        return provider_turn(self, system, messages, tools, exchanges, gemini=True)
+
     def parse_request(
         self,
         query: str,
@@ -196,6 +201,11 @@ class OpenAIAIProvider(AIProvider):
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.fallback = DeterministicNLPProvider()
+
+    def tool_turn(self, system, messages, tools, exchanges):
+        from app.agents.tool_provider import provider_turn
+
+        return provider_turn(self, system, messages, tools, exchanges)
 
     def parse_request(
         self,

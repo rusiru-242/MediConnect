@@ -1,6 +1,5 @@
 """Conversational AI Health Assistant Agent with safety-first triage and doctor referrals."""
 
-from datetime import datetime, timezone
 import json
 import logging
 import re
@@ -8,7 +7,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from bson import ObjectId
 from pymongo.database import Database
 
-from app.agents.ai_provider import get_ai_provider
 from app.agents.symptom_triage import (
     SymptomTriageEngine,
     TriageLevel,
@@ -18,7 +16,7 @@ from app.models.doctor_profile import DoctorVerificationStatus
 from app.models.health_chat import utc_now
 from app.models.specialty import DoctorSpecialty, SUPPORTED_SPECIALTIES
 from app.models.user import AccountStatus, UserRole
-from app.services.doctor_service import DoctorService, get_sl_today_str
+from app.services.doctor_service import DoctorService
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +187,7 @@ class HealthAssistantAgent:
                 if llm_res:
                     return llm_res
             except Exception as e:
-                logger.warning("Gemini health assistant call failed: %s. Using deterministic fallback.", e)
+                logger.warning("Gemini health assistant call failed: %s. Using deterministic fallback.", type(e).__name__)
 
         # Use robust deterministic fallback
         return cls._generate_deterministic_fallback(clean_text, lang, triage_level, detected_spec)
@@ -358,7 +356,6 @@ class HealthAssistantAgent:
             active_users = {str(u["_id"]): u for u in users_cursor}
 
         cards: List[Dict[str, Any]] = []
-        today_str = get_sl_today_str()
 
         for p in profiles:
             uid_str = str(p.get("userId", ""))
@@ -368,20 +365,11 @@ class HealthAssistantAgent:
 
             doc_id = str(p.get("doctorId", p.get("_id", "")))
 
-            # Attempt to fetch next available slot
-            next_slot_str = None
-            try:
-                avail_doc = db["doctor_availability"].find_one({
-                    "doctorId": doc_id,
-                    "date": {"$gte": today_str},
-                    "slots": {"$elemMatch": {"isBooked": False}},
-                })
-                if avail_doc:
-                    unbooked = [s for s in avail_doc.get("slots", []) if not s.get("isBooked")]
-                    if unbooked:
-                        next_slot_str = f"{avail_doc.get('date')} at {unbooked[0].get('startTime')}"
-            except Exception:
-                pass
+            result = await DoctorService.get_doctor_patient_slots(db, doc_id)
+            days = result if isinstance(result, list) else [result]
+            next_slot_str = next(
+                (f"{day.date} at {day.slots[0].startTime}" for day in days if day.slots), None,
+            )
 
             cards.append({
                 "doctorId": doc_id,

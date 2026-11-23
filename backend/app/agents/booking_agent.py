@@ -17,7 +17,10 @@ from app.agents.nlp_parser import (
     detect_language,
     check_urgency,
     parse_query_deterministically,
+    extract_appointment_time,
 )
+from app.agents.orchestrator import AIOrchestrator
+from app.agents.symptom_triage import SymptomTriageEngine, TriageLevel
 from app.config.settings import settings
 from app.models.booking_session import (
     ALLOWED_STATE_TRANSITIONS,
@@ -72,6 +75,7 @@ class BookingAgent:
         image_bytes: Optional[bytes] = None,
         image_filename: Optional[str] = None,
         image_url: Optional[str] = None,
+        patient_user=None,
     ) -> Dict[str, Any]:
         """Process a user conversational turn, update preferences, and transition state."""
         clean_text = user_message.strip()
@@ -81,7 +85,9 @@ class BookingAgent:
 
         # 1. Emergency symptom check
         is_urgent, urgency_reason = check_urgency(clean_text)
-        if is_urgent:
+        triage, triage_reason, _ = SymptomTriageEngine.classify_triage_pre_check(clean_text, "en")
+        if is_urgent or triage == TriageLevel.EMERGENCY:
+            urgency_reason = urgency_reason or triage_reason
             session_data["isUrgent"] = True
             session_data["urgencyReason"] = urgency_reason
             detected = detect_language(clean_text)
@@ -122,12 +128,31 @@ class BookingAgent:
             candidate_count=len(session_data.get("candidateDoctors") or []),
         )
         parsed_delta = parse_query_deterministically(clean_text)
-        if intent in {CompanionIntent.FIND_DOCTOR, CompanionIntent.BOOK_APPOINTMENT}:
+        provider = get_ai_provider()
+        if patient_user and not (image_url or image_bytes) and re.search(
+            r"\b(?:appointment status|booking status|mage booking|heta mata appointment|my appointments|my care tasks)\b",
+            clean_text, re.I,
+        ):
+            return await cls._patient_status_turn(db, patient_user, provider, session_data, clean_text)
+        requested_time = extract_appointment_time(clean_text)
+        if intent == CompanionIntent.FIND_DOCTOR and requested_time and parsed_delta.get("date"):
+            intent = CompanionIntent.BOOK_APPOINTMENT
+        if re.search(r"\b(?:neurolgist|neurolagist|dermatolgist|cardiolagist)\b", clean_text, re.I):
+            session_data.setdefault("messages", []).extend([
+                {"id": str(ObjectId()), "sender": "user", "content": clean_text, "timestamp": utc_now()},
+                {"id": str(ObjectId()), "sender": "assistant", "content": "Which specialty did you mean? Please confirm the name.",
+                 "timestamp": utc_now(), "metadata": {"type": "clarification_needed"}},
+            ])
+            return session_data
+        if not patient_user and intent in {CompanionIntent.FIND_DOCTOR, CompanionIntent.BOOK_APPOINTMENT}:
             try:
                 parsed_delta, _ = await asyncio.wait_for(
-                    asyncio.to_thread(get_ai_provider().parse_request, query=clean_text, explicit_filters={}),
+                    asyncio.to_thread(provider.parse_request, query=clean_text, explicit_filters={}),
                     timeout=settings.AI_TIMEOUT_SECONDS + 1,
                 )
+                local_date = parse_query_deterministically(clean_text).get('date')
+                if local_date:
+                    parsed_delta['date'] = local_date
             except Exception as exc:
                 logger.warning("Booking preference extraction failed (%s).", type(exc).__name__)
 
@@ -147,6 +172,7 @@ class BookingAgent:
         )
         search_requested = (
             intent == CompanionIntent.FIND_DOCTOR
+            or (intent == CompanionIntent.BOOK_APPOINTMENT and bool(parsed_delta.get("specialty") or parsed_delta.get("city")))
             or filter_only
             or any(parsed_delta.get(key) for key in ("doctorName", "hospital"))
             or (parsed_delta.get("specialty") and parsed_delta.get("language") == "si")
@@ -158,6 +184,9 @@ class BookingAgent:
                 key: parsed_delta[key]
                 for key in ("doctorName", "hospital") if parsed_delta.get(key)
             }
+
+        if requested_time:
+            prefs["requestedTime"] = requested_time
 
         # Merge extracted preferences into session (incremental accumulation)
         if parsed_delta.get("specialty"):
@@ -485,7 +514,7 @@ class BookingAgent:
 
         # 7. Check if user mentioned a doctor (by name or ordinal: 'second doctor', 'doctor 1', etc.)
         matched_doctor = None
-        if not selected_doctor and candidate_doctors and intent == CompanionIntent.BOOK_APPOINTMENT:
+        if not selected_doctor and candidate_doctors and not search_requested and intent == CompanionIntent.BOOK_APPOINTMENT:
             ordinal = parsed_delta.get("ordinalDoctorIndex")
             if ordinal is not None and 0 <= ordinal < len(candidate_doctors):
                 matched_doctor = candidate_doctors[ordinal]
@@ -589,19 +618,47 @@ class BookingAgent:
 
         # 10. Doctor Discovery Search (specialty, symptoms, or location specified)
         if search_requested:
-            session_data["activeIntent"] = CompanionIntent.FIND_DOCTOR.value
+            session_data["activeIntent"] = intent.value if intent == CompanionIntent.BOOK_APPOINTMENT else CompanionIntent.FIND_DOCTOR.value
             target_state = BookingAgentState.SEARCHING_DOCTORS.value
             if validate_state_transition(current_state, target_state):
                 session_data["state"] = target_state
 
-            doctors = await cls._search_candidate_doctors(db, prefs)
+            slots_by_doctor = {}
+            grounded_reply = None
+            result = None
+            if patient_user:
+                filters = {
+                    key: prefs[source] for key, source in (
+                        ("specialty", "specialty"), ("city", "city"), ("name", "doctorName"),
+                        ("hospital", "hospital"), ("max_fee", "maxFee"),
+                    ) if prefs.get(source) is not None
+                }
+                result = await AIOrchestrator(db, patient_user, provider).run_search(
+                    clean_text, session_data, filters, prefs.get("date"), prefs.get("requestedTime"),
+                )
+            if result is None:
+                doctors = await cls._search_candidate_doctors(db, prefs)
+            else:
+                doctors, slots_by_doctor, grounded_reply = result
+            if prefs.get("date"):
+                for doctor in doctors:
+                    doctor_id = doctor["doctorId"]
+                    if doctor_id not in slots_by_doctor:
+                        slots_by_doctor[doctor_id] = {
+                            "slots": await cls._fetch_available_slots(
+                                db, doctor_id, prefs["date"], preferred_time=prefs.get("requestedTime"),
+                            ),
+                        }
+                    doctor["availableSlots"] = slots_by_doctor[doctor_id]["slots"]
+                    doctor["requestedTime"] = prefs.get("requestedTime")
+                    doctor["requestedDate"] = prefs["date"]
             session_data["candidateDoctors"] = doctors
 
             if doctors:
                 next_state = BookingAgentState.AWAITING_DOCTOR_SELECTION.value
                 if validate_state_transition(session_data["state"], next_state):
                     session_data["state"] = next_state
-                assistant_msg = cls._build_doctor_options_message(doctors, prefs, lang)
+                assistant_msg = grounded_reply if grounded_reply and lang == 'en' else cls._build_doctor_options_message(doctors, prefs, lang)
                 session_data["messages"].append({
                     "id": str(ObjectId()),
                     "sender": "assistant",
@@ -648,6 +705,42 @@ class BookingAgent:
     # -------------------------------------------------------------------------
     # DATABASE SEARCH HELPERS
     # -------------------------------------------------------------------------
+    @classmethod
+    async def _patient_status_turn(cls, db, user, provider, session, text):
+        appointment_query = bool(re.search(r"\b(?:heta mata appointment|my appointments)\b", text, re.I))
+        care_query = "my care tasks" in text.casefold()
+        if care_query:
+            tool = "get_patient_care_tasks"
+        elif appointment_query:
+            tool = "get_patient_appointments"
+        else:
+            tool = "get_booking_session_status"
+        args = {"session_id": str(session.get("_id", ""))}
+        if appointment_query:
+            date = parse_query_deterministically(text).get("date")
+            args = {"from_date": date, "to_date": date}
+        if care_query:
+            args = {}
+        result = await AIOrchestrator(db, user, provider).execute(tool, args, {tool})
+        session["activeIntent"] = tool.upper()
+        if result.get("error"):
+            reply = "I couldn?t read your booking status. Open My Appointments to check."
+        elif care_query:
+            count = len(result["tasks"])
+            reply = f"I found {count} tasks in your active care plans. Open your care plan for details."
+        elif appointment_query:
+            count = len(result["appointments"])
+            reply = f"I found {count} appointment records for that search. Open My Appointments for details."
+        else:
+            state = result["booking_state"].replace("_", " ").lower()
+            reply = f"Your booking session status is {state}."
+        session["messages"].extend([
+            {"id": str(ObjectId()), "sender": "user", "content": text, "timestamp": utc_now()},
+            {"id": str(ObjectId()), "sender": "assistant", "content": reply, "timestamp": utc_now(),
+             "metadata": {"type": "booking_status", "error_code": result.get("error")}},
+        ])
+        return session
+
     @classmethod
     async def _search_candidate_doctors(
         cls,
@@ -802,6 +895,8 @@ class BookingAgent:
         db: Database,
         doctor_id: str,
         preferred_date: Optional[str] = None,
+        *,
+        preferred_time: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Retrieve real discrete unbooked slots for doctor."""
         try:
@@ -836,6 +931,12 @@ class BookingAgent:
                     "endTime": getattr(s, "endTime", ""),
                 })
 
+        if preferred_date and preferred_time:
+            hour, minute = map(int, preferred_time.split(":"))
+            target = hour * 60 + minute
+            slots.sort(key=lambda slot: abs(
+                int(slot["startTime"][:2]) * 60 + int(slot["startTime"][3:]) - target
+            ))
         return slots[:12]
 
     # -------------------------------------------------------------------------

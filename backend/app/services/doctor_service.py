@@ -120,6 +120,11 @@ class DoctorService:
         limit: int = 20,
         search: Optional[str] = None,
         specialty: Optional[str] = None,
+        *,
+        city: Optional[str] = None,
+        hospital: Optional[str] = None,
+        max_fee: Optional[float] = None,
+        specialty_variants: bool = False,
     ) -> DoctorListResponse:
         """List and search ONLY verified, approved, and active doctors for patients.
 
@@ -137,7 +142,18 @@ class DoctorService:
 
         if specialty and specialty.strip() and specialty.strip().lower() != "all":
             clean_spec = specialty.strip()
-            profile_query["specialty"] = {"$regex": f"^{re.escape(clean_spec)}$", "$options": "i"}
+            pattern = f"^{re.escape(clean_spec)}$"
+            if specialty_variants and clean_spec.casefold().endswith(("gist", "gy")):
+                stem = clean_spec[:-4] if clean_spec.casefold().endswith("gist") else clean_spec[:-2]
+                pattern = f"^{re.escape(stem)}"
+            profile_query["specialty"] = {"$regex": pattern, "$options": "i"}
+        if city:
+            location = {"$regex": re.escape(city), "$options": "i"}
+            profile_query["$or"] = [{"city": location}, {"hospitalOrClinic": location}]
+        if hospital:
+            profile_query["hospitalOrClinic"] = {"$regex": re.escape(hospital), "$options": "i"}
+        if max_fee is not None:
+            profile_query["consultationFee"] = {"$type": "number", "$lte": max_fee}
 
         # 3. Query all approved profiles matching specialty filter (newest first)
         profiles = list(db["doctor_profiles"].find(profile_query).sort([("_id", -1)]))
@@ -188,7 +204,8 @@ class DoctorService:
                     doctorId=str(p.get("doctorId", "")),
                     fullName=full_name,
                     specialty=spec or "Specialty not listed",
-                    hospitalOrClinic=hospital,
+                    hospitalOrClinic=p.get("hospitalOrClinic") or "",
+                    city=p.get("city"),
                     experienceYears=int(p.get("experienceYears") or 0),
                     consultationFee=p.get("consultationFee"),
                     bio=p.get("bio"),
@@ -263,6 +280,7 @@ class DoctorService:
             specialty=profile.get("specialty") or "Specialty not listed",
             qualifications=profile.get("qualifications") or "",
             hospitalOrClinic=profile.get("hospitalOrClinic") or "",
+            city=profile.get("city"),
             experienceYears=int(profile.get("experienceYears") or 0),
             consultationFee=profile.get("consultationFee"),
             bio=profile.get("bio"),

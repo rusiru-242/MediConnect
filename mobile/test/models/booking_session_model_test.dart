@@ -3,6 +3,26 @@ import 'package:mediconnect/models/booking_session.dart';
 
 void main() {
   group('BookingSession Model Tests', () {
+    test('Reads date-specific doctor cards from a structured assistant reply', () {
+      final session = BookingSession.fromJson({
+        'id': 'chat',
+        'assistantResponse': {
+          'doctor_cards': [
+            {
+              'doctorId': 'DOC-1',
+              'requestedDate': '2027-12-05',
+              'requestedTime': '16:00',
+              'availableSlots': [
+                {'date': '2027-12-05', 'startTime': '16:30', 'endTime': '17:00'},
+              ],
+            },
+          ],
+        },
+      });
+      expect(session.assistantDoctorCards.single.requestedTime, '16:00');
+      expect(session.assistantDoctorCards.single.availableSlots.single.startTime, '16:30');
+    });
+
     test('1. Deserializes valid booking session JSON properly', () {
       final json = {
         'id': 'sess_123',

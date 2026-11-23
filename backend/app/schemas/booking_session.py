@@ -22,6 +22,7 @@ class BookingPreferencesSchema(BaseModel):
     city: Optional[str] = None
     date: Optional[str] = None
     timeRange: Optional[str] = None
+    requestedTime: Optional[str] = None
     maxFee: Optional[float] = None
     preferredGender: Optional[str] = None
     symptoms: Optional[str] = None
@@ -58,6 +59,8 @@ class DoctorCardSummary(BaseModel):
     qualifications: Optional[str] = None
     matchScore: Optional[float] = None
     matchReasons: List[str] = Field(default_factory=list)
+    requestedDate: Optional[str] = None
+    requestedTime: Optional[str] = None
     availableSlots: List[SlotCardSummary] = Field(default_factory=list)
 
 
@@ -112,6 +115,18 @@ class BookingSummary(BaseModel):
     currency: str = "lkr"
 
 
+class AssistantResponse(BaseModel):
+    assistant_message: str
+    detected_intent: str
+    conversation_id: Optional[str] = None
+    tool_results: List[Dict[str, Any]] = Field(default_factory=list)
+    doctor_cards: List[DoctorCardSummary] = Field(default_factory=list)
+    availability_slots: List[SlotCardSummary] = Field(default_factory=list)
+    booking_state: Optional[str] = None
+    requires_user_action: bool = False
+    error_code: Optional[str] = None
+
+
 class BookingSessionResponse(BaseModel):
     """Comprehensive response object for a booking session."""
 
@@ -133,6 +148,7 @@ class BookingSessionResponse(BaseModel):
     isUrgent: bool = False
     urgencyReason: Optional[str] = None
     activeIntent: Optional[str] = None
+    assistantResponse: Optional[AssistantResponse] = None
     activeMedicineCard: Optional[MedicineCard] = None
     activeWellnessCard: Optional[WellnessCard] = None
     activeImageAnalysis: Optional[ImageAnalysisResult] = None

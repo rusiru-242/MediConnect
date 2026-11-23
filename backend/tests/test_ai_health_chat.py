@@ -213,8 +213,15 @@ def test_general_info_inquiry(seeded_health_env):
 # ===========================================================================
 # 3. ROUTINE CARE SYMPTOMS & DOCTOR REFERRAL CARDS
 # ===========================================================================
-def test_routine_care_with_doctor_referrals(seeded_health_env):
+def test_routine_care_with_doctor_referrals(seeded_health_env, monkeypatch):
     """Routine mild symptoms classified as routine_care with doctor referral cards."""
+    from unittest.mock import AsyncMock
+    from app.schemas.doctor import DayAvailabilitySlots, TimeSlot
+    from app.services.doctor_service import DoctorService
+
+    day = DayAvailabilitySlots(date="2099-01-02", slots=[TimeSlot(startTime="16:30", endTime="17:00")])
+    slots = AsyncMock(return_value=day)
+    monkeypatch.setattr(DoctorService, "get_doctor_patient_slots", slots)
     headers = {"Authorization": f"Bearer {seeded_health_env['patient_a']['token']}"}
     res = client.post("/api/ai/health-chat/sessions", json={"language": "en"}, headers=headers)
     session_id = res.json()["id"]
@@ -234,6 +241,8 @@ def test_routine_care_with_doctor_referrals(seeded_health_env):
     assert first_referral["fullName"] == "Dr. Kasun Fernando"
     assert first_referral["consultationFee"] == 2000.0
     assert first_referral["specialty"] == "General Physician"
+    assert first_referral["nextAvailableSlot"] == "2099-01-02 at 16:30"
+    assert slots.await_count >= 1
 
 
 # ===========================================================================

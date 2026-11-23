@@ -18,9 +18,10 @@ from app.models.booking_session import (
 )
 from app.models.doctor_profile import DoctorVerificationStatus
 from app.models.user import AccountStatus, UserRole
-from app.schemas.appointment import CancelAppointmentRequest, CreateAppointmentRequest
+from app.schemas.appointment import CreateAppointmentRequest
 from app.schemas.booking_session import (
     BookingPreferencesSchema,
+    AssistantResponse,
     BookingSessionResponse,
     BookingSummary,
     ChatMessageSchema,
@@ -88,6 +89,8 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             matchScore=float(d["matchScore"]) if d.get("matchScore") is not None else None,
             matchReasons=list(d.get("matchReasons") or []),
             availableSlots=slots,
+            requestedDate=d.get("requestedDate"),
+            requestedTime=d.get("requestedTime"),
         )
 
     selected_doc = _map_doctor_card(doc["selectedDoctor"]) if doc.get("selectedDoctor") else None
@@ -130,7 +133,24 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
         for s in doc.get("candidateSlots", [])
     ]
 
+    last = messages[-1] if messages else None
+    structured = None
+    if doc.get("persistent") and last and last.sender == "assistant":
+        metadata = last.metadata or {}
+        cards = [_map_doctor_card(doctor) for doctor in metadata.get("doctors") or []]
+        structured = AssistantResponse(
+            assistant_message=last.content,
+            detected_intent=doc.get("activeIntent") or metadata.get("type") or "FOLLOW_UP",
+            conversation_id=str(doc["_id"]),
+            doctor_cards=cards,
+            availability_slots=candidate_slots or [slot for card in cards for slot in card.availableSlots],
+            tool_results=[{"doctor_count": len(cards)}] if metadata.get("type") in {"doctor_options", "no_results"} else [],
+            error_code=metadata.get("error_code"),
+            booking_state=doc.get("state"),
+            requires_user_action=bool(cards or candidate_slots),
+        )
     return BookingSessionResponse(
+        assistantResponse=structured,
         id=str(doc["_id"]),
         patientUserId=str(doc["patientUserId"]),
         state=doc.get("state", BookingAgentState.COLLECTING_PREFERENCES.value),
@@ -209,6 +229,7 @@ class BookingSessionService:
             initial_dict = await BookingAgent.process_user_turn(
                 db=db,
                 session_data=initial_dict,
+                patient_user=patient_user if persistent else None,
                 user_message=req.initialMessage.strip(),
             )
         else:
@@ -286,6 +307,7 @@ class BookingSessionService:
         updated_dict = await BookingAgent.process_user_turn(
             db=db,
             session_data=doc,
+            patient_user=patient_user if doc.get("persistent") else None,
             user_message=message,
             image_url=req.imageUrl,
         )
@@ -654,23 +676,24 @@ class BookingSessionService:
     ) -> BookingSessionResponse:
         """Cancel the active booking session and release any held appointment."""
         doc = cls._get_session_or_404(db, patient_user, session_id)
-        current_state = doc.get("state")
-
-        # Cancel held appointment if present
         if doc.get("appointmentId"):
-            appt_id = doc["appointmentId"]
-            if ObjectId.is_valid(appt_id):
-                appt = db["appointments"].find_one({"_id": ObjectId(appt_id)})
-                if appt and appt.get("status") in [AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value]:
-                    try:
-                        await AppointmentService.cancel_appointment(
-                            db=db,
-                            patient_user=patient_user,
-                            appointment_id=appt_id,
-                            req=CancelAppointmentRequest(reason="Patient cancelled AI booking session"),
-                        )
-                    except Exception as e:
-                        logger.warning(f"Error cancelling appointment {appt_id} on session cancel: {e}")
+            appointment_id = doc["appointmentId"]
+            if not ObjectId.is_valid(appointment_id):
+                raise HTTPException(409, "The linked appointment could not be verified.")
+            appointment = db["appointments"].find_one({
+                "_id": ObjectId(appointment_id), "patientUserId": str(patient_user.id),
+            })
+            if not appointment:
+                raise HTTPException(404, "The linked appointment could not be found.")
+            if appointment["status"] in {AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value}:
+                await AppointmentService.cancel_patient_appointment(
+                    db=db,
+                    patient_user=patient_user,
+                    appointment_id=appointment_id,
+                    reason="Patient cancelled AI booking session",
+                )
+            elif appointment["status"] != AppointmentStatus.CANCELLED.value:
+                raise HTTPException(409, "Manage this appointment from My Appointments.")
 
         now = utc_now()
         doc["state"] = BookingAgentState.CANCELLED.value
