@@ -30,6 +30,7 @@ from app.routes import (
     patient_timeline_router,
 )
 
+from app.routes.ai_conversations import router as ai_conversations_router
 from app.services.notification_service import NotificationService
 from app.services.care_plan_service import CarePlanService
 
@@ -138,6 +139,7 @@ app.include_router(payment_router, prefix="/api")
 app.include_router(notification_router, prefix="/api")
 app.include_router(ai_recommendations_router, prefix="/api")
 app.include_router(ai_booking_router, prefix="/api")
+app.include_router(ai_conversations_router, prefix="/api")
 app.include_router(ai_health_chat_router, prefix="/api")
 app.include_router(medical_record_router, prefix="/api")
 app.include_router(prescription_router, prefix="/api")

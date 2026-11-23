@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
+from pymongo.errors import DuplicateKeyError
 import stripe
 
 from app.config.settings import settings
@@ -153,12 +154,13 @@ class PaymentService:
 
         payment_col = get_payment_collection(db)
 
-        # 6. Idempotency: Check if an active PENDING payment already exists for this appointment
+        # Reuse the last intent, including an intent that can accept a new card after a decline.
         existing_payment = payment_col.find_one({
             "appointmentId": str(appt_doc["_id"]),
-            "status": PaymentStatus.PENDING.value,
-        })
+            "status": {"$in": [PaymentStatus.PENDING.value, PaymentStatus.FAILED.value]},
+        }, sort=[("createdAt", -1)])
 
+        attempt = "first"
         if existing_payment and existing_payment.get("stripePaymentIntentId"):
             intent_id = existing_payment["stripePaymentIntentId"]
             try:
@@ -177,7 +179,13 @@ class PaymentService:
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="This appointment has already been paid for and confirmed.",
                     )
-                if intent.status in ["requires_payment_method", "requires_confirmation", "requires_action"]:
+                if intent.status in ["requires_payment_method", "requires_confirmation", "requires_action", "processing"]:
+                    if existing_payment["status"] == PaymentStatus.FAILED.value:
+                        payment_col.update_one(
+                            {"_id": existing_payment["_id"], "status": PaymentStatus.FAILED.value},
+                            {"$set": {"status": PaymentStatus.PENDING.value, "updatedAt": now},
+                             "$unset": {"failureReason": ""}},
+                        )
                     return CreatePaymentIntentResponse(
                         paymentIntentClientSecret=intent.client_secret,
                         paymentId=str(existing_payment["_id"]),
@@ -187,11 +195,14 @@ class PaymentService:
                     )
             except HTTPException:
                 raise
-            except Exception as e:
-                logger.warning(f"Could not retrieve existing PaymentIntent {intent_id}: {e}")
+                if intent.status != "canceled":
+                    raise HTTPException(409, "The current payment is still being verified.")
+                attempt = str(existing_payment["_id"])
+            except stripe.error.StripeError as exc:
+                raise HTTPException(502, "Could not verify the existing payment. Please retry.") from exc
 
-        # 7. Create new Stripe PaymentIntent with idempotency key
-        idempotency_key = f"mediconnect_appt_{appt_doc['_id']}_{int(now.timestamp())}"
+        # A retry after a timeout must reuse the same Stripe intent.
+        idempotency_key = f"mediconnect_appt_{appt_doc['_id']}_{attempt}"
         try:
             intent = stripe.PaymentIntent.create(
                 amount=amount_in_cents,
@@ -206,7 +217,7 @@ class PaymentService:
                 idempotency_key=idempotency_key,
             )
         except stripe.error.StripeError as e:
-            logger.error(f"Stripe error creating PaymentIntent: {e}")
+            logger.error("Stripe PaymentIntent creation failed (%s).", type(e).__name__)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Payment gateway communication failed. Please try again.",
@@ -225,13 +236,18 @@ class PaymentService:
             updatedAt=now,
         )
 
-        # Update existing or insert new
-        res = payment_col.insert_one(payment_doc.to_mongo_dict())
-        payment_id = str(res.inserted_id)
+        try:
+            res = payment_col.insert_one(payment_doc.to_mongo_dict())
+            payment_id = str(res.inserted_id)
+        except DuplicateKeyError:
+            existing = payment_col.find_one({"stripePaymentIntentId": intent.id})
+            if not existing or existing["appointmentId"] != str(appt_doc["_id"]):
+                raise
+            payment_id = str(existing["_id"])
 
         # Update appointment payment status to PENDING
         db["appointments"].update_one(
-            {"_id": appt_doc["_id"]},
+            {"_id": appt_doc["_id"], "paymentStatus": {"$ne": AppointmentPaymentStatus.PAID.value}},
             {
                 "$set": {
                     "paymentStatus": AppointmentPaymentStatus.PENDING.value,

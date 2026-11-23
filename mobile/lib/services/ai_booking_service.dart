@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../core/network/api_exceptions.dart';
@@ -10,7 +11,7 @@ class AiBookingService {
   final ApiClient _apiClient;
 
   AiBookingService({ApiClient? apiClient})
-      : _apiClient = apiClient ?? ApiClient();
+    : _apiClient = apiClient ?? ApiClient();
 
   BookingSession _parseSession(dynamic response, String actionDescription) {
     if (response is Map<String, dynamic>) {
@@ -18,7 +19,9 @@ class AiBookingService {
         return BookingSession.fromJson(response);
       } catch (e, stack) {
         if (kDebugMode) {
-          debugPrint('[AiBookingService] Failed to parse BookingSession ($actionDescription): $e\n$stack');
+          debugPrint(
+            '[AiBookingService] Failed to parse BookingSession ($actionDescription): $e\n$stack',
+          );
         }
         throw const ApiException(
           message: 'Unable to process assistant response. Please try again.',
@@ -28,6 +31,38 @@ class AiBookingService {
     throw ApiException(
       message: 'Unexpected server response format while $actionDescription.',
     );
+  }
+
+  static const _conversations = '/ai/conversations';
+
+  Future<List<Map<String, dynamic>>> listConversations({int offset = 0}) async {
+    final response = await _apiClient.get('$_conversations?offset=$offset');
+    return (response as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<BookingSession> createConversation() async {
+    final response = await _apiClient.post(_conversations, body: {});
+    return _parseSession(response, 'starting a conversation');
+  }
+
+  Future<BookingSession> sendConversationMessage(
+    String sessionId,
+    String message,
+    String requestId,
+  ) async {
+    final response = await _apiClient.post(
+      '$_conversations/$sessionId/messages',
+      body: {'message': message, 'requestId': requestId},
+    );
+    return _parseSession(response, 'sending a message');
+  }
+
+  Future<void> renameConversation(String id, String title) async {
+    await _apiClient.patch('$_conversations/$id', body: {'title': title});
+  }
+
+  Future<void> deleteConversation(String id) async {
+    await _apiClient.delete('$_conversations/$id');
   }
 
   /// Create or initiate a new AI Booking session.
@@ -121,6 +156,18 @@ class AiBookingService {
     );
 
     return _parseSession(response, 'sending image message');
+  }
+
+  Future<BookingSession> viewSlots(
+    String sessionId,
+    String doctorId,
+    String date,
+  ) async {
+    final response = await _apiClient.post(
+      ApiConstants.aiBookingSessionSelectDoctorEndpoint(sessionId),
+      body: {'doctorId': doctorId, 'date': date},
+    );
+    return _parseSession(response, 'checking appointment slots');
   }
 
   /// Explicitly select a doctor from recommendation cards.

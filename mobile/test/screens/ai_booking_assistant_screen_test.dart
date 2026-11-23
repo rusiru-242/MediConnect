@@ -28,6 +28,26 @@ class FakeAiBookingService implements AiBookingService {
             );
 
   @override
+  Future<List<Map<String, dynamic>>> listConversations({int offset = 0}) async => [];
+
+  @override
+  Future<BookingSession> createConversation() => createSession();
+
+  @override
+  Future<BookingSession> sendConversationMessage(String sessionId, String message, String requestId) =>
+      sendMessage(sessionId, message);
+
+  @override
+  Future<void> renameConversation(String id, String title) async {}
+
+  @override
+  Future<void> deleteConversation(String id) async {}
+
+  @override
+  Future<BookingSession> viewSlots(String sessionId, String doctorId, String date) =>
+      selectDoctor(sessionId, doctorId);
+
+  @override
   Future<BookingSession> createSession({String? initialMessage}) async {
     return currentSession;
   }

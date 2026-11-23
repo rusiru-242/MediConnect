@@ -81,7 +81,6 @@ DOCTOR_PATTERNS = [
     r"\b(?:gastroenterologist|endocrinologist|oncologist|urologist|nephrologist|pulmonologist|rheumatologist)\b",
     r"\b(?:ent\s+doctor|eye\s+doctor|orthopedic|general\s+practitioner)\b",
     r"\b(?:doctor\s+(?:in|near|around)|hospital|clinic)\b",
-    r"\b(?:near|in|around)\s+(?:colombo|kandy|galle|jaffna|negombo|gampaha|matara|kurunegala|ratnapura|badulla)\b",
     r"\b(?:dosthara|dostara|dothara|doctor\s+kenek|hamba\s+wenna|pennanna)\b",
     r"(?:දොස්තර|වෛද්‍ය|වෛද්‍යවර|හෘද\s*රෝග)",
 ]
@@ -118,17 +117,6 @@ class CompanionIntentClassifier:
         triage_level, _, _ = SymptomTriageEngine.classify_triage_pre_check(clean_q, "en")
         if triage_level == TriageLevel.EMERGENCY:
             return CompanionIntent.EMERGENCY_GUIDANCE
-
-        # 3. Active Booking Flow Continuity (if currently awaiting doctor selection or slot selection)
-        if current_state in ["AWAITING_DOCTOR_SELECTION", "AWAITING_SLOT_SELECTION", "AWAITING_BOOKING_CONFIRMATION"]:
-            # If user explicitly asks an educational question, switch topics!
-            is_asking_food = any(re.search(p, clean_q) for p in FOOD_PATTERNS)
-            is_asking_exercise = any(re.search(p, clean_q) for p in EXERCISE_PATTERNS)
-            is_asking_wellness = any(re.search(p, clean_q) for p in WELLNESS_PATTERNS)
-            is_asking_medicine = any(re.search(p, clean_q) for p in MEDICINE_PATTERNS)
-
-            if not (is_asking_food or is_asking_exercise or is_asking_wellness or is_asking_medicine):
-                return CompanionIntent.BOOK_APPOINTMENT
 
         # 4. Explicit booking intent
         if any(re.search(p, clean_q) for p in BOOKING_PATTERNS):

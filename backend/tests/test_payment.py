@@ -158,7 +158,7 @@ def _book_appointment(db, patient: Dict[str, Any], doctor: Dict[str, Any], avail
         startTime=start_time,
     )
     import asyncio
-    res = asyncio.get_event_loop().run_until_complete(
+    res = asyncio.run(
         AppointmentService.create_appointment(db, patient_schema, req)
     )
     return res.appointment.model_dump()
@@ -297,7 +297,7 @@ class TestStripePaymentBackend:
         import asyncio
         from fastapi import HTTPException
         with pytest.raises(HTTPException) as exc:
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 AppointmentService.create_appointment(db, p2_schema, req2)
             )
         assert exc.value.status_code == 409
@@ -612,6 +612,10 @@ class TestStripePaymentBackend:
                 d1 = r1.json()
                 assert mock_create.call_count == 1
 
+                db["payments"].update_one(
+                    {"_id": ObjectId(d1["paymentId"])},
+                    {"$set": {"status": PaymentStatus.FAILED.value}},
+                )
                 # Second request reuses the existing PaymentIntent without creating another
                 r2 = client.post(
                     "/api/payments/create-intent",

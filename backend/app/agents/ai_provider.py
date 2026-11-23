@@ -184,7 +184,7 @@ class GeminiAIProvider(AIProvider):
             return extracted, "gemini"
 
         except Exception as exc:
-            logger.warning("Gemini AI parsing failed with error: %s. Using deterministic fallback.", exc)
+            logger.warning("Gemini AI parsing failed with error: %s. Using deterministic fallback.", type(exc).__name__)
             return self.fallback.parse_request(query, explicit_filters)
 
 
@@ -267,7 +267,7 @@ class OpenAIAIProvider(AIProvider):
             return extracted, "openai"
 
         except Exception as exc:
-            logger.warning("OpenAI AI parsing failed with error: %s. Using deterministic fallback.", exc)
+            logger.warning("OpenAI AI parsing failed with error: %s. Using deterministic fallback.", type(exc).__name__)
             return self.fallback.parse_request(query, explicit_filters)
 
 

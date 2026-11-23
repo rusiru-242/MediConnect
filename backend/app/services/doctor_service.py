@@ -170,9 +170,9 @@ class DoctorService:
                 # Exclude if user is not active or not DOCTOR role
                 continue
 
-            full_name = user.get("fullName", "")
-            spec = p.get("specialty", "")
-            hospital = p.get("hospitalOrClinic", "")
+            full_name = user.get("fullName") or "Name unavailable"
+            spec = p.get("specialty") or ""
+            hospital = p.get("hospitalOrClinic") or ""
 
             # Apply search across full name, specialty, and hospital/clinic
             if clean_search:
@@ -187,10 +187,10 @@ class DoctorService:
                 DoctorListItem(
                     doctorId=str(p.get("doctorId", "")),
                     fullName=full_name,
-                    specialty=spec,
+                    specialty=spec or "Specialty not listed",
                     hospitalOrClinic=hospital,
-                    experienceYears=int(p.get("experienceYears", 0)),
-                    consultationFee=float(p.get("consultationFee", 2500.0)),
+                    experienceYears=int(p.get("experienceYears") or 0),
+                    consultationFee=p.get("consultationFee"),
                     bio=p.get("bio"),
                     profileImage=user.get("profileImage"),
                     verificationStatus=DoctorVerificationStatus.APPROVED.value,
@@ -259,12 +259,12 @@ class DoctorService:
 
         return DoctorDetailResponse(
             doctorId=str(profile.get("doctorId", "")),
-            fullName=user.get("fullName", ""),
-            specialty=profile.get("specialty", ""),
-            qualifications=profile.get("qualifications", ""),
-            hospitalOrClinic=profile.get("hospitalOrClinic", ""),
-            experienceYears=int(profile.get("experienceYears", 0)),
-            consultationFee=float(profile.get("consultationFee", 2500.0)),
+            fullName=user.get("fullName") or "Name unavailable",
+            specialty=profile.get("specialty") or "Specialty not listed",
+            qualifications=profile.get("qualifications") or "",
+            hospitalOrClinic=profile.get("hospitalOrClinic") or "",
+            experienceYears=int(profile.get("experienceYears") or 0),
+            consultationFee=profile.get("consultationFee"),
             bio=profile.get("bio"),
             profileImage=user.get("profileImage"),
             verificationStatus=DoctorVerificationStatus.APPROVED.value,

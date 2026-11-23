@@ -818,7 +818,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'LKR ${doc.consultationFee.toStringAsFixed(0)}',
+                          doc.consultationFee == null ? 'Fee unavailable' : 'LKR ${doc.consultationFee!.toStringAsFixed(0)}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.darkNavy),
                         ),
                         FilledButton(

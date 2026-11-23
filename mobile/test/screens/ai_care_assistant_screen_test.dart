@@ -6,6 +6,11 @@ import 'package:mediconnect/services/ai_booking_service.dart';
 
 class FakeAiBookingService implements AiBookingService {
   BookingSession currentSession;
+  List<Map<String, dynamic>> history = [];
+  final Map<String, BookingSession> storedSessions = {};
+  final List<String> sentRequestIds = [];
+  bool failNextSend = false;
+  int created = 0;
 
   FakeAiBookingService({BookingSession? initialSession})
       : currentSession = initialSession ??
@@ -28,13 +33,49 @@ class FakeAiBookingService implements AiBookingService {
             );
 
   @override
+  Future<List<Map<String, dynamic>>> listConversations({int offset = 0}) async => history;
+
+  @override
+  Future<BookingSession> createConversation() async {
+    if (storedSessions.isEmpty) return createSession();
+    created++;
+    return BookingSession.fromJson({
+      ...currentSession.toJson(),
+      'id': 'new_conversation',
+      'state': 'COLLECTING_PREFERENCES',
+      'candidateDoctors': [],
+      'messages': [currentSession.messages.first.toJson()],
+    });
+  }
+
+  @override
+  Future<BookingSession> sendConversationMessage(String sessionId, String message, String requestId) async {
+    sentRequestIds.add(requestId);
+    if (failNextSend) {
+      failNextSend = false;
+      throw StateError('Simulated network interruption');
+    }
+    return sendMessage(sessionId, message);
+  }
+
+  @override
+  Future<void> renameConversation(String id, String title) async {}
+
+  @override
+  Future<void> deleteConversation(String id) async {}
+
+  @override
+  Future<BookingSession> viewSlots(String sessionId, String doctorId, String date) =>
+      selectDoctor(sessionId, doctorId);
+
+  @override
   Future<BookingSession> createSession({String? initialMessage}) async {
     return currentSession;
   }
 
   @override
   Future<BookingSession> getSession(String sessionId) async {
-    return currentSession;
+    return storedSessions[sessionId] ?? currentSession;
   }
 
   @override
@@ -266,6 +307,52 @@ void main() {
   }
 
   group('AiCareAssistantScreen Widget Tests (Phase 39)', () {
+    testWidgets('Restores a conversation, starts a new one, and reopens history', (tester) async {
+      final service = FakeAiBookingService();
+      final original = await service.sendMessage(service.currentSession.id, 'Find a doctor in Colombo');
+      service.storedSessions[original.id] = original;
+      service.history = [
+        {'id': original.id, 'title': 'Colombo doctors', 'preview': 'Earlier search'},
+      ];
+      await tester.pumpWidget(createTestWidget(service: service));
+      await tester.pumpAndSettle();
+      expect(find.text('Dr. Nihal Perera'), findsWidgets);
+      expect(service.created, 0);
+
+      await tester.tap(find.text('New Chat'));
+      await tester.pumpAndSettle();
+      expect(service.created, 1);
+      expect(find.text('Dr. Nihal Perera'), findsNothing);
+      await tester.tap(find.byTooltip('Chat History'));
+      await tester.pumpAndSettle();
+      expect(find.text('Earlier search'), findsOneWidget);
+      await tester.tap(find.text('Colombo doctors'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dr. Nihal Perera'), findsWidgets);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(createTestWidget(service: service));
+      await tester.pumpAndSettle();
+      expect(find.text('Dr. Nihal Perera'), findsWidgets);
+    });
+
+    testWidgets('Failed submission restores input and retries the same request', (tester) async {
+      final service = FakeAiBookingService()..failNextSend = true;
+      await tester.pumpWidget(createTestWidget(service: service));
+      await tester.pumpAndSettle();
+      final input = find.byKey(const Key('ai_care_assistant_input'));
+      final send = find.byKey(const Key('ai_care_assistant_send'));
+      await tester.enterText(input, 'Find a doctor in Colombo');
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(input).controller!.text, 'Find a doctor in Colombo');
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      expect(service.sentRequestIds, hasLength(2));
+      expect(service.sentRequestIds.toSet(), hasLength(1));
+      expect(service.currentSession.messages.where((message) => message.isUser), hasLength(1));
+    });
+
     testWidgets('1. Renders title and welcoming introduction', (tester) async {
       final service = FakeAiBookingService();
       await tester.pumpWidget(createTestWidget(service: service));
@@ -308,7 +395,7 @@ void main() {
       expect(find.text('Dr. Anoma Silva'), findsOneWidget);
       expect(find.text('92% Match'), findsOneWidget);
       expect(find.text('Compare'), findsOneWidget);
-      expect(find.text('Select Doctor'), findsWidgets);
+      expect(find.text('View Available Slots'), findsWidgets);
     });
 
     testWidgets('4. Tapping Compare opens candidate doctor comparison sheet', (tester) async {
@@ -345,7 +432,10 @@ void main() {
       await tester.tap(find.byKey(const Key('ai_care_assistant_send')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Select Doctor').first);
+      await tester.ensureVisible(find.text('View Available Slots').first);
+      await tester.tap(find.text('View Available Slots').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
 
       expect(find.text('09:00 - 09:30'), findsOneWidget);
@@ -364,7 +454,10 @@ void main() {
       await tester.tap(find.byKey(const Key('ai_care_assistant_send')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Select Doctor').first);
+      await tester.ensureVisible(find.text('View Available Slots').first);
+      await tester.tap(find.text('View Available Slots').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('09:00 - 09:30'));
@@ -387,7 +480,10 @@ void main() {
       await tester.tap(find.byKey(const Key('ai_care_assistant_send')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Select Doctor').first);
+      await tester.ensureVisible(find.text('View Available Slots').first);
+      await tester.tap(find.text('View Available Slots').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('09:00 - 09:30'));
