@@ -35,6 +35,11 @@ import 'screens/patient/ai_health_assistant_screen.dart';
 import 'screens/patient/appointment_detail_screen.dart';
 import 'screens/patient/healthcare_timeline_screen.dart';
 import 'screens/patient/medical_records_screen.dart';
+import 'screens/patient/patient_medical_records_screen.dart';
+import 'screens/patient/patient_health_tracking_screen.dart';
+import 'screens/patient/prescription_renewals_screen.dart';
+import 'screens/doctor/doctor_clinical_documentation_screen.dart';
+import 'screens/doctor/doctor_prescription_renewal_queue_screen.dart';
 import 'screens/patient/medication_reminders_screen.dart';
 import 'screens/patient/patient_care_plans_screen.dart';
 import 'screens/patient/patient_visit_detail_screen.dart';
@@ -164,6 +169,11 @@ class MediConnectApp extends StatelessWidget {
               const AiHealthAssistantScreen(),
           '/patient/find-doctor': (context) => const FindDoctorScreen(),
           '/patient/medical-records': (context) => const MedicalRecordsScreen(),
+          '/patient/medical-records-v2': (context) => const PatientMedicalRecordsScreen(),
+          '/patient/health-tracking': (context) => const PatientHealthTrackingScreen(),
+          '/patient/prescription-renewals': (context) => const PrescriptionRenewalsScreen(),
+          '/doctor/clinical-documentation': (context) => const DoctorClinicalDocumentationScreen(patientUserId: ''),
+          '/doctor/prescription-renewals': (context) => const DoctorPrescriptionRenewalQueueScreen(),
           '/patient/medication-reminders': (context) =>
               const MedicationRemindersScreen(),
           '/medication-reminders': (context) =>

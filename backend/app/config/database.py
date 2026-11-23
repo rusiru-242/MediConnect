@@ -94,6 +94,10 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
     from app.models.support_ticket import create_support_ticket_indexes
     from app.models.refund_request import create_refund_request_indexes
     from app.models.admin_audit import create_admin_audit_indexes
+    from app.models.patient_medical_record import create_patient_medical_record_indexes
+    from app.models.clinical_note import create_clinical_note_indexes
+    from app.models.prescription_renewal import create_prescription_renewal_indexes
+    from app.models.health_measurement import create_health_measurement_indexes
 
     index_creators = [
         ("users", create_user_indexes),
@@ -109,6 +113,10 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         ("support_tickets", create_support_ticket_indexes),
         ("refund_requests", create_refund_request_indexes),
         ("admin_audit_logs", create_admin_audit_indexes),
+        ("patient_medical_records", create_patient_medical_record_indexes),
+        ("clinical_notes", create_clinical_note_indexes),
+        ("prescription_renewals", create_prescription_renewal_indexes),
+        ("patient_health_measurements", create_health_measurement_indexes),
         ("appointments", create_appointment_indexes),
         ("care_scheduler", create_care_scheduler_indexes),
         ("doctor_communications", create_doctor_communication_indexes),
