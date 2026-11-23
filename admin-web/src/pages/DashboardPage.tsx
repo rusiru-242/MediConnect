@@ -1,5 +1,5 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Users,
@@ -10,6 +10,9 @@ import {
   Clock,
   ArrowRight,
   ShieldAlert,
+  Sparkles,
+  Send,
+  Terminal,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -21,7 +24,10 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { analyticsApi } from '../api/analyticsApi';
+import { adminWorkflowApi } from '../api/adminWorkflowApi';
+import { AdminAssistantChatResponse } from '../types/adminWorkflow';
 import { StatCard } from '../components/common/StatCard';
+import { Button } from '../components/common/Button';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { ErrorState } from '../components/common/ErrorState';
 
@@ -43,6 +49,23 @@ export const DashboardPage: React.FC = () => {
     queryKey: ['admin-appt-analytics'],
     queryFn: () => analyticsApi.getAppointments(),
   });
+
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiResponse, setAiResponse] = useState<AdminAssistantChatResponse | null>(null);
+
+  const askAiMutation = useMutation({
+    mutationFn: (msg: string) => adminWorkflowApi.askAssistant(msg),
+    onSuccess: (data) => {
+      setAiResponse(data);
+    },
+  });
+
+  const handleAsk = (queryText?: string) => {
+    const text = (queryText || aiQuery).trim();
+    if (!text) return;
+    setAiQuery(text);
+    askAiMutation.mutate(text);
+  };
 
   if (isOverviewLoading) {
     return <LoadingSkeleton rows={6} height="h-28" />;
@@ -94,6 +117,110 @@ export const DashboardPage: React.FC = () => {
             <span>{totals.pendingDoctorApprovals} Approvals Pending</span>
             <ArrowRight className="w-3.5 h-3.5 ml-1" />
           </Link>
+        )}
+      </div>
+
+      {/* Admin AI Operations Assistant Bar */}
+      <div className="rounded-2xl border border-brand-200/90 bg-gradient-to-br from-brand-50/60 to-white p-5 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-white shadow-xs">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Admin AI Operations Assistant</h2>
+              <span className="text-[11px] text-slate-500">
+                Natural Language Operations in English & Romanized Sinhala
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-brand-700 bg-brand-100/60 rounded-full px-2.5 py-1">
+            <Terminal className="h-3 w-3" />
+            <span>Bounded Tool Registry</span>
+          </div>
+        </div>
+
+        {/* Input box */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAsk();
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="text"
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            placeholder="Ask anything: 'pending doctors keeyak innawada?', 'failed payments tika check karanna'..."
+            className="flex-1 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 shadow-xs"
+          />
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            disabled={!aiQuery.trim() || askAiMutation.isPending}
+            isLoading={askAiMutation.isPending}
+            leftIcon={<Send className="h-3.5 w-3.5" />}
+          >
+            Ask AI
+          </Button>
+        </form>
+
+        {/* Quick prompt chips */}
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {[
+            'pending doctors keeyak innawada?',
+            'me month eke bookings keeyak thiyenawada?',
+            'failed payments tika check karanna',
+            'refund requests monawada?',
+            'last 7 days payment success rate eka kiyanna',
+          ].map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => handleAsk(prompt)}
+              className="rounded-full bg-white border border-slate-200 hover:border-brand-300 hover:bg-brand-50 px-2.5 py-1 text-[11px] text-slate-600 transition-colors shadow-2xs font-medium"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+
+        {/* AI Answer Display */}
+        {aiResponse && (
+          <div className="mt-3 rounded-xl border border-brand-200 bg-white p-4 text-xs space-y-2 shadow-xs">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-brand-900 flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-brand-600" /> Grounded Assistant Answer
+              </span>
+              {aiResponse.toolCalled && (
+                <span className="font-mono text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 border border-slate-200">
+                  tool: {aiResponse.toolCalled}
+                </span>
+              )}
+            </div>
+            <p className="text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
+              {aiResponse.reply}
+            </p>
+            {aiResponse.actionSuggestions && aiResponse.actionSuggestions.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Suggestions:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {aiResponse.actionSuggestions.map((sug) => (
+                    <button
+                      key={sug}
+                      type="button"
+                      onClick={() => handleAsk(sug)}
+                      className="text-[10px] font-semibold text-brand-700 hover:text-brand-900 underline"
+                    >
+                      {sug}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

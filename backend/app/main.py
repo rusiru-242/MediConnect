@@ -36,6 +36,7 @@ from app.services.care_scheduler import run_scheduler
 from app.routes.doctor_workflow import router as doctor_workflow_router
 from app.services.doctor_communications import run_communications
 from app.routes.care_automation import router as care_automation_router
+from app.routes.admin_workflow import router as admin_workflow_router
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +140,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(doctor_router, prefix="/api")
 app.include_router(appointment_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(admin_workflow_router, prefix="/api")
 app.include_router(payment_router, prefix="/api")
 app.include_router(notification_router, prefix="/api")
 app.include_router(ai_recommendations_router, prefix="/api")

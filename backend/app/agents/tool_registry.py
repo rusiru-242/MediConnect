@@ -224,3 +224,127 @@ TOOLS.update({
     "get_my_follow_up_tasks": Tool("Read your follow-up plans.", Arguments, doctor_follow_ups, DOCTOR_ROLES),
     "get_my_doctor_analytics": Tool("Read your operational metrics.", DoctorDates, doctor_analytics, DOCTOR_ROLES),
 })
+
+
+# -----------------------------------------------------------------------------
+# Phase 5: Admin AI Workflow and Automation Tools
+# -----------------------------------------------------------------------------
+
+class AdminTimeframeArgs(Arguments):
+    timeframe: Literal["today", "last_7_days", "last_30_days", "custom"] = "last_30_days"
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class AdminDoctorReviewArgs(Arguments):
+    doctor_profile_id: Identifier
+
+
+class AdminPaymentsArgs(Arguments):
+    status: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    search: str | None = None
+
+
+class AdminSupportTicketArgs(Arguments):
+    status: str | None = None
+    category: str | None = None
+    priority: str | None = None
+
+
+class AdminTicketDetailArgs(Arguments):
+    ticket_id: Identifier
+
+
+class AdminRefundArgs(Arguments):
+    refund_id: Identifier
+
+
+class AdminReportArgs(Arguments):
+    report_type: Literal[
+        "daily_appointment",
+        "weekly_booking",
+        "monthly_payment",
+        "doctor_verification_backlog",
+        "support_ticket_resolution",
+        "refund_status",
+    ]
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+async def admin_dashboard_metrics(ctx, args):
+    from app.services.admin_analytics_assistant import AdminAnalyticsAssistant
+    return AdminAnalyticsAssistant.get_platform_analytics(
+        ctx.db, args.timeframe, args.start_date, args.end_date
+    )
+
+
+async def admin_pending_doctor_verifications(ctx, args):
+    from app.services.admin_service import AdminService
+    apps = await AdminService.list_doctor_applications(ctx.db, "PENDING")
+    return {"pendingApplications": [app.model_dump(mode="json") for app in apps]}
+
+
+async def admin_doctor_verification_review(ctx, args):
+    from app.services.doctor_verification_assistant import DoctorVerificationAssistant
+    return DoctorVerificationAssistant.analyze_application(ctx.db, args.doctor_profile_id)
+
+
+async def admin_payment_transactions(ctx, args):
+    from app.services.payment_monitoring_service import PaymentMonitoringService
+    return PaymentMonitoringService.list_monitored_payments(
+        ctx.db, args.status, args.start_date, args.end_date, None, args.search, 1, 20
+    )
+
+
+async def admin_payment_reconciliation_issues(ctx, args):
+    from app.services.payment_monitoring_service import PaymentMonitoringService
+    return PaymentMonitoringService.run_reconciliation_checks(ctx.db)
+
+
+async def admin_support_tickets(ctx, args):
+    from app.services.support_ticket_service import SupportTicketService
+    return SupportTicketService.list_tickets(
+        ctx.db, str(ctx.user.id), is_admin=True, status_filter=args.status, category=args.category, priority=args.priority, page=1, page_size=20
+    )
+
+
+async def admin_draft_support_response(ctx, args):
+    from app.services.support_ticket_service import SupportTicketService
+    return SupportTicketService.generate_ai_ticket_draft(ctx.db, args.ticket_id)
+
+
+async def admin_refund_request_details(ctx, args):
+    from app.services.refund_service import RefundService
+    return RefundService.get_refund_request(ctx.db, args.refund_id)
+
+
+async def admin_report_data(ctx, args):
+    from app.services.admin_report_service import AdminReportService
+    report = AdminReportService.generate_report(ctx.db, args.report_type, args.start_date, args.end_date)
+    return {
+        "reportId": report["reportId"],
+        "title": report["title"],
+        "metrics": report["metrics"],
+        "aiSummary": report["aiSummary"],
+        "dateRange": report["dateRange"],
+    }
+
+
+ADMIN_ROLES = frozenset({"ADMIN"})
+TOOLS.update({
+    "get_admin_dashboard_metrics": Tool("Read operational and financial platform metrics.", AdminTimeframeArgs, admin_dashboard_metrics, ADMIN_ROLES),
+    "get_pending_doctor_verifications": Tool("Read pending doctor verification submissions.", Arguments, admin_pending_doctor_verifications, ADMIN_ROLES),
+    "get_doctor_verification_review": Tool("Analyze a doctor application for missing documents and credentials.", AdminDoctorReviewArgs, admin_doctor_verification_review, ADMIN_ROLES),
+    "prepare_doctor_verification_decision": Tool("Prepare a structured recommendation for doctor approval or rejection.", AdminDoctorReviewArgs, admin_doctor_verification_review, ADMIN_ROLES),
+    "get_payment_transactions": Tool("Read monitored platform payment records.", AdminPaymentsArgs, admin_payment_transactions, ADMIN_ROLES),
+    "get_payment_reconciliation_issues": Tool("Detect payment and booking discrepancies across Stripe and MongoDB.", Arguments, admin_payment_reconciliation_issues, ADMIN_ROLES),
+    "get_support_tickets": Tool("Read customer support tickets.", AdminSupportTicketArgs, admin_support_tickets, ADMIN_ROLES),
+    "draft_support_response": Tool("Generate a grounded AI draft response for a customer support ticket.", AdminTicketDetailArgs, admin_draft_support_response, ADMIN_ROLES),
+    "get_refund_request_details": Tool("Read refund request details and calculated policy eligibility.", AdminRefundArgs, admin_refund_request_details, ADMIN_ROLES),
+    "prepare_refund_review": Tool("Prepare refund review summary and eligibility calculation.", AdminRefundArgs, admin_refund_request_details, ADMIN_ROLES),
+    "get_admin_report_data": Tool("Read compiled operational and financial report metrics.", AdminReportArgs, admin_report_data, ADMIN_ROLES),
+    "prepare_admin_report": Tool("Generate an operational report draft with grounded executive summary.", AdminReportArgs, admin_report_data, ADMIN_ROLES),
+})

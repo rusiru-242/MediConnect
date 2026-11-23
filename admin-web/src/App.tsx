@@ -21,6 +21,13 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ de
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const UnauthorizedPage = lazy(() => import('./pages/UnauthorizedPage').then(m => ({ default: m.UnauthorizedPage })));
 
+// Phase 5 AI Automation & Operations Modules
+const ReconciliationPage = lazy(() => import('./pages/ReconciliationPage').then(m => ({ default: m.ReconciliationPage })));
+const SupportTicketsPage = lazy(() => import('./pages/SupportTicketsPage').then(m => ({ default: m.SupportTicketsPage })));
+const RefundsPage = lazy(() => import('./pages/RefundsPage').then(m => ({ default: m.RefundsPage })));
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -89,6 +96,11 @@ export const App: React.FC = () => {
                   <Route path="dashboard" element={<DashboardPage />} />
                   <Route path="doctor-approvals" element={<DoctorVerificationPage />} />
                   <Route path="doctor-verification" element={<DoctorVerificationPage />} />
+                  <Route path="reconciliation" element={<ReconciliationPage />} />
+                  <Route path="refunds" element={<RefundsPage />} />
+                  <Route path="support-tickets" element={<SupportTicketsPage />} />
+                  <Route path="reports" element={<ReportsPage />} />
+                  <Route path="audit-logs" element={<AuditLogsPage />} />
                   <Route path="doctors" element={<DoctorsPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="appointments" element={<AppointmentsPage />} />
