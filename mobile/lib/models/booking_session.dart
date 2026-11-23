@@ -167,7 +167,10 @@ class DoctorCardSummary {
   final String? qualifications;
   final String? hospitalOrClinic;
   final int experienceYears;
-  final double consultationFee;
+  final double? consultationFee;
+  final String? city;
+  final String? profileImage;
+  final String? bio;
   final double rating;
   final double? matchScore;
   final String? nextAvailableDate;
@@ -185,7 +188,10 @@ class DoctorCardSummary {
     this.hospitalOrClinic,
     this.experienceYears = 0,
     required this.consultationFee,
-    this.rating = 4.8,
+    this.city,
+    this.profileImage,
+    this.bio,
+    this.rating = 0,
     this.matchScore,
     this.nextAvailableDate,
     this.matchReason,
@@ -203,8 +209,11 @@ class DoctorCardSummary {
       qualifications: json['qualifications'] as String?,
       hospitalOrClinic: json['hospitalOrClinic'] as String?,
       experienceYears: (json['experienceYears'] as num?)?.toInt() ?? 0,
-      consultationFee: (json['consultationFee'] as num?)?.toDouble() ?? 2500.0,
-      rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
+      consultationFee: (json['consultationFee'] as num?)?.toDouble(),
+      city: json['city'] as String?,
+      profileImage: json['profileImage'] as String?,
+      bio: json['bio'] as String?,
+      rating: (json['rating'] as num?)?.toDouble() ?? 0,
       matchScore: (json['matchScore'] as num?)?.toDouble(),
       nextAvailableDate: json['nextAvailableDate'] as String?,
       matchReason: json['matchReason'] as String?,
@@ -231,6 +240,9 @@ class DoctorCardSummary {
       'hospitalOrClinic': hospitalOrClinic,
       'experienceYears': experienceYears,
       'consultationFee': consultationFee,
+      'city': city,
+      'profileImage': profileImage,
+      'bio': bio,
       'rating': rating,
       'matchScore': matchScore,
       'nextAvailableDate': nextAvailableDate,
@@ -246,10 +258,12 @@ class DoctorCardSummary {
       doctorId: doctorId,
       fullName: fullName,
       specialty: specialty,
-      hospitalOrClinic: hospitalOrClinic ?? 'MediConnect Clinic',
+      hospitalOrClinic: hospitalOrClinic ?? '',
       experienceYears: experienceYears,
-      consultationFee: consultationFee,
-      profileImage: null,
+      consultationFee: consultationFee ?? 0,
+      hasConsultationFee: consultationFee != null,
+      profileImage: profileImage,
+      bio: bio,
       verificationStatus: 'APPROVED',
     );
   }

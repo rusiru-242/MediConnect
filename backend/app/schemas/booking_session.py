@@ -1,8 +1,8 @@
 """Pydantic schemas for Conversational AI Booking Assistant."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ChatMessageSchema(BaseModel):
@@ -49,7 +49,9 @@ class DoctorCardSummary(BaseModel):
     specialty: str
     hospitalOrClinic: Optional[str] = None
     experienceYears: int = 0
-    consultationFee: float
+    consultationFee: Optional[float] = None
+    city: Optional[str] = None
+    profileImage: Optional[str] = None
     rating: float = 0.0
     nextAvailableDate: Optional[str] = None
     matchReason: Optional[str] = None
@@ -136,7 +138,7 @@ class BookingSessionResponse(BaseModel):
     activeImageAnalysis: Optional[ImageAnalysisResult] = None
     createdAt: datetime
     updatedAt: datetime
-    expiresAt: datetime
+    expiresAt: Optional[datetime] = None
 
 
 class CreateSessionRequest(BaseModel):
@@ -153,13 +155,22 @@ class SendMessageRequest(BaseModel):
     """Request payload for sending a user message in an active booking session."""
 
     message: str = Field(..., min_length=1, max_length=2000, description="User conversational text")
+    requestId: Optional[str] = Field(default=None, pattern=r"^[a-zA-Z0-9_-]{12,80}$")
     imageUrl: Optional[str] = Field(default=None, description="Optional image URL or uploaded path for label analysis")
 
 
 class SelectDoctorRequest(BaseModel):
     """Explicit request payload to select a recommended doctor."""
 
-    doctorId: str = Field(..., description="Doctor ID or profile ID of selected doctor")
+    doctorId: str = Field(..., min_length=1, max_length=100, description="Doctor ID or profile ID of selected doctor")
+    date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None:
+            date.fromisoformat(value)
+        return value
 
 
 class SelectSlotRequest(BaseModel):

@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:math';
+import 'ai_chat_history_sheet.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 
+import '../../core/constants/api_constants.dart';
 import '../../core/network/api_error_mapper.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
@@ -46,6 +49,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   bool _isLoading = false;
   bool _isPaymentProcessing = false;
   String? _errorMessage;
+  String? _pendingMessage;
+  String? _requestId;
+  final _random = Random.secure();
 
   PlatformFile? _selectedImage;
   Uint8List? _selectedImageBytes;
@@ -124,9 +130,14 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     });
 
     try {
-      final session = await _bookingService.createSession(
-        initialMessage: widget.initialQuery,
-      );
+      final history = await _bookingService.listConversations();
+      var session = history.isEmpty || widget.initialQuery != null
+          ? await _bookingService.createConversation()
+          : await _bookingService.getSession(history.first['id'] as String);
+      final initial = widget.initialQuery?.trim();
+      if (initial != null && initial.isNotEmpty) {
+        session = await _bookingService.sendConversationMessage(session.id, initial, _newRequestId());
+      }
       if (!mounted) return;
       setState(() {
         _session = session;
@@ -135,7 +146,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       if (session.holdExpiresAt != null) {
         _startHoldTimer(session.holdExpiresAt!);
       }
-      _scrollToBottom();
+      _scrollToBottom(force: true);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -151,30 +162,52 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     }
   }
 
-  Future<void> _resetSession() async {
-    _countdownTimer?.cancel();
+  String _newRequestId() =>
+      List.generate(20, (_) => _random.nextInt(16).toRadixString(16)).join();
+
+  Future<void> _resetSession() => _switchConversation();
+
+  Future<void> _switchConversation([String? id]) async {
+    if (_isLoading || _isPaymentProcessing) return;
     setState(() {
-      _session = null;
       _isLoading = true;
       _errorMessage = null;
-      _remainingHoldTime = Duration.zero;
     });
-
     try {
-      final session = await _bookingService.createSession();
+      final session = id == null
+          ? await _bookingService.createConversation()
+          : await _bookingService.getSession(id);
       if (!mounted) return;
+      _countdownTimer?.cancel();
+      _textController.clear();
+      _patientNoteController.clear();
       setState(() {
         _session = session;
-        _isLoading = false;
+        _remainingHoldTime = Duration.zero;
+        _selectedImage = null;
+        _selectedImageBytes = null;
+        _pendingMessage = null;
+        _requestId = null;
       });
-      _scrollToBottom();
+      if (session.holdExpiresAt != null) _startHoldTimer(session.holdExpiresAt!);
+      _scrollToBottom(force: true);
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Failed to reset assistant session.';
-      });
+      setState(() => _errorMessage = 'Could not open the conversation. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _openHistory() async {
+    final result = await showModalBottomSheet<AiHistorySelection>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => AiChatHistorySheet(service: _bookingService, activeId: _session?.id),
+    );
+    if (!mounted || result == null) return;
+    if (result.activeDeleted) setState(() => _session = null);
+    if (result.open) await _switchConversation(result.id);
   }
 
   Future<void> _pickImage() async {
@@ -226,7 +259,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     final text = promptText ?? _textController.text.trim();
     final hasImage = _selectedImageBytes != null;
     if (text.isEmpty && !hasImage) return;
-    if (_session == null || _isLoading) return;
+    if (_session == null || _isLoading || _isPaymentProcessing) return;
 
     _textController.clear();
     final imageBytesToSend = _selectedImageBytes;
@@ -240,6 +273,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       timestamp: DateTime.now(),
     );
 
+    final previous = _session;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -284,7 +318,13 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
           message: text.isNotEmpty ? text : null,
         );
       } else {
-        updated = await _bookingService.sendMessage(_session!.id, text);
+        if (_pendingMessage != text) {
+          _pendingMessage = text;
+          _requestId = _newRequestId();
+        }
+        updated = await _bookingService.sendConversationMessage(_session!.id, text, _requestId!);
+        _pendingMessage = null;
+        _requestId = null;
       }
       if (!mounted) return;
       setState(() {
@@ -295,37 +335,38 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         _startHoldTimer(updated.holdExpiresAt!);
       }
       _scrollToBottom();
-    } on ApiException catch (e) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
+        _session = previous;
         _isLoading = false;
-        _errorMessage = e.message;
-        if (_textController.text.isEmpty && text.isNotEmpty) {
-          _textController.text = text;
-        }
-      });
-    } catch (e, stack) {
-      debugPrint('[AiCareAssistant] Failed to send message: $e\n$stack');
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = ApiErrorMapper.mapException(e);
-        if (_textController.text.isEmpty && text.isNotEmpty) {
-          _textController.text = text;
-        }
+        _errorMessage = ApiErrorMapper.mapException(error);
+        if (_textController.text.isEmpty) _textController.text = text;
       });
     }
   }
 
   Future<void> _selectDoctor(String doctorId) async {
-    if (_session == null || _isLoading) return;
+    if (_isLoading || _isPaymentProcessing || _session == null) return;
+    final today = DateUtils.dateOnly(
+      DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30)),
+    );
+    final selected = await showDatePicker(
+      context: context,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 90)),
+      initialDate: today,
+    );
+    if (!mounted || selected == null) return;
+    final date = selected.toIso8601String().split('T').first;
+    if (_session == null || _isLoading || _isPaymentProcessing) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final updated = await _bookingService.selectDoctor(_session!.id, doctorId);
+      final updated = await _bookingService.viewSlots(_session!.id, doctorId, date);
       if (!mounted) return;
       setState(() {
         _session = updated;
@@ -342,7 +383,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   Future<void> _selectSlot(SlotCardSummary slot) async {
-    if (_session == null || _isLoading) return;
+    if (_session == null || _isLoading || _isPaymentProcessing) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -372,7 +413,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   Future<void> _confirmBooking() async {
-    if (_session == null || _isLoading) return;
+    if (_session == null || _isLoading || _isPaymentProcessing) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -454,7 +495,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                 : 'Payment failed: ${e.error.localizedMessage ?? "Try again"}';
           });
           return;
-        } catch (_) {}
+        }
       }
 
       var statusResult = await _paymentService.getPaymentStatus(intentResp.paymentId);
@@ -473,10 +514,10 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         _isPaymentProcessing = false;
       });
 
-      if (statusResult.isSucceeded || updatedSession.isConfirmed) {
+      if (updatedSession.isConfirmed) {
         final doc = _session?.selectedDoctor;
         final slot = _session?.selectedSlot;
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => PaymentSuccessScreen(
@@ -486,10 +527,16 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
               specialty: doc?.specialty ?? '',
               date: slot?.date ?? '',
               time: slot != null ? '${slot.startTime} - ${slot.endTime}' : '',
-              amount: statusResult.amount > 0 ? statusResult.amount : 2500.0,
+              amount: statusResult.amount,
             ),
           ),
         );
+      } else {
+        setState(() {
+          _errorMessage = statusResult.paymentStatus.toUpperCase() == 'FAILED'
+              ? 'Payment failed. Please try again while the slot is held.'
+              : 'Payment is awaiting verification. Check My Appointments for updates.';
+        });
       }
     } catch (e) {
       if (!mounted) return;
@@ -500,7 +547,11 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool force = false}) {
+    if (!force && _scrollController.hasClients &&
+        _scrollController.position.extentAfter > 230) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -669,12 +720,16 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        doc.hospitalOrClinic ?? 'MediConnect Partner Clinic',
+                                        doc.hospitalOrClinic?.isNotEmpty == true
+                                            ? doc.hospitalOrClinic!
+                                            : 'Clinic unavailable',
                                         style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
                                       ),
                                     ),
                                     Text(
-                                      'LKR ${doc.consultationFee.toStringAsFixed(0)}',
+                                      doc.consultationFee == null
+                                          ? 'Fee unavailable'
+                                          : 'LKR ${doc.consultationFee!.toStringAsFixed(0)}',
                                       style: const TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.bold,
@@ -718,21 +773,17 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Row(
-          children: [
-            Icon(Icons.auto_awesome, color: Colors.amberAccent, size: 20),
-            SizedBox(width: 8),
-            Text(
-              'MediConnect AI Assistant',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
+        title: const Text('MediConnect AI Assistant', maxLines: 2, style: TextStyle(fontSize: 16)),
         actions: [
           IconButton(
-            tooltip: 'Start Fresh / Clear Conversation',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _resetSession,
+            tooltip: 'Chat History',
+            icon: const Icon(Icons.history),
+            onPressed: _isLoading || _isPaymentProcessing ? null : _openHistory,
+          ),
+          TextButton.icon(
+            onPressed: _isLoading || _isPaymentProcessing ? null : _resetSession,
+            icon: const Icon(Icons.add_comment_outlined),
+            label: const Text('New Chat'),
           ),
         ],
       ),
@@ -859,6 +910,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
               style: TextStyle(color: Colors.amber.shade900, fontSize: 13),
             ),
           ),
+          if (_session == null) TextButton(onPressed: _initSession, child: const Text('Retry')),
           IconButton(
             icon: const Icon(Icons.close, size: 16),
             onPressed: () => setState(() => _errorMessage = null),
@@ -878,7 +930,28 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       itemBuilder: (context, index) {
         if (index < messages.length) {
           final msg = messages[index];
-          return _buildChatBubble(msg);
+          final doctors = msg.metadata?['doctors'] as List?;
+          return Column(
+            key: ValueKey(msg.id),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildChatBubble(msg),
+              if (msg.metadata?['type'] == 'booking_confirmed')
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.event_available),
+                    title: const Text('Appointment confirmed'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pushNamed(context, '/patient/my-appointments'),
+                  ),
+                ),
+              if (doctors != null)
+                ...doctors.map((doc) => _buildDoctorCandidateCard(
+                  DoctorCardSummary.fromJson(Map<String, dynamic>.from(doc as Map)),
+                  showProfile: msg.metadata?['type'] == 'doctor_details',
+                )),
+            ],
+          );
         }
         // Last item: candidate doctors or slots or summary card based on state
         return _buildInteractiveStateWidgets();
@@ -981,7 +1054,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
           _buildImageAnalysisCard(_session!.activeImageAnalysis!),
 
         // 1. Candidate Doctor Cards
-        if (_session!.isAwaitingDoctor && _session!.candidateDoctors.isNotEmpty) ...[
+        if (_session!.isAwaitingDoctor && _session!.candidateDoctors.isNotEmpty &&
+            !_session!.messages.any((msg) => msg.metadata?['doctors'] != null)) ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Row(
@@ -1572,7 +1646,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
-  Widget _buildDoctorCandidateCard(DoctorCardSummary doctor) {
+  Widget _buildDoctorCandidateCard(DoctorCardSummary doctor, {bool showProfile = false}) {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 12),
@@ -1590,7 +1664,15 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-                  child: const Icon(Icons.person, size: 28, color: AppTheme.primary),
+                  child: doctor.profileImage?.isNotEmpty == true
+                      ? ClipOval(child: Image.network(
+                          Uri.parse(ApiConstants.hostBaseUrl).resolve(doctor.profileImage!).toString(),
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Icon(Icons.person),
+                        ))
+                      : const Icon(Icons.person, size: 28, color: AppTheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1610,7 +1692,10 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(Icons.verified, size: 16, color: AppTheme.primary),
+                          const Tooltip(
+                            message: 'Verified doctor',
+                            child: Icon(Icons.verified, size: 16, color: AppTheme.primary),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -1652,7 +1737,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      'LKR ${doctor.consultationFee.toStringAsFixed(0)}',
+                      doctor.consultationFee == null ? 'Fee unavailable' : 'LKR ${doctor.consultationFee!.toStringAsFixed(0)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14.5,
@@ -1672,19 +1757,26 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    doctor.hospitalOrClinic ?? 'MediConnect Partner Hospital',
+                    [doctor.hospitalOrClinic, doctor.city].whereType<String>().where((value) => value.isNotEmpty).join(' / '),
                     style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Icon(Icons.star, size: 15, color: Colors.amber),
+                if (doctor.rating > 0) const Icon(Icons.star, size: 15, color: Colors.amber),
                 const SizedBox(width: 4),
                 Text(
-                  doctor.rating.toStringAsFixed(1),
+                  doctor.rating > 0 ? doctor.rating.toStringAsFixed(1) : '',
                   style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
+
+            if (showProfile && (doctor.experienceYears > 0 || doctor.bio?.isNotEmpty == true)) ...[
+              const SizedBox(height: 8),
+              if (doctor.experienceYears > 0)
+                Text('${doctor.experienceYears} years of experience'),
+              if (doctor.bio?.isNotEmpty == true) Text(doctor.bio!),
+            ],
 
             // Match Reasons
             if (doctor.matchReasons.isNotEmpty) ...[
@@ -1722,7 +1814,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
 
             // Action Buttons
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 8,
               children: [
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
@@ -1732,17 +1825,16 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.person_outline, size: 15),
-                  label: const Text('View Profile', style: TextStyle(fontSize: 12.5)),
+                  label: const Text('View Details', style: TextStyle(fontSize: 12.5)),
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => DoctorDetailScreen(doctor: doctor.toDoctor()),
+                        builder: (_) => DoctorDetailScreen(doctorId: doctor.doctorId),
                       ),
                     );
                   },
                 ),
-                const Spacer(),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
@@ -1751,8 +1843,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.event_available, size: 15),
-                  label: const Text('Select Doctor', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                  onPressed: () => _selectDoctor(doctor.doctorId),
+                  label: const Text('View Available Slots', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                  onPressed: _isLoading || _isPaymentProcessing ? null : () => _selectDoctor(doctor.doctorId),
                 ),
               ],
             ),
@@ -2135,7 +2227,12 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             child: TextField(
               key: const Key('ai_care_assistant_input'),
               controller: _textController,
+              minLines: 1,
+              maxLines: 4,
+              maxLength: 2000,
+              textInputAction: TextInputAction.send,
               decoration: InputDecoration(
+                counterText: '',
                 hintText: 'Ask about medicines, food, exercise, or find doctors...',
                 hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -2168,7 +2265,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
                 : const Icon(Icons.send_rounded, size: 20),
-            onPressed: _isLoading ? null : () => _sendMessage(),
+            onPressed: _isLoading || _isPaymentProcessing ? null : () => _sendMessage(),
           ),
         ],
       ),

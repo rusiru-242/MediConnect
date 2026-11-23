@@ -26,10 +26,12 @@ import pytest
 from app.agents.ai_provider import DeterministicNLPProvider
 from app.config.database import get_database
 from app.main import app
+from app.models.booking_session import create_booking_session_indexes
 from app.models.appointment import AppointmentStatus, PaymentStatus as ApptPaymentStatus
 from app.models.booking_session import BookingAgentState
 from app.models.doctor_profile import DoctorVerificationStatus
 from app.models.user import AccountStatus, UserRole, utc_now
+from app.routes.ai_booking import _RATE_LIMIT_BUCKET
 from app.services.doctor_service import get_sl_now, get_sl_today_str
 from app.utils.security import create_access_token, hash_password
 
@@ -39,6 +41,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def mock_ai_provider():
     """Ensure tests run deterministically with rule-based NLP fallback."""
+    _RATE_LIMIT_BUCKET.clear()
     with patch("app.agents.booking_agent.get_ai_provider", return_value=DeterministicNLPProvider()):
         yield
 
@@ -597,3 +600,159 @@ def test_14_sync_payment_status(seeded_booking_env):
     )
     assert resp_sync.status_code == 200
     assert resp_sync.json()["state"] == BookingAgentState.BOOKING_CONFIRMED.value
+
+
+def test_persistent_history_crud_retry_and_isolation(seeded_booking_env):
+    create_booking_session_indexes(get_database())
+    owner = {"Authorization": f"Bearer {seeded_booking_env['token_patient_a']}"}
+    other = {"Authorization": f"Bearer {seeded_booking_env['token_patient_b']}"}
+    root = "/api/ai/conversations"
+
+    assert client.get(root).status_code == 401
+    created = client.post(root, headers=owner, json={})
+    assert created.status_code == 201
+    first = created.json()["id"]
+    assert client.post(root, headers=owner, json={}).json()["id"] == first
+    url = f"{root}/{first}"
+    payload = {"message": "Find a doctor in Colombo", "requestId": "test-search-0001"}
+    search = client.post(f"{url}/messages", json=payload, headers=owner)
+    assert search.status_code == 200
+    assert search.json()["candidateDoctors"]
+    assert "None" not in search.json()["messages"][-1]["content"]
+    assert search.json()["messages"][-1]["metadata"]["doctors"]
+    retry = client.post(f"{url}/messages", json=payload, headers=owner)
+    assert retry.json()["messages"] == search.json()["messages"]
+    assert client.post(f"{url}/messages", json={**payload, "message": "hello"}, headers=owner).status_code == 409
+    assert get_database()["booking_sessions"].find_one({"_id": ObjectId(first)}).get("expiresAt") is None
+
+    new_chat = client.post(root, headers=owner, json={}).json()
+    assert new_chat["id"] != first
+    assert len(new_chat["messages"]) == 1
+    assert not new_chat["candidateDoctors"]
+    after_restart = TestClient(app)
+    latest = after_restart.get(f"{url}/messages?limit=2", headers=owner).json()
+    older = after_restart.get(f"{url}/messages?limit=2&before={latest['nextBefore']}", headers=owner).json()
+    assert older["messages"] + latest["messages"] == search.json()["messages"]
+    assert after_restart.get(f"/api/ai/booking/sessions/{first}", headers=owner).json()["messages"] == search.json()["messages"]
+
+    assert client.patch(url, json={"title": "Colombo doctors"}, headers=owner).json()["title"] == "Colombo doctors"
+    assert any(item["title"] == "Colombo doctors" for item in client.get(root, headers=owner).json())
+    assert all(item["id"] != first for item in client.get(root, headers=other).json())
+    assert client.get(f"{url}/messages", headers=other).status_code == 404
+    assert client.post(f"{url}/messages", json=payload, headers=other).status_code == 404
+    assert client.patch(url, json={"title": "Stolen"}, headers=other).status_code == 404
+    assert client.delete(url, headers=other).status_code == 404
+    assert client.delete(url, headers=owner).status_code == 204
+    assert client.get(f"{url}/messages", headers=owner).status_code == 404
+
+
+def test_persistent_doctor_follow_up_missing_specialty_and_empty_results(seeded_booking_env):
+    db = get_database()
+    doctor_id = seeded_booking_env["doc_code"]
+    headers = {"Authorization": f"Bearer {seeded_booking_env['token_patient_a']}"}
+    query = {"doctorId": doctor_id}
+    profile = db["doctor_profiles"].find_one(query)
+    user_query = {"_id": ObjectId(profile["userId"])}
+    user = db["users"].find_one(user_query)
+    name = f"Dr. Test {doctor_id[-6:]}"
+    hospital = f"Assistant Test {doctor_id[-6:]} Hospital"
+    db["doctor_profiles"].update_one(query, {"$set": {"specialty": None, "hospitalOrClinic": f"{hospital}, Colombo"}})
+    db["users"].update_one(user_query, {"$set": {"fullName": name}})
+    second_user_id = ObjectId()
+    second_profile_id = ObjectId()
+    db["users"].insert_one({
+        "_id": second_user_id, "role": "DOCTOR", "accountStatus": "ACTIVE",
+        "fullName": "Dr. Second Match", "email": f"test-{second_user_id}@mediconnect.lk",
+    })
+    db["doctor_profiles"].insert_one({
+        "_id": second_profile_id, "userId": str(second_user_id), "doctorId": str(second_profile_id),
+        "medicalRegistrationNumber": str(second_profile_id), "verificationStatus": "APPROVED",
+        "specialty": "Cardiology", "hospitalOrClinic": hospital, "consultationFee": 2800,
+    })
+    try:
+        root = "/api/ai/conversations"
+        chat = client.post(root, json={"initialMessage": f"Find {name} in Colombo"}, headers=headers).json()
+        assert chat["candidateDoctors"]
+        doctor = next(doctor for doctor in chat["candidateDoctors"] if doctor["doctorId"] == doctor_id)
+        assert doctor["specialty"] == "Specialty not listed"
+        assert "None" not in chat["messages"][-1]["content"]
+        messages = f"{root}/{chat['id']}/messages"
+        detail = client.post(messages, headers=headers, json={"message": "Doctorge details kiyanna"})
+        assert detail.status_code == 200
+        last = detail.json()["messages"][-1]
+        assert last["metadata"]["type"] == "doctor_details"
+        assert last["metadata"]["doctors"][0]["doctorId"] == doctor_id
+        greeting = client.post(messages, headers=headers, json={"message": "Hello"}).json()
+        assert greeting["messages"][-1]["metadata"]["type"] == "clarification_needed"
+        unrelated = client.post(messages, headers=headers, json={"message": "What is the weather in Colombo?"}).json()
+        assert unrelated["messages"][-1]["metadata"]["type"] == "clarification_needed"
+        multi = client.post(root, json={"initialMessage": f"Find a doctor at {hospital}"}, headers=headers).json()
+        assert len(multi["candidateDoctors"]) == 2
+        multi_messages = f"{root}/{multi['id']}/messages"
+        clarify = client.post(multi_messages, headers=headers, json={"message": "Doctorge details kiyanna"}).json()
+        assert "Which doctor" in clarify["messages"][-1]["content"]
+        picked = client.post(multi_messages, headers=headers, json={"message": "the second one"}).json()
+        assert picked["messages"][-1]["metadata"]["type"] == "doctor_details"
+        assert picked["messages"][-1]["metadata"]["doctors"][0]["doctorId"] == multi["candidateDoctors"][1]["doctorId"]
+        empty = client.post(
+            root, json={"initialMessage": "Find a cardiologist at Nonexistent Hospital"}, headers=headers,
+        ).json()
+        assert not empty["candidateDoctors"]
+        assert empty["messages"][-1]["metadata"]["type"] == "no_results"
+    finally:
+        db["doctor_profiles"].update_one(query, {"$set": {
+            "specialty": profile["specialty"], "hospitalOrClinic": profile["hospitalOrClinic"],
+        }})
+        db["users"].update_one(user_query, {"$set": {"fullName": user["fullName"]}})
+        db["doctor_profiles"].delete_one({"_id": second_profile_id})
+        db["users"].delete_one({"_id": second_user_id})
+
+
+def test_persistent_booking_verifies_payment_and_reuses_hold(seeded_booking_env):
+    db = get_database()
+    headers = {"Authorization": f"Bearer {seeded_booking_env['token_patient_a']}"}
+    doctor_id = seeded_booking_env["doc_code"]
+    date = (get_sl_now() + timedelta(days=4)).strftime("%Y-%m-%d")
+    db["doctor_availabilities"].insert_one({
+        "doctorUserId": seeded_booking_env["doc_user_id"],
+        "doctorProfileId": seeded_booking_env["doc_profile_id"],
+        "date": date, "startTime": "13:00", "endTime": "14:00",
+        "slotDurationMinutes": 30, "isActive": True,
+    })
+    chat = client.post("/api/ai/conversations", headers=headers, json={"initialMessage": "Find a cardiologist in Colombo"})
+    assert chat.status_code == 201
+    root = f"/api/ai/booking/sessions/{chat.json()['id']}"
+    selection = client.post(f"{root}/select-doctor", headers=headers, json={"doctorId": doctor_id, "date": date})
+    assert selection.status_code == 200
+    slots = selection.json()["candidateSlots"]
+    assert slots and all(slot["date"] == date for slot in slots)
+    summary = client.post(f"{root}/select-slot", headers=headers, json=slots[0])
+    assert summary.json()["state"] == BookingAgentState.AWAITING_BOOKING_CONFIRMATION.value
+    assert summary.json()["appointmentId"] is None
+    hold = client.post(f"{root}/confirm", headers=headers, json={})
+    assert hold.status_code == 200
+    appointment_id = hold.json()["appointmentId"]
+    assert client.post(f"{root}/confirm", headers=headers, json={}).json()["appointmentId"] == appointment_id
+    db["appointments"].update_one({"_id": ObjectId(appointment_id)}, {"$set": {"paymentStatus": "FAILED"}})
+    failed = client.get(f"{root}/payment-status", headers=headers).json()
+    assert failed["state"] == BookingAgentState.AWAITING_PAYMENT.value
+    db["appointments"].update_one(
+        {"_id": ObjectId(appointment_id)},
+        {"$set": {"paymentStatus": "PAID", "status": "CONFIRMED"}},
+    )
+    confirmed = client.get(f"{root}/payment-status", headers=headers).json()
+    assert confirmed["state"] == BookingAgentState.BOOKING_CONFIRMED.value
+    restored = client.get(root, headers=headers).json()
+    assert restored["messages"][-1]["metadata"]["type"] == "booking_confirmed"
+
+
+def test_provider_timeout_falls_back_to_verified_search(seeded_booking_env):
+    headers = {"Authorization": f"Bearer {seeded_booking_env['token_patient_a']}"}
+    with patch("app.agents.booking_agent.get_ai_provider") as provider:
+        provider.return_value.parse_request.side_effect = TimeoutError
+        response = client.post(
+            "/api/ai/conversations", headers=headers,
+            json={"initialMessage": "Find a cardiologist in Colombo"},
+        )
+    assert response.status_code == 201
+    assert response.json()["candidateDoctors"]

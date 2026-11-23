@@ -55,7 +55,7 @@ class DoctorListItem(BaseModel):
     specialty: str
     hospitalOrClinic: str
     experienceYears: int
-    consultationFee: float = 2500.0
+    consultationFee: Optional[float] = None
     bio: Optional[str] = None
     profileImage: Optional[str] = None
     verificationStatus: str = "APPROVED"
@@ -84,7 +84,7 @@ class DoctorDetailResponse(BaseModel):
     qualifications: str
     hospitalOrClinic: str
     experienceYears: int
-    consultationFee: float = 2500.0
+    consultationFee: Optional[float] = None
     bio: Optional[str] = None
     profileImage: Optional[str] = None
     verificationStatus: str = "APPROVED"

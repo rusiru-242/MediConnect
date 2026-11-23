@@ -217,3 +217,14 @@ def create_booking_session_indexes(db: Database) -> None:
         expireAfterSeconds=0,
         name="idx_booking_sess_ttl",
     )
+
+    collection.create_index(
+        [("patientUserId", ASCENDING), ("persistent", ASCENDING), ("updatedAt", DESCENDING), ("_id", DESCENDING)],
+        name="idx_ai_conversation_history",
+    )
+    collection.create_index(
+        [("patientUserId", ASCENDING), ("draft", ASCENDING)],
+        unique=True,
+        partialFilterExpression={"persistent": True, "draft": True},
+        name="idx_ai_conversation_single_draft",
+    )

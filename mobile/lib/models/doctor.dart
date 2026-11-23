@@ -12,6 +12,7 @@ class Doctor {
   final String verificationStatus;
   final String? qualifications;
   final double consultationFee;
+  final bool hasConsultationFee;
 
   Doctor({
     required this.doctorId,
@@ -24,6 +25,7 @@ class Doctor {
     this.verificationStatus = 'APPROVED',
     this.qualifications,
     this.consultationFee = 2500.0,
+    this.hasConsultationFee = true,
   });
 
   factory Doctor.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class Doctor {
       verificationStatus: (json['verificationStatus'] ?? 'APPROVED').toString(),
       qualifications: json['qualifications']?.toString(),
       consultationFee: json['consultationFee'] is num ? (json['consultationFee'] as num).toDouble() : 2500.0,
+      hasConsultationFee: json['consultationFee'] is num,
     );
   }
 
@@ -52,6 +55,7 @@ class Doctor {
       'profileImage': profileImage,
       'verificationStatus': verificationStatus,
       'qualifications': qualifications,
+      'consultationFee': hasConsultationFee ? consultationFee : null,
     };
   }
 }

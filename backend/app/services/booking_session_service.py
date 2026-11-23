@@ -42,12 +42,18 @@ logger = logging.getLogger(__name__)
 def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
     """Map MongoDB session document to Pydantic response schema."""
     prefs = doc.get("preferences") or {}
+
+    def message_timestamp(message: Dict[str, Any]) -> datetime:
+        timestamp = message.get("timestamp") or utc_now()
+        # MongoDB stores BSON dates at millisecond precision.
+        return timestamp.replace(microsecond=timestamp.microsecond // 1000 * 1000)
+
     messages = [
         ChatMessageSchema(
             id=str(m.get("id", ObjectId())),
             sender=m.get("sender", "assistant"),
             content=m.get("content", ""),
-            timestamp=m.get("timestamp", utc_now()),
+            timestamp=message_timestamp(m),
             metadata=m.get("metadata"),
         )
         for m in doc.get("messages", [])
@@ -69,11 +75,13 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             doctorProfileId=str(d.get("doctorProfileId", "")),
             doctorUserId=str(d.get("doctorUserId", "")),
             fullName=d.get("fullName", "Doctor"),
-            specialty=d.get("specialty", ""),
+            specialty=d.get("specialty") or "Specialty not listed",
             hospitalOrClinic=d.get("hospitalOrClinic"),
             experienceYears=int(d.get("experienceYears", 0)),
-            consultationFee=float(d.get("consultationFee", 2500.0)),
-            rating=float(d.get("rating", 4.8)),
+            consultationFee=d.get("consultationFee"),
+            city=d.get("city"),
+            profileImage=d.get("profileImage"),
+            rating=float(d.get("rating") or 0),
             nextAvailableDate=d.get("nextAvailableDate"),
             matchReason=d.get("matchReason"),
             qualifications=d.get("qualifications"),
@@ -155,7 +163,7 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
         activeImageAnalysis=doc.get("activeImageAnalysis"),
         createdAt=doc.get("createdAt", utc_now()),
         updatedAt=doc.get("updatedAt", utc_now()),
-        expiresAt=doc.get("expiresAt", utc_now()),
+        expiresAt=doc.get("expiresAt"),
     )
 
 
@@ -168,6 +176,8 @@ class BookingSessionService:
         db: Database,
         patient_user: UserResponseSchema,
         req: CreateSessionRequest,
+        *,
+        persistent: bool = False,
     ) -> BookingSessionResponse:
         """Initialize a new booking conversation session for the patient."""
         if patient_user.role != UserRole.PATIENT.value:
@@ -202,13 +212,10 @@ class BookingSessionService:
                 user_message=req.initialMessage.strip(),
             )
         else:
-            # Add welcoming introduction
             greeting = (
-                "Hello! I'm your MediConnect AI Booking Assistant. "
-                "I can help you find verified doctors, select convenient appointment slots, "
-                "and book your consultation.\n\n"
-                "What kind of doctor or medical specialist are you looking for today? "
-                "(You can also inquire in Sinhala: ඔබට සිංහලෙන්ද විමසිය හැක)"
+                "Hello! I'm your MediConnect AI Assistant. "
+                "Tell me which doctor, specialty, or city you're looking for. "
+                "I can also help you check slots or answer general health questions."
             )
             initial_dict["messages"] = [
                 {
@@ -220,6 +227,12 @@ class BookingSessionService:
                 }
             ]
 
+        if persistent:
+            initial_dict.pop("expiresAt", None)
+            initial_dict["persistent"] = True
+            initial_dict["draft"] = not bool(req.initialMessage and req.initialMessage.strip())
+            initial_dict["title"] = (req.initialMessage or "").strip()[:70] or "New Chat"
+            initial_dict["preview"] = initial_dict["messages"][-1]["content"][:160]
         res = collection.insert_one(initial_dict)
         initial_dict["_id"] = res.inserted_id
         return _to_response_schema(initial_dict)
@@ -233,7 +246,10 @@ class BookingSessionService:
     ) -> BookingSessionResponse:
         """Fetch session by ID with ownership verification and hold expiration sync."""
         doc = cls._get_session_or_404(db, patient_user, session_id)
+        message_count = len(doc["messages"])
         cls._sync_hold_and_payment_status(db, doc)
+        if doc.get("persistent") and len(doc["messages"]) != message_count:
+            cls._save(db, doc)
         return _to_response_schema(doc)
 
     @classmethod
@@ -247,31 +263,43 @@ class BookingSessionService:
         """Process an incoming conversational message from the patient."""
         doc = cls._get_session_or_404(db, patient_user, session_id)
 
-        # Check if session is already completed or cancelled
-        current_state = doc.get("state")
-        if current_state in [BookingAgentState.BOOKING_CONFIRMED.value, BookingAgentState.CANCELLED.value]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"This booking session is already {current_state.lower()}. Please start a new session.",
-            )
+        message = req.message.strip()
+        if not message:
+            raise HTTPException(422, "Enter a message.")
+        if req.requestId:
+            for item in doc["messages"]:
+                if (item.get("metadata") or {}).get("requestId") == req.requestId:
+                    if item["content"] != message:
+                        raise HTTPException(409, "This request ID already belongs to another message.")
+                    return _to_response_schema(doc)
+        if doc.get("persistent") and len(doc["messages"]) >= 500:
+            raise HTTPException(409, "This conversation is full. Start a New Chat to continue.")
+        if not doc.get("persistent") and doc.get("state") in (
+            BookingAgentState.BOOKING_CONFIRMED.value, BookingAgentState.CANCELLED.value,
+        ):
+            raise HTTPException(400, "This booking session has ended. Start a new session.")
 
         cls._sync_hold_and_payment_status(db, doc)
 
+        first_new_message = len(doc["messages"])
         # Process user message through conversational agent
         updated_dict = await BookingAgent.process_user_turn(
             db=db,
             session_data=doc,
-            user_message=req.message,
+            user_message=message,
             image_url=req.imageUrl,
         )
 
-        updated_dict["updatedAt"] = utc_now()
-        # Extend session TTL on active interaction
-        updated_dict["expiresAt"] = utc_now() + timedelta(minutes=30)
-
-        collection = get_booking_session_collection(db)
-        collection.replace_one({"_id": ObjectId(session_id)}, updated_dict)
-
+        if req.requestId:
+            user_message = updated_dict["messages"][first_new_message]
+            user_message["metadata"] = {**(user_message.get("metadata") or {}), "requestId": req.requestId}
+        if not updated_dict.get("persistent"):
+            updated_dict["updatedAt"] = utc_now()
+            updated_dict["expiresAt"] = utc_now() + timedelta(minutes=30)
+        if updated_dict.get("draft"):
+            updated_dict["title"] = message[:70]
+            updated_dict["draft"] = False
+        cls._save(db, updated_dict)
         return _to_response_schema(updated_dict)
 
     @classmethod
@@ -307,10 +335,13 @@ class BookingSessionService:
         )
 
         updated_dict["updatedAt"] = utc_now()
-        updated_dict["expiresAt"] = utc_now() + timedelta(minutes=30)
+        if updated_dict.get("draft"):
+            updated_dict["draft"] = False
+            updated_dict["title"] = (message or "").strip()[:70] or "Medicine label photo"
+        if not updated_dict.get("persistent"):
+            updated_dict["expiresAt"] = utc_now() + timedelta(minutes=30)
 
-        collection = get_booking_session_collection(db)
-        collection.replace_one({"_id": ObjectId(session_id)}, updated_dict)
+        cls._save(db, updated_dict)
 
         return _to_response_schema(updated_dict)
 
@@ -326,6 +357,14 @@ class BookingSessionService:
         doc = cls._get_session_or_404(db, patient_user, session_id)
         current_state = doc.get("state")
 
+        cls._sync_hold_and_payment_status(db, doc)
+        current_state = doc.get("state")
+        if doc.get("persistent") and current_state in {
+            BookingAgentState.AWAITING_PAYMENT.value,
+            BookingAgentState.PAYMENT_PENDING_VERIFICATION.value,
+            BookingAgentState.BOOKING_HOLD_CREATED.value,
+        }:
+            raise HTTPException(409, "Complete the current booking or start a New Chat to check another slot.")
         # Resolve doctor: must be APPROVED and ACTIVE
         clean_id = req.doctorId.strip()
         query = (
@@ -353,25 +392,31 @@ class BookingSessionService:
             "doctorProfileId": str(profile["_id"]),
             "doctorUserId": str(user["_id"]),
             "fullName": user.get("fullName", "Doctor"),
-            "specialty": profile.get("specialty", ""),
+            "specialty": profile.get("specialty") or "Specialty not listed",
             "hospitalOrClinic": profile.get("hospitalOrClinic"),
             "experienceYears": int(profile.get("experienceYears", 0)),
-            "consultationFee": float(profile.get("consultationFee", 2500.0)),
-            "rating": float(profile.get("rating", 4.8)),
+            "consultationFee": profile.get("consultationFee"),
+            "rating": profile.get("rating") or 0,
         }
 
+        if doctor_dict["consultationFee"] is None:
+            raise HTTPException(422, "This doctor has no consultation fee listed. Contact the clinic for booking.")
         doc["selectedDoctor"] = doctor_dict
         doc["selectedSlot"] = None
         doc["bookingSummary"] = None
 
         # Fetch unbooked discrete slots
         prefs = doc.get("preferences") or {}
-        slots = await BookingAgent._fetch_available_slots(db, doctor_dict["doctorId"], prefs.get("date"))
+        slots = await BookingAgent._fetch_available_slots(db, doctor_dict["doctorId"], req.date or prefs.get("date"))
         doc["candidateSlots"] = slots
 
         target_state = BookingAgentState.AWAITING_SLOT_SELECTION.value
-        if validate_state_transition(current_state, target_state):
+        if validate_state_transition(current_state, target_state) or doc.get("persistent"):
             doc["state"] = target_state
+            if current_state in {BookingAgentState.EXPIRED.value, BookingAgentState.BOOKING_CONFIRMED.value}:
+                doc["appointmentId"] = None
+                doc["paymentId"] = None
+                doc["holdExpiresAt"] = None
 
         lang = prefs.get("language", "en")
         assistant_msg = BookingAgent._build_slot_selection_message(doctor_dict, slots, lang)
@@ -380,11 +425,11 @@ class BookingSessionService:
             "sender": "assistant",
             "content": assistant_msg,
             "timestamp": utc_now(),
-            "metadata": {"type": "slot_selection", "doctorId": doctor_dict["doctorId"]},
+            "metadata": {"type": "slot_selection", "doctorId": doctor_dict["doctorId"], "date": req.date},
         })
 
         doc["updatedAt"] = utc_now()
-        get_booking_session_collection(db).replace_one({"_id": ObjectId(session_id)}, doc)
+        cls._save(db, doc)
         return _to_response_schema(doc)
 
     @classmethod
@@ -459,7 +504,7 @@ class BookingSessionService:
         })
 
         doc["updatedAt"] = utc_now()
-        get_booking_session_collection(db).replace_one({"_id": ObjectId(session_id)}, doc)
+        cls._save(db, doc)
         return _to_response_schema(doc)
 
     @classmethod
@@ -472,6 +517,39 @@ class BookingSessionService:
     ) -> BookingSessionResponse:
         """Patient explicitly confirms the booking summary, creating a 10-minute hold."""
         doc = cls._get_session_or_404(db, patient_user, session_id)
+        if not doc.get("persistent"):
+            return await cls._create_hold(db, patient_user, doc, req)
+
+        # Claim the conversation before calling the appointment service. A concurrent
+        # send, selection, rename, or delete cannot replace it during confirmation.
+        now = utc_now()
+        collection = get_booking_session_collection(db)
+        revision = doc.get("revision", {"$exists": False})
+        token = str(ObjectId())
+        claimed = collection.update_one(
+            {
+                "_id": doc["_id"],
+                "patientUserId": doc["patientUserId"],
+                "revision": revision,
+                "confirmationUntil": {"$not": {"$gt": now}},
+            },
+            {"$set": {"confirmationUntil": now + timedelta(seconds=90), "confirmationToken": token}},
+        )
+        if not claimed.matched_count:
+            raise HTTPException(409, "A booking update is in progress. Please retry.")
+        doc["confirmationToken"] = token
+        try:
+            return await cls._create_hold(db, patient_user, doc, req, confirmation_token=token)
+        finally:
+            collection.update_one(
+                {"_id": doc["_id"], "confirmationToken": token},
+                {"$unset": {"confirmationUntil": "", "confirmationToken": ""}},
+            )
+
+    @classmethod
+    async def _create_hold(
+        cls, db, patient_user, doc, req, *, confirmation_token=None,
+    ) -> BookingSessionResponse:
         current_state = doc.get("state")
 
         # Idempotency: If hold is already created and unexpired, return it
@@ -527,7 +605,7 @@ class BookingSessionService:
                     "timestamp": now,
                     "metadata": {"type": "booking_conflict", "error": e.detail},
                 })
-                get_booking_session_collection(db).replace_one({"_id": ObjectId(session_id)}, doc)
+                cls._save(db, doc, confirmation_token=confirmation_token)
             raise e
 
         # Hold created successfully
@@ -564,7 +642,7 @@ class BookingSessionService:
         })
 
         doc["updatedAt"] = now
-        get_booking_session_collection(db).replace_one({"_id": ObjectId(session_id)}, doc)
+        cls._save(db, doc, confirmation_token=confirmation_token)
         return _to_response_schema(doc)
 
     @classmethod
@@ -605,7 +683,7 @@ class BookingSessionService:
             "metadata": {"type": "session_cancelled"},
         })
 
-        get_booking_session_collection(db).replace_one({"_id": ObjectId(session_id)}, doc)
+        cls._save(db, doc)
         return _to_response_schema(doc)
 
     @classmethod
@@ -618,12 +696,33 @@ class BookingSessionService:
         """Authoritatively verify payment & appointment status from database."""
         doc = cls._get_session_or_404(db, patient_user, session_id)
         cls._sync_hold_and_payment_status(db, doc)
-        get_booking_session_collection(db).replace_one({"_id": ObjectId(session_id)}, doc)
+        cls._save(db, doc)
         return _to_response_schema(doc)
 
     # -------------------------------------------------------------------------
     # INTERNAL HELPERS
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _save(db: Database, doc: Dict[str, Any], *, confirmation_token: str | None = None) -> None:
+        collection = get_booking_session_collection(db)
+        query = {"_id": doc["_id"], "patientUserId": doc["patientUserId"]}
+        if doc.get("persistent"):
+            revision = doc.get("revision")
+            query["revision"] = revision if revision is not None else {"$exists": False}
+            if confirmation_token:
+                query["confirmationToken"] = confirmation_token
+            else:
+                query["confirmationUntil"] = {"$not": {"$gt": utc_now()}}
+            doc.pop("confirmationUntil", None)
+            doc.pop("confirmationToken", None)
+            doc["revision"] = (revision or 0) + 1
+            doc["updatedAt"] = utc_now()
+            doc["preview"] = doc["messages"][-1]["content"][:160]
+            doc.pop("expiresAt", None)
+        result = collection.replace_one(query, doc)
+        if doc.get("persistent") and not result.matched_count:
+            raise HTTPException(409, "The conversation changed. Reload it and retry.")
+
     @classmethod
     def _get_session_or_404(
         cls,
@@ -671,7 +770,7 @@ class BookingSessionService:
         pay_status = appt.get("paymentStatus")
 
         # Payment succeeded
-        if pay_status == ApptPaymentStatus.PAID.value or appt_status == AppointmentStatus.CONFIRMED.value:
+        if pay_status == ApptPaymentStatus.PAID.value and appt_status == AppointmentStatus.CONFIRMED.value:
             if doc.get("state") != BookingAgentState.BOOKING_CONFIRMED.value:
                 doc["state"] = BookingAgentState.BOOKING_CONFIRMED.value
                 doc["updatedAt"] = now

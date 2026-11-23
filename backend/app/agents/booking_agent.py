@@ -1,11 +1,11 @@
 """Conversational AI Booking Agent with bilingual multi-turn dialog, state machine, and safety checks."""
 
-from collections import defaultdict
-from datetime import datetime, timezone
+import asyncio
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from bson import ObjectId
+from fastapi import HTTPException
 from pymongo.database import Database
 
 from app.agents.ai_provider import get_ai_provider
@@ -18,19 +18,16 @@ from app.agents.nlp_parser import (
     check_urgency,
     parse_query_deterministically,
 )
+from app.config.settings import settings
 from app.models.booking_session import (
     ALLOWED_STATE_TRANSITIONS,
     BookingAgentState,
-    BookingSessionDocument,
-    ChatMessageDocument,
     utc_now,
 )
 from app.models.doctor_profile import DoctorVerificationStatus
-from app.models.specialty import SUPPORTED_SPECIALTIES
 from app.models.user import AccountStatus, UserRole
 from app.services.doctor_service import (
     DoctorService,
-    get_sl_now,
     get_sl_today_str,
 )
 
@@ -80,6 +77,7 @@ class BookingAgent:
         clean_text = user_message.strip()
         current_state = session_data.get("state", BookingAgentState.COLLECTING_PREFERENCES.value)
         prefs = dict(session_data.get("preferences") or {})
+        previous_preferences = dict(prefs)
 
         # 1. Emergency symptom check
         is_urgent, urgency_reason = check_urgency(clean_text)
@@ -117,18 +115,49 @@ class BookingAgent:
             session_data["updatedAt"] = utc_now()
             return session_data
 
-        # 2. Extract structured preferences from query using AI / deterministic NLP
-        ai_provider = get_ai_provider()
-        parsed_delta, _ = ai_provider.parse_request(
+        intent = CompanionIntentClassifier.classify_intent(
             query=clean_text,
-            explicit_filters={
-                "specialty": prefs.get("specialty"),
-                "city": prefs.get("city"),
-                "date": prefs.get("date"),
-                "timeRange": prefs.get("timeRange"),
-                "maxFee": prefs.get("maxFee"),
-            },
+            current_state=current_state,
+            has_image=bool(image_bytes or image_url),
+            candidate_count=len(session_data.get("candidateDoctors") or []),
         )
+        parsed_delta = parse_query_deterministically(clean_text)
+        if intent in {CompanionIntent.FIND_DOCTOR, CompanionIntent.BOOK_APPOINTMENT}:
+            try:
+                parsed_delta, _ = await asyncio.wait_for(
+                    asyncio.to_thread(get_ai_provider().parse_request, query=clean_text, explicit_filters={}),
+                    timeout=settings.AI_TIMEOUT_SECONDS + 1,
+                )
+            except Exception as exc:
+                logger.warning("Booking preference extraction failed (%s).", type(exc).__name__)
+
+        for key, pattern in {
+            "doctorName": r"\bdr\.?\s+([\w .'-]+?)(?=\s+(?:in|at|near)\b|[?!,]|$)",
+            "hospital": r"\bat\s+([\w .'-]+(?:hospital|clinic|centre|center))\b",
+        }.items():
+            match = re.search(pattern, clean_text, re.IGNORECASE)
+            if match:
+                prefs[key] = parsed_delta[key] = match.group(1).strip()[:100]
+
+        selection_text = re.sub(r"^(?:in|near|around)\s+", "", clean_text, flags=re.IGNORECASE)
+        selection_text = selection_text.strip(".!? ").casefold()
+        filter_only = any(
+            isinstance(parsed_delta.get(key), str) and parsed_delta[key].casefold() == selection_text
+            for key in ("city", "specialty")
+        )
+        search_requested = (
+            intent == CompanionIntent.FIND_DOCTOR
+            or filter_only
+            or any(parsed_delta.get(key) for key in ("doctorName", "hospital"))
+            or (parsed_delta.get("specialty") and parsed_delta.get("language") == "si")
+            or parsed_delta.get("maxFee") is not None
+            or parsed_delta.get("sortBy") is not None
+        )
+        if re.search(r"\b(?:find|search for|recommend)\b", clean_text, re.IGNORECASE) and search_requested:
+            prefs = {
+                key: parsed_delta[key]
+                for key in ("doctorName", "hospital") if parsed_delta.get(key)
+            }
 
         # Merge extracted preferences into session (incremental accumulation)
         if parsed_delta.get("specialty"):
@@ -167,12 +196,6 @@ class BookingAgent:
         # -----------------------------------------------------------------
         # Unified Intent Routing across Companion Capabilities (Phase 40)
         # -----------------------------------------------------------------
-        intent = CompanionIntentClassifier.classify_intent(
-            query=clean_text,
-            current_state=current_state,
-            has_image=bool(image_bytes or image_url),
-            candidate_count=len(session_data.get("candidateDoctors") or []),
-        )
         session_data["activeIntent"] = intent.value
 
         # Capability 1: Medicine Image Analysis (Packaging/Label OCR & Uncertainty)
@@ -210,7 +233,6 @@ class BookingAgent:
         # Capability 2: Medicine Information Assistant
         if intent == CompanionIntent.MEDICINE_INFORMATION:
             med_res = MedicineKnowledge.generate_educational_response(clean_text, lang=lang)
-            session_data["candidateDoctors"] = []
             session_data["candidateSlots"] = []
             session_data["activeMedicineCard"] = med_res.get("card")
             session_data["activeWellnessCard"] = None
@@ -231,7 +253,6 @@ class BookingAgent:
         # Capability 3: Healthy Food & Nutrition Assistant
         if intent == CompanionIntent.HEALTHY_FOOD:
             food_res = WellnessKnowledge.get_healthy_food_guidance(clean_text, lang=lang)
-            session_data["candidateDoctors"] = []
             session_data["candidateSlots"] = []
             session_data["activeWellnessCard"] = food_res.get("card")
             session_data["activeMedicineCard"] = None
@@ -252,7 +273,6 @@ class BookingAgent:
         # Capability 4: Exercise & Mobility Guidance
         if intent == CompanionIntent.EXERCISE_GUIDANCE:
             ex_res = WellnessKnowledge.get_exercise_guidance(clean_text, lang=lang)
-            session_data["candidateDoctors"] = []
             session_data["candidateSlots"] = []
             if ex_res.get("intent") == "EMERGENCY_GUIDANCE":
                 session_data["isUrgent"] = True
@@ -286,7 +306,6 @@ class BookingAgent:
         # Capability 5: General Wellness, Sleep & Lifestyle Habits
         if intent == CompanionIntent.GENERAL_WELLNESS:
             well_res = WellnessKnowledge.get_wellness_guidance(clean_text, lang=lang)
-            session_data["candidateDoctors"] = []
             session_data["candidateSlots"] = []
             session_data["activeWellnessCard"] = well_res.get("card")
             session_data["activeMedicineCard"] = None
@@ -312,6 +331,13 @@ class BookingAgent:
 
         # 3. Handle explicit cancel / reset commands
         if re.search(r"\b(?:cancel|abort|start\s+over|reset|අවලංගු)\b", clean_text, re.IGNORECASE):
+            if session_data.get("appointmentId"):
+                session_data["messages"].append({
+                    "id": str(ObjectId()), "sender": "assistant",
+                    "content": "Use My Appointments to manage your existing booking. You can start a New Chat to search again.",
+                    "timestamp": utc_now(), "metadata": {"type": "booking_status"},
+                })
+                return session_data
             session_data["selectedDoctor"] = None
             session_data["selectedSlot"] = None
             session_data["bookingSummary"] = None
@@ -335,6 +361,80 @@ class BookingAgent:
         candidate_slots = session_data.get("candidateSlots") or []
         selected_doctor = session_data.get("selectedDoctor")
         selected_slot = session_data.get("selectedSlot")
+
+        def mentions(doctor):
+            name = re.sub(r"^dr\.?\s+", "", doctor["fullName"], flags=re.IGNORECASE)
+            return bool(name) and bool(re.search(rf"\b{re.escape(name)}\b", clean_text, re.IGNORECASE))
+
+        follow_up = re.search(
+            r"\b(details?|profile|slots?|availability|booking status|appointment status)\b|විස්තර|වේලාව",
+            clean_text, re.IGNORECASE,
+        )
+        greeting = re.fullmatch(r"(?:hi|hello|hey|ayubowan|ආයුබෝවන්)[!. ]*", clean_text, re.IGNORECASE)
+        ordinal = parsed_delta.get("ordinalDoctorIndex")
+        named = [doctor for doctor in candidate_doctors if mentions(doctor)]
+        pending_action = session_data.pop("pendingDoctorAction", None)
+        if greeting or follow_up or (pending_action and (ordinal is not None or named)):
+            session_data["preferences"] = {**previous_preferences, "language": lang}
+            metadata = {"type": "clarification_needed"}
+            if greeting:
+                reply = "Hello! I can help you find doctors and book appointments. Which specialty or city should I search?"
+            elif follow_up and "status" in follow_up.group().lower():
+                status_messages = {
+                    BookingAgentState.BOOKING_CONFIRMED.value: "Your appointment and payment are confirmed.",
+                    BookingAgentState.AWAITING_PAYMENT.value: "Your slot is held. Payment is required to confirm the appointment.",
+                    BookingAgentState.EXPIRED.value: "Your booking hold expired. Choose another slot to continue.",
+                }
+                reply = status_messages.get(current_state, "Open My Appointments to check your booking and payment status.")
+            else:
+                action = follow_up.group().lower() if follow_up else pending_action
+                details = action in {"detail", "details", "profile", "විස්තර"}
+                pool = candidate_doctors or ([selected_doctor] if selected_doctor else [])
+                if named:
+                    pool = named
+                elif ordinal is not None and 0 <= ordinal < len(pool):
+                    pool = [pool[ordinal]]
+                elif selected_doctor:
+                    pool = [selected_doctor]
+                if len(pool) == 1:
+                    doctor = pool[0]
+                    if details:
+                        try:
+                            profile = await DoctorService.get_approved_doctor_detail(db, doctor["doctorId"])
+                        except HTTPException as exc:
+                            if exc.status_code != 404:
+                                raise
+                            reply = "That doctor?s profile is no longer available."
+                        else:
+                            current = profile.model_dump()
+                            metadata = {"type": "doctor_details", "doctors": [{**doctor, **current}]}
+                            reply = f"Here are the profile details for {profile.fullName}."
+                    else:
+                        metadata = {"type": "doctor_details", "doctors": pool}
+                        reply = f"Choose View Available Slots for {doctor['fullName']} to check times by date."
+                elif pool:
+                    session_data["pendingDoctorAction"] = action
+                    reply = "Which doctor do you mean? Please use the doctor's name or a card below."
+                    metadata = {"type": "doctor_options", "doctors": pool}
+                else:
+                    reply = "Which doctor should I look up? Share a name, specialty, or city."
+            session_data["messages"].append({
+                "id": str(ObjectId()), "sender": "assistant", "content": reply,
+                "timestamp": utc_now(), "metadata": metadata,
+            })
+            return session_data
+
+        if intent == CompanionIntent.BOOK_APPOINTMENT and current_state in {
+            BookingAgentState.AWAITING_PAYMENT.value,
+            BookingAgentState.BOOKING_HOLD_CREATED.value,
+            BookingAgentState.PAYMENT_PENDING_VERIFICATION.value,
+        }:
+            session_data["messages"].append({
+                "id": str(ObjectId()), "sender": "assistant",
+                "content": "Your current slot is held. Complete payment here, or start a New Chat for another booking.",
+                "timestamp": utc_now(), "metadata": {"type": "booking_status"},
+            })
+            return session_data
 
         # 4. Handle "compare" / "compare doctors" request
         if candidate_doctors and re.search(r"\b(?:compare|comparison|සසඳන්න)\b", clean_text, re.IGNORECASE):
@@ -370,7 +470,7 @@ class BookingAgent:
                 "sender": "assistant",
                 "content": assistant_msg,
                 "timestamp": utc_now(),
-                "metadata": {"type": "doctor_options", "count": len(doctors), "sortedBy": "fee_asc"},
+                "metadata": {"type": "doctor_options", "count": len(doctors), "doctors": doctors, "sortedBy": "fee_asc"},
             })
             session_data["updatedAt"] = utc_now()
             return session_data
@@ -385,7 +485,7 @@ class BookingAgent:
 
         # 7. Check if user mentioned a doctor (by name or ordinal: 'second doctor', 'doctor 1', etc.)
         matched_doctor = None
-        if not selected_doctor and candidate_doctors:
+        if not selected_doctor and candidate_doctors and intent == CompanionIntent.BOOK_APPOINTMENT:
             ordinal = parsed_delta.get("ordinalDoctorIndex")
             if ordinal is not None and 0 <= ordinal < len(candidate_doctors):
                 matched_doctor = candidate_doctors[ordinal]
@@ -394,12 +494,22 @@ class BookingAgent:
                 for doc in candidate_doctors:
                     doc_name = doc.get("fullName", "").lower()
                     doc_id = doc.get("doctorId", "").lower()
-                    name_parts = [p for p in doc_name.replace("dr.", "").strip().split() if len(p) > 2]
-                    if doc_name in text_lower or doc_id in text_lower or any(p in text_lower for p in name_parts):
+                    if (doc_name and doc_name in text_lower) or (doc_id and doc_id in text_lower):
                         matched_doctor = doc
                         break
+                if not matched_doctor and len(candidate_doctors) == 1:
+                    matched_doctor = candidate_doctors[0]
+                elif not matched_doctor:
+                    session_data["pendingDoctorAction"] = "book"
+                    session_data["messages"].append({
+                        "id": str(ObjectId()), "sender": "assistant",
+                        "content": "Which doctor would you like to book? Reply with a name or choose a card.",
+                        "timestamp": utc_now(),
+                        "metadata": {"type": "doctor_options", "doctors": candidate_doctors},
+                    })
+                    return session_data
 
-        if matched_doctor:
+        if matched_doctor and matched_doctor.get("consultationFee") is not None:
             session_data["activeIntent"] = CompanionIntent.BOOK_APPOINTMENT.value
             session_data["selectedDoctor"] = matched_doctor
             selected_doctor = matched_doctor
@@ -459,7 +569,7 @@ class BookingAgent:
             return session_data
 
         # 9. If doctor already selected and awaiting slot selection
-        if selected_doctor and not selected_slot:
+        if selected_doctor and not selected_slot and intent == CompanionIntent.BOOK_APPOINTMENT:
             slots = await cls._fetch_available_slots(db, selected_doctor["doctorId"], prefs.get("date"))
             session_data["candidateSlots"] = slots
             target_state = BookingAgentState.AWAITING_SLOT_SELECTION.value
@@ -478,7 +588,7 @@ class BookingAgent:
             return session_data
 
         # 10. Doctor Discovery Search (specialty, symptoms, or location specified)
-        if prefs.get("specialty") or prefs.get("city") or prefs.get("symptoms"):
+        if search_requested:
             session_data["activeIntent"] = CompanionIntent.FIND_DOCTOR.value
             target_state = BookingAgentState.SEARCHING_DOCTORS.value
             if validate_state_transition(current_state, target_state):
@@ -497,7 +607,7 @@ class BookingAgent:
                     "sender": "assistant",
                     "content": assistant_msg,
                     "timestamp": utc_now(),
-                    "metadata": {"type": "doctor_options", "count": len(doctors)},
+                    "metadata": {"type": "doctor_options", "count": len(doctors), "doctors": doctors},
                 })
             else:
                 next_state = BookingAgentState.COLLECTING_PREFERENCES.value
@@ -513,6 +623,8 @@ class BookingAgent:
                 })
         else:
             # Need more details from user
+            if not parsed_delta.get("date"):
+                session_data["preferences"] = {**previous_preferences, "language": lang}
             target_state = BookingAgentState.COLLECTING_PREFERENCES.value
             if validate_state_transition(current_state, target_state):
                 session_data["state"] = target_state
@@ -555,15 +667,15 @@ class BookingAgent:
             profile_query["specialty"] = {"$regex": re.escape(stem), "$options": "i"}
 
         city = prefs.get("city")
-        if city and city.strip():
-            profile_query["hospitalOrClinic"] = {"$regex": re.escape(city.strip()), "$options": "i"}
+        if city:
+            location = {"$regex": re.escape(city.strip()), "$options": "i"}
+            profile_query["$or"] = [{"city": location}, {"hospitalOrClinic": location}]
+        if prefs.get("hospital"):
+            profile_query["hospitalOrClinic"] = {
+                "$regex": re.escape(prefs["hospital"]), "$options": "i",
+            }
 
-        profiles = list(db["doctor_profiles"].find(profile_query).limit(20))
-        if not profiles and city:
-            # If city produced 0 results, retry without city to suggest available specialists
-            profile_query.pop("hospitalOrClinic", None)
-            profiles = list(db["doctor_profiles"].find(profile_query).limit(20))
-
+        profiles = list(db["doctor_profiles"].find(profile_query).limit(200))
         if not profiles:
             return []
 
@@ -571,7 +683,9 @@ class BookingAgent:
         for p in profiles:
             uid = p.get("userId")
             if uid:
-                user_ids.append(ObjectId(uid) if ObjectId.is_valid(uid) else uid)
+                user_ids.append(uid)
+                if ObjectId.is_valid(uid):
+                    user_ids.append(ObjectId(uid))
 
         users_cursor = db["users"].find({
             "_id": {"$in": user_ids},
@@ -580,7 +694,7 @@ class BookingAgent:
         })
         active_users = {str(u["_id"]): u for u in users_cursor}
 
-        verified_candidates: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
+        verified_candidates = []
         for p in profiles:
             uid_str = str(p.get("userId", ""))
             user = active_users.get(uid_str)
@@ -589,42 +703,6 @@ class BookingAgent:
 
         if not verified_candidates:
             return []
-
-        # Batch retrieve available slots
-        sl_today = get_sl_today_str()
-        cand_prof_ids = [str(p["_id"]) for p, _ in verified_candidates]
-        cand_user_ids = [str(u["_id"]) for _, u in verified_candidates]
-
-        avails_cursor = db["doctor_availabilities"].find({
-            "doctorProfileId": {"$in": cand_prof_ids},
-            "isActive": True,
-            "date": {"$gte": sl_today},
-        }).sort([("date", 1), ("startTime", 1)])
-        avails_by_prof: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        for av in avails_cursor:
-            avails_by_prof[str(av.get("doctorProfileId", ""))].append(av)
-
-        now_utc = datetime.now(timezone.utc)
-        appts_cursor = db["appointments"].find(
-            {
-                "doctorUserId": {"$in": cand_user_ids},
-                "status": {"$in": ["HOLD", "PENDING", "CONFIRMED", "COMPLETED"]},
-                "appointmentDate": {"$gte": sl_today},
-            },
-            {"doctorUserId": 1, "appointmentDate": 1, "startTime": 1, "status": 1, "holdExpiresAt": 1, "paymentStatus": 1},
-        )
-        booked_by_doc: Dict[str, set] = defaultdict(set)
-        for a in appts_cursor:
-            st = a.get("status")
-            hold = a.get("holdExpiresAt")
-            paid = a.get("paymentStatus") == "PAID"
-            if st in ["HOLD", "PENDING"] and not paid and hold:
-                if hold.tzinfo is None:
-                    hold = hold.replace(tzinfo=timezone.utc)
-                if hold <= now_utc:
-                    continue
-            d_uid = str(a.get("doctorUserId", ""))
-            booked_by_doc[d_uid].add((a.get("appointmentDate"), a.get("startTime")))
 
         max_fee = prefs.get("maxFee")
         target_date = prefs.get("date")
@@ -635,45 +713,18 @@ class BookingAgent:
             uid_str = str(user["_id"])
             prof_id = str(p["_id"])
             doc_id = str(p.get("doctorId", ""))
-            doc_name = user.get("fullName", "Doctor")
-            doc_spec = p.get("specialty", "General Medicine")
-            doc_hospital = p.get("hospitalOrClinic", "MediConnect Clinic")
-            doc_fee = float(p.get("consultationFee", 2500.0))
-            doc_exp = int(p.get("experienceYears", 0))
-            doc_rating = float(p.get("rating", 4.8))
-            doc_quals = p.get("qualifications", "MBBS")
-
-            # Hard budget filter if maxFee specified
-            if max_fee is not None and doc_fee > float(max_fee):
+            doc_name = user.get("fullName") or "Name unavailable"
+            if prefs.get("doctorName") and prefs["doctorName"].casefold() not in doc_name.casefold():
                 continue
+            doc_spec = p.get("specialty") or "Specialty not listed"
+            doc_hospital = p.get("hospitalOrClinic") or ""
+            doc_fee = p.get("consultationFee")
+            doc_exp = p.get("experienceYears") or 0
+            doc_rating = p.get("rating") or 0
+            doc_quals = p.get("qualifications")
 
-            # Calculate available unbooked slots
-            avails = avails_by_prof.get(prof_id, [])
-            booked_set = booked_by_doc.get(uid_str, set())
-            unbooked_slots: List[Dict[str, Any]] = []
-
-            for av in avails:
-                d_str = av["date"]
-                s_t = av["startTime"]
-                e_t = av["endTime"]
-                dur = int(av.get("slotDurationMinutes", 30))
-                av_id = str(av["_id"])
-
-                gen_slots = DoctorService._generate_slots_for_window(
-                    date_str=d_str,
-                    start_time_str=s_t,
-                    end_time_str=e_t,
-                    slot_duration_mins=dur,
-                    availability_id=av_id,
-                )
-                for gs in gen_slots:
-                    if (d_str, gs.startTime) not in booked_set:
-                        unbooked_slots.append({
-                            "availabilityId": av_id,
-                            "date": d_str,
-                            "startTime": gs.startTime,
-                            "endTime": gs.endTime,
-                        })
+            if max_fee is not None and (doc_fee is None or doc_fee > float(max_fee)):
+                continue
 
             # Multi-factor score (0-100) & match reasons
             score = 0.0
@@ -689,11 +740,11 @@ class BookingAgent:
                     reasons.append(f"Provides care as {doc_spec}")
             else:
                 score += 20.0
-                reasons.append(f"Approved specialist in {doc_spec}")
+                reasons.append("Verified doctor")
 
             # 2. Location match (up to 25 pts)
             if city:
-                if city.lower() in doc_hospital.lower():
+                if city.lower() in (p.get("city") or doc_hospital).lower():
                     score += 25.0
                     reasons.append(f"Located in {city} ({doc_hospital})")
                 else:
@@ -709,19 +760,6 @@ class BookingAgent:
             else:
                 score += 15.0
 
-            # 4. Availability match (up to 10 pts)
-            next_date = unbooked_slots[0]["date"] if unbooked_slots else None
-            if target_date:
-                has_date = any(s["date"] == target_date for s in unbooked_slots)
-                if has_date:
-                    score += 10.0
-                    reasons.append(f"Has appointment slot available on {target_date}")
-                elif unbooked_slots:
-                    score += 5.0
-            elif unbooked_slots:
-                score += 10.0
-                reasons.append(f"Next available slot on {next_date}")
-
             # 5. Rating bonus (up to 5 pts)
             score += min(5.0, doc_rating)
 
@@ -732,26 +770,31 @@ class BookingAgent:
                 "fullName": doc_name,
                 "specialty": doc_spec,
                 "qualifications": doc_quals,
+                "profileImage": user.get("profileImage"),
+                "city": p.get("city"),
                 "hospitalOrClinic": doc_hospital,
                 "experienceYears": doc_exp,
                 "consultationFee": doc_fee,
                 "rating": doc_rating,
                 "matchScore": round(min(100.0, score), 1),
-                "matchReason": reasons[0] if reasons else f"Approved specialist in {doc_spec}",
+                "matchReason": reasons[0] if reasons else "Verified doctor",
                 "matchReasons": reasons,
-                "nextAvailableDate": next_date,
-                "availableSlots": unbooked_slots[:4],
             })
 
         # Sorting: if fee_asc requested, sort by consultationFee ascending
         if prefs.get("sortBy") == "fee_asc":
-            scored_candidates.sort(key=lambda x: (x["consultationFee"], -x["matchScore"]))
+            scored_candidates.sort(key=lambda x: (x["consultationFee"] if x["consultationFee"] is not None else float("inf"), -x["matchScore"]))
         elif prefs.get("sortBy") == "rating_desc":
             scored_candidates.sort(key=lambda x: (-x["rating"], -x["matchScore"]))
         else:
-            scored_candidates.sort(key=lambda x: (-x["matchScore"], x["consultationFee"]))
+            scored_candidates.sort(key=lambda x: (-x["matchScore"], x["consultationFee"] if x["consultationFee"] is not None else float("inf")))
 
-        return scored_candidates[:5]
+        results = scored_candidates[:5]
+        for doctor in results:
+            slots = await cls._fetch_available_slots(db, doctor["doctorId"], target_date)
+            doctor["availableSlots"] = slots[:4]
+            doctor["nextAvailableDate"] = slots[0]["date"] if slots else None
+        return results
 
     @classmethod
     async def _fetch_available_slots(
@@ -767,8 +810,8 @@ class BookingAgent:
                 doctor_id=doctor_id,
                 date_filter=preferred_date,
             )
-        except Exception as e:
-            logger.warning(f"Error fetching doctor slots for {doctor_id}: {e}")
+        except HTTPException as exc:
+            logger.warning("Doctor slot lookup failed with status %s", exc.status_code)
             return []
 
         slots: List[Dict[str, Any]] = []
@@ -830,21 +873,26 @@ class BookingAgent:
         prefs: Dict[str, Any],
         lang: str,
     ) -> str:
+        if not doctors:
+            return cls._build_no_doctors_message(prefs, lang)
         count = len(doctors)
-        spec = prefs.get("specialty", "specialist")
         city = prefs.get("city")
-        loc_str = f" in {city}" if city else ""
-
+        location = f" in {city}" if city else ""
+        noun = "doctor" if count == 1 else "doctors"
         if lang == "si":
             return (
-                f"ඔබට ගැළපෙන පිළිගත් {spec} වෛද්‍යවරුන් {count} දෙනෙකු සොයා ගන්නා ලදී.\n"
-                "වේලාවන් බැලීමට පහත කාඩ්පතකින් වෛද්‍යවරයකු තෝරන්න."
+                f"ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් {count} දෙනෙක් හමු වුණා. "
+                "විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න."
             )
-
         return (
-            f"I found {count} approved {spec}{loc_str} matching your preferences.\n"
-            "Please select a doctor below to view available appointment slots."
+            f"I found {count} verified {noun}{location} matching your search. "
+            "Select a doctor to view their profile or check appointment slots."
         )
+
+    @staticmethod
+    def _format_fee(doctor: Dict[str, Any]) -> str:
+        fee = doctor.get("consultationFee")
+        return f"LKR {fee:,.0f}" if fee is not None else "Fee unavailable"
 
     @classmethod
     def _build_comparison_message(
@@ -852,51 +900,33 @@ class BookingAgent:
         doctors: List[Dict[str, Any]],
         lang: str,
     ) -> str:
-        if lang == "si":
-            lines = ["වෛද්‍යවරුන්ගේ සංසන්දනය:"]
-            for i, d in enumerate(doctors[:3], 1):
-                lines.append(
-                    f"\n{i}. {d['fullName']}\n"
-                    f"   • විශේෂත්වය: {d['specialty']}\n"
-                    f"   • සුදුසුකම්: {d.get('qualifications', 'MBBS')}\n"
-                    f"   • රෝහල: {d.get('hospitalOrClinic', 'MediConnect')}\n"
-                    f"   • උපදේශන ගාස්තුව: LKR {d['consultationFee']:,.0f}\n"
-                    f"   • පළපුරුද්ද: වසර {d.get('experienceYears', 0)}\n"
-                    f"   • ශ්‍රේණිගත කිරීම: ⭐ {d.get('rating', 4.8):.1f}\n"
-                    f"   • ඊළඟ වේලාව: {d.get('nextAvailableDate') or 'ලබාගත හැක'}"
-                )
-            lines.append("\nකරුණාකර ඔබ කැමති වෛද්‍යවරයකු තෝරන්න.")
-            return "\n".join(lines)
-
-        lines = ["Here is a side-by-side comparison of the top recommended doctors:"]
-        for i, d in enumerate(doctors[:3], 1):
-            score_val = d.get('matchScore', 90)
-            lines.append(
-                f"\n{i}. {d['fullName']}\n"
-                f"   • Specialty: {d['specialty']}\n"
-                f"   • Qualifications: {d.get('qualifications', 'MBBS')}\n"
-                f"   • Hospital/Clinic: {d.get('hospitalOrClinic', 'MediConnect Clinic')}\n"
-                f"   • Fee: LKR {d['consultationFee']:,.0f}\n"
-                f"   • Experience: {d.get('experienceYears', 0)} years\n"
-                f"   • Rating: ⭐ {d.get('rating', 4.8):.1f} ({score_val:.0f}% Match)\n"
-                f"   • Next Available: {d.get('nextAvailableDate') or 'Slots available'}"
-            )
-        lines.append("\nTo proceed, select a doctor or reply with their number (e.g., 'Book the 2nd doctor').")
+        lines = ["Here is a side-by-side comparison of the doctors:"]
+        for number, doctor in enumerate(doctors[:3], 1):
+            lines.append(f"\n{number}. {doctor['fullName']}")
+            for key in ("specialty", "qualifications", "hospitalOrClinic"):
+                if doctor.get(key):
+                    lines.append(f"   - {doctor[key]}")
+            lines.append(f"   - {cls._format_fee(doctor)}")
+        lines.append("\nChoose a doctor to check available times by date.")
         return "\n".join(lines)
 
     @classmethod
     def _build_no_doctors_message(cls, prefs: Dict[str, Any], lang: str) -> str:
-        spec = prefs.get("specialty", "doctor")
+        spec = prefs.get("specialty")
         city = prefs.get("city")
         fee = prefs.get("maxFee")
         criteria = []
+        if prefs.get("doctorName"):
+            criteria.append(prefs["doctorName"])
         if spec:
             criteria.append(spec)
         if city:
             criteria.append(f"in {city}")
+        if prefs.get("hospital"):
+            criteria.append(f"at {prefs['hospital']}")
         if fee:
             criteria.append(f"under LKR {fee:,.0f}")
-        c_text = " ".join(criteria)
+        c_text = " ".join(criteria) or "your search"
 
         if lang == "si":
             return (

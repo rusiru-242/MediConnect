@@ -583,7 +583,9 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                 _buildDetailRow(
                   Icons.payments_outlined,
                   'Consultation Fee',
-                  'LKR ${doctor.consultationFee.toStringAsFixed(2)}',
+                  doctor.hasConsultationFee
+                      ? 'LKR ${doctor.consultationFee.toStringAsFixed(2)}'
+                      : 'Fee unavailable',
                 ),
                 if (doctor.bio != null && doctor.bio!.isNotEmpty) ...[
                   const Divider(height: 20),
@@ -850,6 +852,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               final isEnabled =
                   _selectedSlotStartTime != null &&
                   _doctor != null &&
+                  _doctor!.hasConsultationFee &&
                   selectedSlot != null;
 
               return Container(
