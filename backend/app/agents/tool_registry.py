@@ -159,3 +159,68 @@ TOOLS = {
     "get_patient_care_tasks": Tool("Read assigned care tasks for the signed-in patient.", Arguments, care_tasks),
     "get_booking_session_status": Tool("Read the signed-in patient's booking state.", Session, booking_status),
 }
+
+
+class DoctorDates(Arguments):
+    start: date
+    end: date | None = None
+
+
+class DoctorAppointment(Arguments):
+    appointment_id: Annotated[str, StringConstraints(pattern=r"^[a-fA-F0-9]{24}$")]
+
+
+async def doctor_schedule(ctx, args):
+    from app.services.doctor_workflow import schedule
+
+    return {"appointments": schedule(ctx.db, ctx.user, args.start, args.end or args.start)}
+
+
+async def doctor_slots(ctx, args):
+    from app.services.consultation_service import ConsultationService
+
+    profile = ConsultationService._verify_approved_doctor(ctx.db, ctx.user)
+    return await availability(ctx, Availability(doctor_id=str(profile["_id"]), requested_date=args.start))
+
+
+async def doctor_queue(ctx, args):
+    from app.services.doctor_workflow import patient_queue
+
+    return patient_queue(ctx.db, ctx.user, args.start)
+
+
+async def doctor_next(ctx, args):
+    queue = await doctor_queue(ctx, args)
+    return {"nextPatient": queue["nextPatient"]}
+
+
+async def doctor_preparation(ctx, args):
+    from app.services.doctor_workflow import preparation
+
+    return preparation(ctx.db, ctx.user, args.appointment_id)
+
+
+async def doctor_analytics(ctx, args):
+    from app.services.doctor_workflow import analytics
+
+    return analytics(ctx.db, ctx.user, args.start, args.end or args.start)
+
+
+async def doctor_follow_ups(ctx, args):
+    from app.services.doctor_workflow import follow_ups
+
+    return {"followUps": follow_ups(ctx.db, ctx.user)}
+
+
+# These capabilities are selected locally by the doctor assistant. Only public
+# search tools are exposed to external providers by the orchestrator.
+DOCTOR_ROLES = frozenset({"DOCTOR"})
+TOOLS.update({
+    "get_my_doctor_schedule": Tool("Read your appointments.", DoctorDates, doctor_schedule, DOCTOR_ROLES),
+    "get_my_available_slots": Tool("Read your available slots.", DoctorDates, doctor_slots, DOCTOR_ROLES),
+    "get_my_patient_queue": Tool("Read your daily queue.", DoctorDates, doctor_queue, DOCTOR_ROLES),
+    "get_next_queue_patient": Tool("Read the next eligible patient.", DoctorDates, doctor_next, DOCTOR_ROLES),
+    "get_consultation_preparation": Tool("Prepare an assigned consultation.", DoctorAppointment, doctor_preparation, DOCTOR_ROLES),
+    "get_my_follow_up_tasks": Tool("Read your follow-up plans.", Arguments, doctor_follow_ups, DOCTOR_ROLES),
+    "get_my_doctor_analytics": Tool("Read your operational metrics.", DoctorDates, doctor_analytics, DOCTOR_ROLES),
+})

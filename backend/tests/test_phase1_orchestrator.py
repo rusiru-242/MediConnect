@@ -26,10 +26,10 @@ def reply(name, args):
 async def test_registry_rejects_unknown_tools_invalid_arguments_and_roles():
     patient = AIOrchestrator(None, actor(), None)
     names = set(TOOLS)
-    assert set(patient.authorized(names)) == names
+    assert set(patient.authorized(names)) == {name for name, tool in TOOLS.items() if "PATIENT" in tool.roles}
     for role in ("DOCTOR", "ADMIN"):
         orch = AIOrchestrator(None, actor(role), None)
-        assert orch.authorized(names) == {}
+        assert set(orch.authorized(names)) == {name for name, tool in TOOLS.items() if role in tool.roles}
         assert await orch.execute("get_patient_appointments", {}, names) == {"error": "tool_unavailable"}
     assert await patient.execute("shell", {}, names) == {"error": "tool_unavailable"}
     assert await patient.execute("get_patient_appointments", {"patient_id": "other"}, names) == {

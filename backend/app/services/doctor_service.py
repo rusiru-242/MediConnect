@@ -1035,8 +1035,20 @@ class DoctorService:
         if (sh * 60 + sm) >= (eh * 60 + em):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start time must be earlier than end time.")
 
-        coll = get_doctor_blocked_time_collection(db)
         now = utc_now()
+        conflict = db["appointments"].find_one({
+            "doctorUserId": str(doctor_user.id), "appointmentDate": req.date,
+            "startTime": {"$lt": req.endTime}, "endTime": {"$gt": req.startTime},
+            "$or": [
+                {"status": "CONFIRMED"},
+                {"status": {"$in": ["HOLD", "PENDING"]}, "holdExpiresAt": {"$gt": now}},
+                {"status": "PENDING", "holdExpiresAt": None},
+                {"status": {"$in": ["HOLD", "PENDING"]}, "paymentStatus": "PAID"},
+            ],
+        }, {"_id": 1})
+        if conflict:
+            raise HTTPException(409, "This block overlaps a booking or active hold. Resolve the booking first.")
+        coll = get_doctor_blocked_time_collection(db)
         doc = DoctorBlockedTimeDocument(
             doctorUserId=str(doctor_user.id),
             doctorProfileId=str(profile["_id"]),
