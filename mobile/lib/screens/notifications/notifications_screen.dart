@@ -69,6 +69,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final authProvider = context.read<AuthProvider>();
     final isDoctor = authProvider.user?.role == 'DOCTOR';
 
+    if (!isDoctor && item.relatedCareEventId != null) {
+      Navigator.of(context).pushNamed('/patient/care-agenda', arguments: item.relatedCareEventId);
+      return;
+    }
+
     // Route to appointment detail
     if (item.relatedAppointmentId != null && item.relatedAppointmentId!.isNotEmpty) {
       if (isDoctor) {

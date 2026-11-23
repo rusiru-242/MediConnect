@@ -129,6 +129,11 @@ class BookingAgent:
         )
         parsed_delta = parse_query_deterministically(clean_text)
         provider = get_ai_provider()
+        if patient_user and not (image_url or image_bytes):
+            from app.agents.patient_care import respond_to_care
+            care = await respond_to_care(db, patient_user, provider, session_data, clean_text)
+            if care is not None:
+                return care
         if patient_user and not (image_url or image_bytes) and re.search(
             r"\b(?:appointment status|booking status|mage booking|heta mata appointment|my appointments|my care tasks)\b",
             clean_text, re.I,

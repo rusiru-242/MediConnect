@@ -11,6 +11,7 @@ enum NotificationType {
   appointmentReminder24h,
   appointmentReminder1h,
   appointmentRescheduled,
+  careReminder,
   system,
 }
 
@@ -35,6 +36,8 @@ extension NotificationTypeExtension on NotificationType {
         return NotificationType.appointmentReminder1h;
       case 'APPOINTMENT_RESCHEDULED':
         return NotificationType.appointmentRescheduled;
+      case 'CARE_REMINDER':
+        return NotificationType.careReminder;
       default:
         return NotificationType.system;
     }
@@ -60,6 +63,8 @@ extension NotificationTypeExtension on NotificationType {
         return 'APPOINTMENT_REMINDER_1H';
       case NotificationType.appointmentRescheduled:
         return 'APPOINTMENT_RESCHEDULED';
+      case NotificationType.careReminder:
+        return 'CARE_REMINDER';
       case NotificationType.system:
         return 'SYSTEM';
     }
@@ -73,6 +78,7 @@ class NotificationModel {
   final NotificationType type;
   final String title;
   final String body;
+  final String? relatedCareEventId;
   final String? relatedAppointmentId;
   final String? relatedPaymentId;
   final bool isRead;
@@ -85,6 +91,7 @@ class NotificationModel {
     required this.type,
     required this.title,
     required this.body,
+    this.relatedCareEventId,
     this.relatedAppointmentId,
     this.relatedPaymentId,
     required this.isRead,
@@ -99,6 +106,7 @@ class NotificationModel {
       type: NotificationTypeExtension.fromString(json['type']?.toString()),
       title: json['title']?.toString() ?? '',
       body: json['body']?.toString() ?? '',
+      relatedCareEventId: json['relatedCareEventId']?.toString(),
       relatedAppointmentId: json['relatedAppointmentId']?.toString(),
       relatedPaymentId: json['relatedPaymentId']?.toString(),
       isRead: json['isRead'] == true,
@@ -129,6 +137,7 @@ class NotificationModel {
       type: type ?? this.type,
       title: title ?? this.title,
       body: body ?? this.body,
+      relatedCareEventId: relatedCareEventId,
       relatedAppointmentId: relatedAppointmentId ?? this.relatedAppointmentId,
       relatedPaymentId: relatedPaymentId ?? this.relatedPaymentId,
       isRead: isRead ?? this.isRead,
@@ -156,6 +165,7 @@ class NotificationModel {
         return Icons.alarm_rounded;
       case NotificationType.appointmentRescheduled:
         return Icons.edit_calendar_rounded;
+      case NotificationType.careReminder:
       case NotificationType.system:
         return Icons.notifications_rounded;
     }
@@ -180,6 +190,7 @@ class NotificationModel {
         return const Color(0xFFF57C00); // Orange
       case NotificationType.appointmentRescheduled:
         return const Color(0xFF0288D1); // Light Blue / Cyan
+      case NotificationType.careReminder:
       case NotificationType.system:
         return const Color(0xFF5E35B1); // Purple
     }

@@ -27,6 +27,7 @@ import 'screens/doctor/doctor_registration_screen.dart';
 import 'screens/doctor/doctor_schedule_screen.dart';
 import 'screens/doctor/manage_availability_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
+import 'screens/patient/care_agenda_screen.dart';
 import 'screens/patient/ai_care_assistant_screen.dart';
 import 'screens/patient/ai_doctor_recommendation_screen.dart';
 import 'screens/patient/ai_health_assistant_screen.dart';
@@ -166,6 +167,9 @@ class MediConnectApp extends StatelessWidget {
               const MedicationRemindersScreen(),
           '/medication-reminders': (context) =>
               const MedicationRemindersScreen(),
+          '/patient/care-agenda': (context) => CareAgendaScreen(
+            eventId: ModalRoute.of(context)?.settings.arguments as String?,
+          ),
           '/patient/care-plans': (context) => const PatientCarePlansScreen(),
           '/patient/timeline': (context) => const HealthcareTimelineScreen(),
           '/patient/visit-detail': (context) => const PatientVisitDetailScreen(appointmentId: ''),

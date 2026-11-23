@@ -26,7 +26,7 @@ def reply(name, args):
 async def test_registry_rejects_unknown_tools_invalid_arguments_and_roles():
     patient = AIOrchestrator(None, actor(), None)
     names = set(TOOLS)
-    assert len(patient.authorized(names)) == 6
+    assert set(patient.authorized(names)) == names
     for role in ("DOCTOR", "ADMIN"):
         orch = AIOrchestrator(None, actor(role), None)
         assert orch.authorized(names) == {}

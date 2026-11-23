@@ -1,3 +1,4 @@
+import '../../services/fcm_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -29,6 +30,9 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FcmService().openPendingCareReminder();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
         Provider.of<NotificationProvider>(context, listen: false).refreshUnreadCount();
@@ -1569,7 +1573,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         StitchCard(
           key: const Key('patient_home_care_plans_button'),
           onTap: () {
-            Navigator.of(context).pushNamed('/patient/care-plans');
+            Navigator.of(context).pushNamed('/patient/care-agenda');
           },
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(

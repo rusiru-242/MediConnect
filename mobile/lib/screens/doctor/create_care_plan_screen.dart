@@ -7,6 +7,7 @@ import '../../services/care_plan_service.dart';
 class CreateCarePlanScreen extends StatefulWidget {
   final Appointment? appointment;
   final String? appointmentId;
+  final String? planId;
   final String? patientUserId;
   final String? patientName;
   final String? consultationDate;
@@ -16,6 +17,7 @@ class CreateCarePlanScreen extends StatefulWidget {
     super.key,
     this.appointment,
     this.appointmentId,
+    this.planId,
     this.patientUserId,
     this.patientName,
     this.consultationDate,
@@ -45,6 +47,12 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
   String _consultationType = 'IN_PERSON';
 
   final List<TextEditingController> _taskControllers = [];
+  final _taskKinds = <TextEditingController, String>{};
+  final _taskTimes = <TextEditingController, String>{};
+  final _taskInstructions = <TextEditingController, String>{};
+  final _taskLocations = <TextEditingController, String>{};
+  final _taskOffsets = <TextEditingController, int>{};
+  bool _canSubmit = true;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -52,8 +60,44 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
   void initState() {
     super.initState();
     _carePlanService = widget.carePlanService ?? CarePlanService();
-    // Default task
-    _taskControllers.add(TextEditingController(text: 'Record blood pressure readings daily'));
+    _taskControllers.add(TextEditingController());
+    if (widget.planId != null) _loadPlan(widget.planId!);
+  }
+
+  Future<void> _loadPlan(String id) async {
+    _isLoading = true;
+    _canSubmit = false;
+    try {
+      final plan = await _carePlanService.getCarePlanDetails(id);
+      if (!mounted) return;
+      setState(() {
+        _followUpDate = DateTime.tryParse(plan.followUpDate) ?? _followUpDate;
+        _followUpDateEnd = DateTime.tryParse(plan.followUpDateEnd ?? '');
+        _reasonController.text = plan.reason;
+        _instructionsController.text = plan.instructions;
+        _consultationType = plan.recommendedConsultationType;
+        for (final controller in _taskControllers) { controller.dispose(); }
+        _taskControllers.clear();
+        for (final task in plan.tasks) {
+          final controller = TextEditingController(text: task.title);
+          _taskControllers.add(controller);
+          _taskKinds[controller] = task.kind;
+          _taskOffsets[controller] = task.remindMinutesBefore;
+          if (task.description != null) _taskInstructions[controller] = task.description!;
+          if (task.location != null) _taskLocations[controller] = task.location!;
+          final date = task.dueAt?.toUtc().add(const Duration(hours: 5, minutes: 30));
+          if (date != null) {
+            _taskTimes[controller] = '${_formatDate(date)} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+          }
+        }
+        if (_taskControllers.isEmpty) _taskControllers.add(TextEditingController());
+        _canSubmit = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _errorMessage = 'Could not load this care plan.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -75,7 +119,13 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
   void _removeTask(int index) {
     if (_taskControllers.length > 1) {
       setState(() {
-        _taskControllers[index].dispose();
+        final task = _taskControllers[index];
+        _taskKinds.remove(task);
+        _taskTimes.remove(task);
+        _taskInstructions.remove(task);
+        _taskLocations.remove(task);
+        _taskOffsets.remove(task);
+        task.dispose();
         _taskControllers.removeAt(index);
       });
     }
@@ -128,22 +178,44 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
       _errorMessage = null;
     });
 
-    final taskPayloads = _taskControllers
-        .map((c) => c.text.trim())
-        .where((t) => t.isNotEmpty)
-        .map((t) => {'title': t})
-        .toList();
+    final taskPayloads = [
+      for (final controller in _taskControllers)
+        if (controller.text.trim().isNotEmpty)
+          {
+            'title': controller.text.trim(),
+            'kind': _taskKinds[controller] ?? 'task',
+            if (_taskTimes[controller]?.isNotEmpty == true)
+              'dueAt': '${_taskTimes[controller]!.replaceFirst(' ', 'T')}:00+05:30',
+            if (_taskInstructions[controller]?.trim().isNotEmpty == true)
+              'description': _taskInstructions[controller]!.trim(),
+            if (_taskLocations[controller]?.trim().isNotEmpty == true)
+              'location': _taskLocations[controller]!.trim(),
+            'remindMinutesBefore': _taskOffsets[controller] ?? (_taskKinds[controller] == 'test' ? 60 : 0),
+          },
+    ];
 
     try {
-      await _carePlanService.createCarePlan(
-        appointmentId: _effectiveAppointmentId,
-        followUpDate: _formatDate(_followUpDate),
-        followUpDateEnd: _followUpDateEnd != null ? _formatDate(_followUpDateEnd!) : null,
-        reason: _reasonController.text.trim(),
-        instructions: _instructionsController.text.trim(),
-        recommendedConsultationType: _consultationType,
-        tasks: taskPayloads,
-      );
+      if (widget.planId != null) {
+        await _carePlanService.updateCarePlan(
+          widget.planId!,
+          followUpDate: _formatDate(_followUpDate),
+          followUpDateEnd: _followUpDateEnd != null ? _formatDate(_followUpDateEnd!) : null,
+          reason: _reasonController.text.trim(),
+          instructions: _instructionsController.text.trim(),
+          recommendedConsultationType: _consultationType,
+          tasks: taskPayloads,
+        );
+      } else {
+        await _carePlanService.createCarePlan(
+          appointmentId: _effectiveAppointmentId,
+          followUpDate: _formatDate(_followUpDate),
+          followUpDateEnd: _followUpDateEnd != null ? _formatDate(_followUpDateEnd!) : null,
+          reason: _reasonController.text.trim(),
+          instructions: _instructionsController.text.trim(),
+          recommendedConsultationType: _consultationType,
+          tasks: taskPayloads,
+        );
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -167,7 +239,7 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Create Follow-up Plan', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.planId == null ? 'Create Follow-up Plan' : 'Edit Follow-up Plan', style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textPrimary,
         elevation: 0.5,
@@ -363,15 +435,17 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
                         final ctrl = entry.value;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              Row(children: [
                               Expanded(
                                 child: TextFormField(
                                   key: Key('care_plan_task_input_$i'),
                                   controller: ctrl,
                                   decoration: InputDecoration(
                                     labelText: 'Task ${i + 1}',
-                                    hintText: 'e.g. Bring fasting blood sugar report',
+                                    hintText: 'Enter the approved task',
                                     border: const OutlineInputBorder(),
                                     isDense: true,
                                   ),
@@ -382,6 +456,44 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
                                   icon: const Icon(Icons.remove_circle_outline, color: AppTheme.error),
                                   onPressed: () => _removeTask(i),
                                 ),
+                              ]),
+                              DropdownButtonFormField<String>(
+                                key: ValueKey(ctrl),
+                                initialValue: _taskKinds[ctrl] ?? 'task',
+                                items: const [
+                                  DropdownMenuItem(value: 'task', child: Text('Care task')),
+                                  DropdownMenuItem(value: 'test', child: Text('Medical test or imaging')),
+                                  DropdownMenuItem(value: 'measurement', child: Text('Health measurement')),
+                                  DropdownMenuItem(value: 'exercise', child: Text('Approved exercise')),
+                                ],
+                                onChanged: (kind) => setState(() => _taskKinds[ctrl] = kind ?? 'task'),
+                              ),
+                              TextFormField(
+                                initialValue: _taskTimes[ctrl],
+                                decoration: const InputDecoration(labelText: 'Due YYYY-MM-DD HH:mm (Sri Lanka, optional)'),
+                                onChanged: (value) => _taskTimes[ctrl] = value.trim(),
+                                validator: (value) {
+                                  final text = value?.trim() ?? '';
+                                  if (text.isEmpty) {
+                                    return _taskKinds[ctrl] == 'test' && ctrl.text.trim().isNotEmpty
+                                        ? 'Enter the scheduled test date and time' : null;
+                                  }
+                                  if (!RegExp(r'^\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3]):[0-5]\d$').hasMatch(text)) {
+                                    return 'Use YYYY-MM-DD HH:mm';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              TextFormField(
+                                initialValue: _taskInstructions[ctrl],
+                                decoration: const InputDecoration(labelText: 'Clinician instructions or test preparation (optional)'),
+                                onChanged: (value) => _taskInstructions[ctrl] = value,
+                              ),
+                              TextFormField(
+                                initialValue: _taskLocations[ctrl],
+                                decoration: const InputDecoration(labelText: 'Location (optional)'),
+                                onChanged: (value) => _taskLocations[ctrl] = value,
+                              ),
                             ],
                           ),
                         );
@@ -401,7 +513,7 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: _isLoading ? null : _submitCarePlan,
+                onPressed: _isLoading || !_canSubmit ? null : _submitCarePlan,
                 icon: _isLoading
                     ? const SizedBox(
                         width: 18,
@@ -410,7 +522,7 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
                       )
                     : const Icon(Icons.check_circle_outline_rounded),
                 label: Text(
-                  _isLoading ? 'Creating Plan...' : 'Create Follow-up Plan',
+                  _isLoading ? 'Saving Plan...' : widget.planId == null ? 'Create Follow-up Plan' : 'Save care plan',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),

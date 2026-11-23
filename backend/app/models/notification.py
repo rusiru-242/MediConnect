@@ -28,6 +28,7 @@ class NotificationType(str, Enum):
     FOLLOW_UP_REMINDER_7D = "FOLLOW_UP_REMINDER_7D"
     FOLLOW_UP_REMINDER_1D = "FOLLOW_UP_REMINDER_1D"
     FOLLOW_UP_REMINDER_DUE = "FOLLOW_UP_REMINDER_DUE"
+    CARE_REMINDER = "CARE_REMINDER"
     SYSTEM = "SYSTEM"
 
 
@@ -50,6 +51,7 @@ class NotificationDocument(BaseModel):
     type: NotificationType = Field(default=NotificationType.SYSTEM)
     title: str = Field(..., min_length=1, max_length=200)
     body: str = Field(..., min_length=1, max_length=1000)
+    relatedCareEventId: Optional[str] = None
     relatedAppointmentId: Optional[str] = Field(default=None, description="Optional references appointments._id")
     relatedPaymentId: Optional[str] = Field(default=None, description="Optional references payments._id")
     isRead: bool = Field(default=False)
