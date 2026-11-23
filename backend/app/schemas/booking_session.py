@@ -103,6 +103,15 @@ class ImageAnalysisResult(BaseModel):
 class BookingSummary(BaseModel):
     """Authoritative booking summary presented before explicit confirmation."""
 
+    proposalId: Optional[str] = None
+    proposalExpiresAt: Optional[datetime] = None
+    timezone: Optional[str] = None
+    city: Optional[str] = None
+    patientName: Optional[str] = None
+    maskedEmail: Optional[str] = None
+    maskedPhone: Optional[str] = None
+    requestedTime: Optional[str] = None
+    selectionReason: Optional[str] = None
     doctorName: str
     specialty: str
     hospitalOrClinic: Optional[str] = None
@@ -149,6 +158,7 @@ class BookingSessionResponse(BaseModel):
     urgencyReason: Optional[str] = None
     activeIntent: Optional[str] = None
     assistantResponse: Optional[AssistantResponse] = None
+    bookingResult: Optional[Dict[str, Any]] = None
     activeMedicineCard: Optional[MedicineCard] = None
     activeWellnessCard: Optional[WellnessCard] = None
     activeImageAnalysis: Optional[ImageAnalysisResult] = None
@@ -190,6 +200,7 @@ class SelectDoctorRequest(BaseModel):
 
 
 class SelectSlotRequest(BaseModel):
+    prepareProposal: bool = False
     """Explicit request payload to select an appointment slot."""
 
     availabilityId: str = Field(..., description="Doctor availability record ID")
@@ -201,6 +212,8 @@ class SelectSlotRequest(BaseModel):
 class ConfirmBookingRequest(BaseModel):
     """Explicit user request payload to confirm the appointment booking hold."""
 
+    proposalId: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{24}$")
+    smsConsent: bool = False
     patientNote: Optional[str] = Field(
         default=None,
         max_length=500,

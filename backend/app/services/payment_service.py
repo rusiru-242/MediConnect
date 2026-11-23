@@ -10,6 +10,7 @@ from pymongo.errors import DuplicateKeyError
 import stripe
 
 from app.config.settings import settings
+from app.services.ai_booking_proposal import settle_ai_payment
 from app.models.appointment import (
     AppointmentStatus,
     PaymentStatus as AppointmentPaymentStatus,
@@ -108,7 +109,8 @@ class PaymentService:
             if hold_expires_at <= now:
                 # Mark as cancelled
                 db["appointments"].update_one(
-                    {"_id": appt_doc["_id"]},
+                    {"_id": appt_doc["_id"], "status": {"$in": ["HOLD", "PENDING"]},
+                     "paymentStatus": {"$ne": "PAID"}},
                     {
                         "$set": {
                             "status": AppointmentStatus.CANCELLED.value,
@@ -146,11 +148,16 @@ class PaymentService:
             )
 
         # 5. Determine consultation fee exclusively from backend
-        consultation_fee = float(doctor_profile.get("consultationFee", 2500.0))
-        currency = (settings.STRIPE_CURRENCY or "lkr").lower()
-        # Stripe expects smallest currency unit (e.g. cents / satang / paise)
-        # For LKR, 1 LKR = 100 cents
-        amount_in_cents = int(round(consultation_fee * 100))
+        if appt_doc.get("bookingSource") == "ai_agent":
+            amount_in_cents = appt_doc["acceptedAmountMinor"]
+            consultation_fee = amount_in_cents / 100
+            currency = appt_doc["bookingCurrency"]
+            if amount_in_cents <= 0:
+                raise HTTPException(409, "This booking does not require payment.")
+        else:
+            consultation_fee = float(doctor_profile.get("consultationFee", 2500.0))
+            currency = (settings.STRIPE_CURRENCY or "lkr").lower()
+            amount_in_cents = int(round(consultation_fee * 100))
 
         payment_col = get_payment_collection(db)
 
@@ -166,6 +173,10 @@ class PaymentService:
             try:
                 intent = stripe.PaymentIntent.retrieve(intent_id)
                 if intent.status == "succeeded":
+                    if appt_doc.get("bookingSource") == "ai_agent":
+                        outcome = settle_ai_payment(db, existing_payment, intent, now)
+                        raise HTTPException(409, "Payment received. Check booking status." if outcome == "success"
+                                            else "Payment received and awaiting reconciliation.")
                     # Payment was already completed in Stripe
                     payment_col.update_one(
                         {"_id": existing_payment["_id"]},
@@ -193,11 +204,11 @@ class PaymentService:
                         currency=currency,
                         publishableKey=settings.STRIPE_PUBLISHABLE_KEY,
                     )
-            except HTTPException:
-                raise
                 if intent.status != "canceled":
                     raise HTTPException(409, "The current payment is still being verified.")
                 attempt = str(existing_payment["_id"])
+            except HTTPException:
+                raise
             except stripe.error.StripeError as exc:
                 raise HTTPException(502, "Could not verify the existing payment. Please retry.") from exc
 
@@ -317,6 +328,10 @@ class PaymentService:
                 logger.warning(f"PaymentIntent {intent_id} not found in MediConnect DB.")
                 return {"status": "ignored", "reason": "Payment record not found"}
 
+            outcome = settle_ai_payment(db, payment, data_object, now)
+            if outcome is not None:
+                return {"status": outcome, "appointmentId": payment["appointmentId"]}
+
             # Idempotency check: if already SUCCEEDED, return early
             if payment.get("status") == PaymentStatus.SUCCEEDED.value:
                 return {"status": "already_processed"}
@@ -410,7 +425,8 @@ class PaymentService:
             appt_id_str = payment["appointmentId"]
             if ObjectId.is_valid(appt_id_str):
                 db["appointments"].update_one(
-                    {"_id": ObjectId(appt_id_str)},
+                    {"_id": ObjectId(appt_id_str), "paymentStatus": {"$ne": "PAID"},
+                     "status": {"$in": ["HOLD", "PENDING"]}},
                     {
                         "$set": {
                             "paymentStatus": AppointmentPaymentStatus.FAILED.value,
@@ -419,7 +435,7 @@ class PaymentService:
                     },
                 )
 
-            logger.info(f"Payment failed for appointment {appt_id_str}, intent {intent_id}: {error_msg}")
+            logger.info("Payment failure received for appointment %s", appt_id_str)
 
             # Send failure notification safely
             try:
@@ -484,7 +500,10 @@ class PaymentService:
             try:
                 intent = stripe.PaymentIntent.retrieve(payment["stripePaymentIntentId"])
                 now = utc_now()
-                if intent.status == "succeeded":
+                outcome = settle_ai_payment(db, payment, intent, now) if intent.status == "succeeded" else None
+                if outcome:
+                    payment = payment_col.find_one({"_id": payment["_id"]}) or payment
+                elif intent.status == "succeeded":
                     payment_col.update_one(
                         {"_id": payment["_id"]},
                         {"$set": {"status": PaymentStatus.SUCCEEDED.value, "paidAt": now, "updatedAt": now}},
@@ -529,7 +548,7 @@ class PaymentService:
                         )
                         payment["status"] = PaymentStatus.FAILED.value
             except Exception as e:
-                logger.warning(f"Fallback Stripe status sync failed for {payment_id}: {e}")
+                logger.warning("Fallback Stripe status sync failed (%s)", type(e).__name__)
 
         # Resolve appointment status
         appt_status = "UNKNOWN"
@@ -544,6 +563,7 @@ class PaymentService:
             appointmentId=str(payment.get("appointmentId", "")),
             paymentStatus=payment.get("status", PaymentStatus.PENDING.value),
             appointmentStatus=appt_status,
+            reconciliationState=payment.get("reconciliationState"),
             amount=payment.get("amount", 0.0),
             currency=payment.get("currency", "lkr"),
             paidAt=payment.get("paidAt"),

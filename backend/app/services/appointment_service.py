@@ -104,6 +104,7 @@ class AppointmentService:
         db: Database,
         patient_user: UserResponseSchema,
         req: CreateAppointmentRequest,
+        *, accepted_proposal=None, proposal_slot=None, sms_consent=False,
     ) -> CreateAppointmentResponse:
         """Book a time slot for a patient.
 
@@ -126,6 +127,13 @@ class AppointmentService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only active accounts can book appointments.",
             )
+
+        if accepted_proposal:
+            existing = db["appointments"].find_one({
+                "_id": ObjectId(accepted_proposal["proposalId"]), "patientUserId": str(patient_user.id),
+            })
+            if existing:
+                return CreateAppointmentResponse(appointment=_build_appointment_response(existing))
 
         # 2. Resolve doctor via doctorId string (from discovery)
         clean_doctor_id = req.doctorId.strip()
@@ -167,6 +175,32 @@ class AppointmentService:
         doctor_user_id = str(doctor_user_doc["_id"])
         doctor_profile_id = str(doctor_profile["_id"])
         target_date = req.appointmentDate or req.date
+
+        booking_fields = {}
+        if accepted_proposal:
+            from app.services.ai_booking_proposal import minor_units
+            from app.config.settings import settings
+            from app.services.doctor_service import DoctorService
+
+            price = minor_units(doctor_profile.get("consultationFee"))
+            if (price != minor_units(accepted_proposal["totalAmount"])
+                or (doctor_profile.get("hospitalOrClinic") or "") != (accepted_proposal.get("hospitalOrClinic") or "")
+                or (doctor_profile.get("specialty") or "Specialty not listed") != accepted_proposal["specialty"]
+                or doctor_profile.get("city") != accepted_proposal.get("city")
+                or (doctor_user_doc.get("fullName") or "Name unavailable") != accepted_proposal["doctorName"]
+                or (settings.STRIPE_CURRENCY or "lkr").lower() != accepted_proposal["currency"]):
+                raise HTTPException(409, "The booking price or location changed. Request a new proposal.")
+            day = await DoctorService.get_doctor_patient_slots(db, clean_doctor_id, target_date)
+            if not any(slot.startTime == req.startTime and slot.endTime == proposal_slot["endTime"]
+                       and slot.availabilityId == req.availabilityId for slot in day.slots):
+                raise HTTPException(409, "The accepted slot has changed. Request a new proposal.")
+            booking_fields = {
+                "_id": ObjectId(accepted_proposal["proposalId"]), "bookingSource": "ai_agent",
+                "smsConsent": sms_consent, "smsDestinationHash": accepted_proposal.get("smsDestinationHash"),
+                "acceptedAmountMinor": price, "bookingCurrency": accepted_proposal["currency"],
+                "hospitalOrClinic": doctor_profile.get("hospitalOrClinic"),
+                "bookingDoctorName": accepted_proposal["doctorName"], "bookingSpecialty": accepted_proposal["specialty"],
+            }
 
         req_start_h, req_start_m = _parse_hhmm(req.startTime)
         req_start_total = req_start_h * 60 + req_start_m
@@ -331,7 +365,7 @@ class AppointmentService:
                     if b_hold <= now:
                         # Cancel expired hold to release slot and remove it from active unique index
                         db["appointments"].update_one(
-                            {"_id": b["_id"]},
+                            {"_id": b["_id"], "status": {"$in": ["HOLD", "PENDING"]}, "paymentStatus": {"$ne": "PAID"}},
                             {
                                 "$set": {
                                     "status": AppointmentStatus.CANCELLED.value,
@@ -370,14 +404,21 @@ class AppointmentService:
             updatedAt=now,
         )
 
+        appointment_data = {**appt_doc.to_mongo_dict(), **booking_fields}
+        if booking_fields and booking_fields["acceptedAmountMinor"] == 0:
+            from app.services.ai_booking_proposal import notification_entries
+            appointment_data.update(status="CONFIRMED", paymentStatus="NOT_REQUIRED", confirmedAt=now, holdExpiresAt=None,
+                                    confirmationOutbox=notification_entries(now))
         try:
-            result = get_appointment_collection(db).insert_one(appt_doc.to_mongo_dict())
+            result = get_appointment_collection(db).insert_one(appointment_data)
         except DuplicateKeyError:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="This time slot is no longer available.",
             )
 
+        if booking_fields:
+            return CreateAppointmentResponse(appointment=_build_appointment_response(appointment_data))
         # Notify doctor of new booking created
         try:
             from app.models.notification import NotificationType
@@ -482,6 +523,7 @@ class AppointmentService:
         patient_user: UserResponseSchema,
         appointment_id: str,
         reason: Optional[Any] = None,
+        *, only_hold: bool = False,
     ) -> AppointmentResponse:
         """Allow patient to cancel their own appointment (only PENDING or CONFIRMED)."""
         if hasattr(reason, "reason"):
@@ -500,6 +542,8 @@ class AppointmentService:
             )
 
         current_status = appt["status"]
+        if only_hold and current_status not in {"HOLD", "PENDING"}:
+            raise HTTPException(409, "The hold was already settled. Check My Appointments.")
         if "CANCELLED" not in _ALLOWED_TRANSITIONS.get(current_status, set()):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -507,8 +551,11 @@ class AppointmentService:
             )
 
         now = utc_now()
-        get_appointment_collection(db).update_one(
-            {"_id": ObjectId(appointment_id)},
+        condition = {"_id": ObjectId(appointment_id)}
+        if only_hold:
+            condition.update(status=current_status, paymentStatus={"$ne": "PAID"})
+        mutation = get_appointment_collection(db).update_one(
+            condition,
             {
                 "$set": {
                     "status": AppointmentStatus.CANCELLED.value,
@@ -518,6 +565,9 @@ class AppointmentService:
                 }
             },
         )
+
+        if only_hold and not mutation.matched_count:
+            raise HTTPException(409, "The hold changed. Refresh the booking status.")
 
         # Notify patient and doctor of cancellation
         try:
@@ -587,6 +637,10 @@ class AppointmentService:
 
         query: Dict[str, Any] = {"doctorUserId": str(doctor_user.id)}
 
+        query["$or"] = [
+            {"bookingSource": {"$ne": "ai_agent"}},
+            {"confirmedAt": {"$exists": True}},
+        ]
         if date_filter and date_filter.strip():
             query["appointmentDate"] = date_filter.strip()
 
@@ -646,6 +700,8 @@ class AppointmentService:
                 detail="You do not have permission to modify this appointment.",
             )
 
+        if appt.get("bookingSource") == "ai_agent" and not appt.get("confirmedAt"):
+            raise HTTPException(409, "The patient must complete booking acceptance and payment.")
         current_status = appt["status"]
         if current_status != AppointmentStatus.PENDING.value:
             raise HTTPException(
@@ -943,6 +999,8 @@ class AppointmentService:
         - Sends reschedule notifications to both patient and doctor.
         """
         appt = _get_appointment_or_404(db, appointment_id)
+        if appt.get("bookingSource") == "ai_agent" and not appt.get("confirmedAt"):
+            raise HTTPException(409, "Cancel this hold and accept a new proposal for a different time.")
 
         is_patient = requester.role == UserRole.PATIENT.value and str(appt["patientUserId"]) == str(requester.id)
         is_doctor = requester.role == UserRole.DOCTOR.value and str(appt["doctorUserId"]) == str(requester.id)

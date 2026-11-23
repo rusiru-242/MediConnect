@@ -19,6 +19,7 @@ from app.models.booking_session import (
 from app.models.doctor_profile import DoctorVerificationStatus
 from app.models.user import AccountStatus, UserRole
 from app.schemas.appointment import CreateAppointmentRequest
+from app.services.ai_booking_proposal import prepare_proposal
 from app.schemas.booking_session import (
     BookingPreferencesSchema,
     AssistantResponse,
@@ -119,6 +120,8 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             serviceFee=float(bs.get("serviceFee", 0.0)),
             totalAmount=float(bs.get("totalAmount", 2500.0)),
             currency=bs.get("currency", "lkr"),
+            **{key: bs.get(key) for key in ("proposalId", "proposalExpiresAt", "timezone", "city", "patientName",
+                                           "maskedEmail", "maskedPhone", "requestedTime", "selectionReason")},
         )
 
     candidate_docs = [_map_doctor_card(d) for d in doc.get("candidateDoctors", [])]
@@ -151,6 +154,7 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
         )
     return BookingSessionResponse(
         assistantResponse=structured,
+        bookingResult=doc.get("bookingResult"),
         id=str(doc["_id"]),
         patientUserId=str(doc["patientUserId"]),
         state=doc.get("state", BookingAgentState.COLLECTING_PREFERENCES.value),
@@ -232,6 +236,12 @@ class BookingSessionService:
                 patient_user=patient_user if persistent else None,
                 user_message=req.initialMessage.strip(),
             )
+            if persistent:
+                try:
+                    await prepare_proposal(db, patient_user, initial_dict, automatic=True)
+                except HTTPException as exc:
+                    if exc.status_code not in {400, 404, 409}:
+                        raise
         else:
             greeting = (
                 "Hello! I'm your MediConnect AI Assistant. "
@@ -312,6 +322,12 @@ class BookingSessionService:
             image_url=req.imageUrl,
         )
 
+        if updated_dict.get("persistent"):
+            try:
+                await prepare_proposal(db, patient_user, updated_dict, automatic=True)
+            except HTTPException as exc:
+                if exc.status_code not in {400, 404, 409}:
+                    raise
         if req.requestId:
             user_message = updated_dict["messages"][first_new_message]
             user_message["metadata"] = {**(user_message.get("metadata") or {}), "requestId": req.requestId}
@@ -473,43 +489,58 @@ class BookingSessionService:
                 detail="Please select a doctor before selecting a slot.",
             )
 
-        # Validate availability window exists and belongs to selected doctor
-        if not ObjectId.is_valid(req.availabilityId):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid availabilityId format.",
-            )
+        proposal_enabled = doc.get("phase2Proposal") or (doc.get("persistent") and req.prepareProposal)
+        if proposal_enabled:
+            day = await DoctorService.get_doctor_patient_slots(db, selected_doctor["doctorId"], req.date)
+            match = next((slot for slot in day.slots if slot.availabilityId == req.availabilityId
+                          and slot.startTime == req.startTime), None)
+            if not match:
+                raise HTTPException(409, "The selected slot is no longer available.")
+            if doc.get("appointmentId") and current_state in {"AWAITING_PAYMENT", "BOOKING_CONFIRMED"}:
+                raise HTTPException(409, "Manage the existing booking before changing the slot.")
+            slot_dict = {"availabilityId": req.availabilityId, "date": req.date,
+                         "startTime": match.startTime, "endTime": match.endTime}
+        else:
+            # Validate availability window exists and belongs to selected doctor
+            if not ObjectId.is_valid(req.availabilityId):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid availabilityId format.",
+                )
 
-        avail_doc = db["doctor_availabilities"].find_one({"_id": ObjectId(req.availabilityId)})
-        if not avail_doc or not avail_doc.get("isActive", False):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Selected availability window is no longer active.",
-            )
+            avail_doc = db["doctor_availabilities"].find_one({"_id": ObjectId(req.availabilityId)})
+            if not avail_doc or not avail_doc.get("isActive", False):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Selected availability window is no longer active.",
+                )
 
-        if str(avail_doc.get("doctorUserId")) != selected_doctor.get("doctorUserId"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Slot does not belong to the selected doctor.",
-            )
+            if str(avail_doc.get("doctorUserId")) != selected_doctor.get("doctorUserId"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Slot does not belong to the selected doctor.",
+                )
 
-        # Compute derived endTime if not provided
-        duration = int(avail_doc.get("slotDurationMinutes", 30))
-        start_h, start_m = int(req.startTime[:2]), int(req.startTime[3:5])
-        end_mins = start_h * 60 + start_m + duration
-        derived_end = f"{end_mins // 60:02d}:{end_mins % 60:02d}"
-        end_time_str = req.endTime or derived_end
+            # Compute derived endTime if not provided
+            duration = int(avail_doc.get("slotDurationMinutes", 30))
+            start_h, start_m = int(req.startTime[:2]), int(req.startTime[3:5])
+            end_mins = start_h * 60 + start_m + duration
+            derived_end = f"{end_mins // 60:02d}:{end_mins % 60:02d}"
+            end_time_str = req.endTime or derived_end
 
-        slot_dict = {
-            "availabilityId": req.availabilityId,
-            "date": req.date,
-            "startTime": req.startTime,
-            "endTime": end_time_str,
-        }
+            slot_dict = {
+                "availabilityId": req.availabilityId,
+                "date": req.date,
+                "startTime": req.startTime,
+                "endTime": end_time_str,
+            }
 
         doc["selectedSlot"] = slot_dict
         summary = BookingAgent._build_booking_summary(selected_doctor, slot_dict)
         doc["bookingSummary"] = summary
+        if proposal_enabled:
+            await prepare_proposal(db, patient_user, doc)
+            summary = doc["bookingSummary"]
 
         target_state = BookingAgentState.AWAITING_BOOKING_CONFIRMATION.value
         if validate_state_transition(current_state, target_state):
@@ -522,7 +553,7 @@ class BookingSessionService:
             "sender": "assistant",
             "content": assistant_msg,
             "timestamp": utc_now(),
-            "metadata": {"type": "booking_summary", "summary": summary},
+            "metadata": {"type": "booking_summary", "summary": BookingSummary.model_validate(summary).model_dump()},
         })
 
         doc["updatedAt"] = utc_now()
@@ -574,6 +605,23 @@ class BookingSessionService:
     ) -> BookingSessionResponse:
         current_state = doc.get("state")
 
+        proposal = doc.get("bookingSummary") or {}
+        proposal_id = proposal.get("proposalId")
+        if (proposal_id and req.proposalId != proposal_id) or (req.proposalId and not proposal_id) or (
+            doc.get("phase2Proposal") and not proposal_id
+        ):
+            raise HTTPException(409, "Review and accept the current booking proposal.")
+        if proposal_id and not doc.get("appointmentId"):
+            expiry = proposal["proposalExpiresAt"]
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if expiry <= utc_now() and not db["appointments"].find_one({
+                "_id": ObjectId(proposal_id), "patientUserId": str(patient_user.id),
+            }, {"_id": 1}):
+                raise HTTPException(409, "The proposal expired. Request an updated slot.")
+        if proposal_id and doc.get("state") == "BOOKING_CONFIRMED":
+            return _to_response_schema(doc)
+
         # Idempotency: If hold is already created and unexpired, return it
         now = utc_now()
         if doc.get("appointmentId") and doc.get("holdExpiresAt"):
@@ -603,14 +651,19 @@ class BookingSessionService:
             availabilityId=selected_slot["availabilityId"],
             date=selected_slot["date"],
             startTime=selected_slot["startTime"],
-            patientNote=req.patientNote or (doc.get("preferences") or {}).get("patientNote"),
+            patientNote=req.patientNote if proposal_id else req.patientNote or (doc.get("preferences") or {}).get("patientNote"),
         )
 
+        options = {}
+        if proposal_id:
+            if (selected_doctor["doctorId"] != proposal.get("doctorId")
+                or selected_slot != proposal.get("acceptedSlot")):
+                raise HTTPException(409, "The booking details changed. Review a new proposal.")
+            options = {"accepted_proposal": proposal, "proposal_slot": selected_slot,
+                       "sms_consent": req.smsConsent and bool(proposal.get("maskedPhone"))}
         try:
             appt_response = await AppointmentService.create_appointment(
-                db=db,
-                patient_user=patient_user,
-                req=appt_req,
+                db=db, patient_user=patient_user, req=appt_req, **options,
             )
         except HTTPException as e:
             # Slot no longer available or double booking conflict
@@ -633,7 +686,11 @@ class BookingSessionService:
         # Hold created successfully
         appointment_data = appt_response.appointment
         doc["appointmentId"] = str(appointment_data.id)
-        doc["holdExpiresAt"] = appointment_data.holdExpiresAt or (now + timedelta(minutes=10))
+        doc["holdExpiresAt"] = appointment_data.holdExpiresAt
+        if proposal_id and appointment_data.status == "CONFIRMED":
+            cls._sync_hold_and_payment_status(db, doc)
+            cls._save(db, doc, confirmation_token=confirmation_token)
+            return _to_response_schema(doc)
 
         target_state = BookingAgentState.AWAITING_PAYMENT.value
         if validate_state_transition(current_state, target_state):
@@ -664,6 +721,7 @@ class BookingSessionService:
         })
 
         doc["updatedAt"] = now
+        cls._sync_hold_and_payment_status(db, doc)
         cls._save(db, doc, confirmation_token=confirmation_token)
         return _to_response_schema(doc)
 
@@ -691,6 +749,7 @@ class BookingSessionService:
                     patient_user=patient_user,
                     appointment_id=appointment_id,
                     reason="Patient cancelled AI booking session",
+                    only_hold=appointment.get("bookingSource") == "ai_agent",
                 )
             elif appointment["status"] != AppointmentStatus.CANCELLED.value:
                 raise HTTPException(409, "Manage this appointment from My Appointments.")
@@ -718,6 +777,14 @@ class BookingSessionService:
     ) -> BookingSessionResponse:
         """Authoritatively verify payment & appointment status from database."""
         doc = cls._get_session_or_404(db, patient_user, session_id)
+        if doc.get("appointmentId") and doc.get("phase2Proposal"):
+            payment = db["payments"].find_one(
+                {"appointmentId": doc["appointmentId"], "patientUserId": str(patient_user.id)},
+                sort=[("createdAt", -1)],
+            )
+            if payment and payment.get("status") == "PENDING":
+                from app.services.payment_service import PaymentService
+                await PaymentService.get_payment_status(db, str(payment["_id"]), patient_user)
         cls._sync_hold_and_payment_status(db, doc)
         cls._save(db, doc)
         return _to_response_schema(doc)
@@ -792,8 +859,23 @@ class BookingSessionService:
         appt_status = appt.get("status")
         pay_status = appt.get("paymentStatus")
 
+        if appt.get("bookingSource") == "ai_agent":
+            doc["bookingResult"] = {
+                "reference": str(appt["_id"]), "status": appt_status, "paymentStatus": pay_status,
+                "doctor": appt.get("bookingDoctorName"), "clinic": appt.get("hospitalOrClinic"),
+                "date": appt["appointmentDate"], "time": appt["startTime"],
+                "notifications": {name: item["status"] for name, item in
+                                  (appt.get("confirmationOutbox") or {}).items()},
+            }
+            if appt_status != "CONFIRMED":
+                reconciliation = db["payments"].find_one({
+                    "appointmentId": str(appt["_id"]), "reconciliationState": {"$in": ["REVIEW_REQUIRED", "REFUND_PENDING", "REFUNDED"]},
+                }, {"reconciliationState": 1})
+                if reconciliation:
+                    doc["bookingResult"]["reconciliationState"] = reconciliation["reconciliationState"]
+
         # Payment succeeded
-        if pay_status == ApptPaymentStatus.PAID.value and appt_status == AppointmentStatus.CONFIRMED.value:
+        if (pay_status == ApptPaymentStatus.PAID.value or appt.get("acceptedAmountMinor") == 0) and appt_status == AppointmentStatus.CONFIRMED.value:
             if doc.get("state") != BookingAgentState.BOOKING_CONFIRMED.value:
                 doc["state"] = BookingAgentState.BOOKING_CONFIRMED.value
                 doc["updatedAt"] = now

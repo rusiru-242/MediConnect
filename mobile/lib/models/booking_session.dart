@@ -279,6 +279,12 @@ class DoctorCardSummary {
 
 /// Explicit booking summary card before confirmation.
 class BookingSummary {
+  final String? proposalId;
+  final String? city;
+  final String? patientName;
+  final String? maskedEmail;
+  final String? maskedPhone;
+  final String? selectionReason;
   final String doctorName;
   final String specialty;
   final String? hospitalOrClinic;
@@ -291,6 +297,12 @@ class BookingSummary {
   final String currency;
 
   const BookingSummary({
+    this.proposalId,
+    this.city,
+    this.patientName,
+    this.maskedEmail,
+    this.maskedPhone,
+    this.selectionReason,
     required this.doctorName,
     required this.specialty,
     this.hospitalOrClinic,
@@ -305,6 +317,12 @@ class BookingSummary {
 
   factory BookingSummary.fromJson(Map<String, dynamic> json) {
     return BookingSummary(
+      proposalId: json['proposalId'] as String?,
+      city: json['city'] as String?,
+      patientName: json['patientName'] as String?,
+      maskedEmail: json['maskedEmail'] as String?,
+      maskedPhone: json['maskedPhone'] as String?,
+      selectionReason: json['selectionReason'] as String?,
       doctorName: json['doctorName'] as String? ?? 'Doctor',
       specialty: json['specialty'] as String? ?? '',
       hospitalOrClinic: json['hospitalOrClinic'] as String?,
@@ -320,6 +338,12 @@ class BookingSummary {
 
   Map<String, dynamic> toJson() {
     return {
+      'proposalId': proposalId,
+      'city': city,
+      'patientName': patientName,
+      'maskedEmail': maskedEmail,
+      'maskedPhone': maskedPhone,
+      'selectionReason': selectionReason,
       'doctorName': doctorName,
       'specialty': specialty,
       'hospitalOrClinic': hospitalOrClinic,
@@ -482,6 +506,7 @@ class BookingSession {
   final List<DoctorCardSummary> candidateDoctors;
   final List<SlotCardSummary> candidateSlots;
   final List<DoctorCardSummary> assistantDoctorCards;
+  final Map<String, dynamic>? bookingResult;
   final String? appointmentId;
   final String? paymentId;
   final DateTime? holdExpiresAt;
@@ -507,6 +532,7 @@ class BookingSession {
     this.candidateDoctors = const [],
     this.candidateSlots = const [],
     this.assistantDoctorCards = const [],
+    this.bookingResult,
     this.appointmentId,
     this.paymentId,
     this.holdExpiresAt,
@@ -579,6 +605,7 @@ class BookingSession {
           json['isUrgent']?.toString().toLowerCase() == 'true',
       urgencyReason: json['urgencyReason'] as String?,
       activeIntent: json['activeIntent'] as String?,
+      bookingResult: json['bookingResult'] as Map<String, dynamic>?,
       assistantDoctorCards:
           ((json['assistantResponse'] as Map?)?['doctor_cards'] as List? ?? [])
               .whereType<Map<String, dynamic>>()
@@ -626,6 +653,7 @@ class BookingSession {
       'isUrgent': isUrgent,
       'urgencyReason': urgencyReason,
       'activeIntent': activeIntent,
+      'bookingResult': bookingResult,
       if (assistantDoctorCards.isNotEmpty)
         'assistantResponse': {
           'doctor_cards': assistantDoctorCards.map((card) => card.toJson()).toList(),

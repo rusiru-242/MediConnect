@@ -20,8 +20,7 @@ class EmailService:
 
         if not settings.SMTP_HOST or not settings.SMTP_HOST.strip():
             logger.warning(
-                "SMTP_HOST is not configured. Email to %s was skipped (simulation mode).",
-                to_email,
+                "SMTP_HOST is not configured. Email was skipped.",
             )
             return False
 
@@ -48,10 +47,10 @@ class EmailService:
                     if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
                         server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
                     server.sendmail(from_email, [to_email], message.as_string())
-            logger.info("Email '%s' successfully sent to %s.", subject, to_email)
+            logger.info("SMTP accepted email submission.")
             return True
         except Exception as exc:
-            logger.error("Failed to deliver email to %s: %s", to_email, type(exc).__name__)
+            logger.error("SMTP submission failed (%s).", type(exc).__name__)
             return False
 
     @classmethod

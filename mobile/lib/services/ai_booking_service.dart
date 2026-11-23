@@ -188,6 +188,7 @@ class AiBookingService {
     required String date,
     required String startTime,
     String? endTime,
+    bool prepareProposal = false,
   }) async {
     final response = await _apiClient.post(
       ApiConstants.aiBookingSessionSelectSlotEndpoint(sessionId),
@@ -195,6 +196,7 @@ class AiBookingService {
         'availabilityId': availabilityId.trim(),
         'date': date.trim(),
         'startTime': startTime.trim(),
+        if (prepareProposal) 'prepareProposal': true,
         if (endTime != null && endTime.trim().isNotEmpty)
           'endTime': endTime.trim(),
       },
@@ -208,10 +210,14 @@ class AiBookingService {
   Future<BookingSession> confirmBooking(
     String sessionId, {
     String? patientNote,
+    String? proposalId,
+    bool smsConsent = false,
   }) async {
     final response = await _apiClient.post(
       ApiConstants.aiBookingSessionConfirmEndpoint(sessionId),
       body: {
+        'proposalId': ?proposalId,
+        if (smsConsent) 'smsConsent': true,
         if (patientNote != null && patientNote.trim().isNotEmpty)
           'patientNote': patientNote.trim(),
       },

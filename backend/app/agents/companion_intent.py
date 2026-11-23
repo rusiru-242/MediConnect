@@ -89,7 +89,7 @@ DOCTOR_PATTERNS = [
 BOOKING_PATTERNS = [
     r"\b(?:book|booking|appointment|slot|reserve|schedule|confirm\s+booking)\b",
     r"\b(?:select\s+doctor|select\s+slot|first\s+doctor|second\s+doctor|1st\s+doctor|2nd\s+doctor)\b",
-    r"\b(?:book\s+karanna|danna|appointment\s+ekak)\b",
+    r"\b(?:book\s+karanna|channel\s+karanna|danna|appointment\s+ekak)\b",
     r"(?:වෙන්\s+කරන්න|ඇපොයින්ට්මන්ට්)",
 ]
 

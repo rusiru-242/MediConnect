@@ -154,6 +154,7 @@ class FakeAiBookingService implements AiBookingService {
     required String date,
     required String startTime,
     String? endTime,
+    bool prepareProposal = false,
   }) async {
     final updatedMessages = List<ChatMessage>.from(currentSession.messages)
       ..add(ChatMessage(
@@ -196,7 +197,7 @@ class FakeAiBookingService implements AiBookingService {
   }
 
   @override
-  Future<BookingSession> confirmBooking(String sessionId, {String? patientNote}) async {
+  Future<BookingSession> confirmBooking(String sessionId, {String? patientNote, String? proposalId, bool smsConsent = false}) async {
     final updatedMessages = List<ChatMessage>.from(currentSession.messages)
       ..add(ChatMessage(
         id: 'msg_hold',

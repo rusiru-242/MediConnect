@@ -576,7 +576,10 @@ def extract_appointment_time(text: str) -> Optional[str]:
         r"\b(?:(hawasa|havasa|ude)\s+)?(\d{1,2})(?::([0-5]\d))?\s*(am|pm|ta)\b",
         text.casefold(),
     )
-    if not match or not 1 <= int(match[2]) <= 12:
+    if not match:
+        clock = re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", text)
+        return f"{int(clock[1]):02d}:{clock[2]}" if clock else None
+    if not 1 <= int(match[2]) <= 12:
         return None
     period = match[4] if match[4] != "ta" else (
         "pm" if match[1] in {"hawasa", "havasa"} else "am" if match[1] == "ude" else None

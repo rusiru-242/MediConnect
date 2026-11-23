@@ -33,6 +33,7 @@ from app.routes import (
 from app.routes.ai_conversations import router as ai_conversations_router
 from app.services.notification_service import NotificationService
 from app.services.care_plan_service import CarePlanService
+from app.services.booking_notifications import run_confirmation_outbox
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ async def _run_reminder_worker():
                 db = DatabaseManager.get_database()
                 NotificationService.check_and_send_appointment_reminders(db)
                 CarePlanService.check_and_send_care_plan_reminders(db)
+                await asyncio.to_thread(run_confirmation_outbox, db)
         except asyncio.CancelledError:
             logger.info("Appointment reminder background worker stopping.")
             break
