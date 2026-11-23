@@ -114,8 +114,50 @@ def require_role(role: str) -> Callable:
 
 
 require_patient = require_role("PATIENT")
-require_doctor = require_role("DOCTOR")
+require_doctor_applicant = require_role("DOCTOR")
 require_admin = require_role("ADMIN")
+
+
+def require_approved_doctor(
+    current_user: UserResponseSchema = Depends(get_current_user),
+    db: Database = Depends(get_database),
+) -> UserResponseSchema:
+    """Enforces that the current authenticated user is a verified, active, and approved DOCTOR.
+
+    Prevents pending or rejected doctors from accessing protected clinical/doctor APIs,
+    even with old or manually crafted tokens.
+    """
+    if current_user.role != UserRole.DOCTOR.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resource.",
+        )
+
+    # Query live doctor profile from database to prevent token bypass
+    profile = db["doctor_profiles"].find_one({"userId": str(current_user.id)})
+    ver_status = profile.get("verificationStatus") if profile else None
+
+    if ver_status == "REJECTED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your doctor registration application was not approved. Please contact MediConnect support for further information.",
+        )
+
+    if current_user.accountStatus != AccountStatus.ACTIVE.value or ver_status != "APPROVED":
+        if not current_user.emailVerified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Please verify your email before continuing.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your doctor registration is currently under review. You can access your doctor dashboard once an administrator approves your application.",
+        )
+
+    return current_user
+
+
+require_doctor = require_approved_doctor
 
 
 def get_optional_current_user(

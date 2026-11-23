@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
+import '../core/network/api_exceptions.dart';
 import '../models/booking_session.dart';
 
 /// Service coordinating AI Conversational Booking sessions with MediConnect backend.
@@ -8,6 +11,24 @@ class AiBookingService {
 
   AiBookingService({ApiClient? apiClient})
       : _apiClient = apiClient ?? ApiClient();
+
+  BookingSession _parseSession(dynamic response, String actionDescription) {
+    if (response is Map<String, dynamic>) {
+      try {
+        return BookingSession.fromJson(response);
+      } catch (e, stack) {
+        if (kDebugMode) {
+          debugPrint('[AiBookingService] Failed to parse BookingSession ($actionDescription): $e\n$stack');
+        }
+        throw const ApiException(
+          message: 'Unable to process assistant response. Please try again.',
+        );
+      }
+    }
+    throw ApiException(
+      message: 'Unexpected server response format while $actionDescription.',
+    );
+  }
 
   /// Create or initiate a new AI Booking session.
   Future<BookingSession> createSession({String? initialMessage}) async {
@@ -20,10 +41,7 @@ class AiBookingService {
       includeAuth: true,
     );
 
-    if (response is Map<String, dynamic>) {
-      return BookingSession.fromJson(response);
-    }
-    throw Exception('Unexpected response format when creating booking session.');
+    return _parseSession(response, 'creating booking session');
   }
 
   /// Retrieve current session state and transcript.
@@ -33,24 +51,76 @@ class AiBookingService {
       includeAuth: true,
     );
 
-    if (response is Map<String, dynamic>) {
-      return BookingSession.fromJson(response);
-    }
-    throw Exception('Unexpected response format when fetching booking session.');
+    return _parseSession(response, 'fetching booking session');
   }
 
-  /// Post a conversational message from the patient.
-  Future<BookingSession> sendMessage(String sessionId, String message) async {
+  /// Post a conversational message from the patient (supports optional imageUrl).
+  Future<BookingSession> sendMessage(
+    String sessionId,
+    String message, {
+    String? imageUrl,
+  }) async {
     final response = await _apiClient.post(
       ApiConstants.aiBookingSessionMessagesEndpoint(sessionId),
-      body: {'message': message.trim()},
+      body: {
+        'message': message.trim(),
+        if (imageUrl != null && imageUrl.trim().isNotEmpty)
+          'imageUrl': imageUrl.trim(),
+      },
+      includeAuth: true,
+    );
+
+    return _parseSession(response, 'sending message');
+  }
+
+  /// Upload a medicine packaging or label photo for OCR/vision analysis.
+  Future<Map<String, dynamic>> uploadMedicineImage(
+    List<int> bytes,
+    String filename,
+  ) async {
+    final multipartFile = http.MultipartFile.fromBytes(
+      'file',
+      bytes,
+      filename: filename,
+    );
+    final response = await _apiClient.postMultipart(
+      ApiConstants.aiBookingUploadImageEndpoint,
+      fields: {},
+      files: [multipartFile],
       includeAuth: true,
     );
 
     if (response is Map<String, dynamic>) {
-      return BookingSession.fromJson(response);
+      return response;
     }
-    throw Exception('Unexpected response format when sending message.');
+    throw const ApiException(
+      message: 'Unexpected response format when uploading medicine image.',
+    );
+  }
+
+  /// Send an image directly to the active session for OCR and analysis.
+  Future<BookingSession> sendImageMessage(
+    String sessionId,
+    List<int> bytes,
+    String filename, {
+    String? message,
+  }) async {
+    final multipartFile = http.MultipartFile.fromBytes(
+      'file',
+      bytes,
+      filename: filename,
+    );
+    final response = await _apiClient.postMultipart(
+      ApiConstants.aiBookingSessionImageEndpoint(sessionId),
+      fields: {
+        if (message != null && message.trim().isNotEmpty)
+          'message': message.trim(),
+      },
+      files: [multipartFile],
+      includeAuth: true,
+    );
+
+    return _parseSession(response, 'sending image message');
   }
 
   /// Explicitly select a doctor from recommendation cards.
@@ -61,10 +131,7 @@ class AiBookingService {
       includeAuth: true,
     );
 
-    if (response is Map<String, dynamic>) {
-      return BookingSession.fromJson(response);
-    }
-    throw Exception('Unexpected response format when selecting doctor.');
+    return _parseSession(response, 'selecting doctor');
   }
 
   /// Explicitly select an appointment slot from candidate slots.
@@ -87,10 +154,7 @@ class AiBookingService {
       includeAuth: true,
     );
 
-    if (response is Map<String, dynamic>) {
-      return BookingSession.fromJson(response);
-    }
-    throw Exception('Unexpected response format when selecting slot.');
+    return _parseSession(response, 'selecting slot');
   }
 
   /// Explicitly confirm the booking hold before payment.
@@ -107,10 +171,7 @@ class AiBookingService {
       includeAuth: true,
     );
 
-    if (response is Map<String, dynamic>) {
-      return BookingSession.fromJson(response);
-    }
-    throw Exception('Unexpected response format when confirming booking.');
+    return _parseSession(response, 'confirming booking');
   }
 
   /// Cancel session and release any held slot.
@@ -120,10 +181,7 @@ class AiBookingService {
       includeAuth: true,
     );
 
-    if (response is Map<String, dynamic>) {
-      return BookingSession.fromJson(response);
-    }
-    throw Exception('Unexpected response format when cancelling session.');
+    return _parseSession(response, 'cancelling session');
   }
 
   /// Sync payment and booking status authoritatively from backend.
@@ -133,9 +191,6 @@ class AiBookingService {
       includeAuth: true,
     );
 
-    if (response is Map<String, dynamic>) {
-      return BookingSession.fromJson(response);
-    }
-    throw Exception('Unexpected response format when checking payment status.');
+    return _parseSession(response, 'checking payment status');
   }
 }

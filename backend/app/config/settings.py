@@ -101,6 +101,9 @@ class Settings(BaseModel):
     SECURE_HEADERS_ENABLED: bool = Field(
         default_factory=lambda: (os.getenv("SECURE_HEADERS_ENABLED") or "true").strip().lower() in ("true", "1", "yes")
     )
+    DOCTOR_PORTAL_URL: str = Field(
+        default_factory=lambda: (os.getenv("DOCTOR_PORTAL_URL") or "https://mediconnect-admin-staging.vercel.app/login").strip()
+    )
 
 
 settings = Settings()

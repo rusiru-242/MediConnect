@@ -5,19 +5,32 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 import '../../widgets/mediconnect_logo.dart';
+import '../doctor/doctor_application_submitted_screen.dart';
 
 /// Screen for entering and verifying 6-digit email OTP.
 /// Includes cooldown timer for resending OTP and navigates to Login on success.
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
   final bool isDoctor;
+  final String? doctorFullName;
+  final String? doctorSpecialty;
+  final String? doctorMedReg;
+  final String? doctorHospital;
+  final String? doctorPhone;
 
   const EmailVerificationScreen({
     super.key,
     required this.email,
     this.isDoctor = false,
+    this.doctorFullName,
+    this.doctorSpecialty,
+    this.doctorMedReg,
+    this.doctorHospital,
+    this.doctorPhone,
   });
 
   @override
@@ -111,9 +124,20 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           ),
         );
 
-        // Navigate to Doctor Application Status screen
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/doctor/application-status',
+        // Navigate to "Your Application Is Under Review" screen
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => DoctorApplicationSubmittedScreen(
+              fullName: widget.doctorFullName ?? 'Doctor',
+              email: widget.email,
+              phone: widget.doctorPhone,
+              specialty: widget.doctorSpecialty ?? '',
+              medicalRegistrationNumber: widget.doctorMedReg ?? '',
+              hospitalOrClinic: widget.doctorHospital ?? '',
+              redirectDelay: const Duration(seconds: 4),
+              autoRedirect: true,
+            ),
+          ),
           (route) => false,
         );
       } else {
@@ -245,15 +269,24 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     final authProvider = context.watch<AuthProvider>();
     final isLoading = authProvider.isLoading;
     final errorMessage = _localError ?? authProvider.errorMessage;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Verify Email'),
+        title: Text(l10n?.verifyEmail ?? 'Verify Email'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: isLoading ? null : () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.language_rounded),
+            tooltip: l10n?.language ?? 'Language',
+            onPressed: isLoading ? null : () => LanguageSelectorSheet.show(context),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -266,10 +299,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 child: MediConnectLogo(size: 64),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Verify your email',
+              Text(
+                l10n?.verifyEmail ?? 'Verify your email',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
@@ -286,7 +319,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     color: AppTheme.textSecondary,
                   ),
                   children: [
-                    const TextSpan(text: "We've sent a 6-digit verification code to\n"),
+                    TextSpan(
+                      text: '${l10n?.enterOtp ?? 'Enter the 6-digit OTP sent to your email'}\n',
+                    ),
                     TextSpan(
                       text: widget.email,
                       style: const TextStyle(
@@ -352,7 +387,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : const Text('Verify Email'),
+                    : Text(l10n?.verify ?? 'Verify Email'),
               ),
               const SizedBox(height: 24),
 
@@ -371,7 +406,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                                   valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
                                 ),
                               )
-                            : const Text('Resend Code'),
+                            : Text(l10n?.resendOtp ?? 'Resend Code'),
                       )
                     : Text(
                         'Resend code in ${_secondsRemaining}s',
@@ -396,7 +431,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                             (route) => false,
                           );
                         },
-                  child: const Text('Back to Login'),
+                  child: Text(l10n?.login ?? 'Back to Login'),
                 ),
               ),
             ],

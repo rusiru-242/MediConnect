@@ -21,10 +21,12 @@ class CreateMedicationReminderScreen extends StatefulWidget {
   });
 
   @override
-  State<CreateMedicationReminderScreen> createState() => _CreateMedicationReminderScreenState();
+  State<CreateMedicationReminderScreen> createState() =>
+      _CreateMedicationReminderScreenState();
 }
 
-class _CreateMedicationReminderScreenState extends State<CreateMedicationReminderScreen> {
+class _CreateMedicationReminderScreenState
+    extends State<CreateMedicationReminderScreen> {
   late final MedicationReminderService _reminderService;
   late final MedicalRecordService _recordService;
 
@@ -70,7 +72,11 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
       final res = await _recordService.getPatientPrescriptions();
       if (mounted) {
         // Filter only valid issued/amended prescriptions
-        final valid = res.where((p) => p.status != 'CANCELLED' && p.medicationItems.isNotEmpty).toList();
+        final valid = res
+            .where(
+              (p) => p.status != 'CANCELLED' && p.medicationItems.isNotEmpty,
+            )
+            .toList();
         setState(() {
           _prescriptions = valid;
           if (valid.isNotEmpty) {
@@ -94,7 +100,12 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
   int _expectedDoses(String frequency) {
     final f = frequency.toLowerCase();
     if (f.contains('twice') || f.contains('bd') || f.contains('bid')) return 2;
-    if (f.contains('three') || f.contains('thrice') || f.contains('tds') || f.contains('tid')) return 3;
+    if (f.contains('three') ||
+        f.contains('thrice') ||
+        f.contains('tds') ||
+        f.contains('tid')) {
+      return 3;
+    }
     if (f.contains('four') || f.contains('qds') || f.contains('qid')) return 4;
     return 1;
   }
@@ -215,12 +226,18 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                     decoration: BoxDecoration(
                       color: AppTheme.primaryContainer.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12.0),
-                      border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.5)),
+                      border: Border.all(
+                        color: AppTheme.primaryLight.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.verified_user, color: AppTheme.primaryDark, size: 22),
+                        const Icon(
+                          Icons.verified_user,
+                          color: AppTheme.primaryDark,
+                          size: 22,
+                        ),
                         const SizedBox(width: 12.0),
                         Expanded(
                           child: Text(
@@ -258,7 +275,10 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                         ),
                         child: const Text(
                           'No valid active prescriptions found. Reminders can only be scheduled for doctor-issued prescriptions.',
-                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13.0),
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 13.0,
+                          ),
                         ),
                       )
                     else
@@ -309,7 +329,11 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                       ),
                     ),
                     const SizedBox(height: 8.0),
-                    for (int i = 0; i < _selectedPrescription!.medicationItems.length; i++) ...[
+                    for (
+                      int i = 0;
+                      i < _selectedPrescription!.medicationItems.length;
+                      i++
+                    ) ...[
                       InkWell(
                         onTap: () {
                           setState(() {
@@ -320,10 +344,15 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                         borderRadius: BorderRadius.circular(10.0),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 8.0),
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0,
+                            vertical: 10.0,
+                          ),
                           decoration: BoxDecoration(
                             color: _selectedMedicationIndex == i
-                                ? AppTheme.primaryContainer.withValues(alpha: 0.3)
+                                ? AppTheme.primaryContainer.withValues(
+                                    alpha: 0.3,
+                                  )
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(10.0),
                             border: Border.all(
@@ -350,13 +379,21 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      _selectedPrescription!.medicationItems[i].medicationName,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                                      _selectedPrescription!
+                                          .medicationItems[i]
+                                          .medicationName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14.5,
+                                      ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '${_selectedPrescription!.medicationItems[i].strength} • ${_selectedPrescription!.medicationItems[i].dose} • ${_selectedPrescription!.medicationItems[i].frequency} (${_selectedPrescription!.medicationItems[i].duration})',
-                                      style: const TextStyle(fontSize: 12.0, color: AppTheme.textSecondary),
+                                      style: const TextStyle(
+                                        fontSize: 12.0,
+                                        color: AppTheme.textSecondary,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -369,75 +406,111 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                     const SizedBox(height: 14.0),
 
                     // Doctor Prescribed Summary Card
-                    Builder(builder: (context) {
-                      final currentMed =
-                          _selectedPrescription!.medicationItems[_selectedMedicationIndex];
-                      return Container(
-                        padding: const EdgeInsets.all(14.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12.0),
-                          border: Border.all(color: AppTheme.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Prescribed Dose:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13.0)),
-                                const SizedBox(width: 8.0),
-                                Expanded(
-                                  child: Text(
-                                    currentMed.dose,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.end,
+                    Builder(
+                      builder: (context) {
+                        final currentMed = _selectedPrescription!
+                            .medicationItems[_selectedMedicationIndex];
+                        return Container(
+                          padding: const EdgeInsets.all(14.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12.0),
+                            border: Border.all(color: AppTheme.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Prescribed Dose:',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 13.0,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6.0),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Prescribed Route:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13.0)),
-                                const SizedBox(width: 8.0),
-                                Expanded(
-                                  child: Text(
-                                    currentMed.route,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.end,
+                                  const SizedBox(width: 8.0),
+                                  Expanded(
+                                    child: Text(
+                                      currentMed.dose,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.end,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6.0),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Prescribed Frequency:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13.0)),
-                                const SizedBox(width: 8.0),
-                                Expanded(
-                                  child: Text(
-                                    '${currentMed.frequency} (${_selectedTimes.length} time/day)',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                                    textAlign: TextAlign.end,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (currentMed.additionalInstructions != null &&
-                                currentMed.additionalInstructions!.isNotEmpty) ...[
-                              const Divider(height: 16.0),
-                              Text(
-                                'Doctor\'s Instructions: ${currentMed.additionalInstructions}',
-                                style: const TextStyle(fontSize: 12.0, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
+                                ],
                               ),
+                              const SizedBox(height: 6.0),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Prescribed Route:',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 13.0,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8.0),
+                                  Expanded(
+                                    child: Text(
+                                      currentMed.route,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.end,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6.0),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Prescribed Frequency:',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 13.0,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8.0),
+                                  Expanded(
+                                    child: Text(
+                                      '${currentMed.frequency} (${_selectedTimes.length} time/day)',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryDark,
+                                      ),
+                                      textAlign: TextAlign.end,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (currentMed.additionalInstructions != null &&
+                                  currentMed
+                                      .additionalInstructions!
+                                      .isNotEmpty) ...[
+                                const Divider(height: 16.0),
+                                Text(
+                                  'Doctor\'s Instructions: ${currentMed.additionalInstructions}',
+                                  style: const TextStyle(
+                                    fontSize: 12.0,
+                                    fontStyle: FontStyle.italic,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      );
-                    }),
+                          ),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 20.0),
 
                     // Pick Reminder Times
@@ -452,14 +525,20 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                     const SizedBox(height: 6.0),
                     const Text(
                       'Select convenient daily times for your alerts:',
-                      style: TextStyle(fontSize: 12.0, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12.0,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 10.0),
 
                     for (int i = 0; i < _selectedTimes.length; i++)
                       Container(
                         margin: const EdgeInsets.only(bottom: 8.0),
-                        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14.0,
+                          vertical: 8.0,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12.0),
@@ -470,9 +549,18 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.access_time, color: AppTheme.primary, size: 20),
+                                const Icon(
+                                  Icons.access_time,
+                                  color: AppTheme.primary,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8.0),
-                                Text('Dose ${i + 1}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(
+                                  'Dose ${i + 1}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ],
                             ),
                             TextButton.icon(
@@ -524,7 +612,10 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                       ),
                       child: Text(
                         _errorMessage!,
-                        style: const TextStyle(color: AppTheme.error, fontSize: 13.0),
+                        style: const TextStyle(
+                          color: AppTheme.error,
+                          fontSize: 13.0,
+                        ),
                       ),
                     ),
                   ],
@@ -535,7 +626,9 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                       backgroundColor: AppTheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14.0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
                     ),
                     onPressed: _isSubmitting || _selectedPrescription == null
                         ? null
@@ -544,11 +637,17 @@ class _CreateMedicationReminderScreenState extends State<CreateMedicationReminde
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
                           )
                         : const Text(
                             'Save & Schedule Reminder',
-                            style: TextStyle(fontSize: 15.0, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 15.0,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ],

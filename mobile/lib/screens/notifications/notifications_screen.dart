@@ -253,7 +253,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               Text(
                 provider.unreadOnly
                     ? 'No unread notifications'
-                    : 'You\'re all caught up!',
+                    : 'No notifications yet',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -264,7 +264,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               Text(
                 provider.unreadOnly
                     ? 'All your notifications have been marked as read.'
-                    : 'When you receive appointment or payment updates, they will appear here.',
+                    : 'Your appointment updates and reminders will appear here.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14,

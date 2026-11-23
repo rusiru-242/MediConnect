@@ -331,9 +331,10 @@ class AuthService:
                 "medicalRegistrationDocument": med_doc_meta,
                 "qualificationDocument": qual_doc_meta,
             },
-            "verificationStatus": DoctorVerificationStatus.PENDING.value,
+            "verificationStatus": DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value,
             "rejectionReason": None,
             "submittedAt": now,
+            "emailVerifiedAt": None,
             "verifiedAt": None,
             "createdAt": now,
             "updatedAt": now,
@@ -356,6 +357,23 @@ class AuthService:
             )
 
         EmailService.send_verification_otp(clean_email, otp)
+
+        # Dispatch in-app notification to administrators for review
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            admins = list(db["users"].find({"role": UserRole.ADMIN.value}))
+            for admin in admins:
+                NotificationService.create_notification(
+                    db=db,
+                    recipient_user_id=str(admin["_id"]),
+                    type=NotificationType.SYSTEM,
+                    title="New Doctor Registration Application",
+                    body=f"Dr. {clean_name} ({clean_specialty}) has submitted a registration application for review.",
+                )
+        except Exception as exc:
+            logger.warning("Failed to dispatch admin notification for doctor registration: %s", exc)
 
         user_response = UserResponseSchema(
             id=temp_user_id,
@@ -491,6 +509,18 @@ class AuthService:
                     },
                 },
             )
+
+            if user_role == UserRole.DOCTOR.value:
+                db["doctor_profiles"].update_one(
+                    {"userId": str(user["_id"])},
+                    {
+                        "$set": {
+                            "verificationStatus": DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+                            "emailVerifiedAt": now,
+                            "updatedAt": now,
+                        }
+                    },
+                )
         except PyMongoError as exc:
             logger.error("Failed to activate verified user: %s", type(exc).__name__)
             raise HTTPException(
@@ -603,7 +633,13 @@ class AuthService:
             )
 
         # Check email verification status
+        user_role = user.get("role", UserRole.PATIENT.value)
         if not user.get("emailVerified"):
+            if user_role == UserRole.DOCTOR.value:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Please verify your email before continuing.",
+                )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Email verification is required before logging in. Please verify your email.",
@@ -611,13 +647,21 @@ class AuthService:
 
         # Check account status
         account_status = user.get("accountStatus")
-        user_role = user.get("role", UserRole.PATIENT.value)
 
         if account_status == AccountStatus.SUSPENDED.value:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is suspended. Please contact support.",
             )
+
+        # Check if doctor has been rejected
+        if user_role == UserRole.DOCTOR.value:
+            doc_profile = db["doctor_profiles"].find_one({"userId": str(user["_id"])})
+            if doc_profile and doc_profile.get("verificationStatus") == DoctorVerificationStatus.REJECTED.value:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your doctor registration application was not approved. Please contact MediConnect support for further information.",
+                )
 
         # Allow DOCTOR with verified email and PENDING status for restricted application-status sessions
         is_pending_verified_doctor = (

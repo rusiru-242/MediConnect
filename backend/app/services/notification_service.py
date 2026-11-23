@@ -24,7 +24,9 @@ from app.models.notification import (
 from app.schemas.notification import (
     NotificationActionResponse,
     NotificationListResponse,
+    NotificationPreferencesSchema,
     NotificationResponse,
+    UpdateNotificationPreferencesRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -313,6 +315,18 @@ class NotificationService:
 
             # Dispatch push notification safely without risking in-app creation
             if send_push:
+                # Check recipient's push notification preference
+                try:
+                    user_oid = ObjectId(recipient_user_id) if ObjectId.is_valid(recipient_user_id) else None
+                    if user_oid:
+                        u_doc = db["users"].find_one({"_id": user_oid}, {"notificationPreferences": 1})
+                        if u_doc and isinstance(u_doc.get("notificationPreferences"), dict):
+                            if u_doc["notificationPreferences"].get("pushNotifications", True) is False:
+                                send_push = False
+                except Exception:
+                    pass
+
+            if send_push:
                 try:
                     push_data = {
                         "notificationId": str(doc_data["_id"]),
@@ -446,6 +460,36 @@ class NotificationService:
         )
 
     # -------------------------------------------------------------------------
+    # 5b. Notification Preferences
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def get_preferences(db: Database, user_id: str) -> NotificationPreferencesSchema:
+        """Fetch notification preferences for a user, defaulting all to True."""
+        user = db["users"].find_one({"_id": ObjectId(user_id)}) if ObjectId.is_valid(user_id) else None
+        prefs = (user.get("notificationPreferences") if user else None) or {}
+        return NotificationPreferencesSchema(
+            appointmentConfirmation=prefs.get("appointmentConfirmation", True),
+            reminder24h=prefs.get("reminder24h", True),
+            reminder1h=prefs.get("reminder1h", True),
+            pushNotifications=prefs.get("pushNotifications", True),
+        )
+
+    @staticmethod
+    def update_preferences(
+        db: Database, user_id: str, req: UpdateNotificationPreferencesRequest
+    ) -> NotificationPreferencesSchema:
+        """Update notification preferences for a user."""
+        current = NotificationService.get_preferences(db, user_id).model_dump()
+        update_data = req.model_dump(exclude_unset=True, exclude_none=True)
+        current.update(update_data)
+        if ObjectId.is_valid(user_id):
+            db["users"].update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"notificationPreferences": current, "updatedAt": utc_now()}},
+            )
+        return NotificationPreferencesSchema(**current)
+
+    # -------------------------------------------------------------------------
     # 6. Appointment Reminders (Scheduled Background Job)
     # -------------------------------------------------------------------------
     @classmethod
@@ -453,11 +497,12 @@ class NotificationService:
         """Check upcoming CONFIRMED appointments and trigger 24h & 1h reminders.
 
         Reminders:
-        - 24 hours before appointment
-        - 1 hour before appointment
+        - 24 hours before appointment: 'Your appointment with Dr. [Doctor Name] is tomorrow at [Time].'
+        - 1 hour before appointment: 'Your appointment with Dr. [Doctor Name] starts in 1 hour.'
         - Skips cancelled appointments
         - Never sends duplicate reminders
         - Timezone aware (Asia/Colombo)
+        - Respects user notification preferences
         """
         try:
             now_sl = datetime.now(SL_TIMEZONE)
@@ -486,6 +531,7 @@ class NotificationService:
                 patient_user_id = str(appt["patientUserId"])
                 date_str = appt.get("appointmentDate", "")
                 time_str = appt.get("startTime", "")
+                version = appt.get("appointmentVersion", 1)
 
                 try:
                     appt_dt_naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
@@ -493,51 +539,76 @@ class NotificationService:
                 except ValueError:
                     continue
 
+                # Skip past appointments
+                if now_sl >= appt_dt:
+                    continue
+
                 diff = appt_dt - now_sl
                 reminders_sent = appt.get("remindersSent", [])
+
+                # Fetch patient preferences
+                pt_user = db["users"].find_one({"_id": ObjectId(patient_user_id)}) if ObjectId.is_valid(patient_user_id) else None
+                prefs = (pt_user.get("notificationPreferences") if pt_user else None) or {}
+
+                # Resolve Doctor name
+                dr_user_id = appt.get("doctorUserId")
+                dr_user = db["users"].find_one({"_id": ObjectId(dr_user_id)}) if ObjectId.is_valid(str(dr_user_id)) else None
+                dr_raw_name = (dr_user.get("fullName") if dr_user else None) or "Doctor"
+                dr_name = dr_raw_name if dr_raw_name.startswith("Dr.") else f"Dr. {dr_raw_name}"
 
                 # 1. 24-Hour Reminder: window between 1 hour and 24 hours before slot
                 if timedelta(hours=1) < diff <= timedelta(hours=24):
                     if "24h" not in reminders_sent:
-                        # Atomic lock via $addToSet
+                        # Atomic lock via $addToSet with status check
                         update_res = appt_col.update_one(
-                            {"_id": appt["_id"], "remindersSent": {"$ne": "24h"}},
+                            {
+                                "_id": appt["_id"],
+                                "status": AppointmentStatus.CONFIRMED.value,
+                                "remindersSent": {"$ne": "24h"},
+                            },
                             {"$addToSet": {"remindersSent": "24h"}},
                         )
                         if update_res.modified_count > 0:
-                            cls.create_notification(
-                                db=db,
-                                recipient_user_id=patient_user_id,
-                                type=NotificationType.APPOINTMENT_REMINDER_24H,
-                                title="Upcoming Appointment Tomorrow",
-                                body=f"Reminder: You have an appointment tomorrow at {time_str}.",
-                                related_appointment_id=appt_id_str,
-                                idempotency_key=f"reminder_24h_{appt_id_str}",
-                                send_push=True,
-                            )
-                            reminders_sent_count += 1
-                            logger.info("Sent 24h reminder for appointment %s", appt_id_str)
+                            if prefs.get("reminder24h", True):
+                                cls.create_notification(
+                                    db=db,
+                                    recipient_user_id=patient_user_id,
+                                    type=NotificationType.APPOINTMENT_REMINDER_24H,
+                                    title="Appointment Reminder",
+                                    body=f"Your appointment with {dr_name} is tomorrow at {time_str}.",
+                                    related_appointment_id=appt_id_str,
+                                    idempotency_key=f"reminder_24h_{appt_id_str}_v{version}",
+                                    send_push=True,
+                                )
+                                reminders_sent_count += 1
+                                logger.info("Sent 24h reminder for appointment %s", appt_id_str)
 
                 # 2. 1-Hour Reminder: window between 0 and 1 hour before slot
                 elif timedelta(minutes=0) < diff <= timedelta(hours=1):
                     if "1h" not in reminders_sent:
+                        # Atomic lock via $addToSet with status check
                         update_res = appt_col.update_one(
-                            {"_id": appt["_id"], "remindersSent": {"$ne": "1h"}},
+                            {
+                                "_id": appt["_id"],
+                                "status": AppointmentStatus.CONFIRMED.value,
+                                "remindersSent": {"$ne": "1h"},
+                            },
                             {"$addToSet": {"remindersSent": "1h"}},
                         )
                         if update_res.modified_count > 0:
-                            cls.create_notification(
-                                db=db,
-                                recipient_user_id=patient_user_id,
-                                type=NotificationType.APPOINTMENT_REMINDER_1H,
-                                title="Appointment in 1 Hour",
-                                body=f"Reminder: Your appointment starts in approximately 1 hour at {time_str}.",
-                                related_appointment_id=appt_id_str,
-                                idempotency_key=f"reminder_1h_{appt_id_str}",
-                                send_push=True,
-                            )
-                            reminders_sent_count += 1
-                            logger.info("Sent 1h reminder for appointment %s", appt_id_str)
+                            if prefs.get("reminder1h", True):
+                                cls.create_notification(
+                                    db=db,
+                                    recipient_user_id=patient_user_id,
+                                    type=NotificationType.APPOINTMENT_REMINDER_1H,
+                                    title="Appointment Reminder",
+                                    body=f"Your appointment with {dr_name} starts in 1 hour.",
+                                    related_appointment_id=appt_id_str,
+                                    idempotency_key=f"reminder_1h_{appt_id_str}_v{version}",
+                                    send_push=True,
+                                )
+                                reminders_sent_count += 1
+                                logger.info("Sent 1h reminder for appointment %s", appt_id_str)
 
             return reminders_sent_count
         except Exception as exc:

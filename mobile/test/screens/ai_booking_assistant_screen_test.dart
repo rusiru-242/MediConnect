@@ -38,7 +38,7 @@ class FakeAiBookingService implements AiBookingService {
   }
 
   @override
-  Future<BookingSession> sendMessage(String sessionId, String message) async {
+  Future<BookingSession> sendMessage(String sessionId, String message, {String? imageUrl}) async {
     final updatedMessages = List<ChatMessage>.from(currentSession.messages)
       ..add(ChatMessage(
         id: 'msg_user',
@@ -219,6 +219,16 @@ class FakeAiBookingService implements AiBookingService {
 
   @override
   Future<BookingSession> syncPaymentStatus(String sessionId) async {
+    return currentSession;
+  }
+
+  @override
+  Future<Map<String, dynamic>> uploadMedicineImage(List<int> bytes, String filename) async {
+    return {'imageUrl': 'https://storage.mediconnect.local/test.jpg'};
+  }
+
+  @override
+  Future<BookingSession> sendImageMessage(String sessionId, List<int> bytes, String filename, {String? message}) async {
     return currentSession;
   }
 }

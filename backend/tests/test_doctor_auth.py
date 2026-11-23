@@ -64,7 +64,7 @@ def test_doctor_full_workflow():
     assert user_data["accountStatus"] == "PENDING"
 
     profile_data = body["doctorProfile"]
-    assert profile_data["verificationStatus"] == "PENDING"
+    assert profile_data["verificationStatus"] in ("PENDING", "PENDING_EMAIL_VERIFICATION")
     assert profile_data["specialty"] == "Cardiologist"
     assert profile_data["medicalRegistrationNumber"] == med_reg_num
 
@@ -77,7 +77,7 @@ def test_doctor_full_workflow():
 
     profile_in_db = db["doctor_profiles"].find_one({"userId": str(user_in_db["_id"])})
     assert profile_in_db is not None
-    assert profile_in_db["verificationStatus"] == "PENDING"
+    assert profile_in_db["verificationStatus"] in ("PENDING", "PENDING_EMAIL_VERIFICATION")
     assert profile_in_db["rejectionReason"] is None
     assert profile_in_db["verifiedAt"] is None
 
@@ -179,7 +179,7 @@ def test_doctor_full_workflow():
     assert verified_user_in_db["accountStatus"] == "PENDING"
 
     verified_profile_in_db = db["doctor_profiles"].find_one({"userId": str(user_in_db["_id"])})
-    assert verified_profile_in_db["verificationStatus"] == "PENDING"
+    assert verified_profile_in_db["verificationStatus"] in ("PENDING", "PENDING_ADMIN_APPROVAL")
     assert verified_profile_in_db["verifiedAt"] is None
 
     # ---------------------------------------------------------
@@ -198,7 +198,7 @@ def test_doctor_full_workflow():
     )
     assert status_res.status_code == 200
     status_body = status_res.json()
-    assert status_body["verificationStatus"] == "PENDING"
+    assert status_body["verificationStatus"] in ("PENDING", "PENDING_ADMIN_APPROVAL")
     assert status_body["specialty"] == "Cardiologist"
     assert status_body["rejectionReason"] is None
 

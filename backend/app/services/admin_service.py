@@ -1,5 +1,6 @@
 """Admin service for managing doctor applications, verification, and documents."""
 
+import logging
 import math
 import re
 from datetime import datetime, timezone
@@ -9,6 +10,7 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
+from app.config.settings import settings
 from app.models.doctor_profile import DoctorVerificationStatus, utc_now
 from app.models.user import AccountStatus, UserRole
 from app.schemas.admin import (
@@ -28,6 +30,11 @@ from app.schemas.admin import (
     AdminUserListResponse,
 )
 from app.services.document_storage_service import document_storage
+from app.services.email_service import EmailService
+from app.services.notification_service import NotificationService
+from app.models.notification import NotificationType
+
+logger = logging.getLogger(__name__)
 
 
 DOCUMENT_TITLES = {
@@ -56,15 +63,26 @@ class AdminService:
         status_filter: Optional[str] = "PENDING",
     ) -> List[AdminDoctorApplicationSummary]:
         """List doctor applications with optional status filtering (default: PENDING)."""
-        query = {}
-        if status_filter and status_filter.upper() != "ALL":
-            clean_status = status_filter.strip().upper()
+        clean_status = (status_filter or "PENDING").strip().upper()
+        query: Dict[str, Any] = {}
+        filter_verified_only = False
+
+        if clean_status in ("PENDING", "PENDING_ADMIN_APPROVAL"):
+            query["verificationStatus"] = {
+                "$in": [
+                    DoctorVerificationStatus.PENDING.value,
+                    DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+                ]
+            }
+            filter_verified_only = True
+        elif clean_status == "PENDING_EMAIL_VERIFICATION":
+            query["verificationStatus"] = DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value
+        elif clean_status != "ALL":
             if clean_status in {s.value for s in DoctorVerificationStatus}:
                 query["verificationStatus"] = clean_status
             else:
                 query["verificationStatus"] = DoctorVerificationStatus.PENDING.value
-        elif not status_filter:
-            query["verificationStatus"] = DoctorVerificationStatus.PENDING.value
+                filter_verified_only = True
 
         profiles = list(db["doctor_profiles"].find(query).sort("submittedAt", -1))
         if not profiles:
@@ -88,6 +106,11 @@ class AdminService:
             uid_str = str(p.get("userId", ""))
             user = users_by_id.get(uid_str, {})
 
+            email_verified = bool(user.get("emailVerified", False))
+            # Pending approvals section only lists email-verified applications
+            if filter_verified_only and not email_verified:
+                continue
+
             # Ensure UTC submittedAt
             sub_at = p.get("submittedAt")
             if isinstance(sub_at, datetime) and sub_at.tzinfo is None:
@@ -104,9 +127,11 @@ class AdminService:
                     phone=user.get("phone"),
                     specialty=p.get("specialty", ""),
                     medicalRegistrationNumber=p.get("medicalRegistrationNumber", ""),
+                    qualifications=p.get("qualifications", ""),
                     hospitalOrClinic=p.get("hospitalOrClinic", ""),
                     experienceYears=int(p.get("experienceYears", 0)),
                     verificationStatus=p.get("verificationStatus", DoctorVerificationStatus.PENDING.value),
+                    emailVerified=email_verified,
                     submittedAt=sub_at,
                 )
             )
@@ -191,6 +216,8 @@ class AdminService:
             bio=profile.get("bio"),
             verificationStatus=profile.get("verificationStatus", DoctorVerificationStatus.PENDING.value),
             rejectionReason=profile.get("rejectionReason"),
+            emailVerified=bool(user.get("emailVerified", False)),
+            emailVerifiedAt=profile.get("emailVerifiedAt"),
             submittedAt=sub_at,
             verifiedAt=ver_at,
             verifiedBy=profile.get("verifiedBy"),
@@ -268,12 +295,16 @@ class AdminService:
             )
 
         current_status = profile.get("verificationStatus")
+        pending_statuses = [
+            DoctorVerificationStatus.PENDING.value,
+            DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+        ]
 
-        # Concurrency / Double Action Protection: Only PENDING applications can be approved
-        if current_status != DoctorVerificationStatus.PENDING.value:
+        # Concurrency / Double Action Protection: Only pending applications can be approved
+        if current_status not in pending_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot approve application with status '{current_status}'. Only PENDING applications can be approved.",
+                detail=f"Cannot approve application with status '{current_status}'. Only pending applications can be approved.",
             )
 
         user_id_val = profile.get("userId")
@@ -299,7 +330,7 @@ class AdminService:
         if not user.get("emailVerified"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot approve doctor whose email is not verified.",
+                detail="Doctor's email must be verified before the application can be approved.",
             )
 
         # Validate professional documents exist
@@ -317,7 +348,7 @@ class AdminService:
         update_result = db["doctor_profiles"].update_one(
             {
                 "_id": prof_oid,
-                "verificationStatus": DoctorVerificationStatus.PENDING.value,
+                "verificationStatus": {"$in": pending_statuses},
             },
             {
                 "$set": {
@@ -325,7 +356,7 @@ class AdminService:
                     "verifiedAt": now,
                     "verifiedBy": str(admin_user_id),
                     "rejectionReason": None,
-                    "previousStatus": DoctorVerificationStatus.PENDING.value,
+                    "previousStatus": current_status,
                     "updatedAt": now,
                 }
             },
@@ -337,16 +368,45 @@ class AdminService:
                 detail="Application status was modified by another administrator.",
             )
 
-        # Update User account status to ACTIVE
+        # Update User account status to ACTIVE and emailVerified to True
         db["users"].update_one(
             {"_id": user["_id"]},
             {
                 "$set": {
                     "accountStatus": AccountStatus.ACTIVE.value,
+                    "emailVerified": True,
                     "updatedAt": now,
                 }
             },
         )
+
+        # Dispatch approval email with doctor's personal details and login portal link
+        login_url = settings.DOCTOR_PORTAL_URL or "https://mediconnect-admin-staging.vercel.app/login"
+        try:
+            EmailService.send_doctor_approval_email(
+                to_email=user.get("email", ""),
+                doctor_name=user.get("fullName", "Doctor"),
+                specialty=profile.get("specialty", ""),
+                medical_registration_number=profile.get("medicalRegistrationNumber", ""),
+                hospital_or_clinic=profile.get("hospitalOrClinic", ""),
+                phone=user.get("phone"),
+                qualifications=profile.get("qualifications"),
+                login_url=login_url,
+            )
+        except Exception as exc:
+            logger.error("Failed to send doctor approval email to %s: %s", user.get("email"), exc)
+
+        # Create in-app approval notification for the doctor
+        try:
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(user["_id"]),
+                type=NotificationType.SYSTEM,
+                title="Doctor Application Approved",
+                body=f"Congratulations Dr. {user.get('fullName', 'Doctor')}! Your medical credentials have been verified and approved. You now have full clinical access.",
+            )
+        except Exception as exc:
+            logger.warning("Failed to create in-app notification for approved doctor: %s", exc)
 
         return AdminActionResponse(message="Doctor application approved successfully.")
 
@@ -374,12 +434,17 @@ class AdminService:
             )
 
         current_status = profile.get("verificationStatus")
+        pending_statuses = [
+            DoctorVerificationStatus.PENDING.value,
+            DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value,
+            DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+        ]
 
-        # Concurrency / Double Action Protection: Only PENDING applications can be rejected
-        if current_status != DoctorVerificationStatus.PENDING.value:
+        # Concurrency / Double Action Protection: Only pending applications can be rejected
+        if current_status not in pending_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot reject application with status '{current_status}'. Only PENDING applications can be rejected.",
+                detail=f"Cannot reject application with status '{current_status}'. Only pending applications can be rejected.",
             )
 
         now = utc_now()
@@ -387,7 +452,7 @@ class AdminService:
         update_result = db["doctor_profiles"].update_one(
             {
                 "_id": prof_oid,
-                "verificationStatus": DoctorVerificationStatus.PENDING.value,
+                "verificationStatus": {"$in": pending_statuses},
             },
             {
                 "$set": {
@@ -395,7 +460,7 @@ class AdminService:
                     "rejectionReason": clean_reason,
                     "verifiedAt": now,
                     "verifiedBy": str(admin_user_id),
-                    "previousStatus": DoctorVerificationStatus.PENDING.value,
+                    "previousStatus": current_status,
                     "updatedAt": now,
                 }
             },
@@ -407,7 +472,35 @@ class AdminService:
                 detail="Application status was modified by another administrator.",
             )
 
-        # Doctor user account remains PENDING (restricted, not active)
+        # Notify doctor via email and in-app notification
+        user_id_val = profile.get("userId")
+        user_query = {}
+        if ObjectId.is_valid(user_id_val):
+            user_query = {"$or": [{"_id": ObjectId(user_id_val)}, {"_id": user_id_val}]}
+        else:
+            user_query = {"_id": user_id_val}
+
+        user = db["users"].find_one(user_query)
+        if user:
+            try:
+                EmailService.send_doctor_rejection_email(
+                    to_email=user.get("email", ""),
+                    doctor_name=user.get("fullName", "Doctor"),
+                    reason=clean_reason,
+                )
+            except Exception as exc:
+                logger.error("Failed to send doctor rejection email to %s: %s", user.get("email"), exc)
+
+            try:
+                NotificationService.create_notification(
+                    db=db,
+                    recipient_user_id=str(user["_id"]),
+                    type=NotificationType.SYSTEM,
+                    title="Doctor Application Status Update",
+                    body="Your doctor registration application was not approved. Please contact administrative support for further information.",
+                )
+            except Exception as exc:
+                logger.warning("Failed to create in-app notification for rejected doctor: %s", exc)
 
         return AdminActionResponse(message="Doctor application rejected.")
 

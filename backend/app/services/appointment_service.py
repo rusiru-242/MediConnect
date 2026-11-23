@@ -26,6 +26,7 @@ from app.schemas.appointment import (
     CancelAppointmentRequest,
     CreateAppointmentRequest,
     CreateAppointmentResponse,
+    RescheduleAppointmentRequest,
     UpdateAppointmentStatusRequest,
 )
 from app.schemas.user import UserResponseSchema
@@ -88,6 +89,7 @@ def _build_appointment_response(
         doctorName=doctor_name,
         specialty=specialty,
         hospitalOrClinic=hospital_or_clinic,
+        appointmentVersion=int(doc.get("appointmentVersion", 1)),
     )
 
 
@@ -166,17 +168,45 @@ class AppointmentService:
         doctor_profile_id = str(doctor_profile["_id"])
         target_date = req.appointmentDate or req.date
 
+        req_start_h, req_start_m = _parse_hhmm(req.startTime)
+        req_start_total = req_start_h * 60 + req_start_m
+
+        # Phase 54: Check doctor active leaves covering this date
+        active_leaves = list(db["doctor_leaves"].find({
+            "doctorUserId": doctor_user_id,
+            "status": "ACTIVE",
+            "startDate": {"$lte": target_date},
+            "endDate": {"$gte": target_date},
+        }))
+        for l in active_leaves:
+            l_start = l.get("startTime")
+            l_end = l.get("endTime")
+            if not l_start or not l_end:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is on leave on this date.")
+            lh_s, lm_s = _parse_hhmm(l_start)
+            if req.startTime < l_end and (req_start_total + 15) > (lh_s * 60 + lm_s):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is on leave during this time slot.")
+
+        # Phase 54: Check doctor blocked times covering this date
+        blocked_records = list(db["doctor_blocked_times"].find({
+            "doctorUserId": doctor_user_id,
+            "date": target_date,
+        }))
+        for b in blocked_records:
+            b_start = b.get("startTime")
+            b_end = b.get("endTime")
+            if b_start and b_end:
+                bh_s, bm_s = _parse_hhmm(b_start)
+                if req.startTime < b_end and (req_start_total + 15) > (bh_s * 60 + bm_s):
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This time slot is blocked by the doctor.")
+
         # 3. Resolve and validate the availability window
         avail_doc = None
         if req.availabilityId and req.availabilityId.strip():
             avail_id_raw = req.availabilityId.strip()
-            if not ObjectId.is_valid(avail_id_raw):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid availabilityId format.",
-                )
-            avail_doc = db["doctor_availabilities"].find_one({"_id": ObjectId(avail_id_raw)})
-        else:
+            if ObjectId.is_valid(avail_id_raw):
+                avail_doc = db["doctor_availabilities"].find_one({"_id": ObjectId(avail_id_raw)})
+        if not avail_doc:
             # Lookup active availability window for this doctor matching date
             avail_doc = db["doctor_availabilities"].find_one({
                 "doctorUserId": doctor_user_id,
@@ -185,6 +215,27 @@ class AppointmentService:
                 "startTime": {"$lte": req.startTime},
                 "endTime": {"$gt": req.startTime},
             })
+
+        # Phase 54: If no specific date availability record, check recurring weekly schedule
+        if not avail_doc:
+            weekday_name = _dt.strptime(target_date, "%Y-%m-%d").strftime("%A").lower()
+            ws_doc = db["doctor_weekly_schedules"].find_one({"doctorUserId": doctor_user_id})
+            if ws_doc:
+                for w in ws_doc.get("weekdays", []):
+                    if w.get("day") == weekday_name and w.get("isEnabled"):
+                        for sess in w.get("sessions", []):
+                            if sess.get("startTime") <= req.startTime and sess.get("endTime") > req.startTime:
+                                avail_doc = {
+                                    "_id": str(ws_doc["_id"]),
+                                    "doctorUserId": doctor_user_id,
+                                    "doctorProfileId": doctor_profile_id,
+                                    "date": target_date,
+                                    "startTime": sess.get("startTime"),
+                                    "endTime": sess.get("endTime"),
+                                    "slotDurationMinutes": int(ws_doc.get("slotDurationMinutes", 30)),
+                                    "isActive": True,
+                                }
+                                break
 
         if not avail_doc:
             raise HTTPException(
@@ -462,17 +513,34 @@ class AppointmentService:
             },
         )
 
-        # Notify doctor of patient cancellation
+        # Notify patient and doctor of cancellation
         try:
             from app.models.notification import NotificationType
             from app.services.notification_service import NotificationService
 
+            dr_user_doc = db["users"].find_one({"_id": ObjectId(appt["doctorUserId"])}) if ObjectId.is_valid(str(appt.get("doctorUserId", ""))) else None
+            dr_name = (dr_user_doc.get("fullName") if dr_user_doc else None) or "Doctor"
+            if not dr_name.startswith("Dr.") and not dr_name.startswith("Dr "):
+                dr_name = f"Dr. {dr_name}"
+
+            # In-app notification to patient
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["patientUserId"]),
+                type=NotificationType.APPOINTMENT_CANCELLED,
+                title="Appointment Cancelled",
+                body=f"Your appointment with {dr_name} on {appt.get('appointmentDate')} at {appt.get('startTime')} has been cancelled.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"patient_cancelled_self_{appt['_id']}",
+            )
+
+            # In-app notification to doctor
             NotificationService.create_notification(
                 db=db,
                 recipient_user_id=str(appt["doctorUserId"]),
                 type=NotificationType.APPOINTMENT_CANCELLED,
                 title="Appointment Cancelled",
-                body=f"Appointment on {appt.get('appointmentDate')} at {appt.get('startTime')} was cancelled by the patient.",
+                body=f"Appointment with {patient_user.fullName or 'a patient'} on {appt.get('appointmentDate')} at {appt.get('startTime')} has been cancelled.",
                 related_appointment_id=str(appt["_id"]),
                 idempotency_key=f"patient_cancelled_{appt['_id']}",
             )
@@ -585,19 +653,37 @@ class AppointmentService:
             {"$set": {"status": AppointmentStatus.CONFIRMED.value, "updatedAt": now}},
         )
 
-        # Notify patient of appointment confirmation
+        # Notify patient and doctor of appointment confirmation
         try:
             from app.models.notification import NotificationType
             from app.services.notification_service import NotificationService
 
+            dr_name = doctor_user.fullName or "Doctor"
+            if not dr_name.startswith("Dr.") and not dr_name.startswith("Dr "):
+                dr_name = f"Dr. {dr_name}"
+
+            # In-app notification to patient
             NotificationService.create_notification(
                 db=db,
                 recipient_user_id=str(appt["patientUserId"]),
                 type=NotificationType.APPOINTMENT_CONFIRMED,
                 title="Appointment Confirmed",
-                body=f"Your appointment with Dr. {doctor_user.fullName or ''} on {appt.get('appointmentDate')} at {appt.get('startTime')} has been confirmed.",
+                body=f"Your appointment with {dr_name} is confirmed for {appt.get('appointmentDate')} at {appt.get('startTime')}.",
                 related_appointment_id=str(appt["_id"]),
                 idempotency_key=f"doctor_confirmed_{appt['_id']}",
+            )
+
+            # In-app notification to doctor
+            pt_user_doc = db["users"].find_one({"_id": ObjectId(appt["patientUserId"])}) if ObjectId.is_valid(str(appt.get("patientUserId", ""))) else None
+            patient_name = (pt_user_doc.get("fullName") if pt_user_doc else None) or "a patient"
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["doctorUserId"]),
+                type=NotificationType.APPOINTMENT_CONFIRMED,
+                title="Appointment Confirmed",
+                body=f"Appointment with {patient_name} on {appt.get('appointmentDate')} at {appt.get('startTime')} is confirmed.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"doctor_confirmed_self_{appt['_id']}",
             )
         except Exception as notif_err:
             logger.warning("Failed to send doctor confirmation notification: %s", notif_err)
@@ -725,19 +811,38 @@ class AppointmentService:
             },
         )
 
-        # Notify patient of doctor cancellation
+        # Notify patient and doctor of cancellation
         try:
             from app.models.notification import NotificationType
             from app.services.notification_service import NotificationService
 
+            dr_name = doctor_user.fullName or "Doctor"
+            if not dr_name.startswith("Dr.") and not dr_name.startswith("Dr "):
+                dr_name = f"Dr. {dr_name}"
+
+            pt_user_doc = db["users"].find_one({"_id": ObjectId(appt["patientUserId"])}) if ObjectId.is_valid(str(appt.get("patientUserId", ""))) else None
+            patient_name = (pt_user_doc.get("fullName") if pt_user_doc else None) or "a patient"
+
+            # In-app notification to patient
             NotificationService.create_notification(
                 db=db,
                 recipient_user_id=str(appt["patientUserId"]),
                 type=NotificationType.APPOINTMENT_CANCELLED,
                 title="Appointment Cancelled",
-                body=f"Your appointment on {appt.get('appointmentDate')} at {appt.get('startTime')} was cancelled by the doctor.",
+                body=f"Your appointment with {dr_name} on {appt.get('appointmentDate')} at {appt.get('startTime')} has been cancelled.",
                 related_appointment_id=str(appt["_id"]),
                 idempotency_key=f"doctor_cancelled_{appt['_id']}",
+            )
+
+            # In-app notification to doctor
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["doctorUserId"]),
+                type=NotificationType.APPOINTMENT_CANCELLED,
+                title="Appointment Cancelled",
+                body=f"Appointment with {patient_name} on {appt.get('appointmentDate')} at {appt.get('startTime')} has been cancelled.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"doctor_cancelled_self_{appt['_id']}",
             )
         except Exception as notif_err:
             logger.warning("Failed to send doctor cancellation notification: %s", notif_err)
@@ -803,6 +908,154 @@ class AppointmentService:
 
         return _build_appointment_response(
             appt,
+            doctor_id=dr_profile.get("doctorId") if dr_profile else None,
+            patient_name=pt_user.get("fullName") if pt_user else None,
+            patient_email=pt_user.get("email") if pt_user else None,
+            doctor_name=dr_user.get("fullName") if dr_user else None,
+            specialty=dr_profile.get("specialty") if dr_profile else None,
+            hospitalOrClinic=dr_profile.get("hospitalOrClinic") if dr_profile else None,
+        )
+
+    # -------------------------------------------------------------------------
+    # SHARED: Reschedule appointment
+    # -------------------------------------------------------------------------
+    @staticmethod
+    async def reschedule_appointment(
+        db: Database,
+        requester: UserResponseSchema,
+        appointment_id: str,
+        req: RescheduleAppointmentRequest,
+    ) -> AppointmentResponse:
+        """Reschedule an existing appointment to a new date and time slot.
+
+        Validations:
+        - Requester must be the patient who booked it, the assigned doctor, or an admin.
+        - Appointment must be in PENDING or CONFIRMED status.
+        - New slot date and time must be valid and in the future (SL time).
+        - No conflicting appointment exists for the doctor at that time slot.
+        - Resets remindersSent to [] and bumps appointmentVersion.
+        - Sends reschedule notifications to both patient and doctor.
+        """
+        appt = _get_appointment_or_404(db, appointment_id)
+
+        is_patient = requester.role == UserRole.PATIENT.value and str(appt["patientUserId"]) == str(requester.id)
+        is_doctor = requester.role == UserRole.DOCTOR.value and str(appt["doctorUserId"]) == str(requester.id)
+        is_admin = requester.role == UserRole.ADMIN.value
+
+        if not (is_patient or is_doctor or is_admin):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to reschedule this appointment.",
+            )
+
+        current_status = appt["status"]
+        if current_status not in (AppointmentStatus.PENDING.value, AppointmentStatus.CONFIRMED.value):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot reschedule an appointment with status: {current_status}.",
+            )
+
+        new_date = req.newDate.strip()
+        new_start_time = req.newStartTime.strip()
+
+        # Parse and validate new date & time
+        try:
+            new_slot_dt = _dt.strptime(f"{new_date} {new_start_time}", "%Y-%m-%d %H:%M").replace(tzinfo=SL_TIMEZONE)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date or time format.")
+
+        sl_now = _dt.now(SL_TIMEZONE)
+        if new_slot_dt <= sl_now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot reschedule an appointment to a past time slot.",
+            )
+
+        # Calculate new end time if not supplied
+        if req.newEndTime and req.newEndTime.strip():
+            new_end_time = req.newEndTime.strip()
+            _parse_hhmm(new_end_time)
+        else:
+            old_start_h, old_start_m = _parse_hhmm(appt.get("startTime", "09:00"))
+            old_end_h, old_end_m = _parse_hhmm(appt.get("endTime", "09:30"))
+            duration_minutes = (old_end_h * 60 + old_end_m) - (old_start_h * 60 + old_start_m)
+            if duration_minutes <= 0:
+                duration_minutes = 30
+            new_s_h, new_s_m = _parse_hhmm(new_start_time)
+            new_end_total = new_s_h * 60 + new_s_m + duration_minutes
+            new_end_time = f"{new_end_total // 60:02d}:{new_end_total % 60:02d}"
+
+        # Check for conflict with existing active appointments for the same doctor
+        conflict = get_appointment_collection(db).find_one({
+            "_id": {"$ne": ObjectId(appointment_id)},
+            "doctorUserId": str(appt["doctorUserId"]),
+            "appointmentDate": new_date,
+            "status": {"$in": [AppointmentStatus.PENDING.value, AppointmentStatus.CONFIRMED.value]},
+            "startTime": new_start_time,
+        })
+        if conflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The doctor is not available at the selected date and time.",
+            )
+
+        new_version = int(appt.get("appointmentVersion", 1)) + 1
+        now = utc_now()
+
+        get_appointment_collection(db).update_one(
+            {"_id": ObjectId(appointment_id)},
+            {
+                "$set": {
+                    "appointmentDate": new_date,
+                    "startTime": new_start_time,
+                    "endTime": new_end_time,
+                    "appointmentVersion": new_version,
+                    "remindersSent": [],  # Invalidate previously scheduled reminders
+                    "updatedAt": now,
+                }
+            },
+        )
+
+        # Notify patient and doctor
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+
+            dr_user_doc = db["users"].find_one({"_id": ObjectId(appt["doctorUserId"])}) if ObjectId.is_valid(str(appt.get("doctorUserId", ""))) else None
+            pt_user_doc = db["users"].find_one({"_id": ObjectId(appt["patientUserId"])}) if ObjectId.is_valid(str(appt.get("patientUserId", ""))) else None
+            patient_name = (pt_user_doc.get("fullName") if pt_user_doc else None) or "a patient"
+
+            # Patient notification: "Your appointment has been moved to [New Date] at [New Time]."
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["patientUserId"]),
+                type=NotificationType.APPOINTMENT_RESCHEDULED,
+                title="Appointment Rescheduled",
+                body=f"Your appointment has been moved to {new_date} at {new_start_time}.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"rescheduled_patient_{appt['_id']}_v{new_version}",
+            )
+
+            # Doctor notification
+            NotificationService.create_notification(
+                db=db,
+                recipient_user_id=str(appt["doctorUserId"]),
+                type=NotificationType.APPOINTMENT_RESCHEDULED,
+                title="Appointment Rescheduled",
+                body=f"Appointment with {patient_name} has been moved to {new_date} at {new_start_time}.",
+                related_appointment_id=str(appt["_id"]),
+                idempotency_key=f"rescheduled_doctor_{appt['_id']}_v{new_version}",
+            )
+        except Exception as notif_err:
+            logger.warning("Failed to send reschedule notifications: %s", notif_err)
+
+        updated = _get_appointment_or_404(db, appointment_id)
+        pt_user = db["users"].find_one({"_id": ObjectId(updated["patientUserId"])}) if ObjectId.is_valid(updated.get("patientUserId", "")) else None
+        dr_user = db["users"].find_one({"_id": ObjectId(updated["doctorUserId"])}) if ObjectId.is_valid(updated.get("doctorUserId", "")) else None
+        dr_profile = db["doctor_profiles"].find_one({"_id": ObjectId(updated["doctorProfileId"])}) if ObjectId.is_valid(updated.get("doctorProfileId", "")) else None
+
+        return _build_appointment_response(
+            updated,
             doctor_id=dr_profile.get("doctorId") if dr_profile else None,
             patient_name=pt_user.get("fullName") if pt_user else None,
             patient_email=pt_user.get("email") if pt_user else None,

@@ -26,6 +26,8 @@ class DatabaseManager:
                     import dns.resolver
 
                     resolver = dns.resolver.get_default_resolver()
+                    resolver.lifetime = 25.0
+                    resolver.timeout = 10.0
                     resolver.nameservers = ["8.8.8.8", "1.1.1.1"] + [
                         ns for ns in resolver.nameservers if ns not in ["8.8.8.8", "1.1.1.1"]
                     ]
@@ -82,6 +84,11 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
     from app.models.review import create_review_indexes
     from app.models.token import create_token_indexes
     from app.models.user import create_user_indexes
+    from app.models.doctor_weekly_schedule import create_doctor_weekly_schedule_indexes
+    from app.models.doctor_leave import create_doctor_leave_indexes
+    from app.models.doctor_blocked_time import create_doctor_blocked_time_indexes
+    from app.models.care_plan import create_care_plan_indexes
+    from app.models.consultation import create_consultation_indexes
 
     index_creators = [
         ("users", create_user_indexes),
@@ -89,6 +96,11 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         ("password_resets", create_password_reset_indexes),
         ("doctor_profiles", create_doctor_profile_indexes),
         ("doctor_availabilities", create_doctor_availability_indexes),
+        ("doctor_weekly_schedules", create_doctor_weekly_schedule_indexes),
+        ("doctor_leaves", create_doctor_leave_indexes),
+        ("doctor_blocked_times", create_doctor_blocked_time_indexes),
+        ("care_plans", create_care_plan_indexes),
+        ("consultation_sessions", create_consultation_indexes),
         ("appointments", create_appointment_indexes),
         ("payments", create_payment_indexes),
         ("notifications", create_notification_indexes),

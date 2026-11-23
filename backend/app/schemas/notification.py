@@ -58,3 +58,21 @@ class NotificationActionResponse(BaseModel):
     success: bool = True
     message: str
     modifiedCount: int = 0
+
+
+class NotificationPreferencesSchema(BaseModel):
+    """Notification preferences configuration for a patient or doctor."""
+
+    appointmentConfirmation: bool = True
+    reminder24h: bool = True
+    reminder1h: bool = True
+    pushNotifications: bool = True
+
+
+class UpdateNotificationPreferencesRequest(BaseModel):
+    """Request payload to update notification preferences."""
+
+    appointmentConfirmation: Optional[bool] = None
+    reminder24h: Optional[bool] = None
+    reminder1h: Optional[bool] = None
+    pushNotifications: Optional[bool] = None

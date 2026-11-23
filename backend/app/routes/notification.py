@@ -9,9 +9,11 @@ from app.middleware.auth import get_current_user
 from app.schemas.notification import (
     NotificationActionResponse,
     NotificationListResponse,
+    NotificationPreferencesSchema,
     RegisterDeviceTokenRequest,
     RemoveDeviceTokenRequest,
     UnreadCountResponse,
+    UpdateNotificationPreferencesRequest,
 )
 from app.schemas.user import UserResponseSchema
 from app.services.notification_service import NotificationService
@@ -59,12 +61,49 @@ async def get_unread_count(
     return UnreadCountResponse(unreadCount=count)
 
 
+@router.get(
+    "/preferences",
+    response_model=NotificationPreferencesSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Get notification preferences",
+    description="Returns notification preferences for the authenticated user.",
+)
+async def get_preferences(
+    current_user: UserResponseSchema = Depends(get_current_user),
+    db: Database = Depends(get_database),
+) -> NotificationPreferencesSchema:
+    """Retrieve notification preferences."""
+    return NotificationService.get_preferences(db=db, user_id=str(current_user.id))
+
+
+@router.put(
+    "/preferences",
+    response_model=NotificationPreferencesSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Update notification preferences",
+    description="Updates notification preferences for the authenticated user.",
+)
+async def update_preferences(
+    req: UpdateNotificationPreferencesRequest,
+    current_user: UserResponseSchema = Depends(get_current_user),
+    db: Database = Depends(get_database),
+) -> NotificationPreferencesSchema:
+    """Update notification preferences."""
+    return NotificationService.update_preferences(db=db, user_id=str(current_user.id), req=req)
+
+
 @router.patch(
     "/{id}/read",
     response_model=NotificationActionResponse,
     status_code=status.HTTP_200_OK,
     summary="Mark notification as read",
     description="Marks a specific notification as read. Enforces user ownership.",
+)
+@router.put(
+    "/{id}/read",
+    response_model=NotificationActionResponse,
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
 )
 async def mark_as_read(
     id: str,
@@ -85,6 +124,12 @@ async def mark_as_read(
     status_code=status.HTTP_200_OK,
     summary="Mark all notifications as read",
     description="Marks all unread notifications for the authenticated user as read.",
+)
+@router.put(
+    "/read-all",
+    response_model=NotificationActionResponse,
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
 )
 async def mark_all_as_read(
     current_user: UserResponseSchema = Depends(get_current_user),

@@ -15,9 +15,11 @@ export interface DoctorApplicationSummary {
   phone?: string | null;
   specialty: string;
   medicalRegistrationNumber: string;
+  qualifications?: string;
   hospitalOrClinic: string;
   experienceYears: number;
-  verificationStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  emailVerified?: boolean;
+  verificationStatus: 'PENDING' | 'PENDING_EMAIL_VERIFICATION' | 'PENDING_ADMIN_APPROVAL' | 'APPROVED' | 'REJECTED' | string;
   submittedAt: string;
 }
 
@@ -25,6 +27,8 @@ export interface DoctorApplicationDetail extends DoctorApplicationSummary {
   qualifications: string;
   bio?: string | null;
   rejectionReason?: string | null;
+  emailVerified?: boolean;
+  emailVerifiedAt?: string | null;
   verifiedAt?: string | null;
   verifiedBy?: string | null;
   documents: DoctorDocumentMetadata[];

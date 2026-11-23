@@ -5,52 +5,108 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  // Core Brand Tokens (Phase 38 Unified Medical Design System)
+  // Core Brand Tokens (Phase 38 Unified Medical Design System & Stitch Clinical Clarity)
   static const Color primaryBlue = Color(0xFF1565C0); // Primary Blue #1565C0
+  static const Color stitchPrimary = Color(
+    0xFF004D99,
+  ); // Deep Clinical Blue #004D99
   static const Color primary = primaryBlue;
   static const Color primaryTeal = primaryBlue; // Backwards-compatibility alias
-  static const Color secondaryBlue = Color(0xFF2196F3); // Secondary Blue #2196F3
+  static const Color secondaryBlue = Color(
+    0xFF2196F3,
+  ); // Secondary Blue #2196F3
+  static const Color stitchSecondary = Color(
+    0xFF0061A4,
+  ); // Clinical Secondary #0061A4
   static const Color secondary = secondaryBlue;
   static const Color darkNavy = Color(0xFF172B4D); // Dark Navy #172B4D
 
-  // Surfaces & Layout
-  static const Color background = Color(0xFFF5F8FC); // Background #F5F8FC
+  // Surfaces & Layout (Stitch Clinical Clarity)
+  static const Color background = Color(0xFFFAF8FF); // Clinical Canvas #FAF8FF
   static const Color surface = Color(0xFFFFFFFF); // Surface / Cards #FFFFFF
-  static const Color surfaceVariant = Color(0xFFEDF2F7); // Subtle surface tint
-  static const Color border = Color(0xFFE5EAF2); // Border #E5EAF2
+  static const Color surfaceContainerLowest = Color(0xFFFFFFFF);
+  static const Color surfaceContainerLow = Color(
+    0xFFF2F3FF,
+  ); // Light cool blue-gray
+  static const Color surfaceContainer = Color(0xFFEAEDFF); // Soft container
+  static const Color surfaceContainerHigh = Color(0xFFE2E7FF);
+  static const Color surfaceContainerHighest = Color(0xFFDAE2FD);
+  static const Color surfaceVariant = Color(0xFFEAEDFF);
+  static const Color border = Color(
+    0xFFE2E8F0,
+  ); // Precise Slate Outline #E2E8F0
   static const Color outline = border;
+  static const Color outlineVariant = Color(0xFFC2C6D4);
   static const Color borderFocused = primaryBlue;
 
-  // Typography & Text
-  static const Color textPrimary = Color(0xFF172B4D); // Dark Navy text #172B4D
-  static const Color textSecondary = Color(0xFF64748B); // Secondary Text #64748B
-  static const Color textMuted = Color(0xFF94A3B8); // Slate 400
+  // Typography & Text (Stitch Clinical Clarity)
+  static const Color textPrimary = Color(0xFF131B2E); // On-Surface #131B2E
+  static const Color onSurface = textPrimary;
+  static const Color textSecondary = Color(
+    0xFF424752,
+  ); // On-Surface-Variant #424752
+  static const Color onSurfaceVariant = textSecondary;
+  static const Color textMuted = Color(0xFF727783); // Outline Muted #727783
 
-  // Semantic Feedback Tokens
-  static const Color success = Color(0xFF16A34A); // Success #16A34A
-  static const Color successContainer = Color(0xFFDCFCE7);
+  // Semantic Feedback Tokens (Stitch Clinical Clarity)
+  static const Color success = Color(0xFF10B981); // Health Green #10B981
+  static const Color stitchTertiary = Color(0xFF005A3C);
+  static const Color stitchTertiaryFixed = Color(0xFF6FFBBE);
+  static const Color stitchTertiaryFixedDim = Color(0xFF4EDEA3);
+  static const Color successContainer = Color(
+    0xFFE8F8F2,
+  ); // Stable / Normal #E8F8F2
   static const Color warning = Color(0xFFF59E0B); // Warning #F59E0B
   static const Color warningContainer = Color(0xFFFEF3C7);
-  static const Color error = Color(0xFFDC2626); // Error #DC2626
-  static const Color errorContainer = Color(0xFFFEE2E2);
+  static const Color error = Color(0xFFBA1A1A); // Clinical Error #BA1A1A
+  static const Color errorContainer = Color(0xFFFFDAD6);
 
   // Tinted Containers & Accent Shades
-  static const Color primaryContainer = Color(0xFFE3F2FD); // Blue 50
-  static const Color onPrimaryContainer = Color(0xFF0D47A1); // Deep Blue 900
-  static const Color secondaryContainer = Color(0xFFE1F5FE); // Light Blue 50
-  static const Color onSecondaryContainer = Color(0xFF0277BD); // Light Blue 800
+  static const Color primaryContainer = Color(
+    0xFFE3F2FD,
+  ); // Soft Ice Blue #E3F2FD
+  static const Color softBlue = primaryContainer; // Soft Blue #E3F2FD
+  static const Color onPrimaryContainer = Color(
+    0xFF004D99,
+  ); // Deep Blue #004D99
+  static const Color secondaryContainer = Color(0xFFD1E4FF);
+  static const Color onSecondaryContainer = Color(0xFF00355C);
   static const Color primaryLight = Color(0xFF42A5F5); // Blue 400
-  static const Color primaryDark = Color(0xFF0D47A1); // Blue 900
+  static const Color primaryDark = Color(0xFF004D99);
 
-  // Shared Gradients
+  // Dark Theme Tokens (Phase 41 / Modern Dark Mode Support)
+  static const Color darkBackground = Color(0xFF0F172A); // Slate 900
+  static const Color darkSurface = Color(0xFF1E293B); // Slate 800
+  static const Color darkSurfaceContainerLowest = Color(0xFF0F172A);
+  static const Color darkSurfaceContainerLow = Color(0xFF172033);
+  static const Color darkSurfaceContainer = Color(0xFF1E293B);
+  static const Color darkSurfaceContainerHigh = Color(0xFF283548);
+  static const Color darkBorder = Color(0xFF334155); // Slate 700
+  static const Color darkPrimaryBlue = Color(0xFF38BDF8); // Sky 400
+  static const Color darkPrimaryContainer = Color(0xFF0F2E5C); // Deep blue container
+  static const Color darkTextPrimary = Color(0xFFF8FAFC); // Slate 50
+  static const Color darkTextSecondary = Color(0xFF94A3B8); // Slate 400
+  static const Color darkTextMuted = Color(0xFF64748B); // Slate 500
+  static const Color darkSuccess = Color(0xFF34D399); // Emerald 400
+  static const Color darkSuccessContainer = Color(0xFF064E3B); // Emerald 900
+  static const Color darkWarning = Color(0xFFFBBF24); // Amber 400
+  static const Color darkWarningContainer = Color(0xFF78350F); // Amber 900
+  static const Color darkError = Color(0xFFF87171); // Red 400
+  static const Color darkErrorContainer = Color(0xFF7F1D1D); // Red 900
+
+  /// Helper to check if dark mode is active in the current context.
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  // Shared Gradients (Stitch Clinical Clarity)
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primaryBlue, secondaryBlue],
+    colors: [stitchPrimary, primaryBlue, secondaryBlue],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient heroGradient = LinearGradient(
-    colors: [darkNavy, primaryBlue],
+    colors: [stitchPrimary, primaryBlue, secondaryBlue],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -160,16 +216,16 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: primaryBlue,
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         hintStyle: const TextStyle(
           color: textMuted,
           fontSize: 15,
@@ -210,6 +266,144 @@ class AppTheme {
       ),
       dividerTheme: const DividerThemeData(
         color: border,
+        thickness: 1,
+        space: 24,
+      ),
+    );
+  }
+
+  /// Dark Theme Definition
+  static ThemeData get darkTheme {
+    final colorScheme = ColorScheme.dark(
+      primary: darkPrimaryBlue,
+      onPrimary: Colors.black,
+      primaryContainer: darkPrimaryContainer,
+      onPrimaryContainer: Colors.white,
+      secondary: secondaryBlue,
+      onSecondary: Colors.white,
+      surface: darkSurface,
+      onSurface: darkTextPrimary,
+      error: darkError,
+      onError: Colors.black,
+      errorContainer: darkErrorContainer,
+      onErrorContainer: Colors.white,
+      outline: darkBorder,
+      outlineVariant: darkBorder,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: darkBackground,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: darkSurface,
+        foregroundColor: darkTextPrimary,
+        elevation: 0,
+        centerTitle: true,
+        scrolledUnderElevation: 0.5,
+        titleTextStyle: TextStyle(
+          color: darkTextPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
+        ),
+        iconTheme: IconThemeData(color: darkTextPrimary),
+      ),
+      cardTheme: CardThemeData(
+        color: darkSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: darkBorder, width: 1),
+        ),
+        margin: EdgeInsets.zero,
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: darkSurface,
+        selectedItemColor: darkPrimaryBlue,
+        unselectedItemColor: darkTextSecondary,
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryBlue,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: darkTextPrimary,
+          side: const BorderSide(color: darkBorder, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: darkPrimaryBlue,
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkSurface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        hintStyle: const TextStyle(
+          color: darkTextMuted,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+        ),
+        labelStyle: const TextStyle(
+          color: darkTextSecondary,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIconColor: darkTextSecondary,
+        suffixIconColor: darkTextSecondary,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkBorder, width: 1.5),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkBorder, width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkPrimaryBlue, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkError, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: darkError, width: 2),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: darkBorder,
         thickness: 1,
         space: 24,
       ),

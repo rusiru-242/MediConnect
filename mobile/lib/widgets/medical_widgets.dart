@@ -24,15 +24,25 @@ class MedicalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
+    final effectiveBg = backgroundColor ??
+        (isDark ? AppTheme.darkSurface : AppTheme.surface);
+    final effectiveBorder = border ??
+        BorderSide(
+          color: isDark ? AppTheme.darkBorder : AppTheme.border,
+          width: 1,
+        );
 
     return Material(
-      color: backgroundColor ?? AppTheme.surface,
+      color: effectiveBg,
       elevation: elevation,
-      shadowColor: AppTheme.darkNavy.withValues(alpha: 0.06),
+      shadowColor: isDark
+          ? Colors.black.withValues(alpha: 0.3)
+          : AppTheme.darkNavy.withValues(alpha: 0.06),
       shape: RoundedRectangleBorder(
         borderRadius: effectiveRadius,
-        side: border ?? const BorderSide(color: AppTheme.border, width: 1),
+        side: effectiveBorder,
       ),
       child: InkWell(
         onTap: onTap,
@@ -68,6 +78,7 @@ class MedicalStatusBadge extends StatelessWidget {
     Color fg;
     Color borderColor;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     switch (normalized) {
       case 'CONFIRMED':
       case 'APPROVED':
@@ -75,32 +86,32 @@ class MedicalStatusBadge extends StatelessWidget {
       case 'ACTIVE':
       case 'PAID':
       case 'SUCCEEDED':
-        bg = AppTheme.successContainer;
-        fg = AppTheme.success;
-        borderColor = AppTheme.success.withValues(alpha: 0.25);
+        bg = isDark ? AppTheme.darkSuccessContainer : AppTheme.successContainer;
+        fg = isDark ? AppTheme.darkSuccess : AppTheme.success;
+        borderColor = fg.withValues(alpha: 0.25);
         break;
       case 'PENDING':
       case 'SUBMITTED':
       case 'UPCOMING':
       case 'SCHEDULED':
       case 'IN_PROGRESS':
-        bg = AppTheme.warningContainer;
-        fg = AppTheme.warning;
-        borderColor = AppTheme.warning.withValues(alpha: 0.3);
+        bg = isDark ? AppTheme.darkWarningContainer : AppTheme.warningContainer;
+        fg = isDark ? AppTheme.darkWarning : AppTheme.warning;
+        borderColor = fg.withValues(alpha: 0.3);
         break;
       case 'CANCELLED':
       case 'REJECTED':
       case 'SUSPENDED':
       case 'FAILED':
       case 'DEACTIVATED':
-        bg = AppTheme.errorContainer;
-        fg = AppTheme.error;
-        borderColor = AppTheme.error.withValues(alpha: 0.25);
+        bg = isDark ? AppTheme.darkErrorContainer : AppTheme.errorContainer;
+        fg = isDark ? AppTheme.darkError : AppTheme.error;
+        borderColor = fg.withValues(alpha: 0.25);
         break;
       default:
-        bg = AppTheme.primaryContainer;
-        fg = AppTheme.primaryBlue;
-        borderColor = AppTheme.primaryBlue.withValues(alpha: 0.2);
+        bg = isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer;
+        fg = isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue;
+        borderColor = fg.withValues(alpha: 0.2);
     }
 
     return Container(
@@ -144,6 +155,7 @@ class MedicalStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveIconColor = iconColor ?? AppTheme.primaryBlue;
     final effectiveIconBg = iconBackgroundColor ?? AppTheme.primaryContainer;
 
@@ -164,26 +176,26 @@ class MedicalStatCard extends StatelessWidget {
                 ),
                 child: Icon(icon, color: effectiveIconColor, size: 22),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textSecondary),
+              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
             ],
           ),
           const SizedBox(height: 14),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
               letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
             ),
           ),
         ],
@@ -211,6 +223,7 @@ class MedicalEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
@@ -221,20 +234,20 @@ class MedicalEmptyState extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppTheme.primaryContainer,
+                color: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.border, width: 1.5),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border, width: 1.5),
               ),
-              child: Icon(icon, size: 40, color: AppTheme.primaryBlue),
+              child: Icon(icon, size: 40, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
             ),
             const SizedBox(height: 20),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 letterSpacing: -0.2,
               ),
             ),
@@ -242,9 +255,9 @@ class MedicalEmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.textSecondary,
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                 height: 1.4,
               ),
             ),
@@ -283,6 +296,7 @@ class MedicalSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -295,10 +309,10 @@ class MedicalSectionHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -306,9 +320,9 @@ class MedicalSectionHeader extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textSecondary,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -345,3 +359,129 @@ class MedicalSectionHeader extends StatelessWidget {
   }
 }
 
+
+
+/// Google Stitch Clinical Clarity Reusable Card with subtle elevation and border.
+class StitchCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
+  final VoidCallback? onTap;
+  final Color? backgroundColor;
+  final double borderRadius;
+  final BorderSide? border;
+
+  const StitchCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16.0),
+    this.margin,
+    this.onTap,
+    this.backgroundColor,
+    this.borderRadius = 16.0,
+    this.border,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveRadius = BorderRadius.circular(borderRadius);
+    final effectiveBg = backgroundColor ??
+        (isDark ? AppTheme.darkSurface : AppTheme.surfaceContainerLowest);
+    final effectiveBorder = border ??
+        BorderSide(
+          color: isDark ? AppTheme.darkBorder : AppTheme.border,
+          width: 1,
+        );
+
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        color: effectiveBg,
+        borderRadius: effectiveRadius,
+        border: Border.fromBorderSide(effectiveBorder),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.25)
+                : const Color.fromRGBO(15, 23, 42, 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: effectiveRadius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: effectiveRadius,
+          splashColor: AppTheme.primaryBlue.withValues(alpha: 0.08),
+          highlightColor: AppTheme.primaryBlue.withValues(alpha: 0.04),
+          child: Padding(
+            padding: padding,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Google Stitch Clinical Clarity Pulse Badge (e.g., "Vitals: Normal", "Ready", "On Duty").
+class StitchPulseBadge extends StatelessWidget {
+  final String label;
+  final Color dotColor;
+  final Color backgroundColor;
+  final Color textColor;
+  final IconData? icon;
+
+  const StitchPulseBadge({
+    super.key,
+    required this.label,
+    this.dotColor = AppTheme.success,
+    this.backgroundColor = AppTheme.successContainer,
+    this.textColor = AppTheme.stitchTertiary,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(9999),
+        border: Border.all(color: dotColor.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: textColor),
+            const SizedBox(width: 4),
+          ] else ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

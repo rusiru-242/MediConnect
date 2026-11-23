@@ -51,6 +51,17 @@ EMERGENCY_KEYWORDS_SI = [
     "කැස්සට ලේ",
 ]
 
+EMERGENCY_KEYWORDS_TA = [
+    "நெஞ்சு வலி",
+    "மூச்சுத்திணறல்",
+    "சுவாசிக்க முடியவில்லை",
+    "மயக்கம்",
+    "இரத்தப்போக்கு",
+    "பக்கவாதம்",
+    "மாரடைப்பு",
+    "நினைவிழப்பு",
+]
+
 # ---------------------------------------------------------------------------
 # SPECIALTY MAPPINGS (SYMPTOMS & KEYWORDS IN ENGLISH & SINHALA)
 # ---------------------------------------------------------------------------
@@ -350,6 +361,11 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
 # ---------------------------------------------------------------------------
 LOCATION_PATTERNS: List[Tuple[str, List[str]]] = [
     ("Colombo", [r"\bcolombo\b", r"\bkollupitiya\b", r"\bbambalapitiya\b", r"\bnarahenpita\b", "කොළඹ"]),
+    ("Nugegoda", [r"\bnugegoda\b", "නුගේගොඩ"]),
+    ("Maharagama", [r"\bmaharagama\b", "මහරගම"]),
+    ("Dehiwala", [r"\bdehiwala\b", r"\bmount\s+lavinia\b", "දෙහිවල"]),
+    ("Rajagiriya", [r"\brajagiriya\b", "රාජගිරිය"]),
+    ("Battaramulla", [r"\bbattaramulla\b", "බත්තරමුල්ල"]),
     ("Kandy", [r"\bkandy\b", r"\bperadeniya\b", "මහනුවර", "නුවර"]),
     ("Galle", [r"\bgalle\b", r"\bkarapitiya\b", "ගාල්ල"]),
     ("Gampaha", [r"\bgampaha\b", "ගම්පහ"]),
@@ -404,15 +420,46 @@ def get_sl_now() -> datetime:
     return datetime.now(SL_TIMEZONE)
 
 
+SINGLISH_HEALTH_KEYWORDS = {
+    "kanna", "kama", "keema", "udeta", "ude", "reeta", "dawalata", "dawal",
+    "hoda", "monawada", "mowada", "kohomada", "sinhalen", "sinhala",
+    "beheth", "bonne", "mokatada", "mktda", "pethi", "gena", "kiyanna", "danna",
+    "doctor", "dosthara", "dostara", "dothara", "kenek", "hoyala", "denna",
+    "mata", "asanipai", "kakkuma", "kakkumak", "ridenawa", "ninda",
+    "kettu", "bara", "adu", "karaganna", "karanna", "karannada",
+    "badagini", "semprathishyawa", "oluwa", "bada", "panadol", "paracetamol"
+}
+
+
 def detect_language(text: str) -> str:
-    """Detect if text contains Sinhala characters, else default to English."""
+    """Detect if text contains Tamil Unicode, Sinhala Unicode, or English."""
+    # Tamil Unicode block: U+0B80 - U+0BFF
+    if re.search(r"[\u0b80-\u0bff]", text):
+        return "ta"
+
+    # Sinhala Unicode block: U+0D80 - U+0DFF
     if re.search(r"[\u0d80-\u0dff]", text):
         return "si"
+
+    words = set(re.findall(r"[a-zA-Z]+", text.lower()))
+    if "tamil" in words or "tamizh" in words:
+        return "ta"
+
+    if "sinhalen" in words or "sinhala" in words:
+        return "si"
+
+    if any(w in words for w in ["monawada", "mowada", "kohomada", "mokatada"]):
+        return "si"
+
+    singlish_matches = sum(1 for w in words if w in SINGLISH_HEALTH_KEYWORDS)
+    if singlish_matches >= 2:
+        return "si"
+
     return "en"
 
 
 def check_urgency(text: str) -> Tuple[bool, Optional[str]]:
-    """Scan query for urgent/emergency symptom patterns."""
+    """Scan query for urgent/emergency symptom patterns across English, Sinhala, and Tamil."""
     text_lower = text.lower()
 
     for pattern in EMERGENCY_KEYWORDS_EN:
@@ -427,6 +474,13 @@ def check_urgency(text: str) -> Tuple[bool, Optional[str]]:
             return True, (
                 "හදිසි වෛද්‍ය ප්‍රතිකාර අවශ්‍ය විය හැකි තත්ත්වයක් නිරීක්ෂණය විය. "
                 "කරුණාකර ප්‍රමාද නොවී ළඟම ඇති රෝහලේ හදිසි ප්‍රතිකාර ඒකකයට (ETU) යොමු වන්න හෝ 1990 අමතන්න."
+            )
+
+    for keyword in EMERGENCY_KEYWORDS_TA:
+        if keyword in text:
+            return True, (
+                "அவசர மருத்துவ கவனிப்பு தேவைப்படலாம். "
+                "உடனடியாக அருகிலுள்ள மருத்துவமனை அவசர சிகிச்சைப் பிரிவுக்குச் செல்லவும் அல்லது 1990 ஐ அழைக்கவும்."
             )
 
     return False, None
@@ -526,6 +580,8 @@ def extract_max_fee(text: str) -> Optional[float]:
     patterns = [
         r"(?:under|below|less\s+than|max|maximum|up\s+to|within)\s*(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
         r"(?:lkr|rs\.?|රු\.?)\s*(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:or\s+less|max|below|under)",
+        r"(?:my\s+)?budget\s+(?:is\s+)?(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
+        r"(?:cost|fee)\s+(?:around|up\s+to|below|under|max|is)\s*(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
         r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:ට\s*අඩු|නොවැඩි)",
         r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:lkr|rs\.?)\s*(?:budget|limit)",
     ]
@@ -541,6 +597,53 @@ def extract_max_fee(text: str) -> Optional[float]:
             except ValueError:
                 pass
 
+    return None
+
+
+def extract_sort_preference(text: str) -> Optional[str]:
+    """Detect sorting preferences like cheapest / lower consultation fees."""
+    text_lower = text.lower()
+    if re.search(
+        r"\b(?:cheaper|cheapest|lower(?:\s+\w+)?\s+fees?|lowest(?:\s+\w+)?\s+fees?|less\s+expensive|low(?:est)?\s+(?:cost|price|fee|fees)|budget\s+friendly|අඩු\s+ගාස්තු|අඩුම\s+මිල)\b",
+        text_lower,
+    ):
+        return "fee_asc"
+    if re.search(
+        r"\b(?:top\s+rated|highest\s+rated|best\s+rating|best\s+doctor|ඉහළම\s+ශ්‍රේණිගත)\b",
+        text_lower,
+    ):
+        return "rating_desc"
+    return None
+
+
+def extract_symptoms(text: str) -> Optional[str]:
+    """Extract mentioned symptoms or medical complaints from natural language query."""
+    symptom_patterns = [
+        r"\b(?:headache|migraine|fever|cough|cold|chest\s+pain|stomach\s+ache|abdominal\s+pain|back\s+pain|joint\s+pain|skin\s+rash|rash|acne|itching|vomiting|diarrhea|fatigue|dizziness|breathlessness)\b",
+        r"\b(?:හිරවීම|කැස්ස|උණ|හිසරදය|බඩේ\s+කැක්කුම|ඇඟපත\s+වේදනාව)\b",
+    ]
+    matches: List[str] = []
+    for p in symptom_patterns:
+        found = re.findall(p, text, re.IGNORECASE)
+        matches.extend(found)
+    if matches:
+        return ", ".join(list(dict.fromkeys(matches)))
+    return None
+
+
+def extract_ordinal_doctor_index(text: str) -> Optional[int]:
+    """Detect if patient refers to a doctor by ordinal position (e.g. 'the second doctor', '1st doctor')."""
+    text_lower = text.lower()
+    if re.search(r"\b(?:first|1st|first\s+one|doctor\s+1|dr\s+1|first\s+doctor|පළමු|1\s*වැනි)\b", text_lower):
+        return 0
+    if re.search(r"\b(?:second|2nd|second\s+one|doctor\s+2|dr\s+2|second\s+doctor|දෙවන|2\s*වැනි)\b", text_lower):
+        return 1
+    if re.search(r"\b(?:third|3rd|third\s+one|doctor\s+3|dr\s+3|third\s+doctor|තෙවන|3\s*වැනි)\b", text_lower):
+        return 2
+    if re.search(r"\b(?:fourth|4th|fourth\s+one|doctor\s+4|dr\s+4|fourth\s+doctor|හතරවන|4\s*වැනි)\b", text_lower):
+        return 3
+    if re.search(r"\b(?:fifth|5th|fifth\s+one|doctor\s+5|dr\s+5|fifth\s+doctor|පස්වන|5\s*වැනි)\b", text_lower):
+        return 4
     return None
 
 
@@ -601,6 +704,11 @@ def parse_query_deterministically(
                 "preferred city (e.g. Colombo, Kandy), or target date to help us narrow down recommendations?"
             )
 
+    # 8. Sort Preference & Symptoms
+    parsed_sort = extract_sort_preference(query)
+    parsed_symptoms = extract_symptoms(query)
+    parsed_ordinal = extract_ordinal_doctor_index(query)
+
     return {
         "specialty": parsed_specialty,
         "city": parsed_city,
@@ -608,6 +716,9 @@ def parse_query_deterministically(
         "timeRange": parsed_time_range,
         "maxFee": parsed_max_fee,
         "consultationType": parsed_consultation_type,
+        "sortBy": parsed_sort,
+        "symptoms": parsed_symptoms,
+        "ordinalDoctorIndex": parsed_ordinal,
         "language": lang,
         "isUrgent": is_urgent,
         "urgencyReason": urgency_reason,

@@ -16,7 +16,7 @@ from app.models.specialty import SUPPORTED_SPECIALTIES
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = f"""You are a specialized Medical Discovery Assistant for MediConnect in Sri Lanka.
-Your sole job is to extract structured search filters from patient inquiries in English or Sinhala.
+Your sole job is to extract structured search filters from patient inquiries in English, Sinhala, or Tamil.
 
 CRITICAL MEDICAL SAFETY & DISCOVERY CONSTRAINTS:
 1. You are NOT a diagnostic system and MUST NOT diagnose illnesses or prescribe medications.
@@ -38,7 +38,7 @@ If the query mentions symptoms, map them to the most appropriate supported speci
   "isUrgent": boolean,
   "urgencyReason": string | null,
   "clarificationQuestion": string | null,
-  "language": "en" | "si"
+  "language": "en" | "si" | "ta"
 }}
 Do NOT output any markdown, HTML, or explanations outside the JSON object.
 """

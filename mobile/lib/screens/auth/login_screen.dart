@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/server_settings_sheet.dart';
 
-/// Patient login screen providing email/password authentication, validation,
-/// loading states, and error handling against FastAPI backend.
+/// Clean, minimal MediConnect Login Screen matching the Welcome Screen aesthetic.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -22,6 +23,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _rememberMe = true;
+  String _selectedRole = 'patient'; // 'patient' or 'doctor'
 
   @override
   void dispose() {
@@ -51,7 +54,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleSubmit() async {
-    // Clear any previous error before submitting
     final authProvider = context.read<AuthProvider>();
     authProvider.clearError();
 
@@ -59,7 +61,6 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Dismiss keyboard
     FocusScope.of(context).unfocus();
 
     final success = await authProvider.login(
@@ -77,24 +78,33 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateAfterLogin(AuthProvider authProvider) {
     if (authProvider.user?.role == 'DOCTOR') {
       final status = authProvider.doctorApplicationStatus;
-      if (status?.isApproved == true || authProvider.user?.accountStatus == 'ACTIVE') {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/doctor/home',
-          (route) => false,
-        );
+      final isApproved = status?.isApproved == true ||
+          (authProvider.user?.accountStatus == 'ACTIVE' && status?.isPending != true);
+      if (isApproved) {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/doctor/home', (route) => false);
       } else {
+        final isRejected = status?.isRejected == true ||
+            status?.verificationStatus.toUpperCase() == 'REJECTED';
+        final message = isRejected
+            ? 'Your doctor registration application was not approved. Please contact administrative support.'
+            : 'Your doctor registration is pending admin approval.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: isRejected ? AppTheme.error : Colors.amber.shade800,
+            duration: const Duration(seconds: 4),
+          ),
+        );
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/doctor/application-status',
           (route) => false,
         );
       }
     } else if (authProvider.user?.role == 'PATIENT') {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/patient/home',
-        (route) => false,
-      );
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil('/patient/home', (route) => false);
     } else {
-      // Phase 32: Admin or unsupported role rejection fallback
       authProvider.logout();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -115,7 +125,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = context.read<AuthProvider>();
     authProvider.clearError();
 
-    // Dismiss keyboard
     FocusScope.of(context).unfocus();
 
     final success = await authProvider.signInWithGoogle();
@@ -152,127 +161,234 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = context.watch<AuthProvider>();
     final isLoading = authProvider.isLoading;
     final errorMessage = authProvider.errorMessage;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Patient Login'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: isLoading ? null : () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.language_rounded),
+            tooltip: l10n?.language ?? 'Language',
+            onPressed: isLoading ? null : () => LanguageSelectorSheet.show(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.dns_rounded),
             tooltip: 'Server Settings',
             onPressed: isLoading ? null : _openServerSettings,
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 4.0),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 16),
+                // 1. MediConnect Logo & Title
                 const Center(
-                  child: MediConnectLogo(size: 64),
+                  child: MediConnectLogo(size: 48),
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Welcome Back',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.5,
-                    color: AppTheme.textPrimary,
+                const SizedBox(height: 10),
+                const Center(
+                  child: Text(
+                    'MediConnect',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 const Text(
-                  'Log in to access your healthcare portal.',
+                  'Healthcare made simpler.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
-                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                    letterSpacing: -0.2,
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 14),
+
+                // 2. Patient / Doctor Role Selector
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: isLoading
+                              ? null
+                              : () => setState(() => _selectedRole = 'patient'),
+                          borderRadius: BorderRadius.circular(9),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _selectedRole == 'patient'
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(9),
+                              boxShadow: _selectedRole == 'patient'
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.person_outline_rounded,
+                                  size: 18,
+                                  color: _selectedRole == 'patient'
+                                      ? AppTheme.primaryBlue
+                                      : AppTheme.textSecondary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  l10n?.patient ?? 'Patient',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: _selectedRole == 'patient'
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: _selectedRole == 'patient'
+                                        ? AppTheme.primaryBlue
+                                        : AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: InkWell(
+                          onTap: isLoading
+                              ? null
+                              : () => setState(() => _selectedRole = 'doctor'),
+                          borderRadius: BorderRadius.circular(9),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _selectedRole == 'doctor'
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(9),
+                              boxShadow: _selectedRole == 'doctor'
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.medical_services_outlined,
+                                  size: 18,
+                                  color: _selectedRole == 'doctor'
+                                      ? AppTheme.primaryBlue
+                                      : AppTheme.textSecondary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  l10n?.doctor ?? 'Doctor',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: _selectedRole == 'doctor'
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: _selectedRole == 'doctor'
+                                        ? AppTheme.primaryBlue
+                                        : AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
                 // Error Banner
                 if (errorMessage != null) ...[
+                  const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppTheme.errorContainer,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: AppTheme.error.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(
-                              Icons.error_outline_rounded,
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          color: AppTheme.error,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            errorMessage,
+                            style: const TextStyle(
                               color: AppTheme.error,
-                              size: 20,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                errorMessage,
-                                style: const TextStyle(
-                                  color: AppTheme.error,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                         if (errorMessage.toLowerCase().contains('connect') ||
-                            errorMessage.toLowerCase().contains('network')) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton.icon(
-                                style: TextButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  foregroundColor: AppTheme.primary,
-                                ),
-                                icon: const Icon(Icons.dns_outlined, size: 16),
-                                label: const Text('Server Settings', style: TextStyle(fontSize: 13)),
-                                onPressed: _openServerSettings,
-                              ),
-                              const SizedBox(width: 4),
-                              TextButton.icon(
-                                style: TextButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  foregroundColor: AppTheme.primary,
-                                ),
-                                icon: const Icon(Icons.refresh_rounded, size: 16),
-                                label: const Text('Retry', style: TextStyle(fontSize: 13)),
-                                onPressed: _retryConnection,
-                              ),
-                            ],
+                            errorMessage.toLowerCase().contains('network'))
+                          IconButton(
+                            icon: const Icon(
+                              Icons.refresh_rounded,
+                              size: 18,
+                              color: AppTheme.primaryBlue,
+                            ),
+                            onPressed: _retryConnection,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                           ),
-                        ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
                 ],
+                const SizedBox(height: 12),
 
-                // Email Field
+                // 3. Email Input
                 TextFormField(
                   key: const Key('login_email_input'),
                   controller: _emailController,
@@ -280,16 +396,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address',
-                    hintText: 'patient@example.com',
-                    prefixIcon: Icon(Icons.email_outlined, size: 20),
+                  decoration: InputDecoration(
+                    labelText: l10n?.email ?? 'Email Address',
+                    hintText: _selectedRole == 'doctor'
+                        ? 'doctor@hospital.com'
+                        : 'name@domain.com',
+                    prefixIcon: const Icon(
+                      Icons.email_outlined,
+                      size: 20,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
                   validator: _validateEmail,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-                // Password Field
+                // 4. Password Input with Visibility Toggle
                 TextFormField(
                   key: const Key('login_password_input'),
                   controller: _passwordController,
@@ -298,9 +420,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _handleSubmit(),
                   decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Enter your password',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                    labelText: l10n?.password ?? 'Password',
+                    hintText: l10n?.password ?? 'Enter your password',
+                    prefixIcon: const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 20,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
@@ -317,46 +443,103 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   validator: _validatePassword,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
 
-                // Forgot Password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    key: const Key('login_forgot_password_button'),
-                    onPressed: isLoading ? null : _onForgotPassword,
-                    child: const Text('Forgot Password?'),
-                  ),
+                // 5. Remember Me + Forgot Password
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: _rememberMe,
+                            activeColor: AppTheme.primaryBlue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            onChanged: isLoading
+                                ? null
+                                : (val) {
+                                    setState(() => _rememberMe = val ?? true);
+                                  },
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Remember me',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    TextButton(
+                      key: const Key('login_forgot_password_button'),
+                      onPressed: isLoading ? null : _onForgotPassword,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        l10n?.forgotPassword ?? 'Forgot Password?',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                // Login Submit Button
+                // 6. Primary Blue Login Button
                 ElevatedButton(
                   key: const Key('login_submit_button'),
                   onPressed: isLoading ? null : _handleSubmit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryBlue,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   child: isLoading
                       ? const SizedBox(
-                          height: 22,
-                          width: 22,
+                          height: 20,
+                          width: 20,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
+                            strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('Login'),
+                      : Text(
+                          l10n?.login ?? 'Login',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
-                // Divider with OR
+                // 7. Divider with OR
                 Row(
                   children: [
                     const Expanded(child: Divider()),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 14.0),
                       child: Text(
                         'OR',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textMuted,
                         ),
@@ -365,12 +548,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Expanded(child: Divider()),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
-                // Continue with Google Button
+                // 8. Google Sign-In Button
                 OutlinedButton.icon(
                   key: const Key('login_google_button'),
                   onPressed: isLoading ? null : _onGoogleSignIn,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: AppTheme.border, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    minimumSize: const Size(double.infinity, 46),
+                  ),
                   icon: isLoading
                       ? const SizedBox(
                           width: 18,
@@ -391,32 +583,35 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                   label: Text(
-                    isLoading ? 'Connecting...' : 'Continue with Google',
+                    isLoading
+                        ? (l10n?.loading ?? 'Connecting...')
+                        : (l10n?.continueWithGoogle ?? 'Continue with Google'),
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.w500,
+                      fontSize: 14,
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-                // Create Account Link
+                // 9. Create Account Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      "Don't have an account? ",
-                      style: TextStyle(
-                        fontSize: 14,
+                    Text(
+                      l10n?.dontHaveAccount ?? "Don't have an account? ",
+                      style: const TextStyle(
+                        fontSize: 13,
                         color: AppTheme.textSecondary,
                       ),
                     ),
                     GestureDetector(
                       onTap: isLoading ? null : _onCreateAccount,
-                      child: const Text(
-                        'Create Account',
-                        style: TextStyle(
-                          fontSize: 14,
+                      child: Text(
+                        l10n?.createAccount ?? 'Create Account',
+                        style: const TextStyle(
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.primary,
                         ),
@@ -424,16 +619,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
-                // Doctor Registration Link
+                // 10. Register as a Doctor Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Are you a doctor? ',
-                      style: TextStyle(
-                        fontSize: 14,
+                    Text(
+                      l10n?.areYouADoctor ?? 'Are you a doctor? ',
+                      style: const TextStyle(
+                        fontSize: 13,
                         color: AppTheme.textSecondary,
                       ),
                     ),
@@ -442,10 +637,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       onTap: isLoading
                           ? null
                           : () => Navigator.of(context).pushNamed('/doctor/register'),
-                      child: const Text(
-                        'Register as a Doctor',
-                        style: TextStyle(
-                          fontSize: 14,
+                      child: Text(
+                        l10n?.registerAsDoctor ?? 'Register as a Doctor',
+                        style: const TextStyle(
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.primary,
                         ),

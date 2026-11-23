@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/language_selector_sheet.dart';
 
 /// Screen displayed to doctors whose application is undergoing review,
 /// has been rejected, or has been approved.
@@ -53,6 +55,7 @@ class _DoctorApplicationStatusScreenState
     final authProvider = context.watch<AuthProvider>();
     final appStatus = authProvider.doctorApplicationStatus;
     final user = authProvider.user;
+    final l10n = AppLocalizations.of(context);
 
     final verificationStatus = appStatus?.verificationStatus.toUpperCase() ?? 'PENDING';
     final rejectionReason = appStatus?.rejectionReason;
@@ -60,11 +63,16 @@ class _DoctorApplicationStatusScreenState
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Application Status'),
+        title: Text(l10n?.applicationPending ?? 'Application Status'),
         automaticallyImplyLeading: Navigator.of(context).canPop(),
         actions: [
           IconButton(
-            tooltip: 'Logout',
+            icon: const Icon(Icons.language_rounded),
+            tooltip: l10n?.language ?? 'Language',
+            onPressed: () => LanguageSelectorSheet.show(context),
+          ),
+          IconButton(
+            tooltip: l10n?.logout ?? 'Logout',
             icon: const Icon(Icons.logout_rounded),
             onPressed: _handleLogout,
           ),
@@ -195,17 +203,27 @@ class _DoctorApplicationStatusScreenState
           ),
           const SizedBox(height: 20),
           const Text(
-            'Application Under Review',
+            'Your doctor registration is pending admin approval.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimary,
             ),
           ),
+          const SizedBox(height: 8),
+          const Text(
+            'Application Under Review',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.amber,
+            ),
+          ),
           const SizedBox(height: 12),
           const Text(
-            'Your email has been verified and your doctor application has been submitted successfully.',
+            'Your doctor application has been submitted successfully and is currently under administrative review.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
@@ -215,7 +233,7 @@ class _DoctorApplicationStatusScreenState
           ),
           const SizedBox(height: 10),
           const Text(
-            'Our team will review your professional information and verification documents.',
+            'Our medical administration team is reviewing your professional information and verification documents. Once approved, you will receive an approval email with your registration details and portal login link.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,

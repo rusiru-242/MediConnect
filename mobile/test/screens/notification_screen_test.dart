@@ -79,7 +79,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Notifications'), findsOneWidget);
-      expect(find.text('You\'re all caught up!'), findsOneWidget);
+      expect(find.text('No notifications yet'), findsOneWidget);
+      expect(find.text('Your appointment updates and reminders will appear here.'), findsOneWidget);
       expect(find.byType(FilterChip), findsNWidgets(2));
     });
 
@@ -98,6 +99,16 @@ void main() {
         NotificationModel(
           id: 'n2',
           recipientUserId: 'u1',
+          type: NotificationType.appointmentRescheduled,
+          title: 'Appointment Rescheduled',
+          body: 'Your appointment has been moved to 2026-11-20 at 14:00.',
+          relatedAppointmentId: 'appt_2',
+          isRead: false,
+          createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
+        ),
+        NotificationModel(
+          id: 'n3',
+          recipientUserId: 'u1',
           type: NotificationType.paymentSuccess,
           title: 'Payment Successful',
           body: 'LKR 2,500 verified.',
@@ -106,14 +117,15 @@ void main() {
           createdAt: DateTime.now().subtract(const Duration(hours: 2)),
         ),
       ];
-      mockService.mockUnreadCount = 1;
+      mockService.mockUnreadCount = 2;
 
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       expect(find.text('Appointment Confirmed'), findsOneWidget);
+      expect(find.text('Appointment Rescheduled'), findsOneWidget);
       expect(find.text('Payment Successful'), findsOneWidget);
-      expect(find.text('View Appointment'), findsOneWidget);
+      expect(find.text('View Appointment'), findsNWidgets(2));
       expect(find.text('View Payment'), findsOneWidget);
       expect(find.byKey(const Key('mark_all_read_button')), findsOneWidget);
 

@@ -53,22 +53,36 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
         for m in doc.get("messages", [])
     ]
 
-    selected_doc = None
-    if doc.get("selectedDoctor"):
-        sd = doc["selectedDoctor"]
-        selected_doc = DoctorCardSummary(
-            doctorId=str(sd.get("doctorId", "")),
-            doctorProfileId=str(sd.get("doctorProfileId", "")),
-            doctorUserId=str(sd.get("doctorUserId", "")),
-            fullName=sd.get("fullName", "Doctor"),
-            specialty=sd.get("specialty", ""),
-            hospitalOrClinic=sd.get("hospitalOrClinic"),
-            experienceYears=int(sd.get("experienceYears", 0)),
-            consultationFee=float(sd.get("consultationFee", 2500.0)),
-            rating=float(sd.get("rating", 4.8)),
-            nextAvailableDate=sd.get("nextAvailableDate"),
-            matchReason=sd.get("matchReason"),
+    def _map_doctor_card(d: Dict[str, Any]) -> DoctorCardSummary:
+        raw_slots = d.get("availableSlots") or []
+        slots = [
+            SlotCardSummary(
+                availabilityId=str(s.get("availabilityId", "")),
+                date=s.get("date", ""),
+                startTime=s.get("startTime", ""),
+                endTime=s.get("endTime", ""),
+            )
+            for s in raw_slots
+        ]
+        return DoctorCardSummary(
+            doctorId=str(d.get("doctorId", "")),
+            doctorProfileId=str(d.get("doctorProfileId", "")),
+            doctorUserId=str(d.get("doctorUserId", "")),
+            fullName=d.get("fullName", "Doctor"),
+            specialty=d.get("specialty", ""),
+            hospitalOrClinic=d.get("hospitalOrClinic"),
+            experienceYears=int(d.get("experienceYears", 0)),
+            consultationFee=float(d.get("consultationFee", 2500.0)),
+            rating=float(d.get("rating", 4.8)),
+            nextAvailableDate=d.get("nextAvailableDate"),
+            matchReason=d.get("matchReason"),
+            qualifications=d.get("qualifications"),
+            matchScore=float(d["matchScore"]) if d.get("matchScore") is not None else None,
+            matchReasons=list(d.get("matchReasons") or []),
+            availableSlots=slots,
         )
+
+    selected_doc = _map_doctor_card(doc["selectedDoctor"]) if doc.get("selectedDoctor") else None
 
     selected_slot = None
     if doc.get("selectedSlot"):
@@ -96,22 +110,7 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             currency=bs.get("currency", "lkr"),
         )
 
-    candidate_docs = [
-        DoctorCardSummary(
-            doctorId=str(d.get("doctorId", "")),
-            doctorProfileId=str(d.get("doctorProfileId", "")),
-            doctorUserId=str(d.get("doctorUserId", "")),
-            fullName=d.get("fullName", "Doctor"),
-            specialty=d.get("specialty", ""),
-            hospitalOrClinic=d.get("hospitalOrClinic"),
-            experienceYears=int(d.get("experienceYears", 0)),
-            consultationFee=float(d.get("consultationFee", 2500.0)),
-            rating=float(d.get("rating", 4.8)),
-            nextAvailableDate=d.get("nextAvailableDate"),
-            matchReason=d.get("matchReason"),
-        )
-        for d in doc.get("candidateDoctors", [])
-    ]
+    candidate_docs = [_map_doctor_card(d) for d in doc.get("candidateDoctors", [])]
 
     candidate_slots = [
         SlotCardSummary(
@@ -135,6 +134,9 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             maxFee=prefs.get("maxFee"),
             language=prefs.get("language", "en"),
             patientNote=prefs.get("patientNote"),
+            symptoms=prefs.get("symptoms"),
+            preferredGender=prefs.get("preferredGender"),
+            sortBy=prefs.get("sortBy"),
         ),
         selectedDoctor=selected_doc,
         selectedSlot=selected_slot,
@@ -147,6 +149,10 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
         messages=messages,
         isUrgent=bool(doc.get("isUrgent", False)),
         urgencyReason=doc.get("urgencyReason"),
+        activeIntent=doc.get("activeIntent"),
+        activeMedicineCard=doc.get("activeMedicineCard"),
+        activeWellnessCard=doc.get("activeWellnessCard"),
+        activeImageAnalysis=doc.get("activeImageAnalysis"),
         createdAt=doc.get("createdAt", utc_now()),
         updatedAt=doc.get("updatedAt", utc_now()),
         expiresAt=doc.get("expiresAt", utc_now()),
@@ -256,10 +262,51 @@ class BookingSessionService:
             db=db,
             session_data=doc,
             user_message=req.message,
+            image_url=req.imageUrl,
         )
 
         updated_dict["updatedAt"] = utc_now()
         # Extend session TTL on active interaction
+        updated_dict["expiresAt"] = utc_now() + timedelta(minutes=30)
+
+        collection = get_booking_session_collection(db)
+        collection.replace_one({"_id": ObjectId(session_id)}, updated_dict)
+
+        return _to_response_schema(updated_dict)
+
+    @classmethod
+    async def handle_image_message(
+        cls,
+        db: Database,
+        patient_user: UserResponseSchema,
+        session_id: str,
+        image_bytes: bytes,
+        filename: str,
+        message: Optional[str] = None,
+        image_url: Optional[str] = None,
+    ) -> BookingSessionResponse:
+        """Process an uploaded medicine package or label image directly in the companion session."""
+        doc = cls._get_session_or_404(db, patient_user, session_id)
+
+        current_state = doc.get("state")
+        if current_state in [BookingAgentState.BOOKING_CONFIRMED.value, BookingAgentState.CANCELLED.value]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"This session is already {current_state.lower()}. Please start a new session.",
+            )
+
+        cls._sync_hold_and_payment_status(db, doc)
+
+        updated_dict = await BookingAgent.process_user_turn(
+            db=db,
+            session_data=doc,
+            user_message=message or "Please analyze this medicine label photo.",
+            image_bytes=image_bytes,
+            image_filename=filename,
+            image_url=image_url,
+        )
+
+        updated_dict["updatedAt"] = utc_now()
         updated_dict["expiresAt"] = utc_now() + timedelta(minutes=30)
 
         collection = get_booking_session_collection(db)

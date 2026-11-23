@@ -87,7 +87,7 @@ export const DashboardPage: React.FC = () => {
 
         {totals && totals.pendingDoctorApprovals > 0 && (
           <Link
-            to="/doctor-verification"
+            to="/doctor-approvals"
             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors shrink-0 shadow-md"
           >
             <ShieldAlert className="w-4 h-4" />
