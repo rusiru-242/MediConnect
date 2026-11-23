@@ -139,7 +139,9 @@ class FcmService {
   Future<void> removeTokenOnLogout() async {
     if (_currentToken != null && _currentToken!.isNotEmpty) {
       try {
-        await _notificationService.removeDeviceToken(_currentToken!);
+        await _notificationService
+            .removeDeviceToken(_currentToken!)
+            .timeout(const Duration(milliseconds: 1500), onTimeout: () => false);
         debugPrint('[FCM] Token removed from backend upon logout.');
       } catch (e) {
         debugPrint('[FCM] Error removing token from backend: $e');

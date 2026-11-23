@@ -20,8 +20,11 @@ from app.schemas.analytics import (
     ContentAnalyticsResponse,
     CurrencyRevenue,
     DoctorAnalyticsResponse,
+    OverviewTotalsSchema,
     PaymentAnalyticsResponse,
+    PaymentRevenueBreakdownSchema,
     PaymentTransactionSummary,
+    RecentActivityItemSchema,
     SpecialtyCountItem,
     TopContentItem,
     TrendDataPoint,
@@ -114,7 +117,9 @@ class AnalyticsService:
         bm_coll = get_content_bookmark_collection(db)
 
         # Users & Doctors
+        total_users = users_coll.count_documents({})
         total_patients = users_coll.count_documents({"role": UserRole.PATIENT.value})
+        total_doctors = doc_coll.count_documents({})
         total_verified_doctors = doc_coll.count_documents(
             {"verificationStatus": DoctorVerificationStatus.APPROVED.value}
         )
@@ -217,8 +222,70 @@ class AnalyticsService:
         draft_articles = content_coll.count_documents({"status": ContentStatus.DRAFT.value})
         total_bookmarks = bm_coll.count_documents({})
 
-        return AnalyticsOverviewResponse(
+        # Structured totals object for Admin Web Dashboard
+        totals_obj = OverviewTotalsSchema(
+            totalUsers=total_users,
             totalPatients=total_patients,
+            totalDoctors=total_doctors,
+            verifiedDoctors=total_verified_doctors,
+            pendingDoctorApprovals=pending_doctors,
+            totalAppointments=total_appts,
+            completedAppointments=completed_appts,
+            cancelledAppointments=cancelled_appts,
+        )
+
+        # Revenue breakdown map by currency
+        rev_map = {r.currency.upper(): r.netAmount for r in currencies_rev}
+        failed_count = pay_coll.count_documents({**pay_query, "status": PaymentStatus.FAILED.value})
+        pending_pay_count = pay_coll.count_documents({**pay_query, "status": PaymentStatus.PENDING.value})
+        payments_obj = PaymentRevenueBreakdownSchema(
+            totalRevenueByCurrency=rev_map,
+            succeededTransactions=successful_count,
+            failedTransactions=failed_count,
+            pendingTransactions=pending_pay_count,
+        )
+
+        # Build recent activity log from latest events across collections
+        recent_activity: List[RecentActivityItemSchema] = []
+        recent_docs = doc_coll.find().sort([("createdAt", -1)]).limit(5)
+        for d in recent_docs:
+            st = d.get("verificationStatus", "PENDING")
+            ts = d.get("updatedAt") or d.get("createdAt") or datetime.now(timezone.utc)
+            action_type = "DOCTOR_VERIFIED" if st == "APPROVED" else "DOCTOR_APPLICATION"
+            recent_activity.append(
+                RecentActivityItemSchema(
+                    type=action_type,
+                    description=f"Doctor profile {st.lower()} ({d.get('medicalLicenseNumber', 'MD')})",
+                    timestamp=ts if isinstance(ts, datetime) else datetime.now(timezone.utc),
+                )
+            )
+        recent_appts = appt_coll.find().sort([("createdAt", -1)]).limit(5)
+        for a in recent_appts:
+            ts = a.get("createdAt") or datetime.now(timezone.utc)
+            recent_activity.append(
+                RecentActivityItemSchema(
+                    type="APPOINTMENT_SCHEDULED",
+                    description=f"Appointment {str(a.get('status', 'BOOKED')).lower()} for date {a.get('appointmentDate', '')}",
+                    timestamp=ts if isinstance(ts, datetime) else datetime.now(timezone.utc),
+                )
+            )
+        recent_users = users_coll.find().sort([("createdAt", -1)]).limit(5)
+        for u in recent_users:
+            ts = u.get("createdAt") or datetime.now(timezone.utc)
+            recent_activity.append(
+                RecentActivityItemSchema(
+                    type="USER_REGISTERED",
+                    description=f"New {str(u.get('role', 'PATIENT')).lower()} account: {u.get('fullName', 'User')}",
+                    timestamp=ts if isinstance(ts, datetime) else datetime.now(timezone.utc),
+                )
+            )
+        recent_activity.sort(key=lambda x: x.timestamp, reverse=True)
+        recent_activity = recent_activity[:10]
+
+        return AnalyticsOverviewResponse(
+            totalUsers=total_users,
+            totalPatients=total_patients,
+            totalDoctors=total_doctors,
             totalVerifiedDoctors=total_verified_doctors,
             pendingDoctorApprovals=pending_doctors,
             rejectedDoctorApplications=rejected_doctors,
@@ -237,6 +304,9 @@ class AnalyticsService:
             totalBookmarks=total_bookmarks,
             startDate=s_str,
             endDate=e_str,
+            totals=totals_obj,
+            payments=payments_obj,
+            recentActivity=recent_activity,
         )
 
     # -------------------------------------------------------------------------
@@ -312,6 +382,7 @@ class AnalyticsService:
             if t["_id"]
         ]
 
+        daily_trends = [{"date": t.date, "count": t.total} for t in trends]
         return AppointmentAnalyticsResponse(
             totalAppointments=total,
             statusBreakdown=status_map,
@@ -320,6 +391,11 @@ class AnalyticsService:
             cancellationRate=cancellation_rate,
             startDate=s_str,
             endDate=e_str,
+            totalBookings=total,
+            completedBookings=completed,
+            cancelledBookings=cancelled,
+            completionRatePercent=completion_rate,
+            dailyTrends=daily_trends,
         )
 
     # -------------------------------------------------------------------------
@@ -433,6 +509,10 @@ class AnalyticsService:
             recentTransactions=recent_txs,
             startDate=s_str,
             endDate=e_str,
+            totalTransactions=succeeded_count + failed_count + refunded_count,
+            succeededCount=succeeded_count,
+            failedCount=failed_count,
+            dailyTrends=[],
         )
 
     # -------------------------------------------------------------------------

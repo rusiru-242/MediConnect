@@ -18,6 +18,7 @@ class NotificationBellButton extends StatelessWidget {
       notifProvider = null;
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final unreadCount = notifProvider?.unreadCount ?? 0;
 
     return SizedBox(
@@ -29,7 +30,7 @@ class NotificationBellButton extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             tooltip: 'Notifications',
-            color: AppTheme.textPrimary,
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
             onPressed: () {
               Navigator.of(context).pushNamed('/notifications');
             },

@@ -547,20 +547,29 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final refreshToken = await _storageService.getRefreshToken();
-      if (refreshToken != null && refreshToken.isNotEmpty) {
-        try {
-          await _authApiService.logout(refreshToken);
-        } catch (_) {
-          // Safe local session cleanup even if network request fails
-        }
-      }
+
+      // Parallelize remote cleanups concurrently with a strict 1500ms timeout
+      // so slow network responses or backend latency never delay local logout.
+      await Future.wait([
+        if (refreshToken != null && refreshToken.isNotEmpty)
+          _authApiService.logout(refreshToken).catchError((e) {
+            debugPrint('[AuthProvider] Remote session revocation failed gracefully: $e');
+          }),
+        FcmService().removeTokenOnLogout().catchError((e) {
+          debugPrint('[AuthProvider] FCM token removal failed gracefully: $e');
+        }),
+        _googleAuthService.signOut().catchError((e) {
+          debugPrint('[AuthProvider] Google sign-out failed gracefully: $e');
+        }),
+      ]).timeout(
+        const Duration(milliseconds: 1500),
+        onTimeout: () {
+          debugPrint('[AuthProvider] Remote logout timed out after 1.5s; proceeding with immediate local logout.');
+          return [];
+        },
+      ).catchError((_) => []);
     } finally {
-      // Remove FCM device token on logout so device stops receiving push notifications
-      await FcmService().removeTokenOnLogout().catchError((_) {});
-
-      // Clear Google sign-in session to allow re-selection of account on subsequent sign-in
-      await _googleAuthService.signOut();
-
+      // Local session and tokens are purged immediately
       await _storageService.clearAll();
       _user = null;
       _doctorApplicationStatus = null;

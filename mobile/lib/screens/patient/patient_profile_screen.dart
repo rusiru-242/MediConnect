@@ -762,9 +762,15 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
               const SizedBox(height: 10),
               StitchCard(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Consumer<LocaleProvider>(
-                  builder: (context, localeProvider, _) {
-                    final langName = localeProvider.currentLanguage.displayName;
+                child: Builder(
+                  builder: (context) {
+                    LocaleProvider? localeProvider;
+                    try {
+                      localeProvider = Provider.of<LocaleProvider>(context);
+                    } catch (_) {
+                      localeProvider = null;
+                    }
+                    final langName = localeProvider?.currentLanguage.displayName ?? 'English';
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Container(

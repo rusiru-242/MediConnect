@@ -200,9 +200,15 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   : null,
             ),
             Divider(height: 16, color: isDark ? AppTheme.darkBorder : AppTheme.border),
-            Consumer<LocaleProvider>(
-              builder: (context, localeProvider, _) {
-                final langName = localeProvider.currentLanguage.displayName;
+            Builder(
+              builder: (context) {
+                LocaleProvider? localeProvider;
+                try {
+                  localeProvider = Provider.of<LocaleProvider>(context);
+                } catch (_) {
+                  localeProvider = null;
+                }
+                final langName = localeProvider?.currentLanguage.displayName ?? 'English';
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
