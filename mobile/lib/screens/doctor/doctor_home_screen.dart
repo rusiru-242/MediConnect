@@ -246,9 +246,15 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 Navigator.of(context).pushNamed('/doctor/application-status');
               },
             ),
-            Consumer<LocaleProvider>(
-              builder: (context, localeProvider, _) {
-                final langName = localeProvider.currentLanguage.displayName;
+            Builder(
+              builder: (context) {
+                LocaleProvider? localeProvider;
+                try {
+                  localeProvider = Provider.of<LocaleProvider>(context);
+                } catch (_) {
+                  localeProvider = null;
+                }
+                final langName = localeProvider?.currentLanguage.displayName ?? 'English';
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.language_rounded, color: AppTheme.primaryBlue),

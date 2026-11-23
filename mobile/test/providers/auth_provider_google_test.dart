@@ -33,6 +33,7 @@ class FakeAuthApiService extends AuthApiService {
   AuthSession? sessionToReturn;
   Exception? exceptionToThrow;
   String? lastRevokedRefreshToken;
+  Duration? logoutDelay;
 
   @override
   Future<AuthSession> authenticateWithGoogle({required String idToken}) async {
@@ -46,6 +47,9 @@ class FakeAuthApiService extends AuthApiService {
   @override
   Future<void> logout(String refreshToken) async {
     lastRevokedRefreshToken = refreshToken;
+    if (logoutDelay != null) {
+      await Future.delayed(logoutDelay!);
+    }
   }
 }
 
@@ -181,6 +185,24 @@ void main() {
 
       expect(fakeAuthApi.lastRevokedRefreshToken, 'mediconnect_refresh');
       expect(fakeGoogleAuth.signOutCalled, isTrue);
+      expect(await storageService.getAccessToken(), isNull);
+      expect(await storageService.getRefreshToken(), isNull);
+      expect(authProvider.isAuthenticated, isFalse);
+    });
+
+    test('8. Logout completes gracefully within timeout even if remote service hangs', () async {
+      await storageService.saveTokens(
+        accessToken: 'slow_access_token',
+        refreshToken: 'slow_refresh_token',
+      );
+      fakeAuthApi.logoutDelay = const Duration(seconds: 4);
+
+      final stopwatch = Stopwatch()..start();
+      await authProvider.logout();
+      stopwatch.stop();
+
+      // Ensure it did not wait for the 4-second hang (bounded by 1.5s timeout)
+      expect(stopwatch.elapsedMilliseconds, lessThan(3500));
       expect(await storageService.getAccessToken(), isNull);
       expect(await storageService.getRefreshToken(), isNull);
       expect(authProvider.isAuthenticated, isFalse);
