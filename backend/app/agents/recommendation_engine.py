@@ -1,7 +1,5 @@
 """Doctor recommendation engine combining AI request understanding and deterministic ranking."""
 
-from collections import defaultdict
-from datetime import datetime, timezone
 import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -22,8 +20,6 @@ from app.schemas.recommendation import (
 )
 from app.services.doctor_service import (
     DoctorService,
-    get_sl_now,
-    get_sl_today_str,
 )
 
 logger = logging.getLogger(__name__)
@@ -171,83 +167,23 @@ class RecommendationEngine:
             candidate_doctors = verified_doctors
 
         # -------------------------------------------------------------
-        # STEP 5: Batch-retrieve real available slots for candidates
-        # -------------------------------------------------------------
-        sl_today = get_sl_today_str()
-        cand_prof_ids = [str(p["_id"]) for p, _ in candidate_doctors]
-        cand_user_ids = [str(u["_id"]) for _, u in candidate_doctors]
-
-        # Single batch query for doctor availabilities
-        avails_cursor = db["doctor_availabilities"].find({
-            "doctorProfileId": {"$in": cand_prof_ids},
-            "isActive": True,
-            "date": {"$gte": sl_today},
-        }).sort([("date", 1), ("startTime", 1)])
-        avails_by_prof: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        for av in avails_cursor:
-            avails_by_prof[str(av.get("doctorProfileId", ""))].append(av)
-
-        # Single batch query for active bookings
-        now_utc = datetime.now(timezone.utc)
-        appts_cursor = db["appointments"].find(
-            {
-                "doctorUserId": {"$in": cand_user_ids},
-                "status": {"$in": ["HOLD", "PENDING", "CONFIRMED", "COMPLETED"]},
-                "appointmentDate": {"$gte": sl_today},
-            },
-            {"doctorUserId": 1, "appointmentDate": 1, "startTime": 1, "status": 1, "holdExpiresAt": 1, "paymentStatus": 1},
-        )
-        booked_by_doc: Dict[str, set] = defaultdict(set)
-        for a in appts_cursor:
-            st = a.get("status")
-            hold = a.get("holdExpiresAt")
-            paid = a.get("paymentStatus") == "PAID"
-            if st in ["HOLD", "PENDING"] and not paid and hold:
-                if hold.tzinfo is None:
-                    hold = hold.replace(tzinfo=timezone.utc)
-                if hold <= now_utc:
-                    continue  # Expired hold does not block slot
-            d_uid = str(a.get("doctorUserId", ""))
-            booked_by_doc[d_uid].add((a.get("appointmentDate"), a.get("startTime")))
-
-        # Generate slots per candidate doctor
+        # The doctor service applies recurring schedules, exceptions and holds.
         doctor_slots_map: Dict[str, List[RecommendedSlotItem]] = {}
         for profile, user in candidate_doctors:
-            doc_user_id = str(user["_id"])
-            doc_prof_id = str(profile["_id"])
-            avails = avails_by_prof.get(doc_prof_id, [])
-            booked_set = booked_by_doc.get(doc_user_id, set())
-
-            doc_slots: List[RecommendedSlotItem] = []
-            for av in avails:
-                d_str = av["date"]
-                s_t = av["startTime"]
-                e_t = av["endTime"]
-                dur = int(av.get("slotDurationMinutes", 30))
-                av_id = str(av["_id"])
-
-                gen_slots = DoctorService._generate_slots_for_window(
-                    date_str=d_str,
-                    start_time_str=s_t,
-                    end_time_str=e_t,
-                    slot_duration_mins=dur,
-                    availability_id=av_id,
+            doctor_id = str(profile.get("doctorId") or profile["_id"])
+            result = await DoctorService.get_doctor_patient_slots(db, doctor_id, target_date)
+            days = result if isinstance(result, list) else [result]
+            if target_date and not any(day.slots for day in days):
+                result = await DoctorService.get_doctor_patient_slots(db, doctor_id)
+                days = result if isinstance(result, list) else [result]
+            doctor_slots_map[str(user["_id"])] = [
+                RecommendedSlotItem(
+                    date=day.date, startTime=slot.startTime, endTime=slot.endTime,
+                    availabilityId=slot.availabilityId,
                 )
+                for day in days for slot in day.slots
+            ]
 
-                for gs in gen_slots:
-                    if (d_str, gs.startTime) not in booked_set:
-                        doc_slots.append(
-                            RecommendedSlotItem(
-                                date=d_str,
-                                startTime=gs.startTime,
-                                endTime=gs.endTime,
-                                availabilityId=av_id,
-                            )
-                        )
-
-            doctor_slots_map[doc_user_id] = doc_slots
-
-        # -------------------------------------------------------------
         # STEP 6: Deterministic Multi-Factor Ranking
         # -------------------------------------------------------------
         # Batch fetch verified review ratings for candidates

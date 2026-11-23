@@ -541,11 +541,13 @@ def test_13_session_cancellation(seeded_booking_env):
         headers={"Authorization": f"Bearer {token}"},
         json={"availabilityId": avail_id, "date": tomorrow, "startTime": "10:00"},
     )
-    client.post(
+    hold = client.post(
         f"/api/ai/booking/sessions/{session_id}/confirm",
         headers={"Authorization": f"Bearer {token}"},
         json={},
     )
+    assert hold.status_code == 200
+    appointment_id = hold.json()["appointmentId"]
 
     # Cancel session
     resp_cancel = client.post(
@@ -554,6 +556,8 @@ def test_13_session_cancellation(seeded_booking_env):
     )
     assert resp_cancel.status_code == 200
     assert resp_cancel.json()["state"] == BookingAgentState.CANCELLED.value
+    appointment = get_database()["appointments"].find_one({"_id": ObjectId(appointment_id)})
+    assert appointment["status"] == "CANCELLED"
 
 
 def test_14_sync_payment_status(seeded_booking_env):

@@ -53,6 +53,7 @@ class DoctorListItem(BaseModel):
     doctorId: str
     fullName: str
     specialty: str
+    city: Optional[str] = None
     hospitalOrClinic: str
     experienceYears: int
     consultationFee: Optional[float] = None
@@ -82,6 +83,7 @@ class DoctorDetailResponse(BaseModel):
     fullName: str
     specialty: str
     qualifications: str
+    city: Optional[str] = None
     hospitalOrClinic: str
     experienceYears: int
     consultationFee: Optional[float] = None

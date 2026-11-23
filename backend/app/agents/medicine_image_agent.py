@@ -190,12 +190,12 @@ class MedicineImageAgent:
             return "blurry"
 
         if "unknown" in fn or "unknown" in pr:
-            return "XYZ-Unknown-Compound 999mg"
+            return None
 
         # Check for known medicines in prompt or filename
         for key in MEDICINE_DATABASE.keys():
             if key in fn or key in pr:
-                return f"{key.capitalize()} 500mg Tablets BP"
+                return key.capitalize()
             for b in MEDICINE_DATABASE[key]["brandNames"]:
                 brand_word = re.sub(r"\(.*?\)", "", b).strip().lower()
                 if brand_word and (brand_word in fn or brand_word in pr):
@@ -233,7 +233,7 @@ class MedicineImageAgent:
                     if parts and "text" in parts[0]:
                         return parts[0]["text"].strip()
             except Exception as e:
-                logger.warning("Gemini vision analysis failed or timed out: %s. Using deterministic fallback.", e)
+                logger.warning("Gemini vision analysis failed or timed out: %s. Using deterministic fallback.", type(e).__name__)
 
         # Fallback if no specific medicine detected
         return "Generic Medicine Label"

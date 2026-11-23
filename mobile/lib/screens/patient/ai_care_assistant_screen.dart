@@ -931,6 +931,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         if (index < messages.length) {
           final msg = messages[index];
           final doctors = msg.metadata?['doctors'] as List?;
+          final structuredCards = index == messages.length - 1 && !msg.isUser
+              ? _session?.assistantDoctorCards ?? const <DoctorCardSummary>[]
+              : const <DoctorCardSummary>[];
           return Column(
             key: ValueKey(msg.id),
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -949,7 +952,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                 ...doctors.map((doc) => _buildDoctorCandidateCard(
                   DoctorCardSummary.fromJson(Map<String, dynamic>.from(doc as Map)),
                   showProfile: msg.metadata?['type'] == 'doctor_details',
-                )),
+                ))
+              else
+                ...structuredCards.map((doctor) => _buildDoctorCandidateCard(doctor)),
             ],
           );
         }
@@ -1055,6 +1060,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
 
         // 1. Candidate Doctor Cards
         if (_session!.isAwaitingDoctor && _session!.candidateDoctors.isNotEmpty &&
+            _session!.assistantDoctorCards.isEmpty &&
             !_session!.messages.any((msg) => msg.metadata?['doctors'] != null)) ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -1646,6 +1652,24 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
+  String _availabilityPreview(DoctorCardSummary doctor) {
+    final slots = doctor.availableSlots
+        .where((slot) => slot.date == doctor.requestedDate)
+        .map((slot) => slot.startTime)
+        .toList();
+    final date = doctor.requestedDate;
+    if (slots.isEmpty) return 'No open slots found for $date (Sri Lanka time).';
+    final requested = doctor.requestedTime;
+    if (requested != null && slots.contains(requested)) {
+      return '$date · $requested (Sri Lanka time)';
+    }
+    final times = slots.take(3).join(', ');
+    if (requested != null) {
+      return 'Other times on $date · $times (Sri Lanka time)';
+    }
+    return '$date · $times (Sri Lanka time)';
+  }
+
   Widget _buildDoctorCandidateCard(DoctorCardSummary doctor, {bool showProfile = false}) {
     return Card(
       elevation: 2,
@@ -1810,6 +1834,11 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                   }).toList(),
                 ),
               ),
+            ],
+
+            if (doctor.requestedDate != null) ...[
+              const SizedBox(height: 8),
+              Text(_availabilityPreview(doctor)),
             ],
 
             // Action Buttons

@@ -391,8 +391,15 @@ def test_04_unauthorized_role_access_rejected(seeded_env):
     assert resp_admin.status_code == 403
 
 
-def test_05_specialty_matching_and_recommendation(seeded_env):
+def test_05_specialty_matching_and_recommendation(seeded_env, monkeypatch):
     """Patient asking for heart doctor gets Approved Cardiologist ranked first."""
+    from unittest.mock import AsyncMock
+    from app.schemas.doctor import DayAvailabilitySlots, TimeSlot
+    from app.services.doctor_service import DoctorService
+
+    day = DayAvailabilitySlots(date="2099-01-02", slots=[TimeSlot(startTime="16:30", endTime="17:00")])
+    slots = AsyncMock(return_value=day)
+    monkeypatch.setattr(DoctorService, "get_doctor_patient_slots", slots)
     resp = client.post(
         "/api/ai/doctor-recommendations",
         headers={"Authorization": f"Bearer {seeded_env['pat_token']}"},
@@ -408,6 +415,8 @@ def test_05_specialty_matching_and_recommendation(seeded_env):
     assert top_doc["specialty"] == "Cardiologist"
     assert any("Cardiologist" in r for r in top_doc["matchReasons"])
     assert data["disclaimer"] is not None
+    assert top_doc["availableSlots"][0]["startTime"] == "16:30"
+    assert slots.await_count >= 1
 
 
 def test_06_location_matching_recommendation(seeded_env):
