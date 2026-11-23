@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/appointment.dart';
+import '../../providers/locale_provider.dart';
 import '../../services/appointment_service.dart';
 import '../../widgets/medical_widgets.dart';
 import 'appointment_detail_screen.dart';
@@ -85,7 +88,11 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
     }
   }
 
-  Widget _buildAppointmentList(List<Appointment> appointments) {
+  Widget _buildAppointmentList(List<Appointment> appointments, AppLocalizations? l10n, LocaleProvider? localeProvider) {
+    final isDark = AppTheme.isDark(context);
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     if (appointments.isEmpty) {
       return Center(
         child: Padding(
@@ -96,22 +103,29 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
               Icon(
                 Icons.event_busy_rounded,
                 size: 56,
-                color: AppTheme.textSecondary.withValues(alpha: 0.4),
+                color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary).withValues(alpha: 0.4),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'No appointments found.',
+              Text(
+                isSi ? 'හමුවීම් කිසිවක් හමු නොවීය.' : (isTa ? 'சந்திப்புகள் எதுவும் இல்லை.' : 'No appointments found.'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Book consultations with verified medical specialists in a few taps.',
+              Text(
+                isSi
+                    ? 'පහසුවෙන්ම සත්‍යාපිත විශේෂඥ වෛද්‍යවරුන් හමුවන්න.'
+                    : (isTa
+                        ? 'சரிபார்க்கப்பட்ட மருத்துவ நிபுணர்களுடன் எளிதாக முன்பதிவு செய்யுங்கள்.'
+                        : 'Book consultations with verified medical specialists in a few taps.'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
@@ -124,7 +138,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                   Navigator.of(context).pushNamed('/patient/find-doctor');
                 },
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Find a Doctor'),
+                label: Text(l10n?.findDoctor ?? (isSi ? 'වෛද්‍යවරයකු සොයන්න' : (isTa ? 'மருத்துவரைத் தேடுங்கள்' : 'Find a Doctor'))),
               ),
             ],
           ),
@@ -139,13 +153,28 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
         itemCount: appointments.length,
         itemBuilder: (context, index) {
           final appt = appointments[index];
-          return _buildAppointmentCard(appt);
+          return _buildAppointmentCard(appt, l10n, localeProvider);
         },
       ),
     );
   }
 
-  Widget _buildAppointmentCard(Appointment appt) {
+  Widget _buildAppointmentCard(Appointment appt, AppLocalizations? l10n, LocaleProvider? localeProvider) {
+    final isDark = AppTheme.isDark(context);
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
+    String statusLabel = appt.status.toUpperCase();
+    if (appt.isConfirmed) {
+      statusLabel = isSi ? 'තහවුරු විය' : (isTa ? 'உறுதியானது' : 'CONFIRMED');
+    } else if (appt.isCancelled) {
+      statusLabel = isSi ? 'අවලංගුයි' : (isTa ? 'ரத்து' : 'CANCELLED');
+    } else if (appt.isCompleted) {
+      statusLabel = isSi ? 'සම්පූර්ණයි' : (isTa ? 'முடிந்தது' : 'COMPLETED');
+    } else if (appt.isPending) {
+      statusLabel = isSi ? 'අපේක්ෂිත' : (isTa ? 'நிலுவை' : 'PENDING');
+    }
+
     return StitchCard(
       key: Key('appointment_card_${appt.id}'),
       margin: const EdgeInsets.only(bottom: 14),
@@ -182,7 +211,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    appt.isConfirmed ? 'CONFIRMED' : appt.status.toUpperCase(),
+                    statusLabel,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -198,14 +227,14 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                   color: AppTheme.primaryContainer,
                   borderRadius: BorderRadius.circular(9999),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.videocam_rounded, size: 13, color: AppTheme.primaryBlue),
-                    SizedBox(width: 4),
+                    const Icon(Icons.videocam_rounded, size: 13, color: AppTheme.primaryBlue),
+                    const SizedBox(width: 4),
                     Text(
-                      'Video Visit',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.primaryBlue),
+                      isSi ? 'වීඩියෝ හමුව' : (isTa ? 'வீடியோ சந்திப்பு' : 'Video Visit'),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.primaryBlue),
                     ),
                   ],
                 ),
@@ -221,12 +250,12 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceContainerLow,
+                  color: isDark ? AppTheme.darkSurfaceContainerLow : AppTheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.person_rounded, size: 26, color: AppTheme.primaryBlue),
+                child: Icon(Icons.person_rounded, size: 26, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -234,20 +263,20 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      appt.doctorName ?? 'Doctor Profile',
-                      style: const TextStyle(
+                      appt.doctorName ?? (isSi ? 'වෛද්‍ය පැතිකඩ' : (isTa ? 'மருத்துவர் சுயவிவரம்' : 'Doctor Profile')),
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      appt.specialty ?? 'General Medicine',
-                      style: const TextStyle(
+                      appt.specialty ?? (isSi ? 'සාමාන්‍ය වෛද්‍ය' : (isTa ? 'பொது மருத்துவம்' : 'General Medicine')),
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.secondaryBlue,
+                        color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.secondaryBlue,
                       ),
                     ),
                   ],
@@ -261,7 +290,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceContainerLow,
+              color: isDark ? AppTheme.darkSurfaceContainerLow : AppTheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -269,21 +298,21 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.primaryBlue),
+                    Icon(Icons.calendar_today_rounded, size: 16, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
                     const SizedBox(width: 8),
                     Text(
                       appt.appointmentDate,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                     ),
                   ],
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.access_time_rounded, size: 16, color: AppTheme.textSecondary),
+                    Icon(Icons.access_time_rounded, size: 16, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                     const SizedBox(width: 6),
                     Text(
                       '${appt.startTime} - ${appt.endTime}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                     ),
                   ],
                 ),
@@ -298,8 +327,8 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
               Expanded(
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textPrimary,
-                    side: const BorderSide(color: AppTheme.border),
+                    foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     minimumSize: const Size(0, 40),
                   ),
@@ -316,7 +345,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                     );
                     _loadAppointments();
                   },
-                  child: const Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(isSi ? 'විස්තර බලන්න' : (isTa ? 'விவரங்களை பார்' : 'View Details'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
               ),
               if (appt.isConfirmed) ...[
@@ -331,11 +360,19 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                     ),
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Video session room opens 10 minutes prior to consultation.')),
+                        SnackBar(
+                          content: Text(
+                            isSi
+                                ? 'වීඩියෝ කාමරය සැසියට මිනිත්තු 10කට පෙර විවෘත වේ.'
+                                : (isTa
+                                    ? 'ஆலோசனை அறை 10 நிமிடங்களுக்கு முன் திறக்கப்படும்.'
+                                    : 'Video session room opens 10 minutes prior to consultation.'),
+                          ),
+                        ),
                       );
                     },
                     icon: const Icon(Icons.videocam_rounded, size: 16),
-                    label: const Text('Join Call', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    label: Text(isSi ? 'සම්බන්ධ වන්න' : (isTa ? 'இணையுங்கள்' : 'Join Call'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
@@ -348,25 +385,36 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final l10n = AppLocalizations.of(context);
+    LocaleProvider? localeProvider;
+    try {
+      localeProvider = Provider.of<LocaleProvider>(context);
+    } catch (_) {
+      localeProvider = null;
+    }
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
         elevation: 0,
         scrolledUnderElevation: 1,
-        title: const Text(
-          'My Appointments',
+        title: Text(
+          l10n?.myAppointments ?? 'My Appointments',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
           ),
         ),
         actions: [
           IconButton(
             key: const Key('my_appointments_payments_button'),
             icon: const Icon(Icons.receipt_long_rounded),
-            tooltip: 'Payment History',
+            tooltip: isSi ? 'ගෙවීම් ඉතිහාසය' : (isTa ? 'கட்டண வரலாறு' : 'Payment History'),
             onPressed: () => Navigator.of(context).pushNamed('/patient/payments'),
           ),
           const SizedBox(width: 4),
@@ -383,22 +431,22 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
-                        'YOUR CARE JOURNEY',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primaryBlue, letterSpacing: 1),
+                        isSi ? 'ඔබගේ සත්කාර ගමන' : (isTa ? 'உங்கள் பராமரிப்பு பயணம்' : 'YOUR CARE JOURNEY'),
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primaryBlue, letterSpacing: 1),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'Consultation Schedule',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                        isSi ? 'උපදේශන කාලසටහන' : (isTa ? 'ஆலோசனை அட்டவணை' : 'Consultation Schedule'),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
                       ),
                     ],
                   ),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryContainer,
-                      foregroundColor: AppTheme.primaryBlue,
+                      backgroundColor: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
+                      foregroundColor: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -408,7 +456,10 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                       Navigator.of(context).pushNamed('/patient/find-doctor');
                     },
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('New Visit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    label: Text(
+                      isSi ? 'නව හමුවීමක්' : (isTa ? 'புதிய முன்பதிவு' : 'New Visit'),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ],
               ),
@@ -419,14 +470,29 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceContainerLow,
+                color: isDark ? AppTheme.darkSurfaceContainerLow : AppTheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(9999),
               ),
               child: Row(
                 children: [
-                  _buildTabItem(index: 0, label: 'Upcoming', count: _filterAppointments(0).length),
-                  _buildTabItem(index: 1, label: 'Completed', count: _filterAppointments(1).length),
-                  _buildTabItem(index: 2, label: 'Cancelled', count: _filterAppointments(2).length),
+                  _buildTabItem(
+                    index: 0,
+                    label: isSi ? 'ඉදිරි' : (isTa ? 'வரவிருக்கும்' : 'Upcoming'),
+                    count: _filterAppointments(0).length,
+                    isDark: isDark,
+                  ),
+                  _buildTabItem(
+                    index: 1,
+                    label: isSi ? 'සම්පූර්ණ වූ' : (isTa ? 'முடிந்தவை' : 'Completed'),
+                    count: _filterAppointments(1).length,
+                    isDark: isDark,
+                  ),
+                  _buildTabItem(
+                    index: 2,
+                    label: isSi ? 'අවලංගු වූ' : (isTa ? 'ரத்துசெய்தவை' : 'Cancelled'),
+                    count: _filterAppointments(2).length,
+                    isDark: isDark,
+                  ),
                 ],
               ),
             ),
@@ -447,12 +513,12 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                                 Text(
                                   _errorMessage!,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 15, color: AppTheme.textSecondary),
+                                  style: TextStyle(fontSize: 15, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton(
                                   onPressed: _loadAppointments,
-                                  child: const Text('Retry'),
+                                  child: Text(l10n?.retry ?? (isSi ? 'නැවත උත්සාහ කරන්න' : (isTa ? 'மீண்டும் முயற்சி செய்க' : 'Retry'))),
                                 ),
                               ],
                             ),
@@ -461,9 +527,9 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                       : TabBarView(
                           controller: _tabController,
                           children: [
-                            _buildAppointmentList(_filterAppointments(0)),
-                            _buildAppointmentList(_filterAppointments(1)),
-                            _buildAppointmentList(_filterAppointments(2)),
+                            _buildAppointmentList(_filterAppointments(0), l10n, localeProvider),
+                            _buildAppointmentList(_filterAppointments(1), l10n, localeProvider),
+                            _buildAppointmentList(_filterAppointments(2), l10n, localeProvider),
                           ],
                         ),
             ),
@@ -473,7 +539,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
     );
   }
 
-  Widget _buildTabItem({required int index, required String label, required int count}) {
+  Widget _buildTabItem({required int index, required String label, required int count, bool isDark = false}) {
     final isSelected = _tabController.index == index;
 
     return Expanded(
@@ -497,7 +563,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                  color: isSelected ? Colors.white : (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                 ),
               ),
               const SizedBox(width: 3),
@@ -506,7 +572,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? Colors.white70 : AppTheme.textMuted,
+                  color: isSelected ? Colors.white70 : (isDark ? AppTheme.darkTextMuted : AppTheme.textMuted),
                 ),
               ),
             ],

@@ -6,6 +6,8 @@ import 'package:mediconnect/providers/auth_provider.dart';
 import 'package:mediconnect/providers/locale_provider.dart';
 import 'package:mediconnect/providers/theme_provider.dart';
 import 'package:mediconnect/screens/auth/login_screen.dart';
+import 'package:mediconnect/screens/patient/my_appointments_screen.dart';
+import 'package:mediconnect/screens/patient/patient_home_screen.dart';
 import 'package:mediconnect/screens/welcome_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -127,6 +129,73 @@ void main() {
       expect(find.text('நோயாளி'), findsOneWidget);
       expect(find.text('மருத்துவர்'), findsOneWidget);
       expect(find.text('கடவுச்சொல் மறந்துவிட்டதா?'), findsOneWidget);
+    });
+
+    testWidgets('PatientHomeScreen renders in English and immediately updates across all sections on language switch', (tester) async {
+      await tester.pumpWidget(createTestApp(const PatientHomeScreen()));
+      await tester.pumpAndSettle();
+
+      // Verify English initial state
+      expect(find.text('Patient Dashboard'), findsOneWidget);
+      expect(find.text('Upcoming Appointments'), findsOneWidget);
+      expect(find.text('Reschedule'), findsOneWidget);
+      expect(find.text("Today's Vitals"), findsOneWidget);
+      expect(find.text('Heart Rate'), findsOneWidget);
+      expect(find.text('Home'), findsOneWidget);
+
+      // Switch to Sinhala
+      await localeProvider.setLocale(const Locale('si'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('රෝගී පුවරුව'), findsOneWidget);
+      expect(find.text('ඉදිරි හමුවීම්'), findsOneWidget);
+      expect(find.text('නැවත සැලසුම් කරන්න'), findsOneWidget);
+      expect(find.text('අද දින වැදගත් සලකුණු'), findsOneWidget);
+      expect(find.text('හෘද ස්පන්දනය'), findsOneWidget);
+      expect(find.text('මුල් පිටුව'), findsOneWidget);
+
+      // Switch to Tamil
+      await localeProvider.setLocale(const Locale('ta'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('நோயாளி கட்டுப்பாட்டகம்'), findsOneWidget);
+      expect(find.text('வரவிருக்கும் சந்திப்புகள்'), findsOneWidget);
+      expect(find.text('தேதி மாற்றுக'), findsOneWidget);
+      expect(find.text('இன்றைய முக்கிய அறிகுறிகள்'), findsOneWidget);
+      expect(find.text('இதய துடிப்பு'), findsOneWidget);
+      expect(find.text('முகப்பு'), findsOneWidget);
+    });
+
+    testWidgets('MyAppointmentsScreen switches tabs and titles immediately on language change', (tester) async {
+      await tester.pumpWidget(createTestApp(const MyAppointmentsScreen()));
+      await tester.pumpAndSettle();
+
+      // Initial English
+      expect(find.text('My Appointments'), findsOneWidget);
+      expect(find.text('Upcoming'), findsOneWidget);
+      expect(find.text('Completed'), findsOneWidget);
+      expect(find.text('Cancelled'), findsOneWidget);
+      expect(find.text('New Visit'), findsOneWidget);
+
+      // Switch to Sinhala
+      await localeProvider.setLocale(const Locale('si'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('මගේ හමුවීම්'), findsOneWidget);
+      expect(find.text('ඉදිරි'), findsOneWidget);
+      expect(find.text('සම්පූර්ණ වූ'), findsOneWidget);
+      expect(find.text('අවලංගු වූ'), findsOneWidget);
+      expect(find.text('නව හමුවීමක්'), findsOneWidget);
+
+      // Switch to Tamil
+      await localeProvider.setLocale(const Locale('ta'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('எனது சந்திப்புகள்'), findsOneWidget);
+      expect(find.text('வரவிருக்கும்'), findsOneWidget);
+      expect(find.text('முடிந்தவை'), findsOneWidget);
+      expect(find.text('ரத்துசெய்தவை'), findsOneWidget);
+      expect(find.text('புதிய முன்பதிவு'), findsOneWidget);
     });
   });
 }

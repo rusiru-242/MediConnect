@@ -155,6 +155,7 @@ class MedicalStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveIconColor = iconColor ?? AppTheme.primaryBlue;
     final effectiveIconBg = iconBackgroundColor ?? AppTheme.primaryContainer;
 
@@ -175,26 +176,26 @@ class MedicalStatCard extends StatelessWidget {
                 ),
                 child: Icon(icon, color: effectiveIconColor, size: 22),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textSecondary),
+              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
             ],
           ),
           const SizedBox(height: 14),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
               letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
             ),
           ),
         ],
@@ -222,6 +223,7 @@ class MedicalEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
@@ -232,20 +234,20 @@ class MedicalEmptyState extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppTheme.primaryContainer,
+                color: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.border, width: 1.5),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border, width: 1.5),
               ),
-              child: Icon(icon, size: 40, color: AppTheme.primaryBlue),
+              child: Icon(icon, size: 40, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
             ),
             const SizedBox(height: 20),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 letterSpacing: -0.2,
               ),
             ),
@@ -253,9 +255,9 @@ class MedicalEmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.textSecondary,
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                 height: 1.4,
               ),
             ),
@@ -294,6 +296,7 @@ class MedicalSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -306,10 +309,10 @@ class MedicalSectionHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -317,9 +320,9 @@ class MedicalSectionHeader extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textSecondary,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
                     ),
                   ),
                 ],

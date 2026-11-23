@@ -303,11 +303,21 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
     });
 
     final authProvider = context.watch<AuthProvider>();
+    LocaleProvider? localeProvider;
+    try {
+      localeProvider = Provider.of<LocaleProvider>(context);
+    } catch (_) {
+      localeProvider = null;
+    }
+    final l10n = AppLocalizations.of(context);
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     final user = authProvider.user;
     final doctorName = user?.fullName.isNotEmpty == true
         ? (user!.fullName.startsWith('Dr.') ? user.fullName : 'Dr. ${user.fullName}')
-        : 'Dr. Doctor';
-    final specialty = authProvider.doctorApplicationStatus?.specialty ?? 'Cardiology Specialist';
+        : (isSi ? 'වෛද්‍යවරයා' : (isTa ? 'மருத்துவர்' : 'Dr. Doctor'));
+    final specialty = authProvider.doctorApplicationStatus?.specialty ?? (isSi ? 'හෘද රෝග විශේෂඥ' : (isTa ? 'இதய நிபுணர்' : 'Cardiology Specialist'));
 
     ThemeProvider? themeProvider;
     try {
@@ -344,7 +354,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                   ),
                 ),
                 Text(
-                  'Doctor Dashboard',
+                  l10n?.doctorDashboard ?? (isSi ? 'වෛද්‍ය පුවරුව' : (isTa ? 'மருத்துவர் டாஷ்போர்டு' : 'Doctor Dashboard')),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -358,7 +368,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
         actions: [
           const NotificationBellButton(),
           IconButton(
-            tooltip: 'Logout',
+            tooltip: l10n?.logout ?? (isSi ? 'පිටවීම' : (isTa ? 'வெளியேறு' : 'Logout')),
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => _handleLogout(context),
           ),
@@ -587,65 +597,21 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               ],
 
               // 3. Practice Overview KPI Metrics (2x2 Grid)
-              const Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Practice Overview',
+                    isSi ? 'ප්‍රතිකාර දළ විශ්ලේෂණය' : (isTa ? 'பயிற்சி கண்ணோட்டம்' : 'Practice Overview'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                     ),
                   ),
-                  StitchPulseBadge(label: 'LIVE STREAM', dotColor: AppTheme.secondaryBlue, backgroundColor: AppTheme.surfaceContainerLow),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: StitchCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text('Appointments', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                              Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.primaryBlue),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          const Text('12 Patients', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
-                          const SizedBox(height: 2),
-                          const Text('4 video • 8 clinic', style: TextStyle(fontSize: 10, color: AppTheme.secondaryBlue)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: StitchCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text('Waiting Room', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                              Icon(Icons.hourglass_top_rounded, size: 16, color: AppTheme.secondaryBlue),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          const Text('3 In Queue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
-                          const SizedBox(height: 2),
-                          const Text('Est. wait ~12m', style: TextStyle(fontSize: 10, color: AppTheme.success, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
+                  StitchPulseBadge(
+                    label: isSi ? 'සජීවී' : (isTa ? 'நேரலை' : 'LIVE STREAM'),
+                    dotColor: AppTheme.secondaryBlue,
+                    backgroundColor: isDark ? AppTheme.darkSurfaceContainerLow : AppTheme.surfaceContainerLow,
                   ),
                 ],
               ),
@@ -660,15 +626,24 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text('Lab Reviews', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                              Icon(Icons.biotech_rounded, size: 16, color: AppTheme.textSecondary),
+                            children: [
+                              Text(
+                                isSi ? 'හමුවීම්' : (isTa ? 'சந்திப்புகள்' : 'Appointments'),
+                                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                              ),
+                              const Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.primaryBlue),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          const Text('5 Reports', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                          Text(
+                            isSi ? 'රෝගීන් 12' : (isTa ? '12 நோயாளிகள்' : '12 Patients'),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+                          ),
                           const SizedBox(height: 2),
-                          const Text('2 urgent results', style: TextStyle(fontSize: 10, color: AppTheme.error, fontWeight: FontWeight.w600)),
+                          Text(
+                            isSi ? '4 වීඩියෝ • 8 සායන' : (isTa ? '4 வீடியோ • 8 கிளினிக்' : '4 video • 8 clinic'),
+                            style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.secondaryBlue),
+                          ),
                         ],
                       ),
                     ),
@@ -682,15 +657,87 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text('Today\'s Total', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                              Icon(Icons.payments_rounded, size: 16, color: AppTheme.success),
+                            children: [
+                              Text(
+                                isSi ? 'පොරොත්තු කාමරය' : (isTa ? 'காத்திருப்பு அறை' : 'Waiting Room'),
+                                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                              ),
+                              const Icon(Icons.hourglass_top_rounded, size: 16, color: AppTheme.secondaryBlue),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          const Text('LKR 18,500', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                          Text(
+                            isSi ? '3 පෝලිමේ' : (isTa ? '3 வரிசையில்' : '3 In Queue'),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+                          ),
                           const SizedBox(height: 2),
-                          const Text('+18% vs avg', style: TextStyle(fontSize: 10, color: AppTheme.success, fontWeight: FontWeight.w600)),
+                          Text(
+                            isSi ? 'පොරොත්තු ~12m' : (isTa ? 'காத்திருப்பு ~12 நிமிடம்' : 'Est. wait ~12m'),
+                            style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkSuccess : AppTheme.success, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: StitchCard(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                isSi ? 'පරීක්ෂණ වාර්තා' : (isTa ? 'ஆய்வக மதிப்புரைகள்' : 'Lab Reviews'),
+                                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                              ),
+                              Icon(Icons.biotech_rounded, size: 16, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            isSi ? 'වාර්තා 5' : (isTa ? '5 அறிக்கைகள்' : '5 Reports'),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isSi ? 'හදිසි ප්‍රතිඵල 2' : (isTa ? '2 அவசர முடிவுகள்' : '2 urgent results'),
+                            style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkError : AppTheme.error, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: StitchCard(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                isSi ? 'අද දින එකතුව' : (isTa ? 'இன்றைய மொத்தம்' : 'Today\'s Total'),
+                                style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                              ),
+                              Icon(Icons.payments_rounded, size: 16, color: isDark ? AppTheme.darkSuccess : AppTheme.success),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text('LKR 18,500', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '+18% vs avg',
+                            style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkSuccess : AppTheme.success, fontWeight: FontWeight.w600),
+                          ),
                         ],
                       ),
                     ),
@@ -700,12 +747,12 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               const SizedBox(height: 18),
 
               // 4. Clinical Operations
-              const Text(
-                'Clinical Operations',
+              Text(
+                isSi ? 'සායනික මෙහෙයුම්' : (isTa ? 'மருத்துவ செயல்பாடுகள்' : 'Clinical Operations'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 10),
@@ -715,10 +762,11 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 key: const Key('doctor_home_today_schedule_card'),
                 icon: Icons.today_rounded,
                 iconColor: const Color(0xFF1565C0),
-                title: "Today's Schedule & Consultations",
-                subtitle: 'Chronological schedule, next patient, start & complete consultations',
+                title: isSi ? 'අද දින කාලසටහන සහ උපදේශන' : (isTa ? 'இன்றைய அட்டவணை மற்றும் ஆலோசனைகள்' : "Today's Schedule & Consultations"),
+                subtitle: isSi ? 'කාලානුක්‍රමික කාලසටහන, මීළඟ රෝගියා, උපදේශන ආරම්භය' : (isTa ? 'காலவரிசை அட்டவணை, அடுத்த நோயாளி, ஆலோசனைகளை தொடங்குங்கள்' : 'Chronological schedule, next patient, start & complete consultations'),
                 badgeText: 'Phase 57',
                 badgeColor: const Color(0xFF1565C0),
+                isDark: isDark,
                 onTap: () {
                   Navigator.of(context).pushNamed('/doctor/schedule');
                 },
@@ -730,8 +778,9 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 key: const Key('doctor_home_appointments_card'),
                 icon: Icons.calendar_month_rounded,
                 iconColor: AppTheme.primaryBlue,
-                title: 'Appointments',
-                subtitle: 'Review incoming requests, confirm, complete, or cancel bookings',
+                title: l10n?.patientAppointments ?? (isSi ? 'රෝගී හමුවීම්' : (isTa ? 'நோயாளி சந்திப்புகள்' : 'Appointments')),
+                subtitle: isSi ? 'පැමිණෙන ඉල්ලීම් සමාලෝචනය, තහවුරු කිරීම හෝ අවලංගු කිරීම' : (isTa ? 'முன்பதிவுகளை மதிப்பாய்வு செய்து உறுதிப்படுத்தவும்' : 'Review incoming requests, confirm, complete, or cancel bookings'),
+                isDark: isDark,
                 onTap: () {
                   Navigator.of(context).pushNamed('/doctor/appointments');
                 },
@@ -743,10 +792,11 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 key: const Key('doctor_home_consultations_card'),
                 icon: Icons.edit_note_rounded,
                 iconColor: AppTheme.secondaryBlue,
-                title: 'Consultations & Prescriptions',
-                subtitle: 'Document clinical notes, assessment, treatment plans & issue digital prescriptions',
+                title: isSi ? 'උපදේශන සටහන් සහ බෙහෙත් වට්ටෝරු' : (isTa ? 'ஆலோசனை குறிப்புகள் மற்றும் மருந்துச்சீட்டுகள்' : 'Consultations & Prescriptions'),
+                subtitle: isSi ? 'සායනික සටහන් ලිවීම සහ ඩිජිටල් බෙහෙත් වට්ටෝරු නිකුත් කිරීම' : (isTa ? 'மருத்துவ குறிப்புகளை ஆவணப்படுத்தி டிஜிட்டல் மருந்துச்சீட்டுகளை வழங்கவும்' : 'Document clinical notes, assessment, treatment plans & issue digital prescriptions'),
                 badgeText: 'Phase 21',
                 badgeColor: AppTheme.primaryBlue,
+                isDark: isDark,
                 onTap: () {
                   Navigator.of(context).pushNamed('/doctor/consultations');
                 },
@@ -758,10 +808,11 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 key: const Key('doctor_home_manage_availability_card'),
                 icon: Icons.event_available_rounded,
                 iconColor: AppTheme.success,
-                title: 'Manage Availability',
-                subtitle: 'Configure upcoming working dates, hours, and slot durations',
-                badgeText: 'Active',
+                title: l10n?.manageAvailability ?? (isSi ? 'පවතින වේලාවන් කළමනාකරණය' : (isTa ? 'இருப்பினை நிர்வகிக்கவும்' : 'Manage Availability')),
+                subtitle: isSi ? 'වැඩ කරන දිනයන්, වේලාවන් සහ කාල පරාස සැකසීම' : (isTa ? 'வேலை செய்யும் நாட்கள் மற்றும் மணிநேரங்களை உள்ளமைக்கவும்' : 'Configure upcoming working dates, hours, and slot durations'),
+                badgeText: isSi ? 'සක්‍රියයි' : (isTa ? 'செயலில்' : 'Active'),
                 badgeColor: AppTheme.success,
+                isDark: isDark,
                 onTap: () {
                   Navigator.of(context).pushNamed('/doctor/manage-availability');
                 },
@@ -773,8 +824,9 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 key: const Key('doctor_home_my_profile_card'),
                 icon: Icons.person_outline_rounded,
                 iconColor: Colors.deepPurple,
-                title: 'My Profile & Credentials',
-                subtitle: 'View professional credentials, specialty, and clinic affiliation',
+                title: l10n?.profile ?? (isSi ? 'මගේ පැතිකඩ සහ සහතික' : (isTa ? 'எனது சுயவிவரம்' : 'My Profile & Credentials')),
+                subtitle: isSi ? 'වෘත්තීය සුදුසුකම්, විශේෂඥතාව සහ රෝහල් සම්බන්ධතාව' : (isTa ? 'தொழில்முறை நற்சான்றிதழ்கள் மற்றும் மருத்துவமனை இணைப்பு' : 'View professional credentials, specialty, and clinic affiliation'),
+                isDark: isDark,
                 onTap: () => _showDoctorProfile(context),
               ),
               const SizedBox(height: 10),
@@ -784,8 +836,9 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 key: const Key('doctor_home_reviews_card'),
                 icon: Icons.star_rounded,
                 iconColor: Colors.amber.shade800,
-                title: 'Patient Reviews & Ratings',
-                subtitle: 'View verified patient feedback and rating distribution',
+                title: isSi ? 'රෝගී ඇගයීම් සහ ශ්‍රේණිගත කිරීම්' : (isTa ? 'நோயாளி மதிப்புரைகள் & மதிப்பீடுகள்' : 'Patient Reviews & Ratings'),
+                subtitle: isSi ? 'සත්‍යාපිත රෝගී ප්‍රතිචාර සහ ශ්‍රේණිගත කිරීම් බලන්න' : (isTa ? 'சரிபார்க்கப்பட்ட கருத்துகள் மற்றும் மதிப்பீடுகளைப் பார்க்கவும்' : 'View verified patient feedback and rating distribution'),
+                isDark: isDark,
                 onTap: () {
                   final auth = context.read<AuthProvider>();
                   Navigator.of(context).pushNamed(
@@ -801,8 +854,9 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 key: const Key('doctor_home_application_status_card'),
                 icon: Icons.assignment_turned_in_outlined,
                 iconColor: AppTheme.secondaryBlue,
-                title: 'Application Status',
-                subtitle: 'Review verification history and admin accreditation status',
+                title: isSi ? 'අයදුම්පත් තත්ත්වය' : (isTa ? 'விண்ணப்ப நிலை' : 'Application Status'),
+                subtitle: isSi ? 'සත්‍යාපන ඉතිහාසය සහ පරිපාලක අනුමැතියේ තත්ත්වය' : (isTa ? 'சரிபார்ப்பு வரலாறு மற்றும் நிர்வாகி அங்கீகார நிலை' : 'Review verification history and admin accreditation status'),
+                isDark: isDark,
                 onTap: () {
                   Navigator.of(context).pushNamed('/doctor/application-status');
                 },
@@ -820,7 +874,10 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 ),
                 onPressed: () => _handleLogout(context),
                 icon: const Icon(Icons.logout_rounded, size: 18),
-                label: const Text('Sign Out of Doctor Portal', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                label: Text(
+                  l10n?.logout ?? (isSi ? 'වෛද්‍ය පද්ධතියෙන් පිටවන්න' : (isTa ? 'வெளியேறு' : 'Sign Out of Doctor Portal')),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
               ),
               const SizedBox(height: 16),
             ],
@@ -839,6 +896,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
     String? badgeText,
     Color? badgeColor,
     required VoidCallback onTap,
+    bool isDark = false,
   }) {
     return StitchCard(
       key: key,
@@ -863,10 +921,10 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                       ),
                     ),
                     if (badgeText != null) ...[
@@ -892,12 +950,12 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+          Icon(Icons.chevron_right_rounded, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
         ],
       ),
     );

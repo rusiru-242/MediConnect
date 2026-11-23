@@ -37,16 +37,17 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   Future<void> _handleLogout() async {
+    final l10n = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Confirm Logout', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to log out of MediConnect?'),
+        title: Text(l10n?.logout ?? 'Confirm Logout', style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(l10n?.logoutConfirm ?? 'Are you sure you want to log out of MediConnect?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n?.cancel ?? 'Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -55,7 +56,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Logout'),
+            child: Text(l10n?.logout ?? 'Logout'),
           ),
         ],
       ),
@@ -83,6 +84,12 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     final authProvider = context.read<AuthProvider>();
     final user = authProvider.user;
     final l10n = AppLocalizations.of(context);
+    LocaleProvider? localeProvider;
+    try {
+      localeProvider = Provider.of<LocaleProvider>(context, listen: false);
+    } catch (_) {
+      localeProvider = null;
+    }
 
     ThemeProvider? themeProvider;
     try {
@@ -222,13 +229,19 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryContainer,
+                  color: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.person_outline_rounded, color: AppTheme.primaryBlue),
+                child: Icon(Icons.person_outline_rounded, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
               ),
-              title: const Text('My Patient Profile', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('Digital Health ID, medical history, stats'),
+              title: Text(l10n?.profile ?? 'My Patient Profile', style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(
+                localeProvider?.currentLanguage == AppLanguage.sinhala
+                    ? 'ඩිජිටල් හැඳුනුම්පත, වෛද්‍ය ඉතිහාසය'
+                    : (localeProvider?.currentLanguage == AppLanguage.tamil
+                        ? 'டிஜிட்டல் அடையாள அட்டை, வரலாறு'
+                        : 'Digital Health ID, medical history, stats'),
+              ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () {
                 Navigator.pop(ctx);
@@ -245,8 +258,14 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
                 child: const Icon(Icons.alarm_rounded, color: Colors.indigo),
               ),
-              title: const Text('Medication Reminders', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('Active schedules, adherence, and reminders'),
+              title: Text(l10n?.medicationReminders ?? 'Medication Reminders', style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(
+                localeProvider?.currentLanguage == AppLanguage.sinhala
+                    ? 'ක්‍රියාකාරී කාලසටහන් සහ මතක් කිරීම්'
+                    : (localeProvider?.currentLanguage == AppLanguage.tamil
+                        ? 'செயலில் உள்ள அட்டவணைகள் & நினைவூட்டல்கள்'
+                        : 'Active schedules, adherence, and reminders'),
+              ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () {
                 Navigator.pop(ctx);
@@ -263,8 +282,21 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
                 child: const Icon(Icons.receipt_long_rounded, color: Colors.green),
               ),
-              title: const Text('Payment History & Receipts', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('Stripe consultation fee transactions'),
+              title: Text(
+                localeProvider?.currentLanguage == AppLanguage.sinhala
+                    ? 'ගෙවීම් ඉතිහාසය සහ රිසිට්පත්'
+                    : (localeProvider?.currentLanguage == AppLanguage.tamil
+                        ? 'கட்டண வரலாறு & ரசீதுகள்'
+                        : 'Payment History & Receipts'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                localeProvider?.currentLanguage == AppLanguage.sinhala
+                    ? 'Stripe උපදේශන ගාස්තු ගනුදෙනු'
+                    : (localeProvider?.currentLanguage == AppLanguage.tamil
+                        ? 'Stripe கட்டண பரிவர்த்தனைகள்'
+                        : 'Stripe consultation fee transactions'),
+              ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () {
                 Navigator.pop(ctx);
@@ -281,8 +313,21 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
                 child: const Icon(Icons.dns_rounded, color: Colors.blueGrey),
               ),
-              title: const Text('Server & Connectivity Settings', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('Change host URL or toggle ADB reverse'),
+              title: Text(
+                localeProvider?.currentLanguage == AppLanguage.sinhala
+                    ? 'සේවාදායක සැකසීම්'
+                    : (localeProvider?.currentLanguage == AppLanguage.tamil
+                        ? 'சர்வர் அமைப்புகள்'
+                        : 'Server & Connectivity Settings'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                localeProvider?.currentLanguage == AppLanguage.sinhala
+                    ? 'Host URL වෙනස් කිරීම හෝ ADB reverse'
+                    : (localeProvider?.currentLanguage == AppLanguage.tamil
+                        ? 'Host URL மாற்றுதல்'
+                        : 'Change host URL or toggle ADB reverse'),
+              ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () {
                 Navigator.pop(ctx);
@@ -290,10 +335,13 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               },
             ),
             const SizedBox(height: 16),
-            const Center(
+            Center(
               child: Text(
                 'MediConnect Clinical Clarity v2.4 (HIPAA Compliant)',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -305,6 +353,15 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   void _triggerEmergencyAlert() {
+    LocaleProvider? localeProvider;
+    try {
+      localeProvider = Provider.of<LocaleProvider>(context, listen: false);
+    } catch (_) {
+      localeProvider = null;
+    }
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -313,27 +370,40 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppTheme.errorContainer,
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.emergency_rounded, color: AppTheme.error, size: 24),
             ),
             const SizedBox(width: 10),
-            const Text('Emergency SOS', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              isSi ? 'හදිසි SOS' : (isTa ? 'அவசர SOS' : 'Emergency SOS'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
-        content: const Text(
-          'For acute, life-threatening medical emergencies, immediate dispatched assistance is available:\n\n'
-          '• National Ambulance Service: 1990\n'
-          '• General Emergency: 911 / 119\n\n'
-          'Would you like to initiate an emergency phone call now?',
-          style: TextStyle(fontSize: 14, height: 1.5),
+        content: Text(
+          isSi
+              ? 'හදිසි ජීවිතාරක්ෂක වෛද්‍ය ආධාර සඳහා සෘජු ඇමතුම් පහසුකම:\n\n'
+                  '• ජාතික ගිලන්රථ සේවය: 1990\n'
+                  '• සාමාන්‍ය හදිසි ඇමතුම්: 119\n\n'
+                  'ඔබට දැන් හදිසි ඇමතුමක් ලබා ගැනීමට අවශ්‍යද?'
+              : (isTa
+                  ? 'உயிருக்கு ஆபத்தான அவசரநிலைகளுக்கு உடனடி உதவி:\n\n'
+                      '• தேசிய ஆம்புலன்ஸ் சேவை: 1990\n'
+                      '• அவசர உதவி: 119\n\n'
+                      'இப்போது அவசர அழைப்பை மேற்கொள்ள விரும்புகிறீர்களா?'
+                  : 'For acute, life-threatening medical emergencies, immediate dispatched assistance is available:\n\n'
+                      '• National Ambulance Service: 1990\n'
+                      '• General Emergency: 911 / 119\n\n'
+                      'Would you like to initiate an emergency phone call now?'),
+          style: const TextStyle(fontSize: 14, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Dismiss'),
+            child: Text(isSi ? 'අවලංගු කරන්න' : (isTa ? 'ரத்துசெய்' : 'Dismiss')),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
@@ -344,32 +414,43 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Calling National Ambulance Service (1990)...'),
+                SnackBar(
+                  content: Text(
+                    isSi
+                        ? 'ජාතික ගිලන්රථ සේවය අමතමින් (1990)...'
+                        : (isTa ? 'தேசிய ஆம்புலன்ஸ் சேவையை அழைக்கிறது (1990)...' : 'Calling National Ambulance Service (1990)...'),
+                  ),
                   backgroundColor: AppTheme.error,
                 ),
               );
             },
             icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
-            label: const Text('Call 1990'),
+            label: Text(isSi ? '1990 අමතන්න' : (isTa ? '1990 ஐ அழைக்கவும்' : 'Call 1990')),
           ),
         ],
       ),
     );
   }
 
-  String _getTimeGreeting() {
+  String _getTimeGreeting(AppLocalizations? l10n) {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return l10n?.goodMorning ?? 'Good morning';
+    if (hour < 17) return l10n?.goodAfternoon ?? 'Good afternoon';
+    return l10n?.goodEvening ?? 'Good evening';
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    LocaleProvider? localeProvider;
+    try {
+      localeProvider = Provider.of<LocaleProvider>(context);
+    } catch (_) {
+      localeProvider = null;
+    }
+    final l10n = AppLocalizations.of(context);
     final user = authProvider.user;
-    final userName = user?.fullName.isNotEmpty == true ? user!.fullName : 'Patient';
+    final userName = user?.fullName.isNotEmpty == true ? user!.fullName : (l10n?.patient ?? 'Patient');
 
     ThemeProvider? themeProvider;
     try {
@@ -406,7 +487,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                 ),
                 Text(
-                  'Patient Dashboard',
+                  l10n?.patientDashboard ?? 'Patient Dashboard',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -428,7 +509,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           IconButton(
             key: const Key('patient_home_logout_icon_button'),
             icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Logout',
+            tooltip: l10n?.logout ?? 'Logout',
             onPressed: _isLoggingOut ? null : _handleLogout,
           ),
           const SizedBox(width: 8),
@@ -449,7 +530,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${_getTimeGreeting()}, $userName 👋',
+                          '${_getTimeGreeting(l10n)}, $userName 👋',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
@@ -461,7 +542,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          'How are you feeling today?',
+                          l10n?.howAreYouFeeling ?? 'How are you feeling today?',
                           style: TextStyle(
                             fontSize: 13,
                             color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -482,7 +563,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               const SizedBox(height: 10),
 
               // 2. CRITICAL HERO CARD: MediConnect AI Assistant
-              _buildStitchAiHeroCard(context),
+              _buildStitchAiHeroCard(context, localeProvider),
               const SizedBox(height: 16),
 
               // 3. Quick Services (2x2 Grid)
@@ -490,7 +571,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Quick Services',
+                    l10n?.quickActions ?? 'Quick Services',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -500,15 +581,15 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ],
               ),
               const SizedBox(height: 10),
-              _buildQuickServicesGrid(context),
+              _buildQuickServicesGrid(context, l10n, localeProvider),
               const SizedBox(height: 16),
 
               // 4. Upcoming Appointment Card
-              _buildUpcomingAppointmentCard(context),
+              _buildUpcomingAppointmentCard(context, l10n, localeProvider),
               const SizedBox(height: 16),
 
               // 5. Today's Vitals Tracking Bar
-              _buildVitalsTrackerCard(context),
+              _buildVitalsTrackerCard(context, localeProvider),
               const SizedBox(height: 20),
 
               // 6. Additional Care Services (Records, Reviews, Wellness, Payments)
@@ -516,7 +597,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Care Management',
+                    localeProvider?.currentLanguage == AppLanguage.sinhala
+                        ? 'ප්‍රතිකාර කළමනාකරණය'
+                        : (localeProvider?.currentLanguage == AppLanguage.tamil
+                            ? 'பராமரிப்பு மேலாண்மை'
+                            : 'Care Management'),
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -526,7 +611,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              _buildCareManagementCards(context),
+              _buildCareManagementCards(context, l10n, localeProvider),
               const SizedBox(height: 24),
 
               // 7. Logout Action Button (Preserved for tests)
@@ -550,7 +635,13 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       )
                     : const Icon(Icons.logout_rounded, size: 20),
                 label: Text(
-                  _isLoggingOut ? 'Logging out...' : 'Sign Out of MediConnect',
+                  _isLoggingOut
+                      ? (localeProvider?.currentLanguage == AppLanguage.sinhala
+                          ? 'පිටවෙමින් පවතී...'
+                          : (localeProvider?.currentLanguage == AppLanguage.tamil
+                              ? 'வெளியேறுகிறது...'
+                              : 'Logging out...'))
+                      : (l10n?.logout ?? 'Sign Out of MediConnect'),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -584,14 +675,16 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               children: [
                 _buildNavItem(
                   icon: Icons.home_rounded,
-                  label: 'Home',
+                  label: localeProvider?.currentLanguage == AppLanguage.sinhala
+                      ? 'මුල් පිටුව'
+                      : (localeProvider?.currentLanguage == AppLanguage.tamil ? 'முகப்பு' : 'Home'),
                   isSelected: _selectedNavIndex == 0,
                   isDark: isDark,
                   onTap: () => setState(() => _selectedNavIndex = 0),
                 ),
                 _buildNavItem(
                   icon: Icons.calendar_month_rounded,
-                  label: 'Appointments',
+                  label: l10n?.myAppointments ?? 'Appointments',
                   isSelected: _selectedNavIndex == 1,
                   isDark: isDark,
                   onTap: () {
@@ -600,7 +693,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
                 _buildNavItem(
                   icon: Icons.medical_services_rounded,
-                  label: 'Doctors',
+                  label: l10n?.findDoctor ?? 'Doctors',
                   isSelected: _selectedNavIndex == 2,
                   isDark: isDark,
                   onTap: () {
@@ -609,7 +702,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
                 _buildNavItem(
                   icon: Icons.person_rounded,
-                  label: 'Profile',
+                  label: l10n?.profile ?? 'Profile',
                   isSelected: _selectedNavIndex == 3,
                   isDark: isDark,
                   onTap: () {
@@ -672,7 +765,10 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   /// CRITICAL HERO CARD: MediConnect AI Assistant
-  Widget _buildStitchAiHeroCard(BuildContext context) {
+  Widget _buildStitchAiHeroCard(BuildContext context, LocaleProvider? localeProvider) {
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
@@ -734,14 +830,18 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     borderRadius: BorderRadius.circular(9999),
                     border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.auto_awesome, size: 12, color: Colors.amberAccent),
-                      SizedBox(width: 5),
+                      const Icon(Icons.auto_awesome, size: 12, color: Colors.amberAccent),
+                      const SizedBox(width: 5),
                       Text(
-                        'MEDICONNECT AI COMPANION',
-                        style: TextStyle(
+                        isSi
+                            ? 'MEDICONNECT AI සහකරු'
+                            : (isTa
+                                ? 'MEDICONNECT AI உதவியாளர்'
+                                : 'MEDICONNECT AI COMPANION'),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
@@ -752,9 +852,13 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Need Instant Medical Guidance?',
-                  style: TextStyle(
+                Text(
+                  isSi
+                      ? 'ක්ෂණික වෛද්‍ය උපදෙස් අවශ්‍යද?'
+                      : (isTa
+                          ? 'உடனடி மருத்துவ ஆலோசனை தேவையா?'
+                          : 'Need Instant Medical Guidance?'),
+                  style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -762,9 +866,13 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  'Describe symptoms, check medication, or analyze lab reports in one chat.',
-                  style: TextStyle(
+                Text(
+                  isSi
+                      ? 'රෝග ලක්ෂණ විස්තර කරන්න, ඖෂධ පරීක්ෂා කරන්න හෝ වාර්තා විශ්ලේෂණය කරන්න.'
+                      : (isTa
+                          ? 'அறிகுறிகளை விவரிக்கவும், மருந்துகளை சரிபார்க்கவும் அல்லது அறிக்கைகளை பகுப்பாய்வு செய்யவும்.'
+                          : 'Describe symptoms, check medication, or analyze lab reports in one chat.'),
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Colors.white70,
                     height: 1.25,
@@ -788,16 +896,20 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   onPressed: () {
                     Navigator.of(context).pushNamed('/patient/ai-assistant');
                   },
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.smart_toy_rounded, size: 20, color: AppTheme.primaryBlue),
-                          SizedBox(width: 10),
+                          const Icon(Icons.smart_toy_rounded, size: 20, color: AppTheme.primaryBlue),
+                          const SizedBox(width: 10),
                           Text(
-                            'Start AI Consultation',
-                            style: TextStyle(
+                            isSi
+                                ? 'AI උපදේශනය අරඹන්න'
+                                : (isTa
+                                    ? 'AI ஆலோசனையைத் தொடங்குங்கள்'
+                                    : 'Start AI Consultation'),
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.primaryBlue,
@@ -805,7 +917,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                           ),
                         ],
                       ),
-                      Icon(Icons.arrow_forward_rounded, size: 20, color: AppTheme.primaryBlue),
+                      const Icon(Icons.arrow_forward_rounded, size: 20, color: AppTheme.primaryBlue),
                     ],
                   ),
                 ),
@@ -815,9 +927,30 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    _buildHeroPromptChip(context, Icons.medical_services_rounded, 'Check Symptoms', 'I have a fever and headache'),
-                    _buildHeroPromptChip(context, Icons.monitor_heart_rounded, 'Analyze Blood Test', 'Help analyze my recent lab report'),
-                    _buildHeroPromptChip(context, Icons.medication_rounded, 'Medication Info', 'What are the precautions for amoxicillin?'),
+                    _buildHeroPromptChip(
+                      context,
+                      Icons.medical_services_rounded,
+                      isSi
+                          ? 'රෝග ලක්ෂණ'
+                          : (isTa ? 'அறிகுறிகள்' : 'Check Symptoms'),
+                      'I have a fever and headache',
+                    ),
+                    _buildHeroPromptChip(
+                      context,
+                      Icons.monitor_heart_rounded,
+                      isSi
+                          ? 'රුධිර පරීක්ෂණ'
+                          : (isTa ? 'இரத்தப் பரிசோதனை' : 'Analyze Blood Test'),
+                      'Help analyze my recent lab report',
+                    ),
+                    _buildHeroPromptChip(
+                      context,
+                      Icons.medication_rounded,
+                      isSi
+                          ? 'ඖෂධ තොරතුරු'
+                          : (isTa ? 'மருந்து விவரங்கள்' : 'Medication Info'),
+                      'What are the precautions for amoxicillin?',
+                    ),
                   ],
                 ),
               ],
@@ -864,8 +997,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   /// Upcoming Appointment Card
-  Widget _buildUpcomingAppointmentCard(BuildContext context) {
+  Widget _buildUpcomingAppointmentCard(BuildContext context, AppLocalizations? l10n, LocaleProvider? localeProvider) {
     final isDark = AppTheme.isDark(context);
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     return StitchCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -875,7 +1011,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Upcoming Appointment',
+                l10n?.upcomingAppointments ?? (isSi ? 'ඉදිරි වෛද්‍ය හමුවීම' : (isTa ? 'வரவிருக்கும் சந்திப்பு' : 'Upcoming Appointment')),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -887,9 +1023,9 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 onTap: () {
                   Navigator.of(context).pushNamed('/patient/my-appointments');
                 },
-                child: const Text(
-                  'View all',
-                  style: TextStyle(
+                child: Text(
+                  l10n?.viewAll ?? (isSi ? 'සියල්ල බලන්න' : (isTa ? 'அனைத்தையும் பார்' : 'View all')),
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.primaryBlue,
@@ -921,9 +1057,9 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                         color: AppTheme.secondaryContainer,
                         borderRadius: BorderRadius.circular(9999),
                       ),
-                      child: const Text(
-                        'Tomorrow • 10:30 AM',
-                        style: TextStyle(
+                      child: Text(
+                        isSi ? 'හෙට • පෙ.ව. 10:30' : (isTa ? 'நாளை • மு.ப. 10:30' : 'Tomorrow • 10:30 AM'),
+                        style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.onSecondaryContainer,
@@ -940,7 +1076,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ),
                     ),
                     Text(
-                      'Cardiologist • St. Jude Hospital',
+                      isSi ? 'හෘද රෝග විශේෂඥ • ශාන්ත ජූඩ් රෝහල' : (isTa ? 'இதய நிபுணர் • செயிண்ட் ஜூட் மருத்துவமனை' : 'Cardiologist • St. Jude Hospital'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -969,7 +1105,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          'Encrypted Video Consultation',
+                          isSi ? 'ආරක්ෂිත වීඩියෝ උපදේශනය' : (isTa ? 'பாதுகாப்பான வீடியோ ஆலோசனை' : 'Encrypted Video Consultation'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -982,7 +1118,10 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const StitchPulseBadge(label: 'READY', dotColor: AppTheme.success),
+                StitchPulseBadge(
+                  label: isSi ? 'සූදානම්' : (isTa ? 'தயார்' : 'READY'),
+                  dotColor: AppTheme.success,
+                ),
               ],
             ),
           ),
@@ -993,8 +1132,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textPrimary,
-                    side: const BorderSide(color: AppTheme.border, width: 1),
+                    foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border, width: 1),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     minimumSize: const Size(0, 42),
                   ),
@@ -1002,7 +1141,10 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     Navigator.of(context).pushNamed('/patient/my-appointments');
                   },
                   icon: const Icon(Icons.event_repeat_rounded, size: 16),
-                  label: const Text('Reschedule', style: TextStyle(fontSize: 13)),
+                  label: Text(
+                    l10n?.reschedule ?? (isSi ? 'කාලය වෙනස් කරන්න' : (isTa ? 'மறுதிட்டமிடு' : 'Reschedule')),
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1016,11 +1158,22 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Video consultation link will become active 10 minutes prior to session.')),
+                      SnackBar(
+                        content: Text(
+                          isSi
+                              ? 'වීඩියෝ උපදේශන සබැඳිය සැසියට මිනිත්තු 10කට පෙර සක්‍රිය වේ.'
+                              : (isTa
+                                  ? 'வீடியோ ஆலோசனை இணைப்பு அமர்வுக்கு 10 நிமிடங்களுக்கு முன் தொடங்கும்.'
+                                  : 'Video consultation link will become active 10 minutes prior to session.'),
+                        ),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.videocam_rounded, size: 18),
-                  label: const Text('Join Call', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  label: Text(
+                    isSi ? 'සම්බන්ධ වන්න' : (isTa ? 'இணையுங்கள்' : 'Join Call'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ],
@@ -1031,8 +1184,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   /// Quick Services 2x2 Grid
-  Widget _buildQuickServicesGrid(BuildContext context) {
+  Widget _buildQuickServicesGrid(BuildContext context, AppLocalizations? l10n, LocaleProvider? localeProvider) {
     final isDark = AppTheme.isDark(context);
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     return GridView.count(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
@@ -1065,7 +1221,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Find a Doctor',
+                    l10n?.findDoctor ?? (isSi ? 'වෛද්‍යවරයකු සොයන්න' : (isTa ? 'மருத்துவரைத் தேடுங்கள்' : 'Find a Doctor')),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -1074,7 +1230,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '120+ Specialists',
+                    isSi ? 'විශේෂඥයින් 120+' : (isTa ? '120+ நிபுணர்கள்' : '120+ Specialists'),
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -1110,7 +1266,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Lab & Records',
+                    l10n?.medicalRecords ?? (isSi ? 'පරීක්ෂණ සහ වාර්තා' : (isTa ? 'ஆய்வக அறிக்கைகள்' : 'Lab & Records')),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -1119,7 +1275,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Prescriptions & PDFs',
+                    isSi ? 'වට්ටෝරු සහ PDF' : (isTa ? 'மருந்துச்சீட்டுகள் & PDF' : 'Prescriptions & PDFs'),
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -1155,7 +1311,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Prescriptions',
+                    l10n?.prescriptions ?? (isSi ? 'බෙහෙත් වට්ටෝරු' : (isTa ? 'மருந்துகள்' : 'Prescriptions')),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -1164,7 +1320,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Dose schedules',
+                    isSi ? 'මාත්‍රා කාලසටහන' : (isTa ? 'மருந்து அட்டவணை' : 'Dose schedules'),
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -1199,7 +1355,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Emergency SOS',
+                    isSi ? 'හදිසි SOS' : (isTa ? 'அவசர SOS' : 'Emergency SOS'),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -1208,7 +1364,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Call 1990 Dispatcher',
+                    isSi ? '1990 අමතන්න' : (isTa ? '1990 ஐ அழைக்கவும்' : 'Call 1990 Dispatcher'),
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark ? AppTheme.darkError : AppTheme.error,
@@ -1224,8 +1380,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   /// Today's Vitals Tracking Bar
-  Widget _buildVitalsTrackerCard(BuildContext context) {
+  Widget _buildVitalsTrackerCard(BuildContext context, LocaleProvider? localeProvider) {
     final isDark = AppTheme.isDark(context);
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     return StitchCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       child: Column(
@@ -1233,18 +1392,25 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
-                'Today\'s Vitals',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+            children: [
+              Expanded(
+                child: Text(
+                  isSi ? 'අද දින වැදගත් සලකුණු' : (isTa ? 'இன்றைய முக்கிய அறிகுறிகள்' : 'Today\'s Vitals'),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
-                'Synced 12m ago',
-                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                isSi ? 'මිනි. 12කට පෙර' : (isTa ? '12 நிமிடம் முன்' : 'Synced 12m ago'),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
               ),
             ],
           ),
@@ -1257,10 +1423,16 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.favorite_rounded, size: 14, color: AppTheme.error),
-                        SizedBox(width: 4),
-                        Text('Heart Rate', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                      children: [
+                        const Icon(Icons.favorite_rounded, size: 14, color: AppTheme.error),
+                        const SizedBox(width: 4),
+                        Text(
+                          isSi ? 'හෘද ස්පන්දනය' : (isTa ? 'இதய துடிப்பு' : 'Heart Rate'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -1276,10 +1448,16 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.speed_rounded, size: 14, color: AppTheme.primaryBlue),
-                        SizedBox(width: 4),
-                        Text('Blood Pres.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                      children: [
+                        const Icon(Icons.speed_rounded, size: 14, color: AppTheme.primaryBlue),
+                        const SizedBox(width: 4),
+                        Text(
+                          isSi ? 'රුධිර පීඩනය' : (isTa ? 'இரத்த அழுத்தம்' : 'Blood Pres.'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -1295,15 +1473,24 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.bedtime_rounded, size: 14, color: AppTheme.secondaryBlue),
-                        SizedBox(width: 4),
-                        Text('Sleep', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                      children: [
+                        const Icon(Icons.bedtime_rounded, size: 14, color: AppTheme.secondaryBlue),
+                        const SizedBox(width: 4),
+                        Text(
+                          isSi ? 'නින්ද' : (isTa ? 'தூக்கம்' : 'Sleep'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text('7h 45m', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
-                    Text('Restorative', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
+                    Text(
+                      isSi ? 'සුවදායක' : (isTa ? 'ஆரோக்கியமானது' : 'Restorative'),
+                      style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                    ),
                   ],
                 ),
               ),
@@ -1315,8 +1502,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   /// Additional Care Management features
-  Widget _buildCareManagementCards(BuildContext context) {
+  Widget _buildCareManagementCards(BuildContext context, AppLocalizations? l10n, LocaleProvider? localeProvider) {
     final isDark = AppTheme.isDark(context);
+    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
+    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
+
     return Column(
       children: [
         // Healthcare Timeline & Visit History (Phase 58)
@@ -1342,7 +1532,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Healthcare Timeline',
+                      isSi ? 'සෞඛ්‍ය කාලරේඛාව' : (isTa ? 'சுகாதார காலவரிசை' : 'Healthcare Timeline'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1350,7 +1540,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ),
                     ),
                     Text(
-                      'Chronological journey of appointments, visits & prescriptions',
+                      isSi
+                          ? 'හමුවීම්, පැමිණීම් සහ ඖෂධ වට්ටෝරු සටහන'
+                          : (isTa
+                              ? 'சந்திப்புகள் மற்றும் மருந்துச்சீட்டுகளின் காலவரிசை'
+                              : 'Chronological journey of appointments, visits & prescriptions'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -1388,7 +1582,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Follow-up Care Plans',
+                      isSi ? 'පසු විපරම් ප්‍රතිකාර සැලසුම්' : (isTa ? 'பராமரிப்பு திட்டங்கள்' : 'Follow-up Care Plans'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1396,7 +1590,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ),
                     ),
                     Text(
-                      'Doctor instructions, recovery tasks & follow-up bookings',
+                      isSi
+                          ? 'වෛද්‍ය උපදෙස්, සුවවීමේ කාර්යයන් සහ වෙන්කිරීම්'
+                          : (isTa
+                              ? 'மருத்துவர் அறிவுரைகள் & பின்தொடர் முன்பதிவுகள்'
+                              : 'Doctor instructions, recovery tasks & follow-up bookings'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -1434,7 +1632,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'My Doctor Reviews',
+                      isSi ? 'මගේ වෛද්‍ය ඇගයීම්' : (isTa ? 'எனது மருத்துவர் மதிப்புரைகள்' : 'My Doctor Reviews'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1442,7 +1640,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ),
                     ),
                     Text(
-                      'Rate consultations & read feedback',
+                      isSi
+                          ? 'උපදේශන ඇගයීම සහ ප්‍රතිචාර කියවීම'
+                          : (isTa
+                              ? 'ஆலோசனைகளை மதிப்பிடவும் பின்னூட்டங்களைப் படிக்கவும்'
+                              : 'Rate consultations & read feedback'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -1480,7 +1682,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Health & Wellness Guides',
+                      l10n?.healthWellness ?? (isSi ? 'සෞඛ්‍ය සහ සුවතාව' : (isTa ? 'சுகாதாரம் & ஆரோக்கியம்' : 'Health & Wellness Guides')),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1488,7 +1690,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ),
                     ),
                     Text(
-                      'Nutrition, fitness & preventive care',
+                      isSi
+                          ? 'පෝෂණය, යෝග්‍යතාව සහ වැළැක්වීමේ සත්කාර'
+                          : (isTa
+                              ? 'ஊட்டச்சத்து, உடற்பயிற்சி & தடுப்பு பராமரிப்பு'
+                              : 'Nutrition, fitness & preventive care'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -1526,7 +1732,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Payment History & Receipts',
+                      isSi ? 'ගෙවීම් ඉතිහාසය සහ රිසිට්පත්' : (isTa ? 'கட்டண வரலாறு மற்றும் ரசீதுகள்' : 'Payment History & Receipts'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1534,7 +1740,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                       ),
                     ),
                     Text(
-                      'Stripe receipts & consultation invoices',
+                      isSi
+                          ? 'Stripe රිසිට්පත් සහ උපදේශන ඉන්වොයිසි'
+                          : (isTa
+                              ? 'Stripe ரசீதுகள் & ஆலோசனை விலைப்பட்டியல்கள்'
+                              : 'Stripe receipts & consultation invoices'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
