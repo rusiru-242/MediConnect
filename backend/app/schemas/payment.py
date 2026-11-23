@@ -24,6 +24,7 @@ class CreatePaymentIntentResponse(BaseModel):
 
 
 class PaymentStatusResponse(BaseModel):
+    reconciliationState: Optional[str] = None
     """Authoritative payment and appointment status returned to patient."""
 
     model_config = ConfigDict(populate_by_name=True)

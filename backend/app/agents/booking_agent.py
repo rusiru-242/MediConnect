@@ -135,7 +135,9 @@ class BookingAgent:
         ):
             return await cls._patient_status_turn(db, patient_user, provider, session_data, clean_text)
         requested_time = extract_appointment_time(clean_text)
-        if intent == CompanionIntent.FIND_DOCTOR and requested_time and parsed_delta.get("date"):
+        if (requested_time or parsed_delta.get("timeRange")) and parsed_delta.get("date") and (
+            intent == CompanionIntent.FIND_DOCTOR or patient_user and (prefs.get("specialty") or prefs.get("city"))
+        ):
             intent = CompanionIntent.BOOK_APPOINTMENT
         if re.search(r"\b(?:neurolgist|neurolagist|dermatolgist|cardiolagist)\b", clean_text, re.I):
             session_data.setdefault("messages", []).extend([
@@ -172,7 +174,7 @@ class BookingAgent:
         )
         search_requested = (
             intent == CompanionIntent.FIND_DOCTOR
-            or (intent == CompanionIntent.BOOK_APPOINTMENT and bool(parsed_delta.get("specialty") or parsed_delta.get("city")))
+            or (intent == CompanionIntent.BOOK_APPOINTMENT and bool(parsed_delta.get("specialty") or parsed_delta.get("city") or (requested_time or parsed_delta.get("timeRange")) and prefs.get("specialty")))
             or filter_only
             or any(parsed_delta.get(key) for key in ("doctorName", "hospital"))
             or (parsed_delta.get("specialty") and parsed_delta.get("language") == "si")

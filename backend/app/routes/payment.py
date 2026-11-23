@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pymongo.database import Database
 
 from app.config.database import get_database
-from app.middleware.auth import require_patient
+from app.middleware.auth import require_admin, require_patient
 from app.schemas.payment import (
     CreatePaymentIntentRequest,
     CreatePaymentIntentResponse,
@@ -97,3 +97,54 @@ async def get_payment_status(
     return await PaymentService.get_payment_status(
         db=db, payment_id=payment_id, patient_user=current_user
     )
+
+@payment_router.post("/{payment_id}/reconcile-refund")
+async def refund_unconfirmed_ai_payment(
+    payment_id: str,
+    admin: UserResponseSchema = Depends(require_admin),
+    db: Database = Depends(get_database),
+):
+    """Explicit admin action for money received against a booking that could not confirm."""
+    import stripe
+    from bson import ObjectId
+    from app.config.settings import settings
+    from app.models.appointment import utc_now
+
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(404, "Payment not found.")
+    payment = db["payments"].find_one({"_id": ObjectId(payment_id),
+                                       "reconciliationState": {"$in": ["REVIEW_REQUIRED", "REFUND_PENDING"]}})
+    if not payment or payment.get("status") != "SUCCEEDED":
+        raise HTTPException(404, "Payment pending reconciliation not found.")
+    if not settings.STRIPE_SECRET_KEY:
+        raise HTTPException(503, "Payment gateway is unavailable.")
+    if db["appointments"].find_one({"stripePaymentIntentId": payment["stripePaymentIntentId"], "status": "CONFIRMED"}):
+        raise HTTPException(409, "A confirmed booking is linked to this payment.")
+    active = db["appointments"].find_one({
+        "_id": ObjectId(payment["appointmentId"]), "status": {"$in": ["HOLD", "PENDING"]},
+        "holdExpiresAt": {"$gt": utc_now()},
+    })
+    if active:
+        raise HTTPException(409, "Wait for the booking hold to expire before reconciling the payment.")
+    refunds = db["payments"]
+    refunds.update_one({"_id": payment["_id"]}, {"$set": {
+        "reconciliationState": "REFUND_PENDING", "reconciledBy": str(admin.id), "updatedAt": utc_now(),
+    }})
+    try:
+        if payment.get("stripeRefundId"):
+            refund = stripe.Refund.retrieve(payment["stripeRefundId"], api_key=settings.STRIPE_SECRET_KEY)
+        else:
+            refund = stripe.Refund.create(
+                payment_intent=payment["stripePaymentIntentId"], api_key=settings.STRIPE_SECRET_KEY,
+                idempotency_key=f"mediconnect_reconcile_{payment_id}",
+            )
+    except stripe.error.StripeError as exc:
+        raise HTTPException(502, "Refund verification is pending. Retry this same request.") from exc
+    state = {"succeeded": "REFUNDED", "failed": "REFUND_FAILED", "canceled": "REFUND_FAILED"}.get(
+        refund.status, "REFUND_PENDING",
+    )
+    refunds.update_one({"_id": payment["_id"]}, {"$set": {
+        "stripeRefundId": refund.id, "reconciliationState": state, "updatedAt": utc_now(),
+        **({"status": "REFUNDED"} if state == "REFUNDED" else {}),
+    }})
+    return {"reconciliationState": state}

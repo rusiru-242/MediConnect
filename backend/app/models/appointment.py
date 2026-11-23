@@ -21,6 +21,7 @@ class AppointmentStatus(str, Enum):
 
 class PaymentStatus(str, Enum):
     UNPAID = "UNPAID"
+    NOT_REQUIRED = "NOT_REQUIRED"
     PENDING = "PENDING"
     PAID = "PAID"
     FAILED = "FAILED"
@@ -129,6 +130,13 @@ def create_appointment_indexes(db: Database) -> None:
         [("doctorUserId", ASCENDING), ("appointmentDate", ASCENDING), ("startTime", ASCENDING)],
         name="idx_appt_doctor_date_time",
     )
+
+    for channel in ("email", "sms", "doctor"):
+        field = f"confirmationOutbox.{channel}"
+        collection.create_index(
+            [(f"{field}.status", ASCENDING), (f"{field}.nextAttemptAt", ASCENDING)],
+            name=f"idx_confirmation_outbox_{channel}", sparse=True,
+        )
 
     # Double-booking protection: unique per active slot (excludes CANCELLED)
     existing_idx_names = {idx.get("name") for idx in collection.list_indexes()}

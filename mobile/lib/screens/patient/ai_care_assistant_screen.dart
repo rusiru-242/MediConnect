@@ -396,6 +396,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         date: slot.date,
         startTime: slot.startTime,
         endTime: slot.endTime,
+        prepareProposal: true,
       );
       if (!mounted) return;
       setState(() {
@@ -412,6 +413,55 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     }
   }
 
+  String? _smsConsentProposal;
+
+  Future<void> _refreshBooking() async {
+    if (_session == null || _isLoading || _isPaymentProcessing) return;
+    setState(() => _isLoading = true);
+    try {
+      final updated = await _bookingService.syncPaymentStatus(_session!.id);
+      if (mounted) setState(() => _session = updated);
+    } catch (_) {
+      if (mounted) setState(() => _errorMessage = 'Booking status is temporarily unavailable.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _cancelProposal() async {
+    if (_session == null || _isLoading || _isPaymentProcessing) return;
+    setState(() => _isLoading = true);
+    try {
+      final updated = await _bookingService.cancelSession(_session!.id);
+      if (mounted) setState(() => _session = updated);
+    } catch (_) {
+      if (mounted) setState(() => _errorMessage = 'Could not cancel this booking.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _changeProposalDoctor() async {
+    final doctors = _session?.candidateDoctors ?? [];
+    final doctor = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final doctor in doctors)
+              ListTile(
+                title: Text(doctor.fullName),
+                subtitle: Text(doctor.specialty),
+                onTap: () => Navigator.pop(context, doctor.doctorId),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (mounted && doctor != null) await _selectDoctor(doctor);
+  }
+
   Future<void> _confirmBooking() async {
     if (_session == null || _isLoading || _isPaymentProcessing) return;
     setState(() {
@@ -422,6 +472,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     try {
       final updated = await _bookingService.confirmBooking(
         _session!.id,
+        proposalId: _session!.bookingSummary?.proposalId,
+        smsConsent: _smsConsentProposal != null && _smsConsentProposal == _session!.bookingSummary?.proposalId,
         patientNote: _patientNoteController.text.trim().isNotEmpty
             ? _patientNoteController.text.trim()
             : null,
@@ -433,6 +485,10 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       });
       if (updated.holdExpiresAt != null) {
         _startHoldTimer(updated.holdExpiresAt!);
+      }
+      if (updated.bookingSummary?.proposalId != null &&
+          updated.holdExpiresAt != null && updated.isAwaitingPayment) {
+        await _startPaymentFlow();
       }
       _scrollToBottom();
     } on ApiException catch (e) {
@@ -514,7 +570,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         _isPaymentProcessing = false;
       });
 
-      if (updatedSession.isConfirmed) {
+      if (updatedSession.isConfirmed && updatedSession.bookingResult == null) {
         final doc = _session?.selectedDoctor;
         final slot = _session?.selectedSlot;
         Navigator.push(
@@ -531,7 +587,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             ),
           ),
         );
-      } else {
+      } else if (!updatedSession.isConfirmed) {
         setState(() {
           _errorMessage = statusResult.paymentStatus.toUpperCase() == 'FAILED'
               ? 'Payment failed. Please try again while the slot is held.'
@@ -939,7 +995,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildChatBubble(msg),
-              if (msg.metadata?['type'] == 'booking_confirmed')
+              if (msg.metadata?['type'] == 'booking_confirmed' &&
+                  msg.metadata?['appointmentId'] != _session?.bookingResult?['reference'])
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.event_available),
@@ -1122,6 +1179,16 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         ],
 
         // 3. Awaiting Explicit Confirmation: Booking Summary Card
+        if (_session!.bookingResult?['status'] == 'CONFIRMED')
+          _buildVerifiedBookingResult(_session!.bookingResult!),
+        if (_session!.bookingResult?['reconciliationState'] != null)
+          const ListTile(
+            title: Text('Payment under review'),
+            subtitle: Text('This appointment is awaiting payment reconciliation.'),
+          ),
+        if (_session!.bookingResult != null)
+          TextButton(onPressed: _isLoading || _isPaymentProcessing ? null : _refreshBooking,
+              child: const Text('Refresh booking status')),
         if (_session!.isAwaitingConfirmation && _session!.bookingSummary != null)
           _buildBookingSummaryCard(),
 
@@ -1931,6 +1998,24 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             _buildSummaryRow('Specialty', s.specialty),
             if (s.hospitalOrClinic != null)
               _buildSummaryRow('Location', s.hospitalOrClinic!),
+            if (s.city != null) _buildSummaryRow('City', s.city!),
+            if (s.patientName != null) _buildSummaryRow('Patient', s.patientName!),
+            if (s.proposalId != null) ...[
+              _buildSummaryRow('Email', s.maskedEmail ?? 'Add a verified email in your account'),
+              if (s.maskedPhone != null)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('Send confirmation SMS to ${s.maskedPhone}'),
+                  value: _smsConsentProposal == s.proposalId,
+                  onChanged: _isLoading ? null : (value) => setState(
+                    () => _smsConsentProposal = value == true ? s.proposalId : null,
+                  ),
+                )
+              else
+                const Text('Add a Sri Lankan mobile number in your account to receive SMS.'),
+              if (s.selectionReason != null) Text(s.selectionReason!),
+              const Text('Appointment times are shown in Sri Lanka time.'),
+            ],
             _buildSummaryRow('Date', s.appointmentDate),
             _buildSummaryRow('Time', '${s.startTime} - ${s.endTime}'),
             const Divider(height: 20),
@@ -1966,6 +2051,18 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
               ),
               maxLines: 2,
             ),
+            if (s.proposalId != null)
+              Wrap(
+                children: [
+                  TextButton(onPressed: _isLoading || _session!.candidateDoctors.isEmpty ? null : _changeProposalDoctor,
+                      child: const Text('Change Doctor')),
+                  TextButton(
+                      onPressed: _isLoading || _session!.selectedDoctor == null ? null
+                          : () => _selectDoctor(_session!.selectedDoctor!.doctorId),
+                      child: const Text('Change Date/Time')),
+                  TextButton(onPressed: _isLoading ? null : _cancelProposal, child: const Text('Cancel')),
+                ],
+              ),
             const SizedBox(height: 16),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -1981,11 +2078,33 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                       height: 20,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                     )
-                  : const Text(
-                      'Confirm Booking',
+                  : Text(
+                      s.proposalId == null ? 'Confirm Booking' : 'Accept & Continue',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerifiedBookingResult(Map<String, dynamic> result) {
+    final notices = result['notifications'] as Map? ?? {};
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Appointment Confirmed', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('Reference: ${result['reference']}'),
+            if (result['doctor'] != null) Text(result['doctor'].toString()),
+            Text('${result['date']} at ${result['time']} (Sri Lanka time)'),
+            if (result['clinic'] != null) Text(result['clinic'].toString()),
+            Text(result['paymentStatus'] == 'PAID' ? 'Paid' : 'No payment required'),
+            Text('Email: ${notices['email'] ?? 'pending'}'),
+            Text('SMS: ${notices['sms'] ?? 'pending'}'),
           ],
         ),
       ),

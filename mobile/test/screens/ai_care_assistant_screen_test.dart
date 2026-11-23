@@ -6,6 +6,8 @@ import 'package:mediconnect/services/ai_booking_service.dart';
 
 class FakeAiBookingService implements AiBookingService {
   BookingSession currentSession;
+  String? acceptedProposal;
+  bool acceptedSms = false;
   List<Map<String, dynamic>> history = [];
   final Map<String, BookingSession> storedSessions = {};
   final List<String> sentRequestIds = [];
@@ -198,6 +200,7 @@ class FakeAiBookingService implements AiBookingService {
     required String date,
     required String startTime,
     String? endTime,
+    bool prepareProposal = false,
   }) async {
     final updatedMessages = List<ChatMessage>.from(currentSession.messages)
       ..add(ChatMessage(
@@ -240,7 +243,23 @@ class FakeAiBookingService implements AiBookingService {
   }
 
   @override
-  Future<BookingSession> confirmBooking(String sessionId, {String? patientNote}) async {
+  Future<BookingSession> confirmBooking(String sessionId, {String? patientNote, String? proposalId, bool smsConsent = false}) async {
+    acceptedProposal = proposalId;
+    acceptedSms = smsConsent;
+    if (proposalId != null && currentSession.bookingSummary?.totalAmount == 0) {
+      currentSession = BookingSession.fromJson({
+        ...currentSession.toJson(),
+        'state': 'BOOKING_CONFIRMED',
+        'appointmentId': 'booking-reference',
+        'bookingResult': {
+          'status': 'CONFIRMED', 'reference': 'booking-reference',
+          'doctor': 'Dr. Test', 'date': '2026-12-05', 'time': '16:00',
+          'clinic': 'Test Clinic', 'paymentStatus': 'NOT_REQUIRED',
+          'notifications': {'email': 'sent', 'sms': 'accepted'},
+        },
+      });
+      return currentSession;
+    }
     final updatedMessages = List<ChatMessage>.from(currentSession.messages)
       ..add(ChatMessage(
         id: 'msg_hold',
@@ -307,6 +326,38 @@ void main() {
   }
 
   group('AiCareAssistantScreen Widget Tests (Phase 39)', () {
+    testWidgets('Accepts the exact proposal and shows verified booking status', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(800, 1000);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final service = FakeAiBookingService();
+      service.currentSession = BookingSession.fromJson({
+        ...service.currentSession.toJson(),
+        'state': 'AWAITING_BOOKING_CONFIRMATION',
+        'bookingSummary': {
+          'proposalId': 'proposal-for-current-slot',
+          'doctorName': 'Dr. Test', 'specialty': 'Neurology',
+          'appointmentDate': '2026-12-05', 'startTime': '16:00', 'endTime': '16:30',
+          'consultationFee': 0, 'totalAmount': 0, 'maskedPhone': '***4567',
+        },
+      });
+      await tester.pumpWidget(createTestWidget(service: service));
+      await tester.pumpAndSettle();
+      final sms = find.text('Send confirmation SMS to ***4567');
+      await tester.ensureVisible(sms);
+      await tester.tap(sms);
+      await tester.pumpAndSettle();
+      final button = find.text('Accept & Continue');
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(service.acceptedProposal, 'proposal-for-current-slot');
+      expect(service.acceptedSms, isTrue);
+      expect(find.text('Appointment Confirmed'), findsOneWidget);
+      expect(find.text('SMS: accepted'), findsOneWidget);
+    });
+
     testWidgets('Restores a conversation, starts a new one, and reopens history', (tester) async {
       final service = FakeAiBookingService();
       final original = await service.sendMessage(service.currentSession.id, 'Find a doctor in Colombo');

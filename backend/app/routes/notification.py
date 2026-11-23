@@ -1,11 +1,11 @@
 """Notification endpoints for in-app alerts and FCM device registration."""
 
-from typing import Optional
-from fastapi import APIRouter, Depends, Query, status
+from typing import Literal, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pymongo.database import Database
 
 from app.config.database import get_database
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, require_admin
 from app.schemas.notification import (
     NotificationActionResponse,
     NotificationListResponse,
@@ -181,3 +181,26 @@ async def remove_device(
         user_id=str(current_user.id),
         fcm_token=req.fcmToken,
     )
+
+@router.post("/booking-confirmations/{appointment_id}/{channel}/retry")
+def retry_booking_confirmation(
+    appointment_id: str,
+    channel: Literal["email", "sms", "doctor"],
+    admin: UserResponseSchema = Depends(require_admin),
+    db: Database = Depends(get_database),
+):
+    from bson import ObjectId
+    from app.models.appointment import utc_now
+
+    if not ObjectId.is_valid(appointment_id):
+        raise HTTPException(404, "Failed confirmation job not found.")
+    path = f"confirmationOutbox.{channel}"
+    result = db["appointments"].update_one(
+        {"_id": ObjectId(appointment_id), "confirmedAt": {"$exists": True}, f"{path}.status": "failed"},
+        {"$set": {f"{path}.status": "pending", f"{path}.nextAttemptAt": utc_now(),
+                  f"{path}.attempts": 0, f"{path}.retriedBy": str(admin.id)},
+         "$unset": {f"{path}.providerId": "", f"{path}.reason": ""}},
+    )
+    if not result.modified_count:
+        raise HTTPException(404, "Failed confirmation job not found.")
+    return {"status": "pending"}
