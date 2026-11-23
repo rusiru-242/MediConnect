@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mediconnect/models/auth_session.dart';
 import 'package:mediconnect/models/doctor_application_status.dart';
@@ -10,7 +9,6 @@ import 'package:mediconnect/providers/notification_provider.dart';
 import 'package:mediconnect/providers/theme_provider.dart';
 import 'package:mediconnect/screens/doctor/doctor_home_screen.dart';
 import 'package:mediconnect/services/auth_api_service.dart';
-import 'package:mediconnect/services/notification_service.dart';
 import 'package:provider/provider.dart';
 
 class MockAuthService extends AuthApiService {
@@ -25,19 +23,8 @@ class MockAuthService extends AuthApiService {
   }
 }
 
-class MockNotificationService extends NotificationService {
-  @override
-  Future<int> getUnreadCount() async => 1;
-}
-
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-  FlutterSecureStorage.setMockInitialValues({});
-
   group('DoctorHomeScreen Render & Robustness Tests', () {
-    setUp(() {
-      FlutterSecureStorage.setMockInitialValues({});
-    });
     testWidgets('DoctorHomeScreen renders completely without any RenderFlex overflow in English', (tester) async {
       tester.view.physicalSize = const Size(360, 780); // Compact mobile screen
       tester.view.devicePixelRatio = 1.0;
@@ -69,7 +56,7 @@ void main() {
             ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
             ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
             ChangeNotifierProvider<LocaleProvider>(create: (_) => LocaleProvider()),
-            ChangeNotifierProvider<NotificationProvider>(create: (_) => NotificationProvider(notificationService: MockNotificationService())),
+            ChangeNotifierProvider<NotificationProvider>(create: (_) => NotificationProvider()),
           ],
           child: const MaterialApp(
             home: DoctorHomeScreen(),
@@ -128,7 +115,7 @@ void main() {
             ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
             ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
             ChangeNotifierProvider<LocaleProvider>.value(value: localeProvider),
-            ChangeNotifierProvider<NotificationProvider>(create: (_) => NotificationProvider(notificationService: MockNotificationService())),
+            ChangeNotifierProvider<NotificationProvider>(create: (_) => NotificationProvider()),
           ],
           child: const MaterialApp(
             home: DoctorHomeScreen(),
