@@ -6,8 +6,11 @@ import {
   Download,
   AlertCircle,
   Check,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import { doctorVerificationApi } from '../api/doctorVerificationApi';
+import { adminWorkflowApi } from '../api/adminWorkflowApi';
 import { DoctorApplicationSummary } from '../types/doctor';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Button } from '../components/common/Button';
@@ -52,6 +55,15 @@ export const DoctorVerificationPage: React.FC = () => {
   } = useQuery({
     queryKey: ['doctor-application-detail', selectedAppId],
     queryFn: () => (selectedAppId ? doctorVerificationApi.getApplicationDetail(selectedAppId) : null),
+    enabled: !!selectedAppId,
+  });
+
+  // Query AI Verification Review
+  const {
+    data: aiReview,
+  } = useQuery({
+    queryKey: ['doctor-ai-review', selectedAppId],
+    queryFn: () => (selectedAppId ? adminWorkflowApi.getDoctorAIReview(selectedAppId) : null),
     enabled: !!selectedAppId,
   });
 
@@ -352,6 +364,50 @@ export const DoctorVerificationPage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* AI Verification Assistant Analysis Card */}
+            {aiReview && (
+              <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-brand-600" />
+                    <span className="text-xs font-bold text-brand-900">AI Verification Assistant Review</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-slate-500">Completeness:</span>
+                    <span className="text-xs font-bold text-brand-700">{aiReview.completenessScore}%</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        aiReview.recommendedAction === 'APPROVE'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : aiReview.recommendedAction === 'REQUEST_INFO'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {aiReview.recommendedAction}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-brand-900 leading-relaxed font-medium">{aiReview.summary}</p>
+
+                {/* Mandatory External Registry Verification Notice */}
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-900 flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">SLMC Medical Council Requirement:</span> AI analysis does not constitute formal licensing verification. Ensure manual verification against the Sri Lanka Medical Council (SLMC) public register prior to approving this clinician.
+                  </div>
+                </div>
+
+                {/* Missing Documents or Flags */}
+                {aiReview.missingDocuments.length > 0 && (
+                  <div className="rounded-lg bg-rose-50 border border-rose-200 p-2 text-xs text-rose-800">
+                    <span className="font-bold">Missing Documents:</span> {aiReview.missingDocuments.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Qualifications & Bio */}
             <div className="text-xs space-y-2">

@@ -13,6 +13,11 @@ import {
   Settings,
   ShieldCheck,
   X,
+  ShieldAlert,
+  LifeBuoy,
+  RotateCcw,
+  FileText,
+  Shield,
 } from 'lucide-react';
 
 export interface SidebarProps {
@@ -23,6 +28,11 @@ export interface SidebarProps {
 const navigationItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Doctor Verification', href: '/doctor-verification', icon: UserCheck },
+  { name: 'Payment Reconciliation', href: '/reconciliation', icon: ShieldAlert },
+  { name: 'Refund Review', href: '/refunds', icon: RotateCcw },
+  { name: 'Customer Support', href: '/support-tickets', icon: LifeBuoy },
+  { name: 'Operational Reports', href: '/reports', icon: FileText },
+  { name: 'Audit Trail', href: '/audit-logs', icon: Shield },
   { name: 'Doctors Directory', href: '/doctors', icon: Stethoscope },
   { name: 'Patients & Users', href: '/users', icon: Users },
   { name: 'Appointments', href: '/appointments', icon: CalendarCheck },
