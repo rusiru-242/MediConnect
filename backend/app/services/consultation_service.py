@@ -442,6 +442,10 @@ class ConsultationService:
 
         appt_id = str(appt["_id"])
         booking_status = str(appt.get("status", "")).upper()
+        from app.services.doctor_workflow import queue_data
+
+        if queue_data(appt):
+            raise HTTPException(409, "Continue this appointment from Clinic workflow.")
 
         if booking_status == AppointmentStatus.CANCELLED.value:
             raise HTTPException(
@@ -536,6 +540,12 @@ class ConsultationService:
         appt = cls._verify_appointment_ownership(db, doctor_user, doc_prof, appointment_id)
 
         appt_id = str(appt["_id"])
+        from app.services.doctor_workflow import queue_data
+
+        if queue_data(appt):
+            raise HTTPException(409, "Continue this appointment from Clinic workflow.")
+        if appt["status"] == AppointmentStatus.CANCELLED.value:
+            raise HTTPException(409, "A cancelled appointment cannot be completed.")
         coll = get_consultation_collection(db)
         existing = coll.find_one({"appointmentId": appt_id})
 

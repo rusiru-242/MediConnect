@@ -1019,6 +1019,9 @@ class AppointmentService:
                 detail=f"Cannot reschedule an appointment with status: {current_status}.",
             )
 
+        if (appt.get("clinicQueue") or {}).get("status") == "in_consultation":
+            raise HTTPException(409, "An appointment in consultation cannot be rescheduled.")
+
         new_date = req.newDate.strip()
         new_start_time = req.newStartTime.strip()
 
@@ -1066,8 +1069,10 @@ class AppointmentService:
         new_version = int(appt.get("appointmentVersion", 1)) + 1
         now = utc_now()
 
-        get_appointment_collection(db).update_one(
-            {"_id": ObjectId(appointment_id)},
+        updated_slot = get_appointment_collection(db).update_one(
+            {"_id": ObjectId(appointment_id), "status": current_status,
+             "appointmentVersion": appt.get("appointmentVersion", {"$exists": False}),
+             "clinicQueue.status": {"$ne": "in_consultation"}},
             {
                 "$set": {
                     "appointmentDate": new_date,
@@ -1079,6 +1084,9 @@ class AppointmentService:
                 }
             },
         )
+
+        if updated_slot.matched_count != 1:
+            raise HTTPException(409, "The appointment changed. Refresh before rescheduling.")
 
         # Notify patient and doctor
         try:

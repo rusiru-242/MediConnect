@@ -6,6 +6,7 @@ import '../../services/care_plan_service.dart';
 /// Screen allowing an approved doctor to author a follow-up care plan for a consultation.
 class CreateCarePlanScreen extends StatefulWidget {
   final Appointment? appointment;
+  final DateTime? initialFollowUpDate;
   final String? appointmentId;
   final String? planId;
   final String? patientUserId;
@@ -16,6 +17,7 @@ class CreateCarePlanScreen extends StatefulWidget {
   const CreateCarePlanScreen({
     super.key,
     this.appointment,
+    this.initialFollowUpDate,
     this.appointmentId,
     this.planId,
     this.patientUserId,
@@ -59,6 +61,7 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
   @override
   void initState() {
     super.initState();
+    _followUpDate = widget.initialFollowUpDate ?? _followUpDate;
     _carePlanService = widget.carePlanService ?? CarePlanService();
     _taskControllers.add(TextEditingController());
     if (widget.planId != null) _loadPlan(widget.planId!);

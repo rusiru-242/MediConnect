@@ -835,6 +835,17 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               ),
               const SizedBox(height: 10),
 
+              _buildSectionCard(
+                key: const Key('doctor_home_workflow_card'),
+                icon: Icons.view_timeline_outlined,
+                iconColor: AppTheme.primaryBlue,
+                title: 'Clinic workflow',
+                subtitle: 'Queue, consultation preparation, reminders and analytics',
+                isDark: isDark,
+                onTap: () => Navigator.of(context).pushNamed('/doctor/workflow'),
+              ),
+              const SizedBox(height: 10),
+
               // 1. Appointments Card
               _buildSectionCard(
                 key: const Key('doctor_home_appointments_card'),

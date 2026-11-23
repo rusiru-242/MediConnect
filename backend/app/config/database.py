@@ -70,6 +70,7 @@ def get_database() -> Database:
 def ensure_indexes(db: Optional[Database] = None) -> bool:
     """Create required MongoDB indexes for users, refresh tokens, and password resets."""
     from app.models.appointment import create_appointment_indexes
+    from app.services.doctor_communications import create_indexes as create_doctor_communication_indexes
     from app.services.care_scheduler import create_indexes as create_care_scheduler_indexes
     from app.models.booking_session import create_booking_session_indexes
     from app.models.doctor_availability import create_doctor_availability_indexes
@@ -104,6 +105,7 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         ("consultation_sessions", create_consultation_indexes),
         ("appointments", create_appointment_indexes),
         ("care_scheduler", create_care_scheduler_indexes),
+        ("doctor_communications", create_doctor_communication_indexes),
         ("payments", create_payment_indexes),
         ("notifications", create_notification_indexes),
         ("booking_sessions", create_booking_session_indexes),
