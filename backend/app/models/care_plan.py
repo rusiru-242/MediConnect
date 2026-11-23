@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Literal, Any, Dict, List, Optional
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo import ASCENDING, DESCENDING
@@ -33,6 +33,10 @@ class CareTask(BaseModel):
     taskId: str = Field(default_factory=lambda: str(ObjectId()), description="Unique task identifier")
     title: str = Field(..., min_length=2, max_length=200, description="Task title")
     description: Optional[str] = Field(None, max_length=500, description="Optional detailed instructions")
+    kind: Literal["task", "test", "measurement", "exercise"] = "task"
+    dueAt: Optional[datetime] = None
+    location: Optional[str] = Field(None, max_length=200)
+    remindMinutesBefore: int = Field(default=0, ge=0, le=1440)
     isCompleted: bool = Field(default=False, description="Completion status")
     completedAt: Optional[datetime] = Field(None, description="Timestamp when task was marked completed")
 

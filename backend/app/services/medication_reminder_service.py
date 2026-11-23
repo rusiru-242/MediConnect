@@ -224,7 +224,7 @@ class MedicationReminderService:
     ) -> MedicationReminderListResponse:
         """List reminders owned by the authenticated patient."""
         reminder_coll = get_medication_reminder_collection(db)
-        query: Dict[str, Any] = {"patientUserId": str(patient_user.id)}
+        query: Dict[str, Any] = {"patientUserId": str(patient_user.id), "approvedBy": {"$exists": False}}
         if active_only:
             query["status"] = ReminderStatus.ACTIVE.value
             query["enabled"] = True
@@ -306,6 +306,9 @@ class MedicationReminderService:
                 detail="You are not authorized to modify this medication reminder.",
             )
 
+        if raw.get("approvedBy"):
+            raise HTTPException(409, "Use My Care Plan for this approved schedule. Only its clinician can change the instructions.")
+
         update_fields: Dict[str, Any] = {"updatedAt": utc_now()}
 
         if req.scheduledTimes is not None:
@@ -362,6 +365,8 @@ class MedicationReminderService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to delete this medication reminder.",
             )
+        if raw.get("approvedBy"):
+            raise HTTPException(409, "Use My Care Plan for this approved schedule. Only its clinician can change the instructions.")
 
         # Mark cancelled and disabled to maintain historical event linkages
         reminder_coll.update_one(
@@ -406,6 +411,7 @@ class MedicationReminderService:
             reminder_coll.find(
                 {
                     "patientUserId": str(patient_user.id),
+                    "approvedBy": {"$exists": False},
                     "status": ReminderStatus.ACTIVE.value,
                     "enabled": True,
                     "startDate": {"$lte": end_of_today_utc},
@@ -515,6 +521,8 @@ class MedicationReminderService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You cannot record medication events for another patient.",
             )
+        if reminder.get("approvedBy"):
+            raise HTTPException(409, "Use My Care Plan for this approved schedule. Only its clinician can change the instructions.")
 
         # Ensure scheduled occurrence time is UTC
         occurrence_time = req.scheduledOccurrenceTime

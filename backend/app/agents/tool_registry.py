@@ -1,7 +1,7 @@
 """Typed read-only capabilities for the conversation orchestrator."""
 from dataclasses import dataclass
 from datetime import date
-from typing import Annotated, Awaitable, Callable
+from typing import Annotated, Awaitable, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from app.models.appointment import AppointmentStatus
@@ -126,7 +126,32 @@ async def care_tasks(ctx, args):
     return {"tasks": tasks[:20]}
 
 
+class CareAgenda(Arguments):
+    day: date
+    days: int = Field(default=1, ge=1, le=7)
+    kind: Literal["all", "medication", "appointment", "test", "follow_up", "measurement"] = "all"
+
+
+async def care_agenda(ctx, args):
+    from app.routes.care_automation import get_agenda
+
+    rows = get_agenda(ctx.db, str(ctx.user.id), args.day, args.days)
+    return {"items": [
+        {**row, "scheduledAt": row["scheduledAt"].isoformat()}
+        for row in rows if args.kind == "all" or row["kind"] == args.kind
+    ][:20]}
+
+
+async def tracking_summary(ctx, args):
+    rows = ctx.db["patient_health_measurements"].find(
+        {"patientUserId": str(ctx.user.id)}, {"_id": 0, "patientUserId": 0, "recordedAt": 0},
+    ).sort("recordedAt", -1).limit(5)
+    return {"items": list(rows)}
+
+
 TOOLS = {
+    "get_my_care_agenda": Tool("Read the signed-in patient's scheduled care tasks.", CareAgenda, care_agenda),
+    "get_my_health_tracking_summary": Tool("Read the signed-in patient's recent self-reported readings.", Arguments, tracking_summary),
     "search_verified_doctors": Tool("Find approved active doctors with matching public filters.", Search, search_doctors),
     "get_doctor_profile": Tool("Read an approved doctor's public profile.", Doctor, doctor_profile),
     "check_doctor_availability": Tool("Check slots and alternatives on a date in Asia/Colombo.", Availability, availability),

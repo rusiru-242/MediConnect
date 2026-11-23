@@ -1,3 +1,5 @@
+import 'approve_medication_schedule_screen.dart';
+import '../../core/network/api_client.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -137,7 +139,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
     }
   }
 
-  void _navigateToCreateFollowUpPlan() async {
+  void _navigateToCreateFollowUpPlan({String? planId}) async {
     if (_detail == null) return;
     final item = _detail!.appointment;
     final appt = Appointment(
@@ -158,6 +160,7 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
       MaterialPageRoute(
         builder: (_) => CreateCarePlanScreen(
           appointment: appt,
+          planId: planId,
         ),
       ),
     );
@@ -399,6 +402,25 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
     );
   }
 
+  void _viewCareActivity(String planId) {
+    final activity = ApiClient().get('/care-automation/plans/${Uri.encodeComponent(planId)}/activity');
+    showModalBottomSheet<void>(context: context, builder: (context) =>
+      FutureBuilder<dynamic>(future: activity, builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+        if (snapshot.hasError) return const ListTile(title: Text('Could not load patient activity.'));
+        final items = (snapshot.data as List).whereType<Map>();
+        return SafeArea(child: ListView(shrinkWrap: true, children: [
+          const ListTile(title: Text('Patient-reported care activity')),
+          if (items.isEmpty) const ListTile(title: Text('No patient actions recorded.')),
+          for (final row in items) ListTile(
+            title: Text('${row['kind']}: ${row['action'] ?? 'corrected'}'),
+            subtitle: Text(row['scheduledAt'].toString()),
+          ),
+        ]));
+      }),
+    );
+  }
+
   Widget _buildClinicalLinkagesCard() {
     final cp = _detail!.carePlan;
     final rx = _detail!.prescription;
@@ -436,6 +458,12 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
                   )
                 : null,
           ),
+          if (cp?['id'] case final String planId)
+            Wrap(spacing: 8, children: [
+              if (cp?['status'] == 'ACTIVE' || cp?['status'] == 'OVERDUE')
+                TextButton(onPressed: () => _navigateToCreateFollowUpPlan(planId: planId), child: const Text('Edit plan')),
+              TextButton(onPressed: () => _viewCareActivity(planId), child: const Text('Patient activity')),
+            ]),
           const Divider(height: 12),
           // Digital Prescription linkage
           ListTile(
@@ -446,6 +474,12 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
               child: const Icon(Icons.medication_rounded, color: Colors.teal, size: 20),
             ),
             title: const Text('Digital Prescription', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            trailing: rx == null ? null : TextButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => ApproveMedicationScheduleScreen(prescription: rx),
+              )),
+              child: const Text('Reminders'),
+            ),
             subtitle: Text(
               rx != null ? 'ID: ${rx['prescriptionId']}' : 'No prescription recorded for this visit',
               style: const TextStyle(fontSize: 12),

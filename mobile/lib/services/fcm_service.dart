@@ -137,6 +137,8 @@ class FcmService {
 
   /// Unregister device token upon user logout.
   Future<void> removeTokenOnLogout() async {
+    _careHomeReady = false;
+    _pendingCareEvent = null;
     if (_currentToken != null && _currentToken!.isNotEmpty) {
       try {
         await _notificationService
@@ -179,7 +181,24 @@ class FcmService {
   }
 
   /// Route user to the appropriate screen based on notification payload data.
+  String? _pendingCareEvent;
+  bool _careHomeReady = false;
+
+  void openPendingCareReminder() {
+    _careHomeReady = true;
+    final id = _pendingCareEvent;
+    if (id == null) return;
+    _pendingCareEvent = null;
+    navigatorKey.currentState?.pushNamed('/patient/care-agenda', arguments: id);
+  }
+
   void routeFromMessage(RemoteMessage message) {
+    final id = message.data['careEventId']?.toString();
+    if (message.data['type'] == 'CARE_REMINDER' && id != null && RegExp(r'^[a-f0-9]{64}$').hasMatch(id)) {
+      _pendingCareEvent = id;
+      if (_careHomeReady) openPendingCareReminder();
+      return;
+    }
     final nav = navigatorKey.currentState;
     if (nav == null) return;
 

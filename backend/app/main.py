@@ -31,15 +31,15 @@ from app.routes import (
 )
 
 from app.routes.ai_conversations import router as ai_conversations_router
-from app.services.notification_service import NotificationService
-from app.services.care_plan_service import CarePlanService
 from app.services.booking_notifications import run_confirmation_outbox
+from app.services.care_scheduler import run_scheduler
+from app.routes.care_automation import router as care_automation_router
 
 logger = logging.getLogger(__name__)
 
 
 async def _run_reminder_worker():
-    """Periodic background worker for 24-hour and 1-hour appointment reminders."""
+    """Process durable care and booking-confirmation jobs."""
     logger.info("Appointment reminder background worker started.")
     while True:
         try:
@@ -47,14 +47,13 @@ async def _run_reminder_worker():
             db_status = check_database_connection()
             if db_status.get("connected"):
                 db = DatabaseManager.get_database()
-                NotificationService.check_and_send_appointment_reminders(db)
-                CarePlanService.check_and_send_care_plan_reminders(db)
+                await asyncio.to_thread(run_scheduler, db)
                 await asyncio.to_thread(run_confirmation_outbox, db)
         except asyncio.CancelledError:
             logger.info("Appointment reminder background worker stopping.")
             break
         except Exception as exc:
-            logger.warning("Appointment reminder worker loop error: %s", exc)
+            logger.warning("Care worker iteration failed (%s)", type(exc).__name__)
 
 
 @asynccontextmanager
@@ -151,6 +150,7 @@ app.include_router(content_router, prefix="/api")
 app.include_router(admin_content_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(care_plan_router, prefix="/api")
+app.include_router(care_automation_router, prefix="/api")
 app.include_router(doctor_schedule_router, prefix="/api")
 app.include_router(patient_timeline_router, prefix="/api")
 

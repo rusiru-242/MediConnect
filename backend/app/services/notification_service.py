@@ -99,6 +99,7 @@ def _doc_to_response(doc: Dict[str, Any]) -> NotificationResponse:
         type=doc.get("type", NotificationType.SYSTEM.value),
         title=doc.get("title", ""),
         body=doc.get("body", ""),
+        relatedCareEventId=doc.get("relatedCareEventId"),
         relatedAppointmentId=str(doc["relatedAppointmentId"]) if doc.get("relatedAppointmentId") else None,
         relatedPaymentId=str(doc["relatedPaymentId"]) if doc.get("relatedPaymentId") else None,
         isRead=bool(doc.get("isRead", False)),
@@ -191,11 +192,11 @@ class NotificationService:
         title: str,
         body: str,
         data: Optional[Dict[str, str]] = None,
-    ) -> None:
+    ) -> str:
         """Send push notification to all active devices registered for user."""
         try:
             if not _init_firebase():
-                return
+                return "unavailable"
 
             from firebase_admin import messaging
 
@@ -205,7 +206,7 @@ class NotificationService:
 
             if not tokens:
                 logger.debug("No registered FCM tokens found for user %s", recipient_user_id)
-                return
+                return "no_device"
 
             # Clean payload: FCM data values must all be strings
             payload_data = {}
@@ -252,9 +253,10 @@ class NotificationService:
                         ):
                             bad_token = tokens[idx]
                             cls.clean_stale_token(db, bad_token)
+            return "accepted" if response.success_count else "failed"
         except Exception as exc:
-            # Critical requirement: Push notification failure must never crash or bubble up
-            logger.error("Error dispatching FCM push notification to user %s: %s", recipient_user_id, exc)
+            logger.warning("FCM submission outcome unavailable (%s)", type(exc).__name__)
+            return "uncertain"
 
     # -------------------------------------------------------------------------
     # 3. Notification Creation (In-App + FCM Push)
@@ -271,6 +273,7 @@ class NotificationService:
         related_payment_id: Optional[str] = None,
         idempotency_key: Optional[str] = None,
         send_push: bool = True,
+        related_care_event_id: Optional[str] = None,
     ) -> Optional[NotificationResponse]:
         """Persist an in-app notification in MongoDB and trigger FCM push safely.
 
@@ -293,6 +296,7 @@ class NotificationService:
                 "type": type.value if isinstance(type, NotificationType) else str(type),
                 "title": title,
                 "body": body,
+                "relatedCareEventId": related_care_event_id,
                 "relatedAppointmentId": str(related_appointment_id) if related_appointment_id else None,
                 "relatedPaymentId": str(related_payment_id) if related_payment_id else None,
                 "isRead": False,
@@ -485,7 +489,7 @@ class NotificationService:
         if ObjectId.is_valid(user_id):
             db["users"].update_one(
                 {"_id": ObjectId(user_id)},
-                {"$set": {"notificationPreferences": current, "updatedAt": utc_now()}},
+                {"$set": {**{f"notificationPreferences.{key}": value for key, value in current.items()}, "updatedAt": utc_now()}},
             )
         return NotificationPreferencesSchema(**current)
 

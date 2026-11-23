@@ -1,7 +1,7 @@
 """Pydantic schemas for Smart Follow-up Care Plans (Phase 56)."""
 
-from datetime import datetime
-from typing import Any, List, Optional
+from datetime import datetime, timezone
+from typing import Literal, Any, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -13,6 +13,10 @@ class CareTaskSchema(BaseModel):
     taskId: str
     title: str
     description: Optional[str] = None
+    kind: Literal["task", "test", "measurement", "exercise"] = "task"
+    dueAt: Optional[datetime] = None
+    location: Optional[str] = Field(None, max_length=200)
+    remindMinutesBefore: int = Field(default=0, ge=0, le=1440)
     isCompleted: bool = False
     completedAt: Optional[datetime] = None
 
@@ -20,8 +24,22 @@ class CareTaskSchema(BaseModel):
 class CreateCareTaskRequest(BaseModel):
     """Payload to add a task to a care plan."""
 
+    kind: Literal["task", "test", "measurement", "exercise"] = "task"
+    dueAt: Optional[datetime] = None
+    location: Optional[str] = Field(None, max_length=200)
+    remindMinutesBefore: int = Field(default=0, ge=0, le=1440)
     title: str = Field(..., min_length=2, max_length=200, description="Task title")
     description: Optional[str] = Field(None, max_length=500, description="Optional task details")
+
+
+    @field_validator("dueAt")
+    @classmethod
+    def valid_due_at(cls, value):
+        if value is not None:
+            if value.tzinfo is None:
+                raise ValueError("Provide an explicit timezone offset.")
+            return value.astimezone(timezone.utc)
+        return value
 
 
 class CarePlanAuditEntrySchema(BaseModel):

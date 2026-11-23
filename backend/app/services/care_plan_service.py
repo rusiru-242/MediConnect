@@ -74,6 +74,8 @@ def _doc_to_response(db: Database, doc: Dict[str, Any]) -> CarePlanResponse:
                 taskId=str(t.get("taskId")),
                 title=t.get("title", ""),
                 description=t.get("description"),
+                kind=t.get("kind", "task"), dueAt=t.get("dueAt"), location=t.get("location"),
+                remindMinutesBefore=t.get("remindMinutesBefore", 0),
                 isCompleted=bool(t.get("isCompleted", False)),
                 completedAt=t.get("completedAt"),
             )
@@ -215,6 +217,7 @@ class CarePlanService:
                 taskId=str(ObjectId()),
                 title=t.title.strip(),
                 description=t.description.strip() if t.description else None,
+                kind=t.kind, dueAt=t.dueAt, location=t.location, remindMinutesBefore=t.remindMinutesBefore,
                 isCompleted=False,
             )
             for t in req.tasks
@@ -417,19 +420,26 @@ class CarePlanService:
                 for t in doc.get("tasks", [])
                 if t.get("isCompleted")
             }
+            previous_tasks = list(doc.get("tasks", []))
             new_tasks = []
             for t in req.tasks:
                 clean_title = t.title.strip()
-                was_completed = clean_title.lower() in existing_completed
-                new_tasks.append(
-                    CareTask(
-                        taskId=str(ObjectId()),
-                        title=clean_title,
-                        description=t.description.strip() if t.description else None,
-                        isCompleted=was_completed,
-                        completedAt=existing_completed.get(clean_title.lower()),
-                    ).model_dump()
-                )
+                fields = dict(title=clean_title, description=t.description.strip() if t.description else None,
+                              kind=t.kind, dueAt=t.dueAt, location=t.location,
+                              remindMinutesBefore=t.remindMinutesBefore)
+                unchanged = next((old for old in previous_tasks if all(
+                    old.get(key, "task" if key == "kind" else 0 if key == "remindMinutesBefore" else None) == value
+                    for key, value in fields.items()
+                )), None)
+                if unchanged:
+                    new_tasks.append(unchanged)
+                    previous_tasks.remove(unchanged)
+                    continue
+                was_completed = t.dueAt is None and clean_title.lower() in existing_completed
+                new_tasks.append(CareTask(
+                    **fields, isCompleted=was_completed,
+                    completedAt=existing_completed.get(clean_title.lower()) if was_completed else None,
+                ).model_dump())
             update_fields["tasks"] = new_tasks
             audit_notes.append(f"Updated tasks list ({len(new_tasks)} tasks)")
 

@@ -18,6 +18,7 @@ from app.schemas.user import UserResponseSchema
 from app.services.care_plan_service import CarePlanService
 from app.middleware.auth import (
     get_current_user,
+    require_admin,
     require_doctor,
     require_patient,
 )
@@ -195,9 +196,10 @@ async def link_booked_appointment(
     summary="Trigger smart follow-up reminder check",
 )
 def check_care_plan_reminders(
-    current_user: UserResponseSchema = Depends(get_current_user),
+    current_user: UserResponseSchema = Depends(require_admin),
     db: Database = Depends(get_database),
 ) -> dict:
     """Scan active care plans and dispatch smart follow-up reminders."""
-    sent_count = CarePlanService.check_and_send_care_plan_reminders(db)
+    from app.services.care_scheduler import run_scheduler
+    sent_count = run_scheduler(db)
     return {"status": "success", "remindersSent": sent_count}

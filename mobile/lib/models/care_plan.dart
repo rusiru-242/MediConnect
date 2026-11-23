@@ -3,6 +3,10 @@ library;
 
 class CareTask {
   final String taskId;
+  final String kind;
+  final DateTime? dueAt;
+  final String? location;
+  final int remindMinutesBefore;
   final String title;
   final String? description;
   final bool isCompleted;
@@ -10,6 +14,10 @@ class CareTask {
 
   const CareTask({
     required this.taskId,
+    this.kind = 'task',
+    this.dueAt,
+    this.location,
+    this.remindMinutesBefore = 0,
     required this.title,
     this.description,
     this.isCompleted = false,
@@ -18,6 +26,10 @@ class CareTask {
 
   factory CareTask.fromJson(Map<String, dynamic> json) {
     return CareTask(
+      kind: json['kind'] as String? ?? 'task',
+      dueAt: DateTime.tryParse(json['dueAt']?.toString() ?? ''),
+      location: json['location'] as String?,
+      remindMinutesBefore: (json['remindMinutesBefore'] as num?)?.toInt() ?? 0,
       taskId: json['taskId']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString(),
@@ -31,6 +43,10 @@ class CareTask {
   Map<String, dynamic> toJson() {
     return {
       'taskId': taskId,
+      'kind': kind,
+      if (dueAt != null) 'dueAt': dueAt!.toUtc().toIso8601String(),
+      if (location != null) 'location': location,
+      'remindMinutesBefore': remindMinutesBefore,
       'title': title,
       if (description != null) 'description': description,
       'isCompleted': isCompleted,
@@ -47,6 +63,10 @@ class CareTask {
   }) {
     return CareTask(
       taskId: taskId ?? this.taskId,
+      kind: kind,
+      dueAt: dueAt,
+      location: location,
+      remindMinutesBefore: remindMinutesBefore,
       title: title ?? this.title,
       description: description ?? this.description,
       isCompleted: isCompleted ?? this.isCompleted,
