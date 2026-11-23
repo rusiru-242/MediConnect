@@ -348,3 +348,203 @@ TOOLS.update({
     "get_admin_report_data": Tool("Read compiled operational and financial report metrics.", AdminReportArgs, admin_report_data, ADMIN_ROLES),
     "prepare_admin_report": Tool("Generate an operational report draft with grounded executive summary.", AdminReportArgs, admin_report_data, ADMIN_ROLES),
 })
+
+
+# -----------------------------------------------------------------------------
+# Phase 6: Clinical Workflow, Medical Records & Healthcare AI Tools
+# -----------------------------------------------------------------------------
+
+class PatientRecordsArgs(Arguments):
+    record_type: str | None = None
+    page: int = 1
+    page_size: int = 20
+
+
+class PatientMeasurementsArgs(Arguments):
+    metric: str | None = None
+    limit: int = 50
+
+
+class DoctorPatientTargetArgs(Arguments):
+    patient_id: Identifier
+
+
+class DoctorPatientRecordsArgs(DoctorPatientTargetArgs):
+    record_type: str | None = None
+    page: int = 1
+    page_size: int = 20
+
+
+class DoctorPatientMeasurementsArgs(DoctorPatientTargetArgs):
+    metric: str | None = None
+    limit: int = 50
+
+
+class NoteDraftArgs(DoctorPatientTargetArgs):
+    appointment_id: str | None = None
+    raw_notes: str | None = None
+
+
+class RenewalQueueArgs(Arguments):
+    status: str | None = None
+
+
+class MedicalRecordSummaryArgs(Arguments):
+    patient_id: Identifier | None = None
+
+
+class PrescriptionDocArgs(DoctorPatientTargetArgs):
+    medications: list[str]
+
+
+class RenewalRequestDraftArgs(Arguments):
+    original_prescription_id: str
+    medication_name: str
+    reason: str | None = None
+
+
+async def patient_medical_records(ctx, args):
+    from app.services.patient_medical_record_service import PatientMedicalRecordService
+    res = PatientMedicalRecordService.list_medical_records(
+        ctx.db, ctx.user, record_type=args.record_type, page=args.page, page_size=args.page_size
+    )
+    return res.model_dump(mode="json")
+
+
+async def patient_prescriptions(ctx, args):
+    rows = list(ctx.db["prescriptions"].find(
+        {"patientUserId": str(ctx.user.id), "status": {"$in": ["ISSUED", "ACTIVE", "signed"]}}
+    ).sort("issuedAt", -1).limit(20))
+    for r in rows:
+        r["_id"] = str(r["_id"])
+    return {"prescriptions": rows}
+
+
+async def patient_measurements(ctx, args):
+    from app.services.health_tracking_service import HealthTrackingService
+    res = HealthTrackingService.list_measurements(
+        ctx.db, ctx.user, metric=args.metric, limit=args.limit
+    )
+    return res.model_dump(mode="json")
+
+
+async def patient_renewal_requests(ctx, args):
+    from app.services.prescription_workflow_service import PrescriptionWorkflowService
+    res = PrescriptionWorkflowService.list_renewal_requests(ctx.db, ctx.user)
+    return res.model_dump(mode="json")
+
+
+async def doctor_patient_records(ctx, args):
+    from app.services.patient_medical_record_service import PatientMedicalRecordService
+    res = PatientMedicalRecordService.list_medical_records(
+        ctx.db, ctx.user, patient_id=args.patient_id, record_type=args.record_type, page=args.page, page_size=args.page_size
+    )
+    return res.model_dump(mode="json")
+
+
+async def doctor_patient_measurements(ctx, args):
+    from app.services.health_tracking_service import HealthTrackingService
+    res = HealthTrackingService.list_measurements(
+        ctx.db, ctx.user, patient_id=args.patient_id, metric=args.metric, limit=args.limit
+    )
+    return res.model_dump(mode="json")
+
+
+async def doctor_patient_prescriptions(ctx, args):
+    from app.services.clinical_safety_service import ClinicalSafetyService
+    ClinicalSafetyService.verify_doctor_patient_care_relationship(ctx.db, str(ctx.user.id), args.patient_id)
+    rows = list(ctx.db["prescriptions"].find(
+        {"patientUserId": args.patient_id, "status": {"$in": ["ISSUED", "ACTIVE", "signed"]}}
+    ).sort("issuedAt", -1).limit(20))
+    for r in rows:
+        r["_id"] = str(r["_id"])
+    return {"prescriptions": rows}
+
+
+async def doctor_consultation_note_draft(ctx, args):
+    from app.services.clinical_documentation_service import ClinicalDocumentationService
+    from app.schemas.clinical_workflow import CreateClinicalNoteDraftRequest
+    if args.raw_notes:
+        draft = ClinicalDocumentationService.create_note_draft(
+            ctx.db, ctx.user, CreateClinicalNoteDraftRequest(
+                patientUserId=args.patient_id,
+                appointmentId=args.appointment_id,
+                rawNotes=args.raw_notes,
+            )
+        )
+        return draft.model_dump(mode="json")
+    notes = ClinicalDocumentationService.list_notes(ctx.db, ctx.user, patient_id=args.patient_id)
+    return notes.model_dump(mode="json")
+
+
+async def doctor_prescription_renewal_queue(ctx, args):
+    from app.services.prescription_workflow_service import PrescriptionWorkflowService
+    res = PrescriptionWorkflowService.list_renewal_requests(ctx.db, ctx.user, status_filter=args.status)
+    return res.model_dump(mode="json")
+
+
+async def prepare_medical_record_summary(ctx, args):
+    from app.services.patient_medical_record_service import PatientMedicalRecordService
+    res = PatientMedicalRecordService.summarize_patient_history(ctx.db, ctx.user, patient_id=args.patient_id)
+    return res.model_dump(mode="json")
+
+
+async def prepare_clinical_note_draft(ctx, args):
+    from app.services.clinical_documentation_service import ClinicalDocumentationService
+    from app.schemas.clinical_workflow import CreateClinicalNoteDraftRequest
+    draft = ClinicalDocumentationService.create_note_draft(
+        ctx.db, ctx.user, CreateClinicalNoteDraftRequest(
+            patientUserId=args.patient_id,
+            appointmentId=args.appointment_id,
+            rawNotes=args.raw_notes or "Review of symptoms and clinical examination.",
+        )
+    )
+    return draft.model_dump(mode="json")
+
+
+async def prepare_prescription_documentation(ctx, args):
+    from app.services.prescription_workflow_service import PrescriptionWorkflowService
+    res = PrescriptionWorkflowService.review_prescription_draft(
+        ctx.db, ctx.user, args.patient_id, args.medications
+    )
+    return res.model_dump(mode="json")
+
+
+async def prepare_renewal_request(ctx, args):
+    from app.services.prescription_workflow_service import PrescriptionWorkflowService
+    from app.schemas.clinical_workflow import CreatePrescriptionRenewalRequest
+    res = PrescriptionWorkflowService.request_prescription_renewal(
+        ctx.db, ctx.user, CreatePrescriptionRenewalRequest(
+            originalPrescriptionId=args.original_prescription_id,
+            medicationName=args.medication_name,
+            patientReason=args.reason,
+        )
+    )
+    return res.model_dump(mode="json")
+
+
+PATIENT_ROLES = frozenset({"PATIENT"})
+DOCTOR_ROLES = frozenset({"DOCTOR"})
+PATIENT_AND_DOCTOR_ROLES = frozenset({"PATIENT", "DOCTOR"})
+
+TOOLS.update({
+    # Patient read tools
+    "get_my_medical_records": Tool("Read your documented longitudinal medical records.", PatientRecordsArgs, patient_medical_records, PATIENT_ROLES),
+    "get_my_prescriptions": Tool("Read your active doctor-prescribed medications.", Arguments, patient_prescriptions, PATIENT_ROLES),
+    "get_my_health_measurements": Tool("Read your logged vital signs and health measurements.", PatientMeasurementsArgs, patient_measurements, PATIENT_ROLES),
+    "get_my_renewal_requests": Tool("Read your submitted prescription renewal requests.", Arguments, patient_renewal_requests, PATIENT_ROLES),
+
+    # Doctor read tools
+    "get_authorized_patient_records": Tool("Read authorized patient longitudinal medical records.", DoctorPatientRecordsArgs, doctor_patient_records, DOCTOR_ROLES),
+    "get_authorized_patient_measurements": Tool("Read authorized patient vital sign measurements and trends.", DoctorPatientMeasurementsArgs, doctor_patient_measurements, DOCTOR_ROLES),
+    "get_authorized_patient_prescriptions": Tool("Read authorized patient active prescriptions and medications.", DoctorPatientTargetArgs, doctor_patient_prescriptions, DOCTOR_ROLES),
+    "get_consultation_note_draft": Tool("Retrieve or prepare clinical consultation note draft.", NoteDraftArgs, doctor_consultation_note_draft, DOCTOR_ROLES),
+    "get_prescription_renewal_queue": Tool("Read pending prescription renewal requests awaiting clinician review.", RenewalQueueArgs, doctor_prescription_renewal_queue, DOCTOR_ROLES),
+
+    # Proposal & draft tools
+    "prepare_medical_record_summary": Tool("Synthesize an authorized, source-grounded longitudinal medical record summary.", MedicalRecordSummaryArgs, prepare_medical_record_summary, PATIENT_AND_DOCTOR_ROLES),
+    "prepare_clinical_note_draft": Tool("Organize consultation findings into a structured SOAP draft for doctor review.", NoteDraftArgs, prepare_clinical_note_draft, DOCTOR_ROLES),
+    "prepare_prescription_documentation": Tool("Review proposed medications against patient allergies and active prescriptions.", PrescriptionDocArgs, prepare_prescription_documentation, DOCTOR_ROLES),
+    "prepare_renewal_request": Tool("Draft and submit a prescription renewal request for clinician review.", RenewalRequestDraftArgs, prepare_renewal_request, PATIENT_ROLES),
+})
+

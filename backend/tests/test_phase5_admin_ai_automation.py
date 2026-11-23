@@ -8,7 +8,8 @@ from bson import ObjectId
 from fastapi.testclient import TestClient
 import pytest
 
-from app.config.database import ensure_indexes, get_database
+from app.config.database import DatabaseManager, ensure_indexes, get_database
+from tests.mock_db import MockDatabase
 from app.main import app
 from app.models.appointment import AppointmentStatus, PaymentStatus as ApptPaymentStatus
 from app.models.doctor_profile import DoctorVerificationStatus
@@ -28,8 +29,9 @@ client = TestClient(app)
 @pytest.fixture(scope="module", autouse=True)
 def isolated_db():
     """Ensure tests run against a dedicated phase 5 test database."""
-    assert get_database().name.startswith("mediconnect_phase5_test")
-    ensure_indexes(get_database())
+    mock_db = MockDatabase("mediconnect_phase5_test")
+    DatabaseManager._db = mock_db
+    yield mock_db
 
 
 @pytest.fixture
