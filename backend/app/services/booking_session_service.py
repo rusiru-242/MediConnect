@@ -79,7 +79,7 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             fullName=d.get("fullName", "Doctor"),
             specialty=d.get("specialty") or "Specialty not listed",
             hospitalOrClinic=d.get("hospitalOrClinic"),
-            experienceYears=int(d.get("experienceYears", 0)),
+            experienceYears=int(d.get("experienceYears") or 0),
             consultationFee=d.get("consultationFee"),
             city=d.get("city"),
             profileImage=d.get("profileImage"),
@@ -89,6 +89,9 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             qualifications=d.get("qualifications"),
             matchScore=float(d["matchScore"]) if d.get("matchScore") is not None else None,
             matchReasons=list(d.get("matchReasons") or []),
+            ratingCount=d.get("ratingCount"),
+            rankPosition=d.get("rankPosition"),
+            rankingExplanation=d.get("rankingExplanation"),
             availableSlots=slots,
             requestedDate=d.get("requestedDate"),
             requestedTime=d.get("requestedTime"),
@@ -169,6 +172,7 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             symptoms=prefs.get("symptoms"),
             preferredGender=prefs.get("preferredGender"),
             sortBy=prefs.get("sortBy"),
+            minRating=prefs.get("minRating"),
         ),
         selectedDoctor=selected_doc,
         selectedSlot=selected_slot,
@@ -355,11 +359,15 @@ class BookingSessionService:
         doc = cls._get_session_or_404(db, patient_user, session_id)
 
         current_state = doc.get("state")
-        if current_state in [BookingAgentState.BOOKING_CONFIRMED.value, BookingAgentState.CANCELLED.value]:
+        if not doc.get("persistent") and current_state in [
+            BookingAgentState.BOOKING_CONFIRMED.value, BookingAgentState.CANCELLED.value,
+        ]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"This session is already {current_state.lower()}. Please start a new session.",
             )
+        if doc.get("persistent") and len(doc.get("messages") or []) >= 500:
+            raise HTTPException(409, "This conversation is full. Start a New Chat to continue.")
 
         cls._sync_hold_and_payment_status(db, doc)
 

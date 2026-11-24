@@ -27,6 +27,7 @@ class BookingPreferencesSchema(BaseModel):
     preferredGender: Optional[str] = None
     symptoms: Optional[str] = None
     sortBy: Optional[str] = None
+    minRating: Optional[float] = None
     language: str = "en"
     patientNote: Optional[str] = None
 
@@ -59,6 +60,9 @@ class DoctorCardSummary(BaseModel):
     qualifications: Optional[str] = None
     matchScore: Optional[float] = None
     matchReasons: List[str] = Field(default_factory=list)
+    ratingCount: Optional[int] = None
+    rankPosition: Optional[int] = None
+    rankingExplanation: Optional[str] = None
     requestedDate: Optional[str] = None
     requestedTime: Optional[str] = None
     availableSlots: List[SlotCardSummary] = Field(default_factory=list)
@@ -69,6 +73,8 @@ class MedicineCard(BaseModel):
 
     medicineName: str
     activeIngredient: Optional[str] = None
+    formulations: List[Dict[str, str]] = Field(default_factory=list)
+    contentReviewStatus: Optional[str] = None
     commonUses: List[str] = Field(default_factory=list)
     precautions: List[str] = Field(default_factory=list)
     sideEffects: List[str] = Field(default_factory=list)
@@ -98,6 +104,9 @@ class ImageAnalysisResult(BaseModel):
     uncertaintyExplanation: str
     safetyAdvice: str
     requiresClearerPhoto: bool = False
+    status: Optional[str] = Field(default=None, description="'analyzed' | 'unreadable' | 'not_medicine' | 'provider_unavailable' | 'invalid_file'")
+    extracted: Optional[Dict[str, Any]] = Field(default=None, description="Text read from the image; not verified")
+    provider: Optional[str] = None
 
 
 class BookingSummary(BaseModel):

@@ -92,6 +92,12 @@ class Settings(BaseModel):
     AI_MAX_RECOMMENDATIONS: int = Field(
         default_factory=lambda: int((os.getenv("AI_MAX_RECOMMENDATIONS") or "10").strip())
     )
+    # Medicine label photos are sent to the configured external Vision provider only when enabled.
+    # Production deployments must confirm a privacy-compliant data processing agreement first.
+    AI_EXTERNAL_IMAGE_ANALYSIS_ENABLED: bool = Field(
+        default_factory=lambda: (os.getenv("AI_EXTERNAL_IMAGE_ANALYSIS_ENABLED") or "true").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
     ENVIRONMENT: str = Field(
         default_factory=lambda: (os.getenv("ENVIRONMENT") or "development").strip().lower()
     )

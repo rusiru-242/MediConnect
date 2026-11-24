@@ -10,6 +10,7 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
+from app.agents.doctor_ranking import coerce_fee
 from app.models.appointment import AppointmentStatus
 from app.models.doctor_availability import (
     DoctorAvailabilityDocument,
@@ -152,8 +153,7 @@ class DoctorService:
             profile_query["$or"] = [{"city": location}, {"hospitalOrClinic": location}]
         if hospital:
             profile_query["hospitalOrClinic"] = {"$regex": re.escape(hospital), "$options": "i"}
-        if max_fee is not None:
-            profile_query["consultationFee"] = {"$type": "number", "$lte": max_fee}
+        # Fees are filtered after normalization (some records store numeric strings or Decimal128).
 
         # 3. Query all approved profiles matching specialty filter (newest first)
         profiles = list(db["doctor_profiles"].find(profile_query).sort([("_id", -1)]))
@@ -177,6 +177,7 @@ class DoctorService:
 
         # 5. Combine and filter profiles that have a valid active doctor user
         matching_doctors: List[DoctorListItem] = []
+        seen_doctor_users: set = set()
         clean_search = search.strip().lower() if search and search.strip() else None
 
         for p in profiles:
@@ -189,6 +190,12 @@ class DoctorService:
             full_name = user.get("fullName") or "Name unavailable"
             spec = p.get("specialty") or ""
             hospital = p.get("hospitalOrClinic") or ""
+            fee = coerce_fee(p.get("consultationFee"))
+            if max_fee is not None and (fee is None or fee > max_fee):
+                continue
+            if uid_str in seen_doctor_users:
+                continue  # Canonical identity de-duplication (BUG-007)
+            seen_doctor_users.add(uid_str)
 
             # Apply search across full name, specialty, and hospital/clinic
             if clean_search:
@@ -207,7 +214,7 @@ class DoctorService:
                     hospitalOrClinic=p.get("hospitalOrClinic") or "",
                     city=p.get("city"),
                     experienceYears=int(p.get("experienceYears") or 0),
-                    consultationFee=p.get("consultationFee"),
+                    consultationFee=fee,
                     bio=p.get("bio"),
                     profileImage=user.get("profileImage"),
                     verificationStatus=DoctorVerificationStatus.APPROVED.value,
@@ -282,7 +289,7 @@ class DoctorService:
             hospitalOrClinic=profile.get("hospitalOrClinic") or "",
             city=profile.get("city"),
             experienceYears=int(profile.get("experienceYears") or 0),
-            consultationFee=profile.get("consultationFee"),
+            consultationFee=coerce_fee(profile.get("consultationFee")),
             bio=profile.get("bio"),
             profileImage=user.get("profileImage"),
             verificationStatus=DoctorVerificationStatus.APPROVED.value,

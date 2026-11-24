@@ -68,18 +68,28 @@ def test_01_medicine_name_question():
 # 2. Known Medicine Label Image Analysis
 # -----------------------------------------------------------------------------
 @pytest.mark.anyio
-async def test_02_known_medicine_label_image():
-    # Valid PNG magic bytes + simulated label
+async def test_02_known_medicine_label_image(monkeypatch):
+    # Previously this test asserted that a zero-content PNG *named* paracetamol_box.png was
+    # "identified" from its file name (BUG-023 placeholder behaviour). The identification must now
+    # come from text read out of the image by the Vision provider, stubbed here deterministically.
+    from app.agents import medicine_image_agent
+
+    monkeypatch.setattr(medicine_image_agent, "_call_vision_provider", lambda data, mime: ({
+        "is_medicine_packaging": True, "readable": True, "loose_tablets_only": False,
+        "medicine_names": ["Panadol"], "active_ingredients": ["Paracetamol"], "strengths": ["500 mg"],
+        "dosage_form": "Tablets", "route": "Oral", "legal_category": None,
+    }, "stub"))
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
     res = await MedicineImageAgent.analyze_medicine_image(
         image_bytes=png_bytes,
-        filename="paracetamol_box.png",
-        user_prompt="I took a picture of my paracetamol box",
+        filename="photo.png",
+        user_prompt="I took a picture of my medicine box",
     )
     assert res["success"] is True
     assert res["analysis"]["identifiedMedicine"] == "Paracetamol"
     assert res["analysis"]["confidenceLevel"] == "moderate"
-    assert "visual image interpretation cannot verify chemical authenticity" in res["text"].lower()
+    assert "text read from your photo" in res["text"].lower()
+    assert "cannot confirm that a medicine is genuine" in res["text"].lower()
     assert res["medicineCard"] is not None
 
 
@@ -87,18 +97,25 @@ async def test_02_known_medicine_label_image():
 # 3. Blurry Medicine Photo
 # -----------------------------------------------------------------------------
 @pytest.mark.anyio
-async def test_03_blurry_medicine_photo():
+async def test_03_blurry_medicine_photo(monkeypatch):
+    from app.agents import medicine_image_agent
+
+    monkeypatch.setattr(medicine_image_agent, "_call_vision_provider", lambda data, mime: ({
+        "is_medicine_packaging": True, "readable": False, "loose_tablets_only": False,
+        "medicine_names": [], "image_quality": "blurry",
+    }, "stub"))
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
     res = await MedicineImageAgent.analyze_medicine_image(
         image_bytes=png_bytes,
-        filename="blurry_pill.png",
+        filename="photo.png",
         user_prompt="Can you tell me what this pill is?",
     )
-    assert res["success"] is True
+    assert res["success"] is False
+    assert res["status"] == "unreadable"
     assert res["analysis"]["confidenceLevel"] == "low"
     assert res["analysis"]["requiresClearerPhoto"] is True
-    assert "unclear or obscured image" in res["text"].lower() or "blurry" in res["text"].lower()
-    assert "do not ingest or administer an unidentified medication" in res["text"].lower()
+    assert "not readable" in res["text"].lower()
+    assert "do not take a medicine you cannot identify" in res["text"].lower()
 
 
 # -----------------------------------------------------------------------------

@@ -16,7 +16,11 @@ MEDICINE_DATABASE: Dict[str, Dict[str, Any]] = {
     "paracetamol": {
         "genericName": "Paracetamol",
         "brandNames": ["Panadol", "Calpol", "Paramol", "Tylenol", "Disprol"],
-        "activeIngredient": "Acetaminophen (Paracetamol) 500mg / 120mg/5ml",
+        "activeIngredient": "Paracetamol (Acetaminophen)",
+        "formulations": [
+            {"form": "Tablet", "strength": "500 mg per tablet"},
+            {"form": "Oral liquid (syrup/suspension)", "strength": "120 mg in each 5 mL"},
+        ],
         "drugClass": "Analgesic & Antipyretic (Pain reliever & fever reducer)",
         "commonUses": [
             "Temporary relief of mild to moderate pain (headache, muscle ache, toothache, backache)",
@@ -24,10 +28,10 @@ MEDICINE_DATABASE: Dict[str, Dict[str, Any]] = {
             "Relief of pain associated with mild arthritis",
         ],
         "precautions": [
-            "Never exceed the maximum recommended adult daily dose of 4,000 mg (4 grams / 8 standard 500mg tablets in 24 hours).",
+            "There is a maximum safe amount of paracetamol per 24 hours from all products combined. It depends on age, body weight, liver health, alcohol use and other medicines, so ask a pharmacist or doctor what is safe for you and follow the package leaflet.",
             "Check other cold, flu, or pain medications to ensure they do not also contain paracetamol, avoiding accidental overdose.",
             "Exercise caution if you have underlying liver disease or chronic alcohol use.",
-            "Consult a pediatrician for weight-based liquid dosage in infants and young children.",
+            "Children's doses depend on age and body weight; use the measuring device supplied and ask a pharmacist or doctor.",
         ],
         "sideEffects": [
             "Generally well-tolerated at recommended therapeutic doses.",
@@ -36,6 +40,7 @@ MEDICINE_DATABASE: Dict[str, Dict[str, Any]] = {
         ],
         "warnings": [
             "Severe liver injury can occur if you take more than recommended in 24 hours or consume 3+ alcoholic drinks daily while using.",
+            "If you think you or someone else has taken too much paracetamol, get emergency help immediately (call 1990 or go to the nearest ETU) even if there are no symptoms - liver damage can appear only after a day or more.",
             "Seek immediate medical attention if you notice yellowing of eyes/skin (jaundice), dark urine, or severe nausea.",
         ],
         "consultPharmacistWhen": "Pain persists for more than 5 days, fever persists over 3 days, or if you are pregnant/breastfeeding.",
@@ -97,7 +102,11 @@ MEDICINE_DATABASE: Dict[str, Dict[str, Any]] = {
     "omeprazole": {
         "genericName": "Omeprazole",
         "brandNames": ["Prilosec", "Omez", "Losec", "Omep"],
-        "activeIngredient": "Omeprazole 20mg / 40mg",
+        "activeIngredient": "Omeprazole",
+        "formulations": [
+            {"form": "Gastro-resistant capsule", "strength": "20 mg per capsule"},
+            {"form": "Gastro-resistant capsule", "strength": "40 mg per capsule"},
+        ],
         "drugClass": "Proton Pump Inhibitor (PPI)",
         "commonUses": [
             "Gastroesophageal Reflux Disease (GERD) and frequent acid reflux / heartburn",
@@ -149,7 +158,10 @@ MEDICINE_DATABASE: Dict[str, Dict[str, Any]] = {
     "cetirizine": {
         "genericName": "Cetirizine",
         "brandNames": ["Zyrtec", "Cetzine", "Alerid", "Zyncet"],
-        "activeIngredient": "Cetirizine Hydrochloride 10mg",
+        "activeIngredient": "Cetirizine hydrochloride",
+        "formulations": [
+            {"form": "Tablet", "strength": "10 mg per tablet"},
+        ],
         "drugClass": "Second-Generation Antihistamine",
         "commonUses": [
             "Relief of allergic rhinitis (sneezing, runny nose, itchy watery eyes, nasal congestion)",
@@ -173,7 +185,11 @@ MEDICINE_DATABASE: Dict[str, Dict[str, Any]] = {
     "ibuprofen": {
         "genericName": "Ibuprofen",
         "brandNames": ["Brufen", "Advil", "Nurofen", "Motrin"],
-        "activeIngredient": "Ibuprofen 200mg / 400mg",
+        "activeIngredient": "Ibuprofen",
+        "formulations": [
+            {"form": "Tablet", "strength": "200 mg per tablet"},
+            {"form": "Tablet", "strength": "400 mg per tablet"},
+        ],
         "drugClass": "Non-Steroidal Anti-Inflammatory Drug (NSAID)",
         "commonUses": [
             "Relief of inflammatory pain, headache, dental pain, menstrual cramps (dysmenorrhea)",
@@ -200,7 +216,12 @@ MEDICINE_DATABASE: Dict[str, Dict[str, Any]] = {
     "salbutamol": {
         "genericName": "Salbutamol (Albuterol)",
         "brandNames": ["Ventolin", "Asthalin", "Aerolin"],
-        "activeIngredient": "Salbutamol sulphate (Inhaler 100mcg/puff / Syrup / Nebulizer)",
+        "activeIngredient": "Salbutamol sulphate",
+        "formulations": [
+            {"form": "Metered-dose inhaler", "strength": "100 micrograms per puff"},
+            {"form": "Oral syrup", "strength": "Strength varies by product - check the label"},
+            {"form": "Nebuliser solution", "strength": "Strength varies by product - check the label"},
+        ],
         "drugClass": "Short-Acting Beta-2 Adrenergic Agonist (Bronchodilator)",
         "commonUses": [
             "Quick relief ('rescue inhaler') of acute bronchospasm in bronchial asthma and COPD",
@@ -223,7 +244,12 @@ MEDICINE_DATABASE: Dict[str, Dict[str, Any]] = {
     "losartan": {
         "genericName": "Losartan",
         "brandNames": ["Cozaar", "Losar", "Tozaar", "Covance"],
-        "activeIngredient": "Losartan Potassium 25mg / 50mg / 100mg",
+        "activeIngredient": "Losartan potassium",
+        "formulations": [
+            {"form": "Tablet", "strength": "25 mg per tablet"},
+            {"form": "Tablet", "strength": "50 mg per tablet"},
+            {"form": "Tablet", "strength": "100 mg per tablet"},
+        ],
         "drugClass": "Angiotensin II Receptor Blocker (ARB)",
         "commonUses": [
             "Management of essential hypertension (high blood pressure)",
@@ -310,9 +336,9 @@ class MedicineKnowledge:
             si_med_map = {
                 "paracetamol": {
                     "uses": ["මෘදු හෝ මධ්‍යස්ථ වේදනාවන් (හිසරදය, දත් කැක්කුම, කොන්දේ කැක්කුම) සමනය කිරීම", "උණ සහ සෙම්ප්‍රතිශ්‍යාව අවම කිරීම", "මෘදු සන්ධි වේදනා සමනය කිරීම"],
-                    "precautions": ["දිනකට උපරිම නිර්දේශිත මාත්‍රාව (පෙති 8 / 4000mg) නොඉක්මවන්න.", "ඔබ ගන්නා වෙනත් ඖෂධවල පැරසිටමෝල් අඩංගු දැයි පරීක්ෂා කරන්න.", "අක්මා රෝග ඇත්නම් වෛද්‍ය උපදෙස් ලබාගන්න."],
+                    "precautions": ["පැය 24ක් තුළ ගත හැකි පැරසිටමෝල් ප්‍රමාණයට උපරිම සීමාවක් ඇත. එය වයස, ශරීර බර, අක්මාවේ සෞඛ්‍යය, මත්පැන් භාවිතය සහ වෙනත් ඖෂධ අනුව වෙනස් වන නිසා ඔබට ආරක්ෂිත ප්‍රමාණය ඖෂධවේදියෙකුගෙන් හෝ වෛද්‍යවරයෙකුගෙන් අසා දැනගන්න.", "ඔබ ගන්නා වෙනත් ඖෂධවල පැරසිටමෝල් අඩංගු දැයි පරීක්ෂා කරන්න.", "අක්මා රෝග ඇත්නම් වෛද්‍ය උපදෙස් ලබාගන්න."],
                     "sideEffects": ["නිර්දේශිත මාත්‍රාවලදී සාමාන්‍යයෙන් ආරක්ෂිතයි.", "කලාතුරකින්: ඔක්කාරය හෝ සමේ පළු දැමීම.", "අධික මාත්‍රාවක් ගැනීමෙන් අක්මාවට බරපතල හානි සිදුවිය හැක."],
-                    "warnings": ["දිනකට පෙති 8කට වඩා ගැනීමෙන් වළකින්න.", "ඇස් හෝ සම කහ වීමක් දුටුවහොත් වහාම වෛද්‍ය ප්‍රතිකාර පතන්න."],
+                    "warnings": ["ඔබ හෝ වෙනත් අයෙකු වැඩිපුර පැරසිටමෝල් ගත්තා යැයි සැක නම්, රෝග ලක්ෂණ නොතිබුණත් වහාම 1990 අමතන්න හෝ ළඟම ETU එකට යන්න. අක්මාවට හානිය දිනකට පමණ පසු පමණක් පෙනෙන්නට පුළුවන්.", "ඇස් හෝ සම කහ වීමක් දුටුවහොත් වහාම වෛද්‍ය ප්‍රතිකාර පතන්න."],
                     "consult": "දින 3කට වඩා උණ හෝ දින 5කට වඩා වේදනාව පවතී නම්, හෝ ගර්භනී අවස්ථාවේදී.",
                 },
                 "amoxicillin": {
@@ -352,6 +378,14 @@ class MedicineKnowledge:
             warnings = med["warnings"]
             consult_pharmacist = med["consultPharmacistWhen"]
 
+        formulations = list(med.get("formulations") or [])
+        if formulations:
+            strengths = "; ".join(f"{row['form']}: {row['strength']}" for row in formulations)
+            lead_in += (f"\n\nAvailable strengths (not a dose recommendation): {strengths}." if not is_si
+                        else f"\n\nලබාගත හැකි ප්‍රබලතා (මාත්‍රා නිර්දේශයක් නොවේ): {strengths}.")
+        lead_in += ("\n\nThis is general information, not a prescription. Your dose depends on your age, weight and health — "
+                    "ask a pharmacist or doctor." if not is_si else
+                    "\n\nමෙය සාමාන්‍ය තොරතුරු පමණයි, ඖෂධ නියමයක් නොවෙයි. ඔබට ගැළපෙන මාත්‍රාව ඔබේ වයස, බර සහ සෞඛ්‍යය අනුව වෙනස් වන නිසා ඖෂධවේදියෙකුගෙන් හෝ වෛද්‍යවරයෙකුගෙන් විමසන්න.")
         return {
             "found": True,
             "medicineName": name,
@@ -359,6 +393,8 @@ class MedicineKnowledge:
             "card": {
                 "medicineName": name,
                 "activeIngredient": med["activeIngredient"],
+                "formulations": formulations,
+                "contentReviewStatus": "PENDING_PHARMACIST_REVIEW",
                 "commonUses": common_uses,
                 "precautions": precautions,
                 "sideEffects": side_effects,

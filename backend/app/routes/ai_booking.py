@@ -175,17 +175,8 @@ async def send_session_image(
             detail=error_msg or "Invalid image file.",
         )
 
-    project_root = Path(__file__).resolve().parent.parent.parent
-    upload_dir = project_root / "uploads" / "companion_images"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    ext = Path(filename).suffix.lower()
-    safe_name = f"{uuid.uuid4().hex}{ext}"
-    dest_path = upload_dir / safe_name
-    dest_path.write_bytes(content)
-
-    relative_url = f"/uploads/companion_images/{safe_name}"
-
+    # The image is analysed in memory and not written to disk: the stored copies were never served
+    # to the app and only created an unnecessary retention of sensitive medical imagery.
     return await BookingSessionService.handle_image_message(
         db=db,
         patient_user=current_user,
@@ -193,7 +184,7 @@ async def send_session_image(
         image_bytes=content,
         filename=filename,
         message=message,
-        image_url=relative_url,
+        image_url=None,
     )
 
 

@@ -191,6 +191,11 @@ async def test_romanized_booking_search_attaches_authoritative_slots(monkeypatch
         "availabilityId": "slot-id", "date": "2026-12-05", "startTime": "16:00", "endTime": "16:30",
     }]}}, None))
     monkeypatch.setattr(AIOrchestrator, "run_search", tool)
+    # The trusted ranked search is authoritative for the final doctor list; tool slot lookups
+    # for the same doctor IDs are still attached.
+    monkeypatch.setattr(BookingAgent, "_search_candidate_doctors", AsyncMock(return_value=[{
+        "doctorId": "DOC-1", "doctorUserId": "U-1", "fullName": "Dr Test", "specialty": "Neurology",
+    }]))
     session = await BookingAgent.process_user_turn(
         None, {"messages": []}, "mata colombo walin neurologist kenek december 5 4pm ta one",
         patient_user=actor(),
