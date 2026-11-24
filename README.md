@@ -1,5 +1,9 @@
 # MediConnect — Digital Healthcare Management Platform
 
+[![Backend CI](https://github.com/rusiru-242/MediConnect/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/rusiru-242/MediConnect/actions/workflows/backend-ci.yml)
+[![Admin Web CI](https://github.com/rusiru-242/MediConnect/actions/workflows/admin-web-ci.yml/badge.svg?branch=main)](https://github.com/rusiru-242/MediConnect/actions/workflows/admin-web-ci.yml)
+[![Mobile CI](https://github.com/rusiru-242/MediConnect/actions/workflows/mobile-ci.yml/badge.svg?branch=main)](https://github.com/rusiru-242/MediConnect/actions/workflows/mobile-ci.yml)
+
 MediConnect is a comprehensive, production-grade digital healthcare platform engineered to streamline patient consultations, doctor appointment scheduling, verified professional onboarding, digital prescription delivery, smart medication tracking, and administrative governance.
 
 ---
