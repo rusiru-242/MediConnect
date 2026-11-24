@@ -18,6 +18,11 @@ jobs:
   test:
     name: Backend Lint, Compile & Test
     runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
     defaults:
       run:
         working-directory: backend
@@ -44,6 +49,9 @@ jobs:
       - name: Run Pytest Suite
         run: pytest -q --tb=short
         env:
+          JWT_SECRET: ci_test_secret_key_minimum_32_bytes_long_123456
           JWT_SECRET_KEY: ci_test_secret_key_minimum_32_bytes_long_123456
+          MONGODB_URI: ${{ secrets.MONGODB_URI || 'mongodb://127.0.0.1:27017/mediconnect_test' }}
+          DATABASE_NAME: mediconnect_test
           STRIPE_SECRET_KEY: sk_test_mock_secret_key
           STRIPE_WEBHOOK_SECRET: whsec_test_mock_webhook_secret
