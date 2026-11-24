@@ -29,7 +29,10 @@ def isolated_db():
     """Ensure tests run against a dedicated phase 6 mock test database."""
     mock_db = MockDatabase("mediconnect_phase6_test")
     DatabaseManager._db = mock_db
-    yield mock_db
+    try:
+        yield mock_db
+    finally:
+        DatabaseManager._db = None
 
 
 @pytest.fixture

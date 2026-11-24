@@ -21,7 +21,7 @@ class Settings(BaseModel):
         default_factory=lambda: (os.getenv("DATABASE_NAME") or "mediconnect").strip() or "mediconnect"
     )
     JWT_SECRET: Optional[str] = Field(
-        default_factory=lambda: (os.getenv("JWT_SECRET") or "").strip() or None
+        default_factory=lambda: (os.getenv("JWT_SECRET") or os.getenv("JWT_SECRET_KEY") or "").strip() or None
     )
     JWT_ALGORITHM: str = Field(
         default_factory=lambda: (os.getenv("JWT_ALGORITHM") or "HS256").strip() or "HS256"
