@@ -194,7 +194,7 @@ class RefundService:
         db["refund_requests"].insert_one(doc)
         return doc
 
-    @classmethod
+    @staticmethod
     def list_refund_requests(
         db: Database,
         status_filter: Optional[str] = None,

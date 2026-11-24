@@ -245,6 +245,8 @@ Branch: `fix/comprehensive-system-ai-stabilization` · Baseline commit: `c3e0aac
 | BUG-036 | Home-screen hero prompt chips lost their prompt | Low | Route arguments ignored by the `routes:` table | `main.dart`, `assistant_navigation.dart` | `ai-ui` double-tap test | FIXED |
 | BUG-037 | An undecodable image crashed the preview widget | Low | `Image.memory` without `errorBuilder` | `ai_care_assistant_screen.dart` | `ai-ui` BUG-026 | FIXED |
 | BUG-038 | The AI rate limiter is in-memory per process (not shared across workers or instances) | Medium | `_RATE_LIMIT_BUCKET` dict | `routes/ai_booking.py` | — | OPEN (needs a shared store such as Redis; see security report) |
+| BUG-040 | After an emergency message, later messages in the same chat (even a doctor search) were re-escalated for up to three turns | Medium | The BUG-013 context rule re-evaluated earlier messages on every turn | `emergency_detector.py` | `stab::test_bug040_*` | FIXED (found during UAT preparation) |
+| BUG-041 | Admin → Refunds page always failed with HTTP 500 | High | `RefundService.list_refund_requests` was a `@classmethod` without `cls` (an AST scan found no other occurrence) | `refund_service.py` | `stab::test_bug041_admin_refund_list_does_not_crash` | FIXED (found during UAT preparation) |
 | BUG-039 | Doctor registration silently defaults a missing fee to LKR 2,500 | Low | `schemas/doctor.py` default | — | — | OPEN (product decision; the admin should confirm fees during verification) |
 
 ## Suspected or unconfirmed issues
