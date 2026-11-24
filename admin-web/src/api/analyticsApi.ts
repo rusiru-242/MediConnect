@@ -1,12 +1,89 @@
 import { apiClient } from './client';
 import { AnalyticsOverview, AppointmentAnalytics, PaymentAnalytics, CurrencyRevenueItem } from '../types/analytics';
 
+interface RawOverviewTotals {
+  totalUsers?: number;
+  totalPatients?: number;
+  totalDoctors?: number;
+  verifiedDoctors?: number;
+  pendingDoctorApprovals?: number;
+  totalAppointments?: number;
+  completedAppointments?: number;
+  cancelledAppointments?: number;
+}
+
+interface RawOverviewResponse {
+  totals?: RawOverviewTotals;
+  totalPatients?: number;
+  totalVerifiedDoctors?: number;
+  pendingDoctorApprovals?: number;
+  totalDoctors?: number;
+  totalUsers?: number;
+  totalAppointments?: number;
+  completedAppointments?: number;
+  cancelledAppointments?: number;
+  payments?: {
+    totalRevenueByCurrency?: Record<string, number>;
+    succeededTransactions?: number;
+    failedTransactions?: number;
+    pendingTransactions?: number;
+  };
+  successfulPaymentsCount?: number;
+  failedPaymentsCount?: number;
+  totalRevenueByCurrency?: Array<{
+    currency?: string;
+    netAmount?: number;
+    grossAmount?: number;
+  }>;
+  generatedAt?: string;
+  recentActivity?: AnalyticsOverview['recentActivity'];
+}
+
+interface RawAppointmentTrend {
+  date: string;
+  total?: number;
+  count?: number;
+}
+
+interface RawAppointmentResponse {
+  totalBookings?: number;
+  totalAppointments?: number;
+  completedBookings?: number;
+  completedAppointments?: number;
+  cancelledBookings?: number;
+  cancelledAppointments?: number;
+  completionRatePercent?: number;
+  completionRate?: number;
+  statusBreakdown?: Record<string, number>;
+  dailyTrends?: Array<{ date: string; count: number }>;
+  trends?: RawAppointmentTrend[];
+}
+
+interface RawPaymentCurrencyItem {
+  currency?: string;
+  netAmount?: number;
+  totalAmount?: number;
+  grossAmount?: number;
+  paymentCount?: number;
+  transactionCount?: number;
+}
+
+interface RawPaymentResponse {
+  totalTransactions?: number;
+  succeededCount?: number;
+  successfulPaymentsCount?: number;
+  failedCount?: number;
+  failedPaymentsCount?: number;
+  revenueByCurrency?: RawPaymentCurrencyItem[];
+  dailyTrends?: PaymentAnalytics['dailyTrends'];
+}
+
 export const analyticsApi = {
   getOverview: async (startDate?: string, endDate?: string): Promise<AnalyticsOverview> => {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
-    const response = await apiClient.get<any>(`/admin/analytics/overview?${params.toString()}`);
+    const response = await apiClient.get<RawOverviewResponse>(`/admin/analytics/overview?${params.toString()}`);
     const data = response.data || {};
 
     const rawTotals = data.totals || {};
@@ -60,10 +137,10 @@ export const analyticsApi = {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
-    const response = await apiClient.get<any>(`/admin/analytics/appointments?${params.toString()}`);
+    const response = await apiClient.get<RawAppointmentResponse>(`/admin/analytics/appointments?${params.toString()}`);
     const data = response.data || {};
 
-    const dailyTrends = data.dailyTrends ?? (Array.isArray(data.trends) ? data.trends.map((t: any) => ({
+    const dailyTrends = data.dailyTrends ?? (Array.isArray(data.trends) ? data.trends.map((t: RawAppointmentTrend) => ({
       date: t.date,
       count: t.total ?? t.count ?? 0,
     })) : []);
@@ -82,12 +159,12 @@ export const analyticsApi = {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
-    const response = await apiClient.get<any>(`/admin/analytics/payments?${params.toString()}`);
+    const response = await apiClient.get<RawPaymentResponse>(`/admin/analytics/payments?${params.toString()}`);
     const data = response.data || {};
 
     let revList: CurrencyRevenueItem[] = [];
     if (Array.isArray(data.revenueByCurrency)) {
-      revList = data.revenueByCurrency.map((c: any) => ({
+      revList = data.revenueByCurrency.map((c: RawPaymentCurrencyItem) => ({
         currency: (c.currency || 'lkr').toUpperCase(),
         totalAmount: c.netAmount ?? c.totalAmount ?? c.grossAmount ?? 0,
         transactionCount: c.paymentCount ?? c.transactionCount ?? 0,

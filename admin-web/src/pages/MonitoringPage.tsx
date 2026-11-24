@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -18,6 +18,7 @@ import {
   PlatformHealthResponse,
   FraudAssessment,
   OperationalIncident,
+  IncidentAiSummaryResponse,
   AIProviderMetric,
   NotificationMetrics,
   DeadLetterItem,
@@ -25,11 +26,13 @@ import {
 } from '../api/securityMonitoringApi';
 import { useToast } from '../context/ToastContext';
 
+type MonitoringTab = 'health' | 'fraud' | 'incidents' | 'notifications' | 'ai';
+
 export const MonitoringPage: React.FC = () => {
   const { showToast } = useToast();
-  const showSuccess = (msg: string) => showToast(msg, 'success');
-  const showError = (msg: string) => showToast(msg, 'error');
-  const [activeTab, setActiveTab] = useState<'health' | 'fraud' | 'incidents' | 'notifications' | 'ai'>('health');
+  const showSuccess = useCallback((msg: string) => showToast(msg, 'success'), [showToast]);
+  const showError = useCallback((msg: string) => showToast(msg, 'error'), [showToast]);
+  const [activeTab, setActiveTab] = useState<MonitoringTab>('health');
   const [loading, setLoading] = useState<boolean>(true);
 
   // Telemetry States
@@ -42,7 +45,7 @@ export const MonitoringPage: React.FC = () => {
   const [aiMetrics, setAiMetrics] = useState<AIProviderMetric[]>([]);
 
   // Modals & Chat
-  const [selectedIncidentSummary, setSelectedIncidentSummary] = useState<any | null>(null);
+  const [selectedIncidentSummary, setSelectedIncidentSummary] = useState<IncidentAiSummaryResponse | null>(null);
   const [reviewingFraud, setReviewingFraud] = useState<FraudAssessment | null>(null);
   const [fraudDecisionNotes, setFraudDecisionNotes] = useState<string>('');
   const [chatOpen, setChatOpen] = useState<boolean>(false);
@@ -56,7 +59,7 @@ export const MonitoringPage: React.FC = () => {
   ]);
   const [chatLoading, setChatLoading] = useState<boolean>(false);
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
       const [h, f, inc, n, dl, wf, ai] = await Promise.all([
@@ -75,16 +78,16 @@ export const MonitoringPage: React.FC = () => {
       setDeadLetters(dl || []);
       setWorkflows(wf || []);
       setAiMetrics(ai || []);
-    } catch (err: any) {
+    } catch {
       showError('Failed to refresh monitoring telemetry.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showError]);
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   // Handlers
   const handleAcknowledgeIncident = async (id: string) => {
@@ -273,20 +276,27 @@ export const MonitoringPage: React.FC = () => {
       {/* Navigation Tabs */}
       <div className="border-b border-slate-200">
         <nav className="flex space-x-6">
-          {[
-            { id: 'health', label: 'Dependencies & Workers', icon: Server },
-            { id: 'fraud', label: 'Fraud Risk Center', icon: ShieldAlert, count: health?.openFraudAssessmentsCount },
-            { id: 'incidents', label: 'Incidents Management', icon: AlertTriangle, count: health?.activeIncidentsCount },
-            { id: 'notifications', label: 'Outbox & Workflows', icon: RotateCcw, count: deadLetters.length },
-            { id: 'ai', label: 'AI Providers & Safety', icon: Cpu },
-          ].map(tab => {
+          {(
+            [
+              { id: 'health', label: 'Dependencies & Workers', icon: Server },
+              { id: 'fraud', label: 'Fraud Risk Center', icon: ShieldAlert, count: health?.openFraudAssessmentsCount },
+              { id: 'incidents', label: 'Incidents Management', icon: AlertTriangle, count: health?.activeIncidentsCount },
+              { id: 'notifications', label: 'Outbox & Workflows', icon: RotateCcw, count: deadLetters.length },
+              { id: 'ai', label: 'AI Providers & Safety', icon: Cpu },
+            ] as Array<{
+              id: MonitoringTab;
+              label: string;
+              icon: React.ComponentType<{ className?: string }>;
+              count?: number;
+            }>
+          ).map(tab => {
             const Icon = tab.icon;
             const isSel = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium transition-colors ${
                   isSel
                     ? 'border-brand-600 text-brand-600'

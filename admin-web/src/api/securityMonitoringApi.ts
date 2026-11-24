@@ -36,7 +36,7 @@ export interface FraudAssessment {
   supportingEventReferences: string[];
   explanation: string;
   reviewStatus: 'DETECTED' | 'AWAITING_REVIEW' | 'INVESTIGATING' | 'DISMISSED' | 'CONFIRMED' | 'RESOLVED';
-  investigationNotes: any[];
+  investigationNotes: Array<Record<string, unknown>>;
   assignedAdminId?: string;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +58,18 @@ export interface OperationalIncident {
   resolvedAt?: string;
 }
 
+export interface IncidentAiSummaryResponse {
+  incidentId: string;
+  title: string;
+  category?: string;
+  severity: string;
+  affectedService?: string;
+  summary: string;
+  recommendedAction?: string;
+  suggestedInvestigationSteps?: string[];
+  generatedAt?: string;
+}
+
 export interface SecurityEvent {
   eventId: string;
   category: string;
@@ -67,7 +79,7 @@ export interface SecurityEvent {
   ipAddress?: string;
   endpoint?: string;
   description: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -110,7 +122,7 @@ export interface MonitoredWorkflow {
   startedAt: string;
   lastUpdatedAt: string;
   completedAt?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface AIProviderMetric {
@@ -126,6 +138,26 @@ export interface AIProviderMetric {
   lastErrorTimestamp?: string;
 }
 
+export interface DeadLetterRetryResponse {
+  success: boolean;
+  message: string;
+  deadLetterId: string;
+}
+
+export interface WorkflowRecoveryResponse {
+  workflowId: string;
+  recovered: boolean;
+  message: string;
+  currentStatus?: string;
+}
+
+export interface MonitoringAssistantChatResponse {
+  intent: string;
+  response: string;
+  confidence: number;
+  actionRecommended?: string;
+}
+
 export const securityMonitoringApi = {
   // Platform & Worker Health
   getPlatformHealth: async (): Promise<PlatformHealthResponse> => {
@@ -135,87 +167,87 @@ export const securityMonitoringApi = {
 
   // Fraud Management
   getFraudAssessments: async (statusFilter?: string, riskLevel?: string): Promise<{ items: FraudAssessment[]; total: number }> => {
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (statusFilter) params.status = statusFilter;
     if (riskLevel) params.riskLevel = riskLevel;
-    const res = await apiClient.get('/security/fraud/assessments', { params });
+    const res = await apiClient.get<{ items: FraudAssessment[]; total: number }>('/security/fraud/assessments', { params });
     return res.data;
   },
 
   reviewFraudAssessment: async (assessmentId: string, decision: string, notes: string): Promise<FraudAssessment> => {
-    const res = await apiClient.post(`/security/fraud/assessments/${assessmentId}/review`, { decision, notes });
+    const res = await apiClient.post<FraudAssessment>(`/security/fraud/assessments/${assessmentId}/review`, { decision, notes });
     return res.data;
   },
 
   // Operational Incidents
   getIncidents: async (statusFilter?: string, category?: string): Promise<{ items: OperationalIncident[]; total: number }> => {
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (statusFilter) params.status = statusFilter;
     if (category) params.category = category;
-    const res = await apiClient.get('/security/incidents', { params });
+    const res = await apiClient.get<{ items: OperationalIncident[]; total: number }>('/security/incidents', { params });
     return res.data;
   },
 
   createIncident: async (data: { title: string; category: string; severity: string; description: string; affectedService: string }): Promise<OperationalIncident> => {
-    const res = await apiClient.post('/security/incidents', data);
+    const res = await apiClient.post<OperationalIncident>('/security/incidents', data);
     return res.data;
   },
 
   acknowledgeIncident: async (incidentId: string): Promise<OperationalIncident> => {
-    const res = await apiClient.post(`/security/incidents/${incidentId}/acknowledge`);
+    const res = await apiClient.post<OperationalIncident>(`/security/incidents/${incidentId}/acknowledge`);
     return res.data;
   },
 
   resolveIncident: async (incidentId: string, notes: string): Promise<OperationalIncident> => {
-    const res = await apiClient.post(`/security/incidents/${incidentId}/resolve`, null, { params: { notes } });
+    const res = await apiClient.post<OperationalIncident>(`/security/incidents/${incidentId}/resolve`, null, { params: { notes } });
     return res.data;
   },
 
-  getIncidentAiSummary: async (incidentId: string): Promise<any> => {
-    const res = await apiClient.get(`/security/incidents/${incidentId}/ai-summary`);
+  getIncidentAiSummary: async (incidentId: string): Promise<IncidentAiSummaryResponse> => {
+    const res = await apiClient.get<IncidentAiSummaryResponse>(`/security/incidents/${incidentId}/ai-summary`);
     return res.data;
   },
 
   // Security Events
   getSecurityEvents: async (category?: string, severity?: string): Promise<{ items: SecurityEvent[]; total: number }> => {
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (category) params.category = category;
     if (severity) params.severity = severity;
-    const res = await apiClient.get('/security/events', { params });
+    const res = await apiClient.get<{ items: SecurityEvent[]; total: number }>('/security/events', { params });
     return res.data;
   },
 
   // Notification Monitoring
   getNotificationMetrics: async (): Promise<NotificationMetrics> => {
-    const res = await apiClient.get('/security/monitoring/notifications');
+    const res = await apiClient.get<NotificationMetrics>('/security/monitoring/notifications');
     return res.data;
   },
 
   getDeadLetters: async (): Promise<DeadLetterItem[]> => {
-    const res = await apiClient.get('/security/monitoring/notifications/dead-letters');
+    const res = await apiClient.get<DeadLetterItem[]>('/security/monitoring/notifications/dead-letters');
     return res.data;
   },
 
-  retryDeadLetter: async (deadLetterId: string): Promise<any> => {
-    const res = await apiClient.post(`/security/monitoring/notifications/dead-letters/${deadLetterId}/retry`);
+  retryDeadLetter: async (deadLetterId: string): Promise<DeadLetterRetryResponse> => {
+    const res = await apiClient.post<DeadLetterRetryResponse>(`/security/monitoring/notifications/dead-letters/${deadLetterId}/retry`);
     return res.data;
   },
 
   // Workflows
   getMonitoredWorkflows: async (statusFilter?: string): Promise<MonitoredWorkflow[]> => {
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (statusFilter) params.status = statusFilter;
-    const res = await apiClient.get('/security/monitoring/workflows', { params });
+    const res = await apiClient.get<MonitoredWorkflow[]>('/security/monitoring/workflows', { params });
     return res.data;
   },
 
   detectStuckWorkflows: async (): Promise<MonitoredWorkflow[]> => {
-    const res = await apiClient.post('/security/monitoring/workflows/stuck');
+    const res = await apiClient.post<MonitoredWorkflow[]>('/security/monitoring/workflows/stuck');
     return res.data;
   },
 
-  recoverWorkflow: async (workflowId: string, recoveryReason: string): Promise<any> => {
-    const res = await apiClient.post(`/security/monitoring/workflows/${workflowId}/recover`, {
+  recoverWorkflow: async (workflowId: string, recoveryReason: string): Promise<WorkflowRecoveryResponse> => {
+    const res = await apiClient.post<WorkflowRecoveryResponse>(`/security/monitoring/workflows/${workflowId}/recover`, {
       workflowId,
       recoveryReason,
       force: true,
@@ -225,13 +257,13 @@ export const securityMonitoringApi = {
 
   // AI Providers
   getAiProviderMetrics: async (): Promise<AIProviderMetric[]> => {
-    const res = await apiClient.get('/security/monitoring/ai-providers');
+    const res = await apiClient.get<AIProviderMetric[]>('/security/monitoring/ai-providers');
     return res.data;
   },
 
   // Admin AI Chat
-  chatMonitoringAssistant: async (message: string): Promise<any> => {
-    const res = await apiClient.post('/security/ai-assistant/chat', { message });
+  chatMonitoringAssistant: async (message: string): Promise<MonitoringAssistantChatResponse> => {
+    const res = await apiClient.post<MonitoringAssistantChatResponse>('/security/ai-assistant/chat', { message });
     return res.data;
   },
 };

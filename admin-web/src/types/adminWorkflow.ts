@@ -132,15 +132,15 @@ export interface AdminReportResponse {
   dateRange: { startDate: string; endDate: string };
   generatedAt: string;
   dataDefinitions: Record<string, string>;
-  metrics: Record<string, any>;
-  items: Array<Record<string, any>>;
+  metrics: Record<string, unknown>;
+  items: Array<Record<string, unknown>>;
   aiSummary?: string;
 }
 
 export interface AdminAssistantChatResponse {
   reply: string;
   toolCalled?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   dateRange?: { startDate: string; endDate: string };
   actionSuggestions: string[];
 }
@@ -159,7 +159,7 @@ export interface AdminAuditLogItem {
   reason?: string;
   correlationId?: string;
   status: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   timestamp: string;
 }
 
