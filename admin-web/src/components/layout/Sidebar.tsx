@@ -18,6 +18,8 @@ import {
   RotateCcw,
   FileText,
   Shield,
+  Activity,
+  AlertTriangle,
 } from 'lucide-react';
 
 export interface SidebarProps {
@@ -27,6 +29,9 @@ export interface SidebarProps {
 
 const navigationItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Platform Monitoring', href: '/monitoring', icon: Activity },
+  { name: 'Fraud Risk Center', href: '/fraud-monitoring', icon: ShieldAlert },
+  { name: 'Operational Incidents', href: '/incidents', icon: AlertTriangle },
   { name: 'Doctor Verification', href: '/doctor-verification', icon: UserCheck },
   { name: 'Payment Reconciliation', href: '/reconciliation', icon: ShieldAlert },
   { name: 'Refund Review', href: '/refunds', icon: RotateCcw },
