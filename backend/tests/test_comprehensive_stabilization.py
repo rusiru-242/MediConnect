@@ -601,3 +601,39 @@ def test_bug013_health_chat_negated_symptom_not_emergency(env):
     resp = client.post(f"/api/ai/health-chat/sessions/{sid}/messages",
                        json={"message": "I have no chest pain, just a mild cough"}, headers=env["headers"])
     assert resp.json()["messages"][-1]["metadata"]["triageLevel"].lower() != "emergency"
+
+
+def test_bug040_new_request_after_emergency_is_not_re_escalated():
+    history = ["mata papuwa godak ridenawa. husma gannath amarui."]
+    assert not detect_emergency("mata Colombo walin LKR 3000ta aduwen cardiologist kenek hoyala denna", history,
+                                previous_assistant_was_emergency=True).is_emergency
+    assert not detect_emergency("Find a dermatologist in Colombo", history, True).is_emergency
+    # Short follow-ups and symptom updates still carry the escalation.
+    assert detect_emergency("mama mokakda karanna one?", history, True).is_emergency
+    assert detect_emergency("it is getting worse", history).is_emergency
+
+
+def test_bug040_search_works_in_same_chat_after_emergency(env):
+    chat = new_chat(env)
+    say(env, chat, "mata papuwa godak ridenawa. husma gannath amarui.")
+    data = say(env, chat, "mata Colombo walin LKR 3000ta aduwen cardiologist kenek hoyala denna")
+    assert last(data)["metadata"]["type"] == "doctor_options"
+    assert all(d["consultationFee"] <= 3000 for d in last(data)["metadata"]["doctors"])
+
+
+def test_bug041_admin_refund_list_does_not_crash():
+    """The admin Refunds page called a @classmethod without `cls` and always returned HTTP 500."""
+    db = get_database()
+    admin_id = ObjectId()
+    db["users"].insert_one({
+        "_id": admin_id, "fullName": "Refund Admin", "email": f"refund_admin_{admin_id}@mediconnect.lk",
+        "passwordHash": "x", "role": UserRole.ADMIN.value, "emailVerified": True,
+        "accountStatus": AccountStatus.ACTIVE.value, "createdAt": utc_now(), "updatedAt": utc_now(),
+    })
+    try:
+        headers = {"Authorization": f"Bearer {create_access_token(str(admin_id), UserRole.ADMIN.value)}"}
+        for query in ("", "?status=PENDING", "?status=ALL&page=1&pageSize=5"):
+            resp = client.get(f"/api/admin/workflow/refunds{query}", headers=headers)
+            assert resp.status_code == 200, resp.text
+    finally:
+        db["users"].delete_one({"_id": admin_id})

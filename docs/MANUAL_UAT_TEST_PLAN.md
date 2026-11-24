@@ -4,6 +4,11 @@ For: the project owner testing on a real Android phone, the admin website and a 
 
 ## 0. Before you start
 
+> **Prepared environment (2026-11-24):** follow [UAT_ENVIRONMENT_SETUP.md](UAT_ENVIRONMENT_SETUP.md).
+> - It starts an isolated backend on port **8001** (local database `mediconnect_uat`) and the admin web on **5174**, and installs the debug APK.
+> - The accounts below are already seeded, using the email domain `@uat.mediconnect.lk` and the shared password in `backend/uat.env`.
+> - AI providers, push, email, SMS and external image analysis are currently blocked or disabled (see §6 of that guide). The tests that depend on them (P-07 push, P-09 label reading, P-16 push) cannot fully pass until those are resolved.
+
 **Environment (staging only — never production, never real patients):**
 - A staging backend connected to a **staging copy** of the database, not production Atlas.
 - Stripe in **test mode** (`sk_test_…`, test cards only).

@@ -151,6 +151,12 @@ PERSONAL = (r"\bi\b", r"\bi'?m\b", r"\bmy\b", r"\bme\b", r"\bmine\b", r"\bhe\b",
             r"\bmata\b", r"\bmage\b", r"\bmama\b", r"\bmaa\b", r"\bapi\b", r"\bthaththa\w*", r"\bamma\w*",
             r"\bduwa\w*", r"\bputha\w*", r"\blamaya\w*", "මට", "මගේ", "මම", "අපේ", "තාත්තා", "අම්මා", "දරුවා")
 
+# Clearly new requests that must not inherit an earlier emergency from conversation context.
+NEW_REQUEST = (r"\b(?:find|search|show|book|booking|appointment|channel|recommend|doctor|specialist|"
+               r"\w+ologist|dermatolog\w*|cardiolog\w*|hoyala|hoyanna|denna|lkr|rs\.?|budget|medicine|tablet|"
+               r"paracetamol|beheth|sleep|diet|exercise|food)\b",
+               "වෛද්‍ය", "දොස්තර", "හොයලා", "බෙහෙත්")
+
 # Messages that indicate the user is answering an emergency follow-up with an
 # explicit resolution. These end context-carried escalation.
 RESOLUTION = (r"\b(?:i'?m|i am|feeling) (?:fine|ok(?:ay)?|better) now\b", r"\bit (?:has )?(?:stopped|passed|gone)\b",
@@ -285,6 +291,14 @@ def detect_emergency(text: str, recent_user_messages: Sequence[str] = (),
         return current
     if _has(norm, RESOLUTION):
         return EmergencyResult(False, suppressed="resolved")
+    # Context only carries into a short follow-up ("what should I do?") or a message that itself has a
+    # symptom/distress signal. A clearly new request (doctor search, booking, medicine, wellness) is not
+    # re-escalated because of an earlier message.
+    symptom_signal = bool(_has(norm, CHEST) or _has(norm, HEART) or _has(norm, PAIN)
+                          or _has(norm, BREATH_SUBJECT) or _has(norm, SEVERITY))
+    short_follow_up = len(norm) <= 80 and not _has(norm, NEW_REQUEST)
+    if not (symptom_signal or short_follow_up):
+        return current
     recent = [m for m in recent_user_messages if m][-3:]
     for earlier in reversed(recent):
         previous = _evaluate(earlier)
@@ -296,7 +310,7 @@ def detect_emergency(text: str, recent_user_messages: Sequence[str] = (),
         if combined.is_emergency:
             combined.from_context = True
             return combined
-    if previous_assistant_was_emergency and len(norm) <= 80:
+    if previous_assistant_was_emergency and short_follow_up:
         return EmergencyResult(True, None, "Follow-up to a possible emergency", [], from_context=True)
     return current
 
