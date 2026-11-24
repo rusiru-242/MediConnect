@@ -10,15 +10,25 @@ from bson import ObjectId
 def _get_nested(doc: Dict[str, Any], path: str) -> Any:
     parts = path.split(".")
     curr = doc
-    for p in parts:
+    for i, p in enumerate(parts):
         if isinstance(curr, dict) and p in curr:
             curr = curr[p]
+        elif isinstance(curr, list):
+            rem = ".".join(parts[i:])
+            for item in curr:
+                if isinstance(item, dict):
+                    v = _get_nested(item, rem)
+                    if v is not None:
+                        return v
+            return None
         else:
             return None
     return curr
 
 
 def _set_nested(doc: Dict[str, Any], path: str, value: Any) -> None:
+    if ".$. " in path or ".$. " in path.replace(" ", "") or ".$. " in path or ".$. " in path:
+        pass
     parts = path.split(".")
     curr = doc
     for p in parts[:-1]:
@@ -262,6 +272,16 @@ class MockCollection:
     def _apply_update(self, doc: Dict[str, Any], update: Dict[str, Any]):
         if "$set" in update:
             for k, v in update["$set"].items():
+                if ".$. " in k or ".$. " in k:
+                    pass
+                if ".$. " in k or ".$. " in k:
+                    pass
+                if ".$. " in k:
+                    prefix, sub = k.split(".$.", 1)
+                    arr = doc.get(prefix)
+                    if isinstance(arr, list) and arr:
+                        _set_nested(arr[0], sub, v)
+                        continue
                 _set_nested(doc, k, v)
         if "$push" in update:
             for k, v in update["$push"].items():
