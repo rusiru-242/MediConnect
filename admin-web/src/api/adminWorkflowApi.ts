@@ -135,7 +135,7 @@ export const adminWorkflowApi = {
   },
 
   // 6. Admin Conversational AI Assistant
-  askAssistant: async (message: string, contextFilter?: any): Promise<AdminAssistantChatResponse> => {
+  askAssistant: async (message: string, contextFilter?: Record<string, unknown>): Promise<AdminAssistantChatResponse> => {
     const { data } = await apiClient.post<AdminAssistantChatResponse>('/admin/workflow/assistant', {
       message,
       contextFilter,

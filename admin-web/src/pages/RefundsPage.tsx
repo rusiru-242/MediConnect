@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import {
   ShieldCheck,
 } from 'lucide-react';
@@ -45,8 +46,9 @@ export const RefundsPage: React.FC = () => {
       setSelectedRefund(null);
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
     },
-    onError: (err: any) => {
-      showToast(err?.response?.data?.detail || 'Failed to approve refund.', 'error');
+    onError: (err: unknown) => {
+      const axiosErr = err as AxiosError<{ detail?: string }>;
+      showToast(axiosErr?.response?.data?.detail || 'Failed to approve refund.', 'error');
     },
   });
 
@@ -59,8 +61,9 @@ export const RefundsPage: React.FC = () => {
       setSelectedRefund(null);
       queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
     },
-    onError: (err: any) => {
-      showToast(err?.response?.data?.detail || 'Failed to reject refund.', 'error');
+    onError: (err: unknown) => {
+      const axiosErr = err as AxiosError<{ detail?: string }>;
+      showToast(axiosErr?.response?.data?.detail || 'Failed to reject refund.', 'error');
     },
   });
 
