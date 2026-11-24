@@ -577,3 +577,27 @@ def test_bug025_image_endpoint_requires_authentication():
     resp = client.post("/api/ai/booking/sessions/000000000000000000000000/image",
                        files={"file": ("label.png", PNG, "image/png")})
     assert resp.status_code in (401, 403)
+
+
+@pytest.mark.parametrize("text", [
+    "mata papuwa godak ridenawa. husma gannath amarui. mama mokakda karanna one?",
+    "මගේ පපුව ගොඩක් රිදෙනවා. හුස්ම ගන්නත් අමාරුයි. මම මොකද කරන්න ඕනේ?",
+])
+def test_bug013_health_chat_assistant_also_escalates(env, text):
+    session = client.post("/api/ai/health-chat/sessions", json={"language": "en", "consentGiven": True}, headers=env["headers"])
+    assert session.status_code == 201, session.text
+    sid = session.json()["id"]
+    resp = client.post(f"/api/ai/health-chat/sessions/{sid}/messages", json={"message": text}, headers=env["headers"])
+    assert resp.status_code == 200, resp.text
+    last_message = resp.json()["messages"][-1]
+    assert last_message["metadata"]["triageLevel"].lower() == "emergency"
+    assert "1990" in last_message["content"]
+    assert not last_message["metadata"]["doctorReferrals"]
+
+
+def test_bug013_health_chat_negated_symptom_not_emergency(env):
+    session = client.post("/api/ai/health-chat/sessions", json={"language": "en", "consentGiven": True}, headers=env["headers"])
+    sid = session.json()["id"]
+    resp = client.post(f"/api/ai/health-chat/sessions/{sid}/messages",
+                       json={"message": "I have no chest pain, just a mild cough"}, headers=env["headers"])
+    assert resp.json()["messages"][-1]["metadata"]["triageLevel"].lower() != "emergency"
