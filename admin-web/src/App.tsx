@@ -28,6 +28,9 @@ const RefundsPage = lazy(() => import('./pages/RefundsPage').then(m => ({ defaul
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })));
 
+// Phase 7 Security, Fraud Detection & Reliability Monitoring
+const MonitoringPage = lazy(() => import('./pages/MonitoringPage').then(m => ({ default: m.MonitoringPage })));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -101,6 +104,9 @@ export const App: React.FC = () => {
                   <Route path="support-tickets" element={<SupportTicketsPage />} />
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="audit-logs" element={<AuditLogsPage />} />
+                  <Route path="monitoring" element={<MonitoringPage />} />
+                  <Route path="fraud-monitoring" element={<MonitoringPage />} />
+                  <Route path="incidents" element={<MonitoringPage />} />
                   <Route path="doctors" element={<DoctorsPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="appointments" element={<AppointmentsPage />} />

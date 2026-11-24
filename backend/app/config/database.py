@@ -98,6 +98,10 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
     from app.models.clinical_note import create_clinical_note_indexes
     from app.models.prescription_renewal import create_prescription_renewal_indexes
     from app.models.health_measurement import create_health_measurement_indexes
+    from app.models.security_event import create_security_events_indexes
+    from app.models.fraud_assessment import create_fraud_assessments_indexes
+    from app.models.operational_incident import create_operational_incidents_indexes
+    from app.models.workflow_monitoring import create_workflow_monitoring_indexes
 
     index_creators = [
         ("users", create_user_indexes),
@@ -117,6 +121,10 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         ("clinical_notes", create_clinical_note_indexes),
         ("prescription_renewals", create_prescription_renewal_indexes),
         ("patient_health_measurements", create_health_measurement_indexes),
+        ("security_events", create_security_events_indexes),
+        ("fraud_risk_assessments", create_fraud_assessments_indexes),
+        ("operational_incidents", create_operational_incidents_indexes),
+        ("workflow_monitoring_events", create_workflow_monitoring_indexes),
         ("appointments", create_appointment_indexes),
         ("care_scheduler", create_care_scheduler_indexes),
         ("doctor_communications", create_doctor_communication_indexes),

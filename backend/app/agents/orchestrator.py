@@ -70,6 +70,18 @@ class AIOrchestrator:
             try:
                 validated = (tool.arguments.model_validate_json(args) if isinstance(args, str)
                              else tool.arguments.model_validate(args))
+                from app.services.ai_safety_guard import AISafetyGuard
+                arg_dict = validated.model_dump() if hasattr(validated, "model_dump") else (args if isinstance(args, dict) else {})
+                is_auth, auth_err = AISafetyGuard.validate_tool_call(
+                    actor_role=self.context.user.role,
+                    actor_id=str(self.context.user.id),
+                    tool_name=name,
+                    tool_args=arg_dict,
+                    authorized_tools=TOOLS,
+                )
+                if not is_auth:
+                    return {"error": "unauthorized_tool", "detail": auth_err}
+
                 with mongo_timeout(4):
                     result = await tool.run(self.context, validated)
             except ValidationError:

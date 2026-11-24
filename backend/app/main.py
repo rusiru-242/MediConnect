@@ -38,6 +38,8 @@ from app.services.doctor_communications import run_communications
 from app.routes.care_automation import router as care_automation_router
 from app.routes.admin_workflow import router as admin_workflow_router
 from app.routes.clinical_workflow import clinical_workflow_router
+from app.routes.security_monitoring import router as security_monitoring_router
+from app.services.platform_monitoring_service import PlatformMonitoringService
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +53,12 @@ async def _run_reminder_worker():
             db_status = check_database_connection()
             if db_status.get("connected"):
                 db = DatabaseManager.get_database()
+                t0 = asyncio.get_event_loop().time()
                 await asyncio.to_thread(run_scheduler, db)
                 await asyncio.to_thread(run_confirmation_outbox, db)
                 await asyncio.to_thread(run_communications, db)
+                duration = asyncio.get_event_loop().time() - t0
+                PlatformMonitoringService.record_worker_heartbeat("reminder_care_worker", job_count=3, duration_seconds=duration, db=db)
         except asyncio.CancelledError:
             logger.info("Appointment reminder background worker stopping.")
             break
@@ -161,6 +166,8 @@ app.include_router(doctor_schedule_router, prefix="/api")
 app.include_router(doctor_workflow_router, prefix="/api")
 app.include_router(patient_timeline_router, prefix="/api")
 app.include_router(clinical_workflow_router, prefix="/api")
+app.include_router(security_monitoring_router, prefix="/api")
+app.include_router(security_monitoring_router)
 
 
 

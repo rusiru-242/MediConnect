@@ -548,3 +548,122 @@ TOOLS.update({
     "prepare_renewal_request": Tool("Draft and submit a prescription renewal request for clinician review.", RenewalRequestDraftArgs, prepare_renewal_request, PATIENT_ROLES),
 })
 
+
+# -----------------------------------------------------------------------------
+# Phase 7: Advanced Security, Fraud Detection & Platform Reliability Tools
+# -----------------------------------------------------------------------------
+
+class IncidentArgs(Arguments):
+    incident_id: str | None = None
+    category: str | None = None
+    status: str | None = None
+
+
+class FraudAssessmentArgs(Arguments):
+    assessment_id: str | None = None
+    status: str | None = None
+
+
+class WorkflowArgs(Arguments):
+    status: str | None = None
+    workflow_type: str | None = None
+
+
+class DeadLetterArgs(Arguments):
+    dead_letter_id: str | None = None
+
+
+class SecuritySummaryArgs(Arguments):
+    hours: int = 24
+
+
+async def admin_platform_health(ctx, args):
+    from app.services.platform_monitoring_service import PlatformMonitoringService
+    return PlatformMonitoringService.get_platform_health_snapshot(ctx.db)
+
+
+async def admin_fraud_alerts(ctx, args):
+    from app.services.fraud_detection_service import FraudDetectionService
+    res = FraudDetectionService.list_assessments(status=args.status, db=ctx.db)
+    return {"items": [item.model_dump() for item in res["items"]], "total": res["total"]}
+
+
+async def admin_fraud_review_details(ctx, args):
+    if not args.assessment_id:
+        return {"error": "assessment_id_required"}
+    doc = ctx.db["fraud_risk_assessments"].find_one({"assessmentId": args.assessment_id})
+    if doc:
+        doc["_id"] = str(doc["_id"])
+        return doc
+    return {"error": "assessment_not_found"}
+
+
+async def admin_security_events(ctx, args):
+    from app.services.security_event_service import SecurityEventService
+    res = SecurityEventService.list_security_events(limit=20, db=ctx.db)
+    return {"items": [item.model_dump() for item in res["items"]], "total": res["total"]}
+
+
+async def admin_notification_failures(ctx, args):
+    from app.services.notification_monitoring_service import NotificationMonitoringService
+    items = NotificationMonitoringService.list_dead_letters(limit=20, db=ctx.db)
+    return {"dead_letters": items}
+
+
+async def admin_notification_queue_status(ctx, args):
+    from app.services.notification_monitoring_service import NotificationMonitoringService
+    return NotificationMonitoringService.get_notification_metrics(ctx.db)
+
+
+async def admin_worker_status(ctx, args):
+    from app.services.platform_monitoring_service import PlatformMonitoringService
+    workers = PlatformMonitoringService.get_worker_heartbeats(ctx.db)
+    return {"workers": workers}
+
+
+async def admin_ai_provider_metrics(ctx, args):
+    from app.services.ai_provider_monitoring_service import AIProviderMonitoringService
+    metrics = AIProviderMonitoringService.get_metrics()
+    return {"ai_providers": metrics}
+
+
+async def admin_stuck_workflows(ctx, args):
+    from app.services.workflow_monitoring_service import WorkflowMonitoringService
+    stuck = WorkflowMonitoringService.detect_stuck_workflows(ctx.db)
+    return {"stuck_workflows": [item.model_dump() for item in stuck]}
+
+
+async def admin_open_incidents(ctx, args):
+    from app.services.incident_management_service import IncidentManagementService
+    res = IncidentManagementService.list_incidents(status=args.status, category=args.category, db=ctx.db)
+    return {"items": [item.model_dump() for item in res["items"]], "total": res["total"]}
+
+
+async def admin_prepare_incident_summary(ctx, args):
+    from app.services.incident_management_service import IncidentManagementService
+    if not args.incident_id:
+        return {"error": "incident_id_required"}
+    return IncidentManagementService.generate_ai_incident_summary(args.incident_id, db=ctx.db)
+
+
+async def admin_prepare_security_report(ctx, args):
+    from app.services.security_event_service import SecurityEventService
+    return SecurityEventService.get_security_summary(hours=args.hours, db=ctx.db)
+
+
+TOOLS.update({
+    "get_platform_health": Tool("Read comprehensive platform health and dependency status.", Arguments, admin_platform_health, ADMIN_ROLES),
+    "get_fraud_alerts": Tool("Read pending fraud assessments and flagged suspicious activity.", FraudAssessmentArgs, admin_fraud_alerts, ADMIN_ROLES),
+    "get_fraud_review_details": Tool("Read supporting evidence and rule triggers for a fraud assessment.", FraudAssessmentArgs, admin_fraud_review_details, ADMIN_ROLES),
+    "get_security_events": Tool("Read recent security audit events and defensive blocks.", Arguments, admin_security_events, ADMIN_ROLES),
+    "get_notification_failures": Tool("Read notification outbox failure and dead-letter items.", Arguments, admin_notification_failures, ADMIN_ROLES),
+    "get_notification_queue_status": Tool("Read delivery rates, channel metrics, and outbox backlogs.", Arguments, admin_notification_queue_status, ADMIN_ROLES),
+    "get_worker_status": Tool("Read background worker heartbeats and execution latencies.", Arguments, admin_worker_status, ADMIN_ROLES),
+    "get_ai_provider_metrics": Tool("Read Gemini and OpenAI latency, error rates, and circuit breaker status.", Arguments, admin_ai_provider_metrics, ADMIN_ROLES),
+    "get_stuck_workflows": Tool("Scan for automated healthcare workflows stuck in intermediate states.", Arguments, admin_stuck_workflows, ADMIN_ROLES),
+    "get_open_incidents": Tool("Read active operational platform incidents.", IncidentArgs, admin_open_incidents, ADMIN_ROLES),
+    "prepare_incident_summary": Tool("Generate structured investigation steps and contextual summary for an incident.", IncidentArgs, admin_prepare_incident_summary, ADMIN_ROLES),
+    "prepare_security_report": Tool("Generate security posture breakdown and threat summary.", SecuritySummaryArgs, admin_prepare_security_report, ADMIN_ROLES),
+})
+
+
