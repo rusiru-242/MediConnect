@@ -10,6 +10,7 @@ from pymongo.errors import DuplicateKeyError
 
 logger = logging.getLogger(__name__)
 
+from app.agents.doctor_ranking import coerce_fee
 from app.models.appointment import (
     AppointmentDocument,
     AppointmentStatus,
@@ -76,7 +77,7 @@ def _build_appointment_response(
         endTime=doc.get("endTime", ""),
         status=doc.get("status", "PENDING"),
         paymentStatus=doc.get("paymentStatus", "UNPAID"),
-        consultationFee=float(doc.get("consultationFee", 2500.0)),
+        consultationFee=coerce_fee(doc.get("consultationFee")) or 0.0,
         holdExpiresAt=doc.get("holdExpiresAt"),
         patientNote=doc.get("patientNote"),
         cancelledBy=doc.get("cancelledBy"),
@@ -384,7 +385,13 @@ class AppointmentService:
 
         # 7. Insert appointment with temporary 10-minute hold - database unique index guards concurrent race conditions
         avail_id_str = str(avail_doc["_id"])
-        consultation_fee = float(doctor_profile.get("consultationFee", 2500.0))
+        # Charge only the doctor's listed fee; never a default (BUG-028).
+        consultation_fee = coerce_fee(doctor_profile.get("consultationFee"))
+        if consultation_fee is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This doctor has not listed a consultation fee yet, so the appointment cannot be booked.",
+            )
         hold_expires_at = now + timedelta(minutes=10)
 
         appt_doc = AppointmentDocument(

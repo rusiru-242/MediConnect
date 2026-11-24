@@ -98,6 +98,7 @@ def _make_doctor(
         "qualifications": "MBBS, MD",
         "hospitalOrClinic": f"Colombo National Hospital {suffix}",
         "experienceYears": 10,
+        "consultationFee": 2500.0,  # explicit: bookings never use an invented default fee
         "verificationStatus": verification_status,
         "submittedAt": datetime.now(timezone.utc),
         "verifiedAt": datetime.now(timezone.utc) if verification_status == DoctorVerificationStatus.APPROVED.value else None,

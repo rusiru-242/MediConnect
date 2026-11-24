@@ -56,6 +56,7 @@ import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/fcm_service.dart';
 import 'services/local_notification_service.dart';
+import 'utils/assistant_navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -158,7 +159,8 @@ class MediConnectApp extends StatelessWidget {
           '/notifications': (context) => const NotificationsScreen(),
           '/patient/home': (context) => const PatientHomeScreen(),
           '/patient/profile': (context) => const PatientProfileScreen(),
-          '/patient/ai-assistant': (context) => const AiCareAssistantScreen(),
+          '/patient/ai-assistant': (context) =>
+              AiCareAssistantScreen(initialQuery: AssistantNavigation.initialPromptFrom(context)),
           '/patient/ai-care-assistant': (context) =>
               const AiCareAssistantScreen(),
           '/patient/ai-companion': (context) => const AiCareAssistantScreen(),

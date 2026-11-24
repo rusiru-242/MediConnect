@@ -85,6 +85,7 @@ def _make_doctor_pair(db, suffix: str):
         "qualifications": "MBBS",
         "hospitalOrClinic": f"Test Clinic {suffix}",
         "experienceYears": 5,
+        "consultationFee": 2500.0,  # explicit: bookings never use an invented default fee
         "verificationStatus": DoctorVerificationStatus.APPROVED.value,
         "submittedAt": datetime.now(timezone.utc),
         "verifiedAt": datetime.now(timezone.utc),

@@ -6,6 +6,7 @@ import '../../models/doctor_recommendation.dart';
 import '../../services/ai_recommendation_service.dart';
 import 'booking_confirmation_screen.dart';
 import 'doctor_detail_screen.dart';
+import '../../utils/money.dart';
 
 /// Screen allowing patients to discover verified doctors using natural language (English/Sinhala)
 /// and transparent deterministic ranking.
@@ -838,7 +839,7 @@ class _AiDoctorRecommendationScreenState extends State<AiDoctorRecommendationScr
                     const Icon(Icons.payments_outlined, size: 14, color: AppTheme.textSecondary),
                     const SizedBox(width: 4),
                     Text(
-                      'LKR ${rec.consultationFee.toStringAsFixed(0)}',
+                      formatFee(rec.consultationFee),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                     ),
                   ],

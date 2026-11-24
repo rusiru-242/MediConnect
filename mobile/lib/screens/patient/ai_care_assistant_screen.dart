@@ -13,6 +13,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/booking_session.dart';
 import '../../services/ai_booking_service.dart';
 import '../../services/payment_service.dart';
+import '../../widgets/safe_markdown_text.dart';
 import 'doctor_detail_screen.dart';
 import 'payment_success_screen.dart';
 
@@ -26,11 +27,15 @@ class AiCareAssistantScreen extends StatefulWidget {
   final AiBookingService? bookingService;
   final PaymentService? paymentService;
 
+  /// Optional image source used by tests; production uses the platform file picker.
+  final Future<({Uint8List bytes, String name})?> Function()? imagePicker;
+
   const AiCareAssistantScreen({
     super.key,
     this.initialQuery,
     this.bookingService,
     this.paymentService,
+    this.imagePicker,
   });
 
   @override
@@ -54,10 +59,18 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   final _random = Random.secure();
 
   PlatformFile? _selectedImage;
+  String? _retryImageName;
   Uint8List? _selectedImageBytes;
+
+  // Image upload lifecycle (BUG-026): progress, retry and cancel.
+  bool _isUploadingImage = false;
+  int _uploadGeneration = 0;
+  final Map<String, Uint8List> _attachmentPreviews = {};
+  ({Uint8List bytes, String name, String? text})? _failedUpload;
 
   // Real-time hold countdown timer
   Timer? _countdownTimer;
+  bool _disposed = false;
   Duration _remainingHoldTime = Duration.zero;
 
   final List<Map<String, dynamic>> _quickActionCategories = [
@@ -93,7 +106,10 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
+    _uploadGeneration++;
     _countdownTimer?.cancel();
+    _countdownTimer = null;
     _textController.dispose();
     _patientNoteController.dispose();
     _scrollController.dispose();
@@ -110,6 +126,10 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   void _updateRemainingTime(DateTime holdExpiresAt) {
+    if (!mounted) {
+      _countdownTimer?.cancel();
+      return;
+    }
     final diff = holdExpiresAt.difference(DateTime.now());
     if (diff.isNegative) {
       _countdownTimer?.cancel();
@@ -211,6 +231,16 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   Future<void> _pickImage() async {
+    if (widget.imagePicker != null) {
+      final picked = await widget.imagePicker!();
+      if (!mounted || picked == null) return;
+      setState(() {
+        _selectedImage = null;
+        _retryImageName = picked.name;
+        _selectedImageBytes = picked.bytes;
+      });
+      return;
+    }
     try {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -263,19 +293,27 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
 
     _textController.clear();
     final imageBytesToSend = _selectedImageBytes;
-    final imageNameToSend = _selectedImage?.name ?? 'label.jpg';
+    final imageNameToSend = _selectedImage?.name ?? _retryImageName ?? 'label.jpg';
+    _retryImageName = null;
 
     // Optimistically show user's message in the transcript immediately
     final tempUserMsg = ChatMessage(
       id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
       sender: 'user',
-      content: text.isNotEmpty ? text : (hasImage ? '[Attached Image]' : ''),
+      content: text.isNotEmpty ? text : (hasImage ? 'Medicine photo' : ''),
       timestamp: DateTime.now(),
     );
+    if (hasImage && imageBytesToSend != null) {
+      _attachmentPreviews[tempUserMsg.id] = imageBytesToSend;
+    }
+    final generation = ++_uploadGeneration;
 
     final previous = _session;
+    _sessionBeforeUpload = previous;
     setState(() {
       _isLoading = true;
+      _isUploadingImage = hasImage;
+      _failedUpload = null;
       _errorMessage = null;
       _selectedImage = null;
       _selectedImageBytes = null;
@@ -326,24 +364,67 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         _pendingMessage = null;
         _requestId = null;
       }
-      if (!mounted) return;
+      // Ignore results for uploads the user cancelled or for a screen that has been closed.
+      if (!mounted || generation != _uploadGeneration) return;
+      if (hasImage && imageBytesToSend != null) {
+        final serverMessage = updated.messages.lastWhere(
+          (m) => m.isUser,
+          orElse: () => tempUserMsg,
+        );
+        _attachmentPreviews[serverMessage.id] = imageBytesToSend;
+      }
       setState(() {
         _session = updated;
         _isLoading = false;
+        _isUploadingImage = false;
       });
       if (updated.holdExpiresAt != null) {
         _startHoldTimer(updated.holdExpiresAt!);
       }
       _scrollToBottom();
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _uploadGeneration) return;
       setState(() {
         _session = previous;
         _isLoading = false;
-        _errorMessage = ApiErrorMapper.mapException(error);
+        _isUploadingImage = false;
+        _errorMessage = hasImage
+            ? 'Your photo was not analysed: ${ApiErrorMapper.mapException(error)}'
+            : ApiErrorMapper.mapException(error);
+        if (hasImage && imageBytesToSend != null) {
+          // Keep the photo so the patient can retry without picking it again.
+          _failedUpload = (bytes: imageBytesToSend, name: imageNameToSend, text: text.isEmpty ? null : text);
+        }
         if (_textController.text.isEmpty) _textController.text = text;
       });
     }
+  }
+
+  BookingSession? _sessionBeforeUpload;
+
+  void _cancelUpload() {
+    if (!_isUploadingImage) return;
+    _uploadGeneration++;
+    setState(() {
+      _session = _sessionBeforeUpload ?? _session;
+      _isLoading = false;
+      _isUploadingImage = false;
+      _errorMessage = 'Upload cancelled. If the photo already reached MediConnect, its analysis may still appear '
+          'in this chat after you reopen it.';
+    });
+  }
+
+  void _retryFailedUpload() {
+    final failed = _failedUpload;
+    if (failed == null || _isLoading) return;
+    setState(() {
+      _selectedImageBytes = failed.bytes;
+      _selectedImage = null;
+      _retryImageName = failed.name;
+      _failedUpload = null;
+      _errorMessage = null;
+    });
+    _sendMessage(failed.text);
   }
 
   Future<void> _selectDoctor(String doctorId) async {
@@ -609,7 +690,12 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      // The route may have been popped between scheduling and this frame (BUG-015): never touch
+      // a scroll position whose render object has been detached.
+      if (_disposed || !mounted || !_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      if (!position.hasContentDimensions) return;
+      {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent + 200,
           duration: const Duration(milliseconds: 300),
@@ -826,6 +912,20 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) return;
+        // Release the text field focus and stop timers/scroll work before the route's render
+        // objects are detached, so no callback touches a disposed render tree (BUG-015).
+        FocusManager.instance.primaryFocus?.unfocus();
+        _countdownTimer?.cancel();
+        _uploadGeneration++;
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -869,6 +969,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
 
             // Selected Image Preview chip if attached
             if (_selectedImageBytes != null) _buildSelectedImagePreview(),
+
+            // Upload & analysis progress stays visible above the composer (BUG-026)
+            if (_isUploadingImage) _buildUploadProgress(),
 
             // Bottom Chat Input Bar
             _buildInputArea(),
@@ -967,6 +1070,12 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             ),
           ),
           if (_session == null) TextButton(onPressed: _initSession, child: const Text('Retry')),
+          if (_session != null && _failedUpload != null)
+            TextButton(
+              key: const Key('ai_care_assistant_retry_upload'),
+              onPressed: _isLoading ? null : _retryFailedUpload,
+              child: const Text('Retry'),
+            ),
           IconButton(
             icon: const Icon(Icons.close, size: 16),
             onPressed: () => setState(() => _errorMessage = null),
@@ -1071,13 +1180,23 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                   ),
                 ],
               ),
-              child: Text(
-                isUser ? message.content : displayContent,
-                style: TextStyle(
-                  color: isUser ? Colors.white : AppTheme.textPrimary,
-                  fontSize: 14.5,
-                  height: 1.35,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isUser && (message.metadata?['attachment'] != null || _attachmentPreviews.containsKey(message.id)))
+                    _buildAttachmentChip(message),
+                  if (isUser)
+                    Text(
+                      message.content,
+                      style: const TextStyle(color: Colors.white, fontSize: 14.5, height: 1.35),
+                    )
+                  else
+                    SafeMarkdownText(
+                      displayContent,
+                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14.5, height: 1.35),
+                    ),
+                ],
               ),
             ),
           ),
@@ -1094,12 +1213,76 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
+  Widget _buildAttachmentChip(ChatMessage message) {
+    final bytes = _attachmentPreviews[message.id];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (bytes != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.memory(bytes, width: 56, height: 56, fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: Colors.white, size: 20)),
+            )
+          else
+            const Icon(Icons.image_outlined, color: Colors.white, size: 20),
+          const SizedBox(width: 6),
+          const Text('Photo attached', style: TextStyle(color: Colors.white70, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  /// Visible progress while an image is uploaded and analysed (BUG-026).
+  Widget _buildUploadProgress() {
+    return Padding(
+      key: const Key('ai_care_assistant_upload_progress'),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+      child: Row(
+        children: [
+
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.outline.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Uploading and analysing your photo…',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  const SizedBox(height: 8),
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      key: const Key('ai_care_assistant_cancel_upload'),
+                      onPressed: _cancelUpload,
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInteractiveStateWidgets() {
     if (_session == null) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+
         // Active Educational Medicine Card (only when active intent is MEDICINE_INFORMATION)
         if (_session!.activeMedicineCard != null && _session!.activeIntent == 'MEDICINE_INFORMATION')
           _buildMedicineCard(_session!.activeMedicineCard!),
@@ -1249,6 +1432,18 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                             color: AppTheme.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
+                        ),
+                      // BUG-016: each strength is shown with its own dosage form.
+                      for (final row in card.formulations)
+                        Text(
+                          '${row['form']}: ${row['strength']}',
+                          key: Key('ai_medicine_formulation_${row['form']}'),
+                          style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+                        ),
+                      if (card.formulations.isNotEmpty)
+                        const Text(
+                          'Strengths are not dose recommendations.',
+                          style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
                         ),
                     ],
                   ),
@@ -1564,18 +1759,38 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   Widget _buildImageAnalysisCard(ImageAnalysisSummary analysis) {
     Color badgeColor;
     String badgeText;
-    switch (analysis.confidenceLevel.toUpperCase()) {
-      case 'HIGH':
-        badgeColor = Colors.green;
-        badgeText = 'High Confidence';
+    switch (analysis.status) {
+      case 'provider_unavailable':
+        badgeColor = Colors.grey.shade700;
+        badgeText = 'Not analysed';
         break;
-      case 'MEDIUM':
-        badgeColor = Colors.amber.shade800;
-        badgeText = 'Moderate Confidence';
+      case 'invalid_file':
+        badgeColor = Colors.red.shade700;
+        badgeText = 'Upload problem';
+        break;
+      case 'not_medicine':
+        badgeColor = Colors.deepOrange;
+        badgeText = 'Not a medicine label';
+        break;
+      case 'unreadable':
+        badgeColor = Colors.deepOrange;
+        badgeText = 'Text not readable';
         break;
       default:
-        badgeColor = Colors.deepOrange;
-        badgeText = 'Uncertain';
+        switch (analysis.confidenceLevel.toUpperCase()) {
+          case 'HIGH':
+            badgeColor = Colors.green;
+            badgeText = 'High Confidence';
+            break;
+          case 'MEDIUM':
+          case 'MODERATE':
+            badgeColor = Colors.amber.shade800;
+            badgeText = 'Label read — verify with pharmacist';
+            break;
+          default:
+            badgeColor = Colors.deepOrange;
+            badgeText = 'Uncertain';
+        }
     }
 
     return Card(
@@ -2255,6 +2470,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             child: Image.memory(
               _selectedImageBytes!,
               fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: AppTheme.textSecondary),
             ),
           ),
           const SizedBox(width: 10),
@@ -2264,7 +2480,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _selectedImage?.name ?? 'Packaging Image',
+                  _selectedImage?.name ?? _retryImageName ?? 'Packaging Image',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),

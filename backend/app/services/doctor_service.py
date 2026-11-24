@@ -10,6 +10,7 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
+from app.agents.doctor_ranking import coerce_fee
 from app.models.appointment import AppointmentStatus
 from app.models.doctor_availability import (
     DoctorAvailabilityDocument,
@@ -152,8 +153,7 @@ class DoctorService:
             profile_query["$or"] = [{"city": location}, {"hospitalOrClinic": location}]
         if hospital:
             profile_query["hospitalOrClinic"] = {"$regex": re.escape(hospital), "$options": "i"}
-        if max_fee is not None:
-            profile_query["consultationFee"] = {"$type": "number", "$lte": max_fee}
+        # Fees are filtered after normalization (some records store numeric strings or Decimal128).
 
         # 3. Query all approved profiles matching specialty filter (newest first)
         profiles = list(db["doctor_profiles"].find(profile_query).sort([("_id", -1)]))
@@ -177,6 +177,7 @@ class DoctorService:
 
         # 5. Combine and filter profiles that have a valid active doctor user
         matching_doctors: List[DoctorListItem] = []
+        seen_doctor_users: set = set()
         clean_search = search.strip().lower() if search and search.strip() else None
 
         for p in profiles:
@@ -189,6 +190,12 @@ class DoctorService:
             full_name = user.get("fullName") or "Name unavailable"
             spec = p.get("specialty") or ""
             hospital = p.get("hospitalOrClinic") or ""
+            fee = coerce_fee(p.get("consultationFee"))
+            if max_fee is not None and (fee is None or fee > max_fee):
+                continue
+            if uid_str in seen_doctor_users:
+                continue  # Canonical identity de-duplication (BUG-007)
+            seen_doctor_users.add(uid_str)
 
             # Apply search across full name, specialty, and hospital/clinic
             if clean_search:
@@ -207,7 +214,7 @@ class DoctorService:
                     hospitalOrClinic=p.get("hospitalOrClinic") or "",
                     city=p.get("city"),
                     experienceYears=int(p.get("experienceYears") or 0),
-                    consultationFee=p.get("consultationFee"),
+                    consultationFee=fee,
                     bio=p.get("bio"),
                     profileImage=user.get("profileImage"),
                     verificationStatus=DoctorVerificationStatus.APPROVED.value,
@@ -282,7 +289,7 @@ class DoctorService:
             hospitalOrClinic=profile.get("hospitalOrClinic") or "",
             city=profile.get("city"),
             experienceYears=int(profile.get("experienceYears") or 0),
-            consultationFee=profile.get("consultationFee"),
+            consultationFee=coerce_fee(profile.get("consultationFee")),
             bio=profile.get("bio"),
             profileImage=user.get("profileImage"),
             verificationStatus=DoctorVerificationStatus.APPROVED.value,
@@ -1138,7 +1145,7 @@ class DoctorService:
 
         profile = cls._get_doctor_profile_or_404(db, str(doctor_user.id))
         target_month = month_str.strip() if month_str and month_str.strip() else get_sl_now().strftime("%Y-%m")
-        if not re.match(r"^\d{4}-\d{2}$", target_month):
+        if not re.match(r"^\d{4}-\d{2}$", target_month) or not 1 <= int(target_month[5:7]) <= 12:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Month must be in YYYY-MM format.")
 
         year, month_num = int(target_month[:4]), int(target_month[5:7])
@@ -1169,7 +1176,29 @@ class DoctorService:
             "status": {"$in": ["HOLD", "PENDING", "CONFIRMED", "COMPLETED"]},
         }))
 
-        # Fetch generated slots for each day
+        # Patient names for the month's appointments in one query (was one query per appointment).
+        patient_ids = {str(a.get("patientUserId")) for a in appts if ObjectId.is_valid(str(a.get("patientUserId")))}
+        patient_names = {
+            str(u["_id"]): u.get("fullName")
+            for u in db["users"].find({"_id": {"$in": [ObjectId(pid) for pid in patient_ids]}}, {"fullName": 1})
+        } if patient_ids else {}
+
+        # All future days of the month are computed with ONE slot-generation pass. Previously the full
+        # generator ran once per day (~30 x 6 queries), which could exceed the app's request timeout and
+        # surface as a connection error when changing months (BUG-005).
+        sl_today = get_sl_today_str()
+        future_dates = [f"{target_month}-{d:02d}" for d in range(1, num_days + 1)
+                        if f"{target_month}-{d:02d}" >= sl_today]
+        try:
+            month_slots = await cls.get_doctor_patient_slots(
+                db, str(profile["_id"]), date_list=future_dates, return_map=True,
+            ) if future_dates else {}
+        except HTTPException as exc:
+            if exc.status_code != status.HTTP_404_NOT_FOUND:
+                raise
+            # Doctor not currently bookable (e.g. account inactive): show the calendar without slots.
+            month_slots = {}
+
         days_overview: List[CalendarDayOverview] = []
         for day_i in range(1, num_days + 1):
             curr_date = f"{target_month}-{day_i:02d}"
@@ -1202,8 +1231,7 @@ class DoctorService:
             day_appts = []
             for a in appts:
                 if a.get("appointmentDate") == curr_date:
-                    p_doc = db["users"].find_one({"_id": ObjectId(a["patientUserId"])}) if ObjectId.is_valid(str(a.get("patientUserId"))) else None
-                    p_name = (p_doc.get("fullName") if p_doc else None) or "Patient"
+                    p_name = patient_names.get(str(a.get("patientUserId"))) or "Patient"
                     day_appts.append(
                         CalendarDayAppointment(
                             appointmentId=str(a["_id"]),
@@ -1214,12 +1242,8 @@ class DoctorService:
                         )
                     )
 
-            # Slots calculation for this day
-            if curr_date < get_sl_today_str():
-                day_slots = []
-            else:
-                day_slots_res = await cls.get_doctor_patient_slots(db, str(profile["_id"]), date_filter=curr_date)
-                day_slots = day_slots_res.slots if hasattr(day_slots_res, "slots") else []
+            # Slots for this day come from the same generator patients and the AI assistant use.
+            day_slots = month_slots.get(curr_date, []) if curr_date >= sl_today else []
 
             # Determine Day Status
             if day_leave_doc and not day_leave_doc.get("startTime"):
@@ -1314,8 +1338,16 @@ class DoctorService:
         db: Database,
         doctor_id: str,
         date_filter: Optional[str] = None,
+        *,
+        date_list: Optional[List[str]] = None,
+        return_map: bool = False,
     ) -> Any:
-        """Generate and return available time slots for an APPROVED doctor, removing booked slots, leaves, and blocks."""
+        """Generate and return available time slots for an APPROVED doctor, removing booked slots, leaves, and blocks.
+
+        ``date_list`` + ``return_map`` let callers (the doctor calendar) compute many dates with one set of
+        queries instead of one full computation per day. This is the single source of truth for slots used
+        by the doctor calendar, patient doctor profile, booking and the AI assistant.
+        """
         clean_id = doctor_id.strip()
 
         # 1. Verify doctor is APPROVED + ACTIVE
@@ -1344,7 +1376,11 @@ class DoctorService:
         # Dates to calculate
         sl_today = get_sl_today_str()
         dates_to_eval = []
-        if date_filter and date_filter.strip():
+        if date_list:
+            dates_to_eval = sorted({d for d in date_list if d >= sl_today})
+            if not dates_to_eval:
+                return {} if return_map else []
+        elif date_filter and date_filter.strip():
             clean_date = date_filter.strip()
             DoctorService._validate_date_string(clean_date)
             dates_to_eval = [clean_date]
@@ -1487,6 +1523,9 @@ class DoctorService:
 
             if day_available_slots or (date_filter and date_filter.strip()):
                 grouped_slots[d_str] = day_available_slots
+
+        if return_map:
+            return {d: list(grouped_slots.get(d, [])) for d in dates_to_eval}
 
         day_availabilities = [
             DayAvailabilitySlots(date=d, slots=slots)

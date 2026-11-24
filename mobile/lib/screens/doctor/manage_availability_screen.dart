@@ -35,6 +35,14 @@ class _ManageAvailabilityScreenState extends State<ManageAvailabilityScreen>
   int _configuredSlotDuration = 30;
   List<WeekdaySchedule> _weekdays = [];
   bool _isSavingWeeklySchedule = false;
+  // True when the saved weekly schedule could not be loaded. The editor is then read-only so a
+  // placeholder can never be saved over the doctor's real schedule.
+  bool _weeklyLoadFailed = false;
+  String? _calendarError;
+  int _loadSequence = 0;
+
+  @visibleForTesting
+  String? get debugCalendarMonth => _calendarOverview?.month;
 
   // Leave & Blocked Times State
   List<DoctorLeave> _leaves = [];
@@ -56,77 +64,62 @@ class _ManageAvailabilityScreenState extends State<ManageAvailabilityScreen>
   }
 
   Future<void> _loadAllData() async {
+    final sequence = ++_loadSequence;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _calendarError = null;
     });
 
+    final monthStr = '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}';
     try {
-      final monthStr = '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}';
-      
-      // Load in parallel
+      // Load in parallel. Optional sections report their own failure instead of being replaced
+      // with placeholder data.
+      DoctorWeeklySchedule? weekly;
+      DoctorCalendarOverview? calOverview;
+      String? calendarError;
       final results = await Future.wait([
         _doctorService.getMyAvailabilities(),
-        _doctorService.getWeeklySchedule().catchError((_) => _fallbackWeeklySchedule()),
+        _doctorService.getWeeklySchedule().then<DoctorWeeklySchedule?>((value) => weekly = value).catchError((_) => null),
         _doctorService.getMyLeaves().catchError((_) => <DoctorLeave>[]),
         _doctorService.getMyBlockedTimes().catchError((_) => <DoctorBlockedTime>[]),
-        _doctorService.getCalendarOverview(month: monthStr).catchError((_) => DoctorCalendarOverview(month: monthStr, days: [])),
+        _doctorService.getCalendarOverview(month: monthStr).then<DoctorCalendarOverview?>((value) => calOverview = value)
+            .catchError((Object error) {
+          calendarError = 'Could not load the calendar for this month. Pull to refresh or try again.';
+          return null;
+        }),
       ]);
 
-      if (!mounted) return;
+      // Ignore responses from an earlier month if the doctor navigated again meanwhile (BUG-005).
+      if (!mounted || sequence != _loadSequence) return;
 
       final availList = results[0] as List<DoctorAvailability>;
-      final weekly = results[1] as DoctorWeeklySchedule;
       final leavesList = results[2] as List<DoctorLeave>;
       final blocksList = results[3] as List<DoctorBlockedTime>;
-      final calOverview = results[4] as DoctorCalendarOverview;
 
       setState(() {
         _availabilities = availList;
-        _configuredTimezone = weekly.timezone;
-        _configuredSlotDuration = weekly.slotDurationMinutes;
-        _weekdays = List.from(weekly.weekdays);
+        _weeklyLoadFailed = weekly == null;
+        if (weekly != null) {
+          _configuredTimezone = weekly!.timezone;
+          _configuredSlotDuration = weekly!.slotDurationMinutes;
+          _weekdays = List.from(weekly!.weekdays);
+        }
         _leaves = leavesList;
         _blockedTimes = blocksList;
         _calendarOverview = calOverview;
+        _calendarError = calendarError;
         _isLoading = false;
       });
 
       _updateSelectedDayOverview();
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || sequence != _loadSequence) return;
       setState(() {
         _errorMessage = 'Unable to connect to MediConnect. Please try again.';
         _isLoading = false;
       });
     }
-  }
-
-  DoctorWeeklySchedule _fallbackWeeklySchedule() {
-    return DoctorWeeklySchedule(
-      doctorUserId: '',
-      doctorProfileId: '',
-      timezone: 'Asia/Colombo',
-      slotDurationMinutes: 30,
-      weekdays: [
-        WeekdaySchedule(day: 'monday', isEnabled: true, sessions: [
-          WorkingSession(startTime: '09:00', endTime: '12:00'),
-          WorkingSession(startTime: '14:00', endTime: '17:00'),
-        ]),
-        WeekdaySchedule(day: 'tuesday', isEnabled: true, sessions: [
-          WorkingSession(startTime: '09:00', endTime: '13:00'),
-        ]),
-        WeekdaySchedule(day: 'wednesday', isEnabled: false, sessions: []),
-        WeekdaySchedule(day: 'thursday', isEnabled: true, sessions: [
-          WorkingSession(startTime: '09:00', endTime: '17:00'),
-        ]),
-        WeekdaySchedule(day: 'friday', isEnabled: true, sessions: [
-          WorkingSession(startTime: '09:00', endTime: '12:00'),
-        ]),
-        WeekdaySchedule(day: 'saturday', isEnabled: false, sessions: []),
-        WeekdaySchedule(day: 'sunday', isEnabled: false, sessions: []),
-      ],
-    );
   }
 
   void _updateSelectedDayOverview() {
@@ -160,6 +153,12 @@ class _ManageAvailabilityScreenState extends State<ManageAvailabilityScreen>
   // WEEKLY WORKING SCHEDULE HANDLERS
   // -------------------------------------------------------------
   Future<void> _saveWeeklySchedule() async {
+    if (_weeklyLoadFailed) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Your saved weekly schedule could not be loaded. Refresh before making changes.'),
+      ));
+      return;
+    }
     setState(() {
       _isSavingWeeklySchedule = true;
     });
@@ -820,6 +819,27 @@ class _ManageAvailabilityScreenState extends State<ManageAvailabilityScreen>
   // -------------------------------------------------------------
   // TAB 1: CALENDAR VIEW
   // -------------------------------------------------------------
+  Widget _buildSectionError(String message, {Key? key}) {
+    return Container(
+      key: key,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message, style: TextStyle(color: Colors.amber.shade900, fontSize: 13))),
+          TextButton(onPressed: _isLoading ? null : _loadAllData, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCalendarTab() {
     final monthNames = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -832,6 +852,8 @@ class _ManageAvailabilityScreenState extends State<ManageAvailabilityScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_calendarError != null)
+            _buildSectionError(_calendarError!, key: const Key('availability_calendar_error')),
           // Month Selector Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1300,6 +1322,11 @@ class _ManageAvailabilityScreenState extends State<ManageAvailabilityScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_weeklyLoadFailed)
+            _buildSectionError(
+              'Your saved weekly schedule could not be loaded, so it is not shown. Refresh before making changes.',
+              key: const Key('availability_weekly_error'),
+            ),
           // Config Header (Timezone & Slot Duration)
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

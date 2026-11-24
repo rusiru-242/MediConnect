@@ -215,6 +215,8 @@ class ApiConstants {
 
   // Request timeout duration
   static const Duration timeoutDuration = Duration(seconds: 15);
+  /// Image uploads include server-side Vision analysis, which can take longer than a JSON call.
+  static const Duration uploadTimeoutDuration = Duration(seconds: 60);
 
   // Authentication endpoints
   static const String loginEndpoint = '/auth/login';

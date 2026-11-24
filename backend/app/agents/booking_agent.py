@@ -20,6 +20,22 @@ from app.agents.nlp_parser import (
     extract_appointment_time,
 )
 from app.agents.orchestrator import AIOrchestrator
+from app.agents.doctor_ranking import (
+    coerce_fee,
+    constraint_reasons,
+    dedupe_doctors,
+    published_ratings,
+    rank_doctors,
+    selection_explanation,
+)
+from app.agents import clinical_intent
+from app.agents.emergency_detector import (
+    AMBULANCE_NUMBER,
+    detect_emergency,
+    emergency_message,
+    last_assistant_was_emergency,
+    recent_user_texts,
+)
 from app.agents.symptom_triage import SymptomTriageEngine, TriageLevel
 from app.config.settings import settings
 from app.models.booking_session import (
@@ -83,23 +99,37 @@ class BookingAgent:
         prefs = dict(session_data.get("preferences") or {})
         previous_preferences = dict(prefs)
 
-        # 1. Emergency symptom check
-        is_urgent, urgency_reason = check_urgency(clean_text)
+        session_data.setdefault("messages", [])
+        detected_language = detect_language(clean_text)
+        turn_lang = detected_language if detected_language in ("si", "ta") else (
+            "en" if re.search(r"[a-z]{3,}", clean_text, re.I) and detected_language == "en" else prefs.get("language", "en")
+        )
+
+        # 1. Emergency triage runs BEFORE any routing, search, booking, medicine or wellness logic (BUG-013).
+        #    Deterministic, multilingual, and aware of recent conversation context.
+        emergency = detect_emergency(
+            clean_text,
+            recent_user_texts(session_data),
+            last_assistant_was_emergency(session_data),
+        )
+        legacy_urgent, legacy_reason = check_urgency(clean_text)
         triage, triage_reason, _ = SymptomTriageEngine.classify_triage_pre_check(clean_text, "en")
-        if is_urgent or triage == TriageLevel.EMERGENCY:
-            urgency_reason = urgency_reason or triage_reason
+        if not emergency.is_emergency and emergency.suppressed is None and (
+            legacy_urgent or triage == TriageLevel.EMERGENCY
+        ):
+            # Keep the previous English/Tamil keyword nets as an additional safety layer.
+            emergency.is_emergency, emergency.reason = True, legacy_reason or triage_reason
+        if emergency.is_emergency:
             session_data["isUrgent"] = True
-            session_data["urgencyReason"] = urgency_reason
-            detected = detect_language(clean_text)
-            lang = detected if detected in ("si", "ta") else prefs.get("language", "en")
-            if lang == "si":
-                emergency_text = EMERGENCY_SI_ALERT
-            elif lang == "ta":
+            session_data["urgencyReason"] = emergency.reason
+            if turn_lang == "ta":
                 emergency_text = EMERGENCY_TA_ALERT
             else:
-                emergency_text = EMERGENCY_EN_ALERT
-
-            # Append user message and emergency assistant response
+                emergency_text = emergency_message(emergency, "si" if turn_lang == "si" else "en")
+            session_data["activeIntent"] = CompanionIntent.EMERGENCY_GUIDANCE.value
+            session_data["candidateSlots"] = []
+            for key in ("activeMedicineCard", "activeWellnessCard", "activeImageAnalysis"):
+                session_data[key] = None
             session_data["messages"].append({
                 "id": str(ObjectId()),
                 "sender": "user",
@@ -113,13 +143,78 @@ class BookingAgent:
                 "content": emergency_text,
                 "timestamp": utc_now(),
                 "metadata": {
+                    "type": "emergency",
                     "isUrgent": True,
-                    "ambulanceCall": "1990",
-                    "reason": urgency_reason,
+                    "ambulanceCall": AMBULANCE_NUMBER,
+                    "reason": emergency.reason,
+                    "category": emergency.category,
+                    "fromContext": emergency.from_context,
                 },
             })
             session_data["updatedAt"] = utc_now()
             return session_data
+
+        def reply(content: str, metadata: Dict[str, Any], *, intent_value: str) -> Dict[str, Any]:
+            session_data["messages"].append({
+                "id": str(ObjectId()), "sender": "user", "content": clean_text, "timestamp": utc_now(),
+                "metadata": {"imageUrl": image_url} if image_url else None,
+            })
+            session_data["messages"].append({
+                "id": str(ObjectId()), "sender": "assistant", "content": content, "timestamp": utc_now(),
+                "metadata": metadata,
+            })
+            session_data["activeIntent"] = intent_value
+            session_data["candidateSlots"] = []
+            for key in ("activeMedicineCard", "activeWellnessCard", "activeImageAnalysis"):
+                session_data[key] = None
+            if turn_lang in ("si", "en"):
+                session_data["preferences"] = {**previous_preferences, "language": turn_lang}
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        has_real_image = bool(image_bytes) or bool(image_url)
+        reply_lang = "si" if turn_lang == "si" else "en"
+
+        # 2. Unauthorized prescription / exact-dose requests (BUG-018).
+        if not has_real_image and clinical_intent.is_prescription_request(clean_text):
+            return reply(
+                clinical_intent.prescription_refusal(clean_text, reply_lang),
+                {"type": "prescription_request_declined"},
+                intent_value="PRESCRIPTION_REQUEST",
+            )
+
+        # 3. Symptom + "what should I do?" is a health-guidance request, not a doctor search (BUG-012).
+        if not has_real_image and clinical_intent.is_health_advice_request(clean_text):
+            advice = clinical_intent.build_symptom_advice(clean_text, reply_lang)
+            return reply(
+                advice.text,
+                {"type": "health_guidance", "symptoms": advice.symptoms, "durationDays": advice.duration_days,
+                 "suggestedSpecialty": advice.specialty, "followUpQuestions": advice.follow_up_questions},
+                intent_value="HEALTH_GUIDANCE",
+            )
+
+        # 4. Wellness questions covering several topics are answered together (BUG-019), and
+        #    "without sleeping pills" is a wellness question, not a medicine lookup (BUG-020).
+        topics = clinical_intent.wellness_topics(clean_text)
+        medication_negated = clinical_intent.has_medication_negation(clean_text)
+        if not has_real_image and (len(topics) >= 2 or (topics and medication_negated)) and not (
+            clinical_intent.is_explicit_doctor_search(clean_text)
+        ):
+            if len(topics) >= 2:
+                combined = clinical_intent.combine_wellness(topics, clean_text, reply_lang)
+                result = reply(combined["text"], {"type": "general_wellness", "topics": topics},
+                               intent_value=CompanionIntent.GENERAL_WELLNESS.value)
+                result["activeWellnessCard"] = None
+                return result
+            single = WellnessKnowledge.get_wellness_guidance(clean_text, lang=reply_lang)
+            if topics[0] == "diet":
+                single = WellnessKnowledge.get_healthy_food_guidance(clean_text, lang=reply_lang)
+            elif topics[0] == "exercise":
+                single = WellnessKnowledge.get_exercise_guidance(clean_text, lang=reply_lang)
+            result = reply(single.get("text", ""), {"type": "general_wellness", "card": single.get("card")},
+                           intent_value=CompanionIntent.GENERAL_WELLNESS.value)
+            result["activeWellnessCard"] = single.get("card")
+            return result
 
         intent = CompanionIntentClassifier.classify_intent(
             query=clean_text,
@@ -186,11 +281,21 @@ class BookingAgent:
             or parsed_delta.get("maxFee") is not None
             or parsed_delta.get("sortBy") is not None
         )
-        if re.search(r"\b(?:find|search for|recommend)\b", clean_text, re.IGNORECASE) and search_requested:
+        search_requested = search_requested or parsed_delta.get("minRating") is not None
+        # A new search names a specialty, city or doctor; a message that only changes the budget,
+        # rating or ordering ("mata 3000ta aduwen kenek hoyala denna") refines the previous search
+        # and must keep the earlier specialty and location (BUG-001 conversation memory).
+        fresh_search = bool(parsed_delta.get("specialty") or parsed_delta.get("city")
+                            or parsed_delta.get("doctorName") or parsed_delta.get("hospital"))
+        if search_requested and fresh_search and re.search(
+            r"\b(?:find|search(?: for)?|recommend|show me|look(?:ing)? for|hoyala|hoyanna)\b", clean_text, re.IGNORECASE,
+        ):
             prefs = {
                 key: parsed_delta[key]
                 for key in ("doctorName", "hospital") if parsed_delta.get(key)
             }
+            if prefs_language := previous_preferences.get("language"):
+                prefs["language"] = prefs_language
 
         if requested_time:
             prefs["requestedTime"] = requested_time
@@ -212,6 +317,12 @@ class BookingAgent:
             prefs["symptoms"] = parsed_delta["symptoms"]
         if parsed_delta.get("sortBy"):
             prefs["sortBy"] = parsed_delta["sortBy"]
+        if parsed_delta.get("minRating") is not None:
+            prefs["minRating"] = float(parsed_delta["minRating"])
+        if parsed_delta.get("specialty"):
+            explicit = re.search(r"\b\w+(?:ologist|iatrician|iatrist|surgeon|specialist|physician|practitioner)s?\b|\bgp\b",
+                                 clean_text, re.IGNORECASE)
+            prefs["specialtyFromSymptoms"] = None if explicit else (parsed_delta.get("symptoms") or True)
 
         # Detect query language (Sinhala Unicode or Singlish) and persist
         detected_lang = detect_language(clean_text)
@@ -220,13 +331,27 @@ class BookingAgent:
         lang = prefs.get("language", "en")
         session_data["preferences"] = prefs
 
+        # Locations MediConnect does not serve must not fall back to unrelated cities (BUG-011).
+        unsupported = parsed_delta.get("unsupportedLocation")
+        if unsupported and not parsed_delta.get("city"):
+            session_data["preferences"] = {**previous_preferences, "language": lang}
+            return reply(
+                (f"MediConnect currently lists verified doctors in Sri Lanka only, so I can't search in \"{unsupported}\". "
+                 "Supported areas include Colombo, Kandy, Galle, Gampaha, Negombo, Kurunegala, Matara and Jaffna. "
+                 "Which Sri Lankan city should I search instead?") if lang != "si" else
+                (f"MediConnect හි දැනට ලැයිස්තුගත කර ඇත්තේ ශ්‍රී ලංකාවේ වෛද්‍යවරුන් පමණයි. එම නිසා \"{unsupported}\" හි සෙවිය නොහැක. "
+                 "කොළඹ, මහනුවර, ගාල්ල, ගම්පහ, මීගමුව, කුරුණෑගල, මාතර, යාපනය වැනි නගරවල සෙවිය හැකියි. කුමන නගරයේ සොයන්නද?"),
+                {"type": "unsupported_location", "location": unsupported},
+                intent_value=CompanionIntent.FIND_DOCTOR.value,
+            )
+
         # Add user message to history
         session_data["messages"].append({
             "id": str(ObjectId()),
             "sender": "user",
             "content": clean_text,
             "timestamp": utc_now(),
-            "metadata": {"imageUrl": image_url} if image_url else None,
+            "metadata": ({"attachment": {"type": "image", "name": (image_filename or "image")[:80]}} if image_bytes else {"imageUrl": image_url} if image_url else None),
         })
 
         # -----------------------------------------------------------------
@@ -236,18 +361,31 @@ class BookingAgent:
 
         # Capability 1: Medicine Image Analysis (Packaging/Label OCR & Uncertainty)
         if intent == CompanionIntent.MEDICINE_IMAGE_ANALYSIS or image_bytes or image_url:
-            if image_bytes and image_filename:
-                img_res = await MedicineImageAgent.analyze_medicine_image(
-                    image_bytes=image_bytes,
-                    filename=image_filename,
-                    user_prompt=clean_text,
-                )
-            else:
-                img_res = await MedicineImageAgent.analyze_medicine_image(
-                    image_bytes=b"\x89PNG\r\n\x1a\n" + b"\x00" * 32,
-                    filename="medicine_label.png",
-                    user_prompt=clean_text,
-                )
+            if not (image_bytes and image_filename):
+                # Never analyze placeholder bytes or claim to have read an image we did not receive (BUG-023).
+                session_data["activeImageAnalysis"] = None
+                session_data["activeMedicineCard"] = None
+                session_data["activeWellnessCard"] = None
+                session_data["messages"].append({
+                    "id": str(ObjectId()),
+                    "sender": "assistant",
+                    "content": (
+                        "මට තවම පින්තූරයක් ලැබී නැහැ. ඖෂධ පැකේජයේ හෝ ලේබලයේ පැහැදිලි ඡායාරූපයක් කැමරා බොත්තම භාවිතයෙන් එවන්න."
+                        if lang == "si" else
+                        "I haven't received an image yet. Please use the camera button to upload a clear photo of the medicine "
+                        "package or label, and I'll read what is printed on it."
+                    ),
+                    "timestamp": utc_now(),
+                    "metadata": {"type": "image_required"},
+                })
+                session_data["updatedAt"] = utc_now()
+                return session_data
+            img_res = await MedicineImageAgent.analyze_medicine_image(
+                image_bytes=image_bytes,
+                filename=image_filename,
+                user_prompt=clean_text,
+                lang="si" if lang == "si" else "en",
+            )
 
             session_data["activeImageAnalysis"] = img_res.get("analysis")
             session_data["activeMedicineCard"] = img_res.get("medicineCard")
@@ -259,6 +397,7 @@ class BookingAgent:
                 "timestamp": utc_now(),
                 "metadata": {
                     "type": "medicine_image_analysis",
+                    "status": img_res.get("status"),
                     "analysis": img_res.get("analysis"),
                     "card": img_res.get("medicineCard"),
                 },
@@ -643,10 +782,15 @@ class BookingAgent:
                 result = await AIOrchestrator(db, patient_user, provider).run_search(
                     clean_text, session_data, filters, prefs.get("date"), prefs.get("requestedTime"),
                 )
-            if result is None:
-                doctors = await cls._search_candidate_doctors(db, prefs)
-            else:
-                doctors, slots_by_doctor, grounded_reply = result
+            # The model may choose which read-only tools to call, but the final list always comes from the
+            # trusted, ranked search so hard constraints, ratings, de-duplication and ordering are consistent.
+            doctors = await cls._search_candidate_doctors(db, prefs)
+            if result is not None:
+                _, tool_slots, grounded_reply = result
+                known = {doctor["doctorId"] for doctor in doctors}
+                slots_by_doctor = {key: value for key, value in tool_slots.items() if key in known}
+                if not doctors:
+                    grounded_reply = None
             if prefs.get("date"):
                 for doctor in doctors:
                     doctor_id = doctor["doctorId"]
@@ -659,19 +803,37 @@ class BookingAgent:
                     doctor["availableSlots"] = slots_by_doctor[doctor_id]["slots"]
                     doctor["requestedTime"] = prefs.get("requestedTime")
                     doctor["requestedDate"] = prefs["date"]
+            doctors = dedupe_doctors(doctors)
             session_data["candidateDoctors"] = doctors
 
             if doctors:
                 next_state = BookingAgentState.AWAITING_DOCTOR_SELECTION.value
                 if validate_state_transition(session_data["state"], next_state):
                     session_data["state"] = next_state
-                assistant_msg = grounded_reply if grounded_reply and lang == 'en' else cls._build_doctor_options_message(doctors, prefs, lang)
+                explanation = None
+                if prefs.get("specialtyFromSymptoms") and prefs.get("specialty"):
+                    symptoms = prefs.get("symptoms") if isinstance(prefs.get("symptoms"), str) else None
+                    explanation = clinical_intent.specialty_explanation(prefs["specialty"], symptoms, lang)
+                metadata: Dict[str, Any] = {"type": "doctor_options", "count": len(doctors), "doctors": doctors}
+                if clinical_intent.wants_auto_selection(clean_text):
+                    # BUG-010: pick one doctor from the ranked, constraint-satisfying list. No booking or payment.
+                    selected = doctors[0]
+                    assistant_msg = selection_explanation(selected, doctors, prefs, lang)
+                    metadata = {"type": "doctor_auto_selected", "count": 1, "doctors": [selected],
+                                "selectedDoctorId": selected["doctorId"], "consideredCount": len(doctors)}
+                    session_data["autoSelectedDoctorId"] = selected["doctorId"]
+                elif grounded_reply and lang == "en":
+                    assistant_msg = grounded_reply
+                else:
+                    assistant_msg = cls._build_doctor_options_message(doctors, prefs, lang)
+                if explanation:
+                    assistant_msg = f"{assistant_msg}\n\n{explanation}"
                 session_data["messages"].append({
                     "id": str(ObjectId()),
                     "sender": "assistant",
                     "content": assistant_msg,
                     "timestamp": utc_now(),
-                    "metadata": {"type": "doctor_options", "count": len(doctors), "doctors": doctors},
+                    "metadata": metadata,
                 })
             else:
                 next_state = BookingAgentState.COLLECTING_PREFERENCES.value
@@ -775,7 +937,20 @@ class BookingAgent:
                 "$regex": re.escape(prefs["hospital"]), "$options": "i",
             }
 
-        profiles = list(db["doctor_profiles"].find(profile_query).limit(200))
+        if prefs.get("doctorName"):
+            # Filter by name in the database so a named doctor is never cut off by the result cap.
+            named_users = db["users"].find(
+                {"role": UserRole.DOCTOR.value,
+                 "fullName": {"$regex": re.escape(prefs["doctorName"].strip()), "$options": "i"}},
+                {"_id": 1},
+            )
+            named_ids = [str(u["_id"]) for u in named_users]
+            if not named_ids:
+                return []
+            profile_query["userId"] = {"$in": named_ids}
+
+        # Rank across the full matching set (the previous unsorted 200-row cap could drop the best match).
+        profiles = list(db["doctor_profiles"].find(profile_query).sort([("_id", 1)]).limit(2000))
         if not profiles:
             return []
 
@@ -805,91 +980,46 @@ class BookingAgent:
             return []
 
         max_fee = prefs.get("maxFee")
+        min_rating = prefs.get("minRating")
         target_date = prefs.get("date")
+        ratings = published_ratings(
+            db, [str(u["_id"]) for _, u in verified_candidates], [str(p["_id"]) for p, _ in verified_candidates],
+        )
 
-        scored_candidates: List[Dict[str, Any]] = []
-
+        candidates: List[Dict[str, Any]] = []
         for p, user in verified_candidates:
             uid_str = str(user["_id"])
             prof_id = str(p["_id"])
-            doc_id = str(p.get("doctorId", ""))
             doc_name = user.get("fullName") or "Name unavailable"
             if prefs.get("doctorName") and prefs["doctorName"].casefold() not in doc_name.casefold():
                 continue
-            doc_spec = p.get("specialty") or "Specialty not listed"
-            doc_hospital = p.get("hospitalOrClinic") or ""
-            doc_fee = p.get("consultationFee")
-            doc_exp = p.get("experienceYears") or 0
-            doc_rating = p.get("rating") or 0
-            doc_quals = p.get("qualifications")
-
+            doc_fee = coerce_fee(p.get("consultationFee"))
+            # Hard constraint: a doctor with an unknown fee cannot be shown as "within budget".
             if max_fee is not None and (doc_fee is None or doc_fee > float(max_fee)):
                 continue
-
-            # Multi-factor score (0-100) & match reasons
-            score = 0.0
-            reasons: List[str] = []
-
-            # 1. Specialty match (up to 40 pts)
-            if specialty:
-                if specialty.lower() in doc_spec.lower() or doc_spec.lower() in specialty.lower():
-                    score += 40.0
-                    reasons.append(f"Direct match for requested specialty: {doc_spec}")
-                else:
-                    score += 20.0
-                    reasons.append(f"Provides care as {doc_spec}")
-            else:
-                score += 20.0
-                reasons.append("Verified doctor")
-
-            # 2. Location match (up to 25 pts)
-            if city:
-                if city.lower() in (p.get("city") or doc_hospital).lower():
-                    score += 25.0
-                    reasons.append(f"Located in {city} ({doc_hospital})")
-                else:
-                    score += 5.0
-            else:
-                score += 15.0
-
-            # 3. Budget match (up to 20 pts)
-            if max_fee is not None:
-                if doc_fee <= float(max_fee):
-                    score += 20.0
-                    reasons.append(f"Consultation fee LKR {doc_fee:,.0f} is within your budget of LKR {float(max_fee):,.0f}")
-            else:
-                score += 15.0
-
-            # 5. Rating bonus (up to 5 pts)
-            score += min(5.0, doc_rating)
-
-            scored_candidates.append({
-                "doctorId": doc_id,
+            rating, rating_count = ratings.get(uid_str) or ratings.get(prof_id) or (0.0, 0)
+            if min_rating is not None and (rating_count == 0 or rating < float(min_rating)):
+                continue
+            doctor = {
+                "doctorId": str(p.get("doctorId", "")),
                 "doctorProfileId": prof_id,
                 "doctorUserId": uid_str,
                 "fullName": doc_name,
-                "specialty": doc_spec,
-                "qualifications": doc_quals,
+                "specialty": p.get("specialty") or "Specialty not listed",
+                "qualifications": p.get("qualifications"),
                 "profileImage": user.get("profileImage"),
                 "city": p.get("city"),
-                "hospitalOrClinic": doc_hospital,
-                "experienceYears": doc_exp,
+                "hospitalOrClinic": p.get("hospitalOrClinic") or "",
+                "experienceYears": int(p.get("experienceYears") or 0),
                 "consultationFee": doc_fee,
-                "rating": doc_rating,
-                "matchScore": round(min(100.0, score), 1),
-                "matchReason": reasons[0] if reasons else "Verified doctor",
-                "matchReasons": reasons,
-            })
+                "rating": rating,
+                "ratingCount": rating_count,
+            }
+            doctor["matchReasons"] = constraint_reasons(doctor, prefs)
+            doctor["matchReason"] = doctor["matchReasons"][0] if doctor["matchReasons"] else "Verified doctor"
+            candidates.append(doctor)
 
-        # Sorting: if fee_asc requested, sort by consultationFee ascending
-        if prefs.get("sortBy") == "fee_asc":
-            scored_candidates.sort(key=lambda x: (x["consultationFee"] if x["consultationFee"] is not None else float("inf"), -x["matchScore"]))
-        elif prefs.get("sortBy") == "rating_desc":
-            scored_candidates.sort(key=lambda x: (-x["rating"], -x["matchScore"]))
-        else:
-            scored_candidates.sort(key=lambda x: (-x["matchScore"], x["consultationFee"] if x["consultationFee"] is not None else float("inf")))
-
-        results = scored_candidates[:5]
+        results = rank_doctors(dedupe_doctors(candidates), prefs)[:5]
         for doctor in results:
             slots = await cls._fetch_available_slots(db, doctor["doctorId"], target_date)
             doctor["availableSlots"] = slots[:4]
@@ -956,7 +1086,10 @@ class BookingAgent:
         slot: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Construct authoritative booking summary before patient confirms."""
-        fee = float(doctor.get("consultationFee", 2500.0))
+        fee = coerce_fee(doctor.get("consultationFee"))
+        if fee is None:
+            # Never invent a price for a booking summary.
+            raise HTTPException(status_code=409, detail="This doctor's consultation fee is not available yet.")
         service_fee = 0.0
         return {
             "doctorName": doctor.get("fullName", "Doctor"),
@@ -1036,14 +1169,18 @@ class BookingAgent:
             criteria.append(f"under LKR {fee:,.0f}")
         c_text = " ".join(criteria) or "your search"
 
+        if prefs.get("minRating") is not None:
+            criteria.append(f"rated at least {float(prefs['minRating']):g}/5")
+        c_text = " ".join(criteria) or "your search"
+        # BUG-011: never present an arbitrary city as "nearby"; only offer to change the criteria.
         if lang == "si":
             return (
-                f"සමාවන්න, {c_text} සඳහා ගැළපෙන පිළිගත් වෛද්‍යවරුන් හමු නොවීය. "
-                "වෙනත් දිනයක්, නගරයක් (උදා: කොළඹ) හෝ වෙනත් ගාස්තු සීමාවක් උත්සාහ කිරීමට කැමතිද?"
+                f"සමාවන්න, {c_text} සඳහා ගැළපෙන තහවුරු කළ වෛද්‍යවරුන් හමු නොවුණා. "
+                "වෙනත් නගරයක්, දිනයක් හෝ ගාස්තු සීමාවක් සමඟ නැවත සොයන්නද?"
             )
         return (
-            f"I couldn't find any approved doctors matching {c_text}. "
-            "Would you like to search a nearby city (e.g. Colombo), choose a different date, or adjust your fee filter?"
+            f"I couldn't find any verified doctors matching {c_text}. "
+            "Would you like to try a different city, another date, or a higher fee limit?"
         )
 
     @classmethod

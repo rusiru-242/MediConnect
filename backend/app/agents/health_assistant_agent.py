@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from bson import ObjectId
 from pymongo.database import Database
 
+from app.agents.doctor_ranking import coerce_fee
 from app.agents.symptom_triage import (
     SymptomTriageEngine,
     TriageLevel,
@@ -74,12 +75,29 @@ class HealthAssistantAgent:
         triage_level, triage_reason, detected_spec = SymptomTriageEngine.classify_triage_pre_check(
             clean_text, lang
         )
+        # Multilingual, context-aware red-flag detection (BUG-013) supplements the legacy patterns.
+        from app.agents.emergency_detector import detect_emergency, emergency_message, recent_user_texts
+
+        history = recent_user_texts({"messages": session_data["messages"][:-1]})
+        emergency = detect_emergency(clean_text, history)
+        if emergency.is_emergency:
+            triage_level, triage_reason = TriageLevel.EMERGENCY, emergency.reason
+        elif emergency.suppressed in {"negated", "historical", "informational"} and triage_level == TriageLevel.EMERGENCY:
+            # e.g. "I have no chest pain" or "what are the signs of a heart attack?"
+            triage_level = TriageLevel.GENERAL_INFO
+        if re.search(r"[a-z]{3,}", clean_text, re.I) and not re.search(r"[඀-෿]", clean_text):
+            from app.agents.nlp_parser import detect_language
+
+            if detect_language(clean_text) == "si":
+                lang = "si"
+                session_data["language"] = lang
 
         # -----------------------------------------------------------------
         # EMERGENCY PATH: Zero-delay bypass of LLM
         # -----------------------------------------------------------------
         if triage_level == TriageLevel.EMERGENCY:
-            emergency_text = SymptomTriageEngine.get_emergency_response(lang, triage_reason)
+            emergency_text = (emergency_message(emergency, lang) if emergency.is_emergency
+                              else SymptomTriageEngine.get_emergency_response(lang, triage_reason))
             disclaimer_text = SymptomTriageEngine.get_disclaimer(lang)
 
             session_data["triageLevel"] = TriageLevel.EMERGENCY.value
@@ -378,8 +396,8 @@ class HealthAssistantAgent:
                 "qualifications": p.get("qualifications", "MBBS"),
                 "hospitalOrClinic": p.get("hospitalOrClinic", "MediConnect Clinic"),
                 "experienceYears": int(p.get("experienceYears", 0)),
-                "consultationFee": float(p.get("consultationFee", 2500.0)),
-                "rating": float(p.get("rating", 4.8)),
+                "consultationFee": coerce_fee(p.get("consultationFee")),
+                "rating": None,  # Ratings come only from published reviews; never invented.
                 "city": p.get("city") or "Colombo",
                 "nextAvailableSlot": next_slot_str,
                 "matchReason": f"Verified {p.get('specialty')} with {p.get('experienceYears', 0)} years experience",

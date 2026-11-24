@@ -18,6 +18,7 @@ class ApiErrorMapper {
   static const String invalidPhoneMessage = 'Please enter a valid mobile number.';
   static const String weakPasswordMessage = 'Please use a stronger password.';
   static const String incorrectCredentialsMessage = 'Incorrect email or password.';
+  static const String sessionExpiredMessage = 'Your session has expired. Please sign in again.';
   static const String emailNotVerifiedMessage = 'Please verify your email before logging in.';
   static const String invalidOtpMessage = 'The verification code is incorrect.';
   static const String expiredOtpMessage = 'The verification code has expired. Please request a new code.';
@@ -193,6 +194,11 @@ class ApiErrorMapper {
     // 1. 401: Login credentials check (must precede email format check)
     if (_isLoginCredentialsError(lower, statusCode)) {
       return incorrectCredentialsMessage;
+    }
+    // Any other 401 is an authentication/session problem on an authenticated screen, not a
+    // wrong password (BUG-025).
+    if (statusCode == 401 && !lower.contains('google')) {
+      return sessionExpiredMessage;
     }
 
     // 2. 403: Email verification required check
@@ -420,13 +426,14 @@ class ApiErrorMapper {
     if (lower.contains('google') || lower.contains('session has expired')) {
       return false;
     }
-    return statusCode == 401 ||
-        lower.contains('incorrect email or password') ||
+    // Only explicit login rejections mean "wrong email or password". Generic 401s such as
+    // "Authentication credentials were not provided" or an expired token are session errors.
+    return lower.contains('incorrect email or password') ||
         lower.contains('invalid email or password') ||
         lower.contains('invalid credentials') ||
         lower.contains('incorrect credentials') ||
         lower.contains('bad credentials') ||
-        (statusCode == 401 && (lower.contains('password') || lower.contains('credential')));
+        (statusCode == 401 && lower.contains('password'));
   }
 
   static bool _containsTechnicalLeak(String lower) {
@@ -443,7 +450,7 @@ class ApiErrorMapper {
       case 400:
         return 'Invalid request. Please check your information.';
       case 401:
-        return incorrectCredentialsMessage;
+        return sessionExpiredMessage;
       case 403:
         return 'Access denied. You do not have permission to perform this action.';
       case 404:

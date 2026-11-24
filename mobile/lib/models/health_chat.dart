@@ -1,3 +1,4 @@
+import '../utils/money.dart';
 // Data models for AI Health Symptom Guidance & Doctor Referral Chatbot (Phase 20).
 
 
@@ -8,8 +9,8 @@ class DoctorReferralCard {
   final String? qualifications;
   final String? hospitalOrClinic;
   final int experienceYears;
-  final double consultationFee;
-  final double rating;
+  final double? consultationFee; // null when not listed — never defaulted
+  final double? rating; // null when there are no published reviews — never invented
   final String? city;
   final String? nextAvailableSlot;
   final String? matchReason;
@@ -36,8 +37,8 @@ class DoctorReferralCard {
       qualifications: json['qualifications']?.toString(),
       hospitalOrClinic: json['hospitalOrClinic']?.toString(),
       experienceYears: (json['experienceYears'] as num?)?.toInt() ?? 0,
-      consultationFee: (json['consultationFee'] as num?)?.toDouble() ?? 2500.0,
-      rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
+      consultationFee: parseAmount(json['consultationFee']),
+      rating: (json['rating'] as num?)?.toDouble(),
       city: json['city']?.toString(),
       nextAvailableSlot: json['nextAvailableSlot']?.toString(),
       matchReason: json['matchReason']?.toString(),

@@ -71,6 +71,8 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
         [
             r"\bcardiolog(?:ist|y)\b",
             r"\bheart\b",
+            r"\bhrud\w*",
+            r"\bhadawat\w*",
             r"\bpalpitation(?:s)?\b",
             r"\bblood\s+pressure\b",
             r"\bhypertension\b",
@@ -96,8 +98,11 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
             r"\bhair\s+loss\b",
             r"\bitching\b",
             "චර්ම",
-            "සම",
-            "හම",
+            "සමේ",
+            "සම රෝග",
+            "හමේ",
+            r"\bsame\s+(?:rog|kasi|palu|amaru)\w*",
+            r"\bcharma\w*",
             "කුරුලෑ",
             "කැසීම",
         ],
@@ -106,6 +111,8 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
         DoctorSpecialty.PEDIATRICIAN.value,
         [
             r"\bpediatric(?:ian)?\b",
+            r"\blamay\w*",
+            r"\blamai\b",
             r"\bpaediatric(?:ian)?\b",
             r"\bchild(?:ren)?\b",
             r"\bbaby\b",
@@ -124,6 +131,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
         DoctorSpecialty.NEUROLOGIST.value,
         [
             r"\bneurolog(?:ist|y)\b",
+            r"\bsnayu\w*",
             r"\bmigraine(?:s)?\b",
             r"\bchronic\s+headache\b",
             r"\bheadache\b",
@@ -187,7 +195,8 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
             r"\bhearing\s+loss\b",
             r"\btinnitus\b",
             r"\bsore\s+throat\b",
-            "කන",
+            "කනේ",
+            "කන් ",
             "නාසය",
             "උගුර",
             "උගුරේ අමාරුව",
@@ -277,7 +286,8 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
             r"\brespiratory\b",
             "පෙනහළු",
             "ඇදුම",
-            "හුස්ම",
+            "හුස්ම හිර",
+            "හුස්ම ගැනීමේ",
             "ශ්වසන",
         ],
     ),
@@ -360,14 +370,15 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
 # SRI LANKA CITIES & HOSPITALS (ENGLISH & SINHALA)
 # ---------------------------------------------------------------------------
 LOCATION_PATTERNS: List[Tuple[str, List[str]]] = [
-    ("Colombo", [r"\bcolombo\b", r"\bkollupitiya\b", r"\bbambalapitiya\b", r"\bnarahenpita\b", "කොළඹ"]),
+    ("Colombo", [r"\bcolombo\b", r"\bkolamb\w*", r"\bkolomb\w*", r"\bkollupitiya\b", r"\bbambalapitiya\b",
+                 r"\bnarahenpita\b", "කොළඹ"]),
     ("Nugegoda", [r"\bnugegoda\b", "නුගේගොඩ"]),
     ("Maharagama", [r"\bmaharagama\b", "මහරගම"]),
     ("Dehiwala", [r"\bdehiwala\b", r"\bmount\s+lavinia\b", "දෙහිවල"]),
     ("Rajagiriya", [r"\brajagiriya\b", "රාජගිරිය"]),
     ("Battaramulla", [r"\bbattaramulla\b", "බත්තරමුල්ල"]),
-    ("Kandy", [r"\bkandy\b", r"\bperadeniya\b", "මහනුවර", "නුවර"]),
-    ("Galle", [r"\bgalle\b", r"\bkarapitiya\b", "ගාල්ල"]),
+    ("Kandy", [r"\bkandy\b", r"\bperadeniya\b", r"\bmahanuwar\w*", "මහනුවර", "නුවර"]),
+    ("Galle", [r"\bgalle\b", r"\bgalla\b", r"\bgaalla\b", r"\bkarapitiya\b", "ගාල්ල"]),
     ("Gampaha", [r"\bgampaha\b", "ගම්පහ"]),
     ("Negombo", [r"\bnegombo\b", "මීගමුව"]),
     ("Kurunegala", [r"\bkurunegala\b", "කුරුණෑගල"]),
@@ -613,8 +624,13 @@ def extract_max_fee(text: str) -> Optional[float]:
         r"(?:lkr|rs\.?|රු\.?)\s*(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:or\s+less|max|below|under)",
         r"(?:my\s+)?budget\s+(?:is\s+)?(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
         r"(?:cost|fee)\s+(?:around|up\s+to|below|under|max|is)\s*(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
-        r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:ට\s*අඩු|නොවැඩි)",
+        r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:ට\s*අඩු|නොවැඩි|ක්\s*වත්\s*නැති|දක්වා)",
         r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:lkr|rs\.?)\s*(?:budget|limit)",
+        # Romanized Sinhala (BUG-002/003): "3000ta aduwen", "LKR 3000 ta adu", "3000kata wada adu",
+        # "3000 wenakan", "rupiyal 3000ta nowadi"
+        r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:/-)?\s*(?:ta|kata|kta|t)\s+(?:wada\s+|wadaa\s+)?(?:adu\w*|aduwen|nowadi\w*|wadi\s+nathi\w*)",
+        r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:ta|kata)?\s*(?:aduwen|adu\s+ganan\w*|wenakan|wenakam|athule|athulath)\b",
+        r"(?:lkr|rs\.?|rupiyal)\s*(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:ta|kata)?\s*(?:adu\w*|nowadi\w*|wenakan|wenakam)",
     ]
 
     for p in patterns:
@@ -628,7 +644,78 @@ def extract_max_fee(text: str) -> Optional[float]:
             except ValueError:
                 pass
 
+    # "under 3k" / "3k ta aduwen" — only with an explicit budget cue, so "dawas 3k idan" (3 days) is not a fee.
+    k_match = re.search(
+        r"(?:under|below|less\s+than|max|within|budget|lkr|rs\.?)\s*(\d+(?:\.\d+)?)\s*k\b|(\d+(?:\.\d+)?)\s*k\s*(?:ta|kata)?\s*(?:aduwen|adu\w*|nowadi)",
+        text_lower,
+    )
+    if k_match:
+        val = float(k_match.group(1) or k_match.group(2)) * 1000
+        if 100 <= val <= 100000:
+            return val
+
     return None
+
+
+def extract_min_rating(text: str) -> Optional[float]:
+    """Extract a minimum patient rating such as 'rating of at least 4.5' or '4+ stars'."""
+    text_lower = text.lower()
+    patterns = [
+        r"rat(?:ing|ed)\s+(?:of\s+)?(?:at\s+least|above|over|minimum(?:\s+of)?|min\.?|>=?|more\s+than)\s*(\d(?:\.\d)?)",
+        r"(?:at\s+least|minimum|min\.?)\s*(\d(?:\.\d)?)\s*(?:stars?|rating|★)",
+        r"(\d(?:\.\d)?)\s*(?:\+|or\s+(?:above|higher|more))\s*(?:stars?|rating|★)?",
+        r"(\d(?:\.\d)?)\s*(?:stars?|rating)\s+(?:or\s+(?:above|higher|more)|and\s+above|minimum)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            value = float(match.group(1))
+            if 0 < value <= 5:
+                return value
+    return None
+
+
+SUPPORTED_REGION_WORDS = {"sri lanka", "srilanka", "lanka"}
+NON_PLACE_WORDS = {
+    "the", "a", "an", "my", "this", "that", "next", "morning", "evening", "afternoon", "night", "person", "clinic",
+    "hospital", "general", "english", "sinhala", "tamil", "sinhalen", "pain", "need", "time", "budget", "advance",
+    "particular", "total", "person", "case", "future", "addition", "order", "line", "mind",
+}
+
+
+def extract_unsupported_location(text: str) -> Optional[str]:
+    """Return a location phrase that MediConnect does not cover (BUG-011), e.g. 'Antarctica'.
+
+    Only phrases introduced by in/at/near/around are considered, and only when the phrase is
+    not a known Sri Lankan city/hospital, specialty, date or time word.
+    """
+    if extract_location(text):
+        return None
+    pattern = re.compile(
+        r"\b(?:in|near|around|from|located\s+in)\s+([A-Za-z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,2})"
+    )
+    for match in pattern.finditer(text):
+        phrase = match.group(1).strip()
+        lower = phrase.lower()
+        first = lower.split()[0]
+        if lower in SUPPORTED_REGION_WORDS or first in NON_PLACE_WORDS:
+            continue
+        if extract_specialty(phrase) or extract_date(phrase) or extract_time_range(phrase):
+            continue
+        if first in DAY_NAME_TO_INT or first in {"january", "february", "march", "april", "may", "june", "july",
+                                                  "august", "september", "october", "november", "december"}:
+            continue
+        # Require a proper-noun style phrase to avoid matching ordinary words ("in pain").
+        if not phrase[0].isupper() and lower not in KNOWN_FOREIGN_PLACES:
+            continue
+        return phrase
+    return None
+
+
+KNOWN_FOREIGN_PLACES = {
+    "antarctica", "india", "chennai", "london", "dubai", "singapore", "maldives", "australia", "usa", "america",
+    "canada", "japan", "china", "europe", "africa", "uk", "england", "delhi", "mumbai", "bangkok",
+}
 
 
 def extract_sort_preference(text: str) -> Optional[str]:
@@ -640,7 +727,14 @@ def extract_sort_preference(text: str) -> Optional[str]:
     ):
         return "fee_asc"
     if re.search(
-        r"\b(?:top\s+rated|highest\s+rated|best\s+rating|best\s+doctor|ඉහළම\s+ශ්‍රේණිගත)\b",
+        r"\b(?:most\s+experience[d]?|more\s+experience[d]?|highest\s+experience|most\s+senior|longest\s+experience|"
+        r"(?:by|prioriti[sz]e\w*|prefer\w*|sort\w*)\s+(?:by\s+)?(?:doctors?\s+with\s+)?(?:the\s+)?(?:most\s+)?experience|"
+        r"wadiyenma\s+(?:pallapuru|experience)\w*|pallapurudu\w*)\b",
+        text_lower,
+    ):
+        return "experience_desc"
+    if re.search(
+        r"\b(?:top\s+rated|highest\s+rated|best\s+rating|best\s+rated|best\s+doctor|ඉහළම\s+ශ්‍රේණිගත)\b",
         text_lower,
     ):
         return "rating_desc"
@@ -743,6 +837,8 @@ def parse_query_deterministically(
     return {
         "specialty": parsed_specialty,
         "city": parsed_city,
+        "unsupportedLocation": None if parsed_city else extract_unsupported_location(query),
+        "minRating": extract_min_rating(query),
         "date": parsed_date,
         "timeRange": parsed_time_range,
         "maxFee": parsed_max_fee,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/health_chat.dart';
 import '../../services/health_chat_service.dart';
+import '../../utils/money.dart';
 
 /// Screen providing AI Symptom Guidance & Doctor Referral Chatbot (Phase 20).
 class AiHealthAssistantScreen extends StatefulWidget {
@@ -654,7 +655,10 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Fee: LKR ${doc.consultationFee.toStringAsFixed(0)} • ${doc.city ?? "Colombo"}',
+            [
+              doc.consultationFee == null ? 'Fee not listed' : 'Fee: ${formatFee(doc.consultationFee)}',
+              if (doc.city != null) doc.city!,
+            ].join(' • '),
             style: const TextStyle(fontSize: 11.5, color: Colors.blueGrey, fontWeight: FontWeight.w500),
           ),
           if (doc.nextAvailableSlot != null) ...[

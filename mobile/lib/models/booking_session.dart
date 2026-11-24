@@ -362,6 +362,8 @@ class BookingSummary {
 class MedicineCardSummary {
   final String medicineName;
   final String? activeIngredient;
+  /// Each entry pairs a dosage form with its strength, e.g. Tablet → 500 mg per tablet (BUG-016).
+  final List<Map<String, String>> formulations;
   final List<String> commonUses;
   final List<String> precautions;
   final List<String> sideEffects;
@@ -372,6 +374,7 @@ class MedicineCardSummary {
   const MedicineCardSummary({
     required this.medicineName,
     this.activeIngredient,
+    this.formulations = const [],
     this.commonUses = const [],
     this.precautions = const [],
     this.sideEffects = const [],
@@ -384,6 +387,16 @@ class MedicineCardSummary {
     return MedicineCardSummary(
       medicineName: json['medicineName'] as String? ?? 'Medicine',
       activeIngredient: json['activeIngredient'] as String?,
+      formulations: (json['formulations'] is List)
+          ? (json['formulations'] as List)
+              .whereType<Map>()
+              .map((row) => {
+                    'form': row['form']?.toString() ?? '',
+                    'strength': row['strength']?.toString() ?? '',
+                  })
+              .where((row) => row['form']!.isNotEmpty && row['strength']!.isNotEmpty)
+              .toList()
+          : const [],
       commonUses: _parseStringList(json['commonUses']),
       precautions: _parseStringList(json['precautions']),
       sideEffects: _parseStringList(json['sideEffects']),
@@ -398,6 +411,7 @@ class MedicineCardSummary {
     return {
       'medicineName': medicineName,
       'activeIngredient': activeIngredient,
+      'formulations': formulations,
       'commonUses': commonUses,
       'precautions': precautions,
       'sideEffects': sideEffects,
@@ -458,8 +472,11 @@ class ImageAnalysisSummary {
   final String? uncertaintyExplanation;
   final String? safetyAdvice;
   final bool requiresClearerPhoto;
+  /// 'analyzed' | 'unreadable' | 'not_medicine' | 'provider_unavailable' | 'invalid_file'
+  final String? status;
 
   const ImageAnalysisSummary({
+    this.status,
     required this.detectedText,
     this.identifiedMedicine,
     this.activeIngredient,
@@ -471,6 +488,7 @@ class ImageAnalysisSummary {
 
   factory ImageAnalysisSummary.fromJson(Map<String, dynamic> json) {
     return ImageAnalysisSummary(
+      status: json['status'] as String?,
       detectedText: json['detectedText'] as String? ?? '',
       identifiedMedicine: json['identifiedMedicine'] as String?,
       activeIngredient: json['activeIngredient'] as String?,
@@ -483,6 +501,7 @@ class ImageAnalysisSummary {
 
   Map<String, dynamic> toJson() {
     return {
+      'status': status,
       'detectedText': detectedText,
       'identifiedMedicine': identifiedMedicine,
       'activeIngredient': activeIngredient,
