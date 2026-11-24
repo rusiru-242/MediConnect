@@ -317,6 +317,9 @@ class MockDatabase:
             self.collections[name] = MockCollection(name)
         return self.collections[name]
 
+    def __getattr__(self, name: str) -> MockCollection:
+        return self[name]
+
     def command(self, cmd: str, *args, **kwargs):
         if cmd == "ping":
             return {"ok": 1.0}

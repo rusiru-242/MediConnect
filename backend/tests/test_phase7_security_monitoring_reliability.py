@@ -34,7 +34,10 @@ def isolated_db():
     """Ensure tests run against an isolated mock database without external WAN dependencies."""
     mock_db = MockDatabase("mediconnect_phase7_test")
     DatabaseManager._db = mock_db
-    yield mock_db
+    try:
+        yield mock_db
+    finally:
+        DatabaseManager._db = None
 
 
 @pytest.fixture
