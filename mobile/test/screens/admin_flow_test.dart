@@ -56,6 +56,9 @@ class MockPhase32AuthApiService extends Fake implements AuthApiService {
           submittedAt: DateTime.now(),
         );
   }
+
+  @override
+  Future<void> logout([String refreshToken = '']) async {}
 }
 
 class MockPhase32GoogleAuthService extends Fake implements GoogleAuthService {

@@ -90,7 +90,10 @@ def create_consultation_indexes(db: Database) -> None:
     against multiple simultaneous consultation creation attempts.
     """
     coll = get_consultation_collection(db)
-    existing = {idx.get("name") for idx in coll.list_indexes()}
+    try:
+        existing = {idx.get("name") for idx in coll.list_indexes()}
+    except Exception:
+        existing = set()
 
     # Unique index on appointmentId
     if "idx_consultation_appointment_unique" not in existing:

@@ -1,4 +1,4 @@
-﻿"""Phase 3 integration tests use isolated MongoDB records and mocked channels."""
+"""Phase 3 integration tests use isolated MongoDB records and mocked channels."""
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
@@ -14,7 +14,14 @@ from tests.test_ai_booking_agent import seeded_booking_env
 
 @pytest.fixture(scope="module", autouse=True)
 def isolated_database():
+    from app.config.database import DatabaseManager
+    original_db = DatabaseManager._db
+    client = DatabaseManager.get_client()
+    test_db = client["mediconnect_phase3_test"]
+    DatabaseManager._db = test_db
     assert get_database().name.startswith("mediconnect_phase3_test")
+    yield test_db
+    DatabaseManager._db = original_db
 
 
 @pytest.fixture

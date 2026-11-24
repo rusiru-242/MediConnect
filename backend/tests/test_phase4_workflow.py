@@ -19,7 +19,14 @@ BASE = "/api/doctor/workflow"
 
 @pytest.fixture(scope="module", autouse=True)
 def isolated():
+    from app.config.database import DatabaseManager
+    original_db = DatabaseManager._db
+    client = DatabaseManager.get_client()
+    test_db = client["mediconnect_phase4_test"]
+    DatabaseManager._db = test_db
     assert get_database().name.startswith("mediconnect_phase4_test")
+    yield test_db
+    DatabaseManager._db = original_db
 
 
 @pytest.fixture

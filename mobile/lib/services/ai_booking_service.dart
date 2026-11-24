@@ -216,7 +216,7 @@ class AiBookingService {
     final response = await _apiClient.post(
       ApiConstants.aiBookingSessionConfirmEndpoint(sessionId),
       body: {
-        'proposalId': ?proposalId,
+        if (proposalId != null) 'proposalId': proposalId,
         if (smsConsent) 'smsConsent': true,
         if (patientNote != null && patientNote.trim().isNotEmpty)
           'patientNote': patientNote.trim(),

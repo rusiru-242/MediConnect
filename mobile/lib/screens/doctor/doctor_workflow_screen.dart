@@ -123,7 +123,7 @@ class _DoctorWorkflowScreenState extends State<DoctorWorkflowScreen> {
             24,
             (_) => _random.nextInt(16).toRadixString(16),
           ).join(),
-          'position': ?position,
+          if (position != null) 'position': position,
         },
       );
       if (mounted) _refresh();

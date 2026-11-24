@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mediconnect/models/auth_session.dart';
 import 'package:mediconnect/models/doctor_application_status.dart';
@@ -24,6 +25,10 @@ class MockAuthService extends AuthApiService {
 }
 
 void main() {
+  setUp(() {
+    FlutterSecureStorage.setMockInitialValues({});
+  });
+
   group('DoctorHomeScreen Render & Robustness Tests', () {
     testWidgets('DoctorHomeScreen renders completely without any RenderFlex overflow in English', (tester) async {
       tester.view.physicalSize = const Size(360, 780); // Compact mobile screen

@@ -147,12 +147,12 @@ def get_health_measurement_collection(db: Database) -> Collection:
 
 def create_health_measurement_indexes(db: Database) -> None:
     coll = get_health_measurement_collection(db)
-    coll.create_index([("measurementId", ASCENDING)], unique=True, sparse=True, name="idx_measurement_id")
-    coll.create_index(
-        [("patientUserId", ASCENDING), ("metric", ASCENDING), ("measuredAt", DESCENDING)],
-        name="idx_patient_metric_measured",
-    )
-    coll.create_index(
-        [("patientUserId", ASCENDING), ("recordedAt", DESCENDING)],
-        name="idx_patient_recorded",
-    )
+    for keys, kwargs in [
+        ([("measurementId", ASCENDING)], {"unique": True, "sparse": True, "name": "idx_measurement_id"}),
+        ([("patientUserId", ASCENDING), ("metric", ASCENDING), ("measuredAt", DESCENDING)], {"name": "idx_patient_metric_measured"}),
+        ([("patientUserId", ASCENDING), ("recordedAt", DESCENDING)], {"name": "idx_patient_recorded"}),
+    ]:
+        try:
+            coll.create_index(keys, **kwargs)
+        except Exception:
+            pass

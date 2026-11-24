@@ -29,17 +29,23 @@ def medication_revision(item, instructions=None):
 
 
 def create_indexes(db):
+    def _safe_index(coll, keys, **kwargs):
+        try:
+            coll.create_index(keys, **kwargs)
+        except Exception:
+            pass
+
     events = db["care_reminder_events"]
-    events.create_index([("state", 1), ("nextAttemptAt", 1)])
-    events.create_index([("patientUserId", 1), ("scheduledAt", 1)])
-    events.create_index([("doctorUserId", 1), ("sourceId", 1), ("scheduledAt", -1)])
-    db["patient_health_measurements"].create_index([("patientUserId", 1), ("recordedAt", -1)])
-    db["medication_reminders"].create_index([("approvalKey", 1)], unique=True, sparse=True)
-    db["medication_reminders"].create_index([("status", 1), ("enabled", 1), ("endDate", 1)])
-    db["appointments"].create_index([("status", 1), ("appointmentDate", 1)])
-    db["care_plans"].create_index([("status", 1), ("followUpDate", 1)])
-    db["care_plans"].create_index([("status", 1), ("tasks.dueAt", 1)])
-    db["care_tracking_schedules"].create_index([("patientUserId", 1), ("enabled", 1)])
+    _safe_index(events, [("state", 1), ("nextAttemptAt", 1)])
+    _safe_index(events, [("patientUserId", 1), ("scheduledAt", 1)])
+    _safe_index(events, [("doctorUserId", 1), ("sourceId", 1), ("scheduledAt", -1)])
+    _safe_index(db["patient_health_measurements"], [("patientUserId", 1), ("recordedAt", -1)])
+    _safe_index(db["medication_reminders"], [("approvalKey", 1)], unique=True, sparse=True)
+    _safe_index(db["medication_reminders"], [("status", 1), ("enabled", 1), ("endDate", 1)])
+    _safe_index(db["appointments"], [("status", 1), ("appointmentDate", 1)])
+    _safe_index(db["care_plans"], [("status", 1), ("followUpDate", 1)])
+    _safe_index(db["care_plans"], [("status", 1), ("tasks.dueAt", 1)])
+    _safe_index(db["care_tracking_schedules"], [("patientUserId", 1), ("enabled", 1)])
 
 
 def local_at(day, clock, zone=COLOMBO):

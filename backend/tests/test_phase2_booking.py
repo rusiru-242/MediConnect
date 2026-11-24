@@ -19,7 +19,16 @@ from tests.test_ai_booking_agent import seeded_booking_env
 
 @pytest.fixture(scope="module", autouse=True)
 def isolated_test_database():
+    from app.config.database import DatabaseManager
+    original_db = DatabaseManager._db
+    client = DatabaseManager.get_client()
+    client.drop_database("mediconnect_phase2_test")
+    test_db = client["mediconnect_phase2_test"]
+    DatabaseManager._db = test_db
     assert get_database().name.startswith("mediconnect_phase2_test")
+    yield test_db
+    client.drop_database("mediconnect_phase2_test")
+    DatabaseManager._db = original_db
 
 
 @pytest.fixture
@@ -140,6 +149,7 @@ def test_expired_payment_requires_reconciliation_without_confirmation(booking_fi
     db["appointments"].insert_one({
         "_id": appointment_id, "bookingSource": "ai_agent", "acceptedAmountMinor": 120000,
         "bookingCurrency": "lkr", "status": "PENDING", "paymentStatus": "UNPAID",
+        "doctorUserId": seed["doc_user_id"], "startTime": "14:00",
         "holdExpiresAt": now - timedelta(seconds=1), "appointmentDate": day,
     })
     payment = {"_id": payment_id, "appointmentId": str(appointment_id), "stripePaymentIntentId": stripe_id,

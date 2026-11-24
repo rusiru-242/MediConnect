@@ -295,6 +295,12 @@ class AdminService:
             )
 
         current_status = profile.get("verificationStatus")
+        if current_status == DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Doctor's email must be verified before the application can be approved.",
+            )
+
         pending_statuses = [
             DoctorVerificationStatus.PENDING.value,
             DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,

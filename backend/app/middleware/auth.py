@@ -151,7 +151,7 @@ def require_approved_doctor(
             )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your doctor registration is currently under review. You can access your doctor dashboard once an administrator approves your application.",
+            detail="Your doctor registration is currently under review (pending admin approval / accreditation). Only verified doctors can access clinical records and the doctor dashboard once an administrator approves your application.",
         )
 
     return current_user

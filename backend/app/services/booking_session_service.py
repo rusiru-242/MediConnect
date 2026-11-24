@@ -659,6 +659,13 @@ class BookingSessionService:
             if (selected_doctor["doctorId"] != proposal.get("doctorId")
                 or selected_slot != proposal.get("acceptedSlot")):
                 raise HTTPException(409, "The booking details changed. Review a new proposal.")
+            prof_query = {"doctorId": selected_doctor["doctorId"]}
+            if selected_doctor.get("doctorProfileId") and ObjectId.is_valid(selected_doctor["doctorProfileId"]):
+                prof_query = {"$or": [{"_id": ObjectId(selected_doctor["doctorProfileId"])}, {"doctorId": selected_doctor["doctorId"]}]}
+            live_doc_prof = db["doctor_profiles"].find_one(prof_query)
+            if live_doc_prof and live_doc_prof.get("consultationFee") is not None and proposal.get("consultationFee") is not None:
+                if float(live_doc_prof["consultationFee"]) != float(proposal["consultationFee"]):
+                    raise HTTPException(409, "The consultation fee changed. Review a new proposal.")
             options = {"accepted_proposal": proposal, "proposal_slot": selected_slot,
                        "sms_consent": req.smsConsent and bool(proposal.get("maskedPhone"))}
         try:

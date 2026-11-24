@@ -139,10 +139,17 @@ def test_phase34_e2e_doctor_registration_and_admin_approval():
     assert dr_user is not None
     dr_prof = db["doctor_profiles"].find_one({"userId": str(dr_user["_id"])})
     assert dr_prof is not None
-    assert dr_prof["verificationStatus"] == DoctorVerificationStatus.PENDING.value
+    assert dr_prof["verificationStatus"] in (
+        DoctorVerificationStatus.PENDING.value,
+        DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value,
+    )
 
     # Doctor verifies their email before admin approval
     db["users"].update_one({"_id": dr_user["_id"]}, {"$set": {"emailVerified": True}})
+    db["doctor_profiles"].update_one(
+        {"_id": dr_prof["_id"]},
+        {"$set": {"verificationStatus": DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value}},
+    )
 
     # Admin checks pending doctor applications list
     pending_res = client.get("/api/admin/doctors/applications?status=PENDING", headers=admin_headers)

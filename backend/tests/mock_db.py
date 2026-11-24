@@ -247,6 +247,9 @@ class MockCollection:
     def create_indexes(self, *args, **kwargs):
         return ["idx_ok"]
 
+    def list_indexes(self):
+        return []
+
     def drop_indexes(self):
         pass
 

@@ -146,6 +146,8 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         try:
             creator(target_db)
         except (ConnectionError, ConnectionFailure, PyMongoError) as exc:
+            if getattr(exc, "code", None) == 85 or "already exists with a different name" in str(exc):
+                continue
             logger.warning("Could not create MongoDB indexes for '%s': %s (%s)", collection_name, type(exc).__name__, exc)
             all_success = False
 
