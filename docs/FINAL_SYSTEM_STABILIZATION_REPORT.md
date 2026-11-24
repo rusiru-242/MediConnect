@@ -4,7 +4,7 @@
 |---|---|
 | Initial commit | `c3e0aac` (`fix/backend-mobile-ci-stabilization`) |
 | Working branch | `fix/comprehensive-system-ai-stabilization` |
-| Final commit | see `git log -1` on the branch (the commit that adds this report) |
+| Final code commit (CI verified) | `afb0208` (a later commit only records these CI results) |
 | Date | 2026-11-24 |
 | Main branch | untouched; nothing merged or deployed |
 
@@ -121,6 +121,14 @@ All of [MANUAL_UAT_TEST_PLAN.md](MANUAL_UAT_TEST_PLAN.md). The highest prioritie
 
 Passing CI does not make MediConnect production-ready.
 
-## 11. Push and CI status
+## 11. Push and CI status (observed)
 
-Updated after pushing the branch (see below).
+The branch was pushed to `origin/fix/comprehensive-system-ai-stabilization`. Nothing was merged into `main`, force-pushed or deployed. Results were read from the public GitHub Actions API for commit `afb0208`:
+
+| Workflow | Trigger | Result | Commit | Run |
+|---|---|---|---|---|
+| Backend CI | push | **success** | `afb0208` | https://github.com/rusiru-242/MediConnect/actions/runs/45442087312 |
+| Mobile CI | push | **success** | `afb0208` | https://github.com/rusiru-242/MediConnect/actions/runs/45442087130 |
+| Admin Web CI | — | **not triggered** (path filter: no `admin-web/**` changes) | — | Local lint, typecheck, test and build pass |
+
+The later commit that adds this section changes only this document. Its CI runs, if any, should be checked on GitHub.
