@@ -278,7 +278,7 @@ def env():
 
     ids = {
         "card_cheap": doctor("Dr. Stab Cardio Cheap", "Cardiology", "Colombo", 2000.0, 9, (5, 4)),
-        "card_string_fee": doctor("Dr. Stab Cardio String", "Cardiology", "Colombo", "2,800", 15, (5, 5)),
+        "card_string_fee": doctor("Dr. Stab Cardio String", "Cardiology", "Badulla", "2,800", 15, (5, 5)),
         "card_expensive": doctor("Dr. Stab Cardio Expensive", "Cardiology", "Colombo", 3500.0, 25, (5,)),
         "derm_senior": doctor("Dr. Stab Derm Senior", "Dermatology", "Matara", 3500.0, 22, (5, 4, 5)),
         "derm_junior": doctor("Dr. Stab Derm Junior", "Dermatology", "Matara", 3000.0, 6, (5, 5)),
@@ -391,7 +391,7 @@ def test_bug001_followup_updates_only_budget(env):
 
 
 def test_bug008_string_fee_is_displayed_not_unavailable(env):
-    data = say(env, new_chat(env), "Find a cardiologist in Colombo under LKR 3000")
+    data = say(env, new_chat(env), "Find a cardiologist in Badulla under LKR 3000")
     by_id = {d["doctorId"]: d for d in last(data)["metadata"]["doctors"]}
     assert by_id[env["ids"]["card_string_fee"]]["consultationFee"] == 2800.0
 

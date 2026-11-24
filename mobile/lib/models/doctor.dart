@@ -1,6 +1,8 @@
 /// Models representing public doctor profile and discovery responses.
 library;
 
+import '../utils/money.dart';
+
 class Doctor {
   final String doctorId;
   final String fullName;
@@ -39,8 +41,8 @@ class Doctor {
       profileImage: json['profileImage']?.toString(),
       verificationStatus: (json['verificationStatus'] ?? 'APPROVED').toString(),
       qualifications: json['qualifications']?.toString(),
-      consultationFee: json['consultationFee'] is num ? (json['consultationFee'] as num).toDouble() : 2500.0,
-      hasConsultationFee: json['consultationFee'] is num,
+      consultationFee: parseAmount(json['consultationFee']) ?? 0.0,
+      hasConsultationFee: parseAmount(json['consultationFee']) != null,
     );
   }
 

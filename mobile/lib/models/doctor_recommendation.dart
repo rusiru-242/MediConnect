@@ -3,6 +3,7 @@ library;
 
 import 'doctor.dart';
 import 'doctor_availability.dart';
+import '../utils/money.dart';
 
 class InterpretedPreferences {
   final String? specialty;
@@ -95,7 +96,8 @@ class DoctorRecommendation {
   final String specialty;
   final String hospitalOrClinic;
   final int experienceYears;
-  final double consultationFee;
+  /// Null when the doctor has not listed a fee (never defaulted).
+  final double? consultationFee;
   final String? bio;
   final String? profileImage;
   final double score;
@@ -126,7 +128,7 @@ class DoctorRecommendation {
       specialty: (json['specialty'] ?? '').toString(),
       hospitalOrClinic: (json['hospitalOrClinic'] ?? '').toString(),
       experienceYears: json['experienceYears'] is num ? (json['experienceYears'] as num).toInt() : 0,
-      consultationFee: json['consultationFee'] is num ? (json['consultationFee'] as num).toDouble() : 2500.0,
+      consultationFee: parseAmount(json['consultationFee']),
       bio: json['bio']?.toString(),
       profileImage: json['profileImage']?.toString(),
       score: json['score'] is num ? (json['score'] as num).toDouble() : 0.0,
@@ -162,7 +164,8 @@ class DoctorRecommendation {
       bio: bio,
       profileImage: profileImage,
       verificationStatus: 'APPROVED',
-      consultationFee: consultationFee,
+      consultationFee: consultationFee ?? 0.0,
+      hasConsultationFee: consultationFee != null,
     );
   }
 }

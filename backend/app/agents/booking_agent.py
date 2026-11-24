@@ -937,7 +937,20 @@ class BookingAgent:
                 "$regex": re.escape(prefs["hospital"]), "$options": "i",
             }
 
-        profiles = list(db["doctor_profiles"].find(profile_query).limit(200))
+        if prefs.get("doctorName"):
+            # Filter by name in the database so a named doctor is never cut off by the result cap.
+            named_users = db["users"].find(
+                {"role": UserRole.DOCTOR.value,
+                 "fullName": {"$regex": re.escape(prefs["doctorName"].strip()), "$options": "i"}},
+                {"_id": 1},
+            )
+            named_ids = [str(u["_id"]) for u in named_users]
+            if not named_ids:
+                return []
+            profile_query["userId"] = {"$in": named_ids}
+
+        # Rank across the full matching set (the previous unsorted 200-row cap could drop the best match).
+        profiles = list(db["doctor_profiles"].find(profile_query).sort([("_id", 1)]).limit(2000))
         if not profiles:
             return []
 

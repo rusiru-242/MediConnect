@@ -875,9 +875,9 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                       style: TextStyle(fontSize: 10, color: AppTheme.textMuted),
                     ),
                     Text(
-                      doctor.consultationFee > 0
+                      doctor.hasConsultationFee
                           ? 'Rs. ${doctor.consultationFee.toInt()}'
-                          : 'Rs. 2,500',
+                          : 'Fee not listed',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,

@@ -9,6 +9,7 @@ from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
 import stripe
 
+from app.agents.doctor_ranking import coerce_fee
 from app.config.settings import settings
 from app.services.ai_booking_proposal import settle_ai_payment
 from app.models.appointment import (
@@ -155,7 +156,10 @@ class PaymentService:
             if amount_in_cents <= 0:
                 raise HTTPException(409, "This booking does not require payment.")
         else:
-            consultation_fee = float(doctor_profile.get("consultationFee", 2500.0))
+            consultation_fee = coerce_fee(doctor_profile.get("consultationFee"))
+            if consultation_fee is None:
+                # Never charge an invented default amount (BUG-028).
+                raise HTTPException(409, "This doctor has not listed a consultation fee, so payment cannot be started.")
             currency = (settings.STRIPE_CURRENCY or "lkr").lower()
             amount_in_cents = int(round(consultation_fee * 100))
 

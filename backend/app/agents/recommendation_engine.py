@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from bson import ObjectId
 from pymongo.database import Database
 
+from app.agents.doctor_ranking import coerce_fee
 from app.agents.ai_provider import get_ai_provider
 from app.config.settings import settings
 from app.models.doctor_profile import DoctorVerificationStatus
@@ -154,10 +155,10 @@ class RecommendationEngine:
         # -------------------------------------------------------------
         candidate_doctors: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
         for profile, user in verified_doctors:
-            fee = float(profile.get("consultationFee", 2500.0))
+            fee = coerce_fee(profile.get("consultationFee"))
 
-            # Hard filter: maxFee
-            if target_max_fee is not None and fee > target_max_fee:
+            # Hard filter: maxFee. An unlisted fee cannot be shown as within budget (BUG-028).
+            if target_max_fee is not None and (fee is None or fee > target_max_fee):
                 continue
 
             candidate_doctors.append((profile, user))
@@ -219,7 +220,7 @@ class RecommendationEngine:
             doc_user_id = str(user["_id"])
             doc_spec = str(profile.get("specialty", ""))
             doc_hospital = str(profile.get("hospitalOrClinic", ""))
-            doc_fee = float(profile.get("consultationFee", 2500.0))
+            doc_fee = coerce_fee(profile.get("consultationFee"))
             doc_exp = int(profile.get("experienceYears", 0))
             slots = doctor_slots_map.get(doc_user_id, [])
 
@@ -281,7 +282,9 @@ class RecommendationEngine:
                 reasons.append("No active open slots currently scheduled")
 
             # 4. Fee Preference Match (up to 10 pts)
-            if target_max_fee is not None:
+            if doc_fee is None:
+                reasons.append("Consultation fee not listed")
+            elif target_max_fee is not None:
                 if doc_fee <= target_max_fee:
                     score += 10.0
                     reasons.append(
@@ -323,7 +326,7 @@ class RecommendationEngine:
                 item[0],
                 ratings_by_doc.get(str(item[3]["_id"]), (0.0, 0))[1],
                 len(doctor_slots_map.get(str(item[3]["_id"]), [])),
-                -float(item[2].get("consultationFee", 2500.0)),
+                -(coerce_fee(item[2].get("consultationFee")) or float("inf")),
             ),
             reverse=True,
         )
@@ -354,7 +357,7 @@ class RecommendationEngine:
                     specialty=profile.get("specialty", ""),
                     hospitalOrClinic=profile.get("hospitalOrClinic", ""),
                     experienceYears=int(profile.get("experienceYears", 0)),
-                    consultationFee=float(profile.get("consultationFee", 2500.0)),
+                    consultationFee=coerce_fee(profile.get("consultationFee")),
                     bio=profile.get("bio"),
                     profileImage=user.get("profileImage"),
                     score=score,

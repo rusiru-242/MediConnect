@@ -234,8 +234,10 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final feeFormatted =
-        'LKR ${widget.doctor.consultationFee.toStringAsFixed(2)}';
+    // Never show an invented fee; the backend also refuses to book a doctor without a listed fee.
+    final feeFormatted = widget.doctor.hasConsultationFee
+        ? 'LKR ${widget.doctor.consultationFee.toStringAsFixed(2)}'
+        : 'Fee not listed';
     final doctorName = widget.doctor.fullName.startsWith('Dr.')
         ? widget.doctor.fullName
         : 'Dr. ${widget.doctor.fullName}';

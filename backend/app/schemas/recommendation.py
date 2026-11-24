@@ -75,7 +75,7 @@ class DoctorRecommendationItem(BaseModel):
     specialty: str
     hospitalOrClinic: str
     experienceYears: int
-    consultationFee: float
+    consultationFee: Optional[float] = None  # None when the doctor has not listed a fee
     bio: Optional[str] = None
     profileImage: Optional[str] = None
     score: float = Field(..., ge=0.0, le=100.0, description="Deterministically calculated match score 0-100")

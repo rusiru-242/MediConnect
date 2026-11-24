@@ -133,3 +133,38 @@ def test_bug005_calendar_uses_batched_slot_generation(doctor_env, monkeypatch):
     resp = client.get(f"/api/doctors/me/calendar-overview?month={doctor_env['month']}", headers=doctor_env["doctor_headers"])
     assert resp.status_code == 200
     assert len(calls) == 1 and len(calls[0]) >= 28
+
+
+# ---------------------------------------------------------------------------
+# BUG-028 — never charge or display an invented default fee
+# ---------------------------------------------------------------------------
+def test_bug028_booking_refused_when_fee_not_listed(doctor_env):
+    db = doctor_env["db"]
+    db["doctor_profiles"].update_one({"_id": ObjectId(doctor_env["profile_id"])}, {"$unset": {"consultationFee": ""}})
+    try:
+        avail = db["doctor_availabilities"].find_one({"doctorUserId": doctor_env["doctor_uid"]})
+        resp = client.post("/api/appointments", headers=doctor_env["patient_headers"], json={
+            "doctorId": doctor_env["doctor_code"], "availabilityId": str(avail["_id"]),
+            "date": doctor_env["date"], "startTime": "10:30",
+        })
+        assert resp.status_code == 409, resp.text
+        assert "fee" in resp.json()["detail"].lower()
+        assert db["appointments"].count_documents({"doctorUserId": doctor_env["doctor_uid"], "startTime": "10:30"}) == 0
+    finally:
+        db["doctor_profiles"].update_one({"_id": ObjectId(doctor_env["profile_id"])}, {"$set": {"consultationFee": 2000.0}})
+
+
+def test_bug028_string_fee_is_charged_as_listed(doctor_env):
+    db = doctor_env["db"]
+    db["doctor_profiles"].update_one({"_id": ObjectId(doctor_env["profile_id"])}, {"$set": {"consultationFee": "3,250"}})
+    try:
+        avail = db["doctor_availabilities"].find_one({"doctorUserId": doctor_env["doctor_uid"]})
+        resp = client.post("/api/appointments", headers=doctor_env["patient_headers"], json={
+            "doctorId": doctor_env["doctor_code"], "availabilityId": str(avail["_id"]),
+            "date": doctor_env["date"], "startTime": "10:30",
+        })
+        assert resp.status_code in (200, 201), resp.text
+        appt = db["appointments"].find_one({"doctorUserId": doctor_env["doctor_uid"], "startTime": "10:30"})
+        assert appt["consultationFee"] == 3250.0
+    finally:
+        db["doctor_profiles"].update_one({"_id": ObjectId(doctor_env["profile_id"])}, {"$set": {"consultationFee": 2000.0}})

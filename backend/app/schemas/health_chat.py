@@ -32,8 +32,8 @@ class DoctorReferralCardSchema(BaseModel):
     qualifications: Optional[str] = None
     hospitalOrClinic: Optional[str] = None
     experienceYears: int = 0
-    consultationFee: float
-    rating: float = 0.0
+    consultationFee: Optional[float] = None  # None when not listed; never defaulted
+    rating: Optional[float] = None  # Published-review rating only; never invented
     city: Optional[str] = None
     nextAvailableSlot: Optional[str] = None
     matchReason: Optional[str] = None
