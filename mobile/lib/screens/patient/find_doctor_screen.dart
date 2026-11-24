@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/doctor.dart';
 import '../../services/doctor_service.dart';
 import '../../widgets/medical_widgets.dart';
+import '../../utils/assistant_navigation.dart';
 
 /// Screen allowing patients to discover, search, and filter approved doctors.
 /// Redesigned with Google Stitch Clinical Clarity design system (Phase 41).
@@ -220,9 +221,7 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
             key: const Key('find_doctor_ai_assistant_icon_button'),
             icon: const Icon(Icons.auto_awesome_rounded, color: Colors.amber),
             tooltip: 'AI Doctor Finder',
-            onPressed: () {
-              Navigator.of(context).pushNamed('/patient/ai-assistant');
-            },
+            onPressed: () => AssistantNavigation.open(context),
           ),
           const SizedBox(width: 4),
         ],

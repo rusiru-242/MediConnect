@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
@@ -151,23 +152,40 @@ class ApiClient {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     _safeLogRequest('POST (multipart)', uri);
     try {
-      final request = http.MultipartRequest('POST', uri);
+      // A MultipartFile stream can only be read once. Buffer each file so the request can be
+      // rebuilt with a refreshed access token after a 401 (BUG-025).
+      final buffered = <({String field, List<int> bytes, String? filename, MediaType contentType})>[];
+      for (final file in files) {
+        buffered.add((
+          field: file.field,
+          bytes: await file.finalize().toBytes(),
+          filename: file.filename,
+          contentType: file.contentType,
+        ));
+      }
 
-      final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
-      combinedHeaders.remove('Content-Type');
-      combinedHeaders.remove('content-type');
-      request.headers.addAll(combinedHeaders);
+      Future<http.Response> sendOnce() async {
+        final request = http.MultipartRequest('POST', uri);
+        final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
+        combinedHeaders.remove('Content-Type');
+        combinedHeaders.remove('content-type');
+        request.headers.addAll(combinedHeaders);
+        request.fields.addAll(fields);
+        for (final file in buffered) {
+          request.files.add(http.MultipartFile.fromBytes(
+            file.field,
+            file.bytes,
+            filename: file.filename,
+            contentType: file.contentType,
+          ));
+        }
+        final streamedResponse = await _httpClient.send(request).timeout(
+          ApiConstants.uploadTimeoutDuration,
+        );
+        return http.Response.fromStream(streamedResponse);
+      }
 
-      request.fields.addAll(fields);
-      request.files.addAll(files);
-
-      final streamedResponse = await _httpClient.send(request).timeout(
-        ApiConstants.timeoutDuration,
-      );
-
-      final response = await http.Response.fromStream(streamedResponse);
-      _safeLogResponse(uri, response.statusCode);
-      return _processResponse(response, uri: uri);
+      return await _sendWithRetry(sendOnce, endpoint: endpoint, includeAuth: includeAuth);
     } on SocketException catch (e) {
       _safeLogError(uri, 'NetworkException (Socket: ${e.osError?.message ?? e.message})');
       throw const NetworkException();

@@ -13,6 +13,7 @@ import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
 import '../../widgets/server_settings_sheet.dart';
+import '../../utils/assistant_navigation.dart';
 
 /// Patient Home Dashboard redesigned with Google Stitch Clinical Clarity design system.
 /// Single visible AI Entry Point: "MediConnect AI Assistant" (Phase 40 & Phase 41).
@@ -903,9 +904,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     minimumSize: const Size(double.infinity, 40),
                   ),
-                  onPressed: () {
-                    Navigator.of(context).pushNamed('/patient/ai-assistant');
-                  },
+                  onPressed: () => AssistantNavigation.open(context),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -973,12 +972,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
   Widget _buildHeroPromptChip(BuildContext context, IconData icon, String label, String prompt) {
     return InkWell(
-      onTap: () {
-        Navigator.of(context).pushNamed(
-          '/patient/ai-assistant',
-          arguments: {'initialPrompt': prompt},
-        );
-      },
+      onTap: () => AssistantNavigation.open(context, initialPrompt: prompt),
       borderRadius: BorderRadius.circular(9999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
