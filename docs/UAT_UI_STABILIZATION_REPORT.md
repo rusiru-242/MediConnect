@@ -104,7 +104,7 @@ No backend code was changed, and emergency detection is unchanged.
 | Same tests with fix A reverted | All failed (9 of the original 10 directly; the normal-reply control passes when run alone) |
 | Landscape tests run against the screen before fix B | Landscape with keyboard **failed**: `RenderFlex overflowed by 141 pixels` (matches the device) |
 | `flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8001` | Built |
-| GitHub Actions on `6c2be8f` | **Mobile CI: success** ([run 45545156194](https://github.com/rusiru-242/MediConnect/actions/runs/45545156194)). The result for the follow-up commit is recorded in the tracker after push. |
+| GitHub Actions on `6c2be8f` | **Mobile CI: success** ([run 45545156194](https://github.com/rusiru-242/MediConnect/actions/runs/45545156194)). **`dee875e` (landscape and language fixes): Mobile CI success** ([run 45550423300](https://github.com/rusiru-242/MediConnect/actions/runs/45550423300)). |
 | `test/integration/live_api_test.dart` | **Not run on purpose:** hard-wired to port 8000, the production-like Atlas backend |
 | Backend tests | Not needed: no backend code changed |
 
