@@ -426,7 +426,9 @@ class TestStripePaymentBackend:
         event_payload = {
             "id": f"evt_{_uid()}",
             "type": "payment_intent.succeeded",
-            "data": {"object": {"id": pi_id, "status": "succeeded"}},
+            # Phase 02: a realistic Stripe PaymentIntent (amount and currency are verified before confirming).
+            "data": {"object": {"id": pi_id, "status": "succeeded", "amount_received": int(doctor["consultationFee"] * 100),
+                                "currency": "lkr", "livemode": False}},
         }
 
         with patch.object(settings, "STRIPE_WEBHOOK_SECRET", "whsec_mock_test_secret_123"):

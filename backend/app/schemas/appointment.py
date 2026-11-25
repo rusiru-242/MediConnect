@@ -40,7 +40,7 @@ class AppointmentResponse(BaseModel):
     endTime: str
     status: str
     paymentStatus: Optional[str] = "UNPAID"
-    consultationFee: Optional[float] = 2500.0
+    consultationFee: Optional[float] = None  # never a default amount (BUG-028/BUG-059)
     holdExpiresAt: Optional[datetime] = None
     patientNote: Optional[str] = None
     cancelledBy: Optional[str] = None
@@ -56,6 +56,19 @@ class AppointmentResponse(BaseModel):
     doctorName: Optional[str] = None
     specialty: Optional[str] = None
     hospitalOrClinic: Optional[str] = None
+
+    # Booking and payment facts (BUG-058/BUG-059). Values come from the appointment and verified payment records.
+    bookingReference: Optional[str] = None
+    visitType: str = "IN_PERSON"
+    consultationFeeAtBooking: Optional[float] = None
+    currency: Optional[str] = None
+    amountPaid: Optional[float] = None
+    paidAt: Optional[datetime] = None
+    paymentId: Optional[str] = None
+    paymentReconciliationState: Optional[str] = None
+    refundedAmount: Optional[float] = None
+    refundStatus: Optional[str] = None
+    refundId: Optional[str] = None
 
 
 class CreateAppointmentResponse(BaseModel):

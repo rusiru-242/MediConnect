@@ -64,6 +64,7 @@ def _build_appointment_response(
     doctor_name: Optional[str] = None,
     specialty: Optional[str] = None,
     hospital_or_clinic: Optional[str] = None,
+    payment_details: Optional[Dict[str, Any]] = None,
 ) -> AppointmentResponse:
     """Build an AppointmentResponse from a raw MongoDB document with optional enriched fields."""
     return AppointmentResponse(
@@ -77,13 +78,13 @@ def _build_appointment_response(
         endTime=doc.get("endTime", ""),
         status=doc.get("status", "PENDING"),
         paymentStatus=doc.get("paymentStatus", "UNPAID"),
-        consultationFee=coerce_fee(doc.get("consultationFee")) or 0.0,
+        consultationFee=coerce_fee(doc.get("consultationFee")),
         holdExpiresAt=doc.get("holdExpiresAt"),
         patientNote=doc.get("patientNote"),
         cancelledBy=doc.get("cancelledBy"),
         cancellationReason=doc.get("cancellationReason"),
-        createdAt=doc.get("createdAt") or datetime.now(timezone.utc),
-        updatedAt=doc.get("updatedAt") or datetime.now(timezone.utc),
+        createdAt=doc.get("createdAt") or _dt.now(timezone.utc),
+        updatedAt=doc.get("updatedAt") or _dt.now(timezone.utc),
         doctorId=doctor_id or doc.get("doctorId"),
         patientName=patient_name,
         patientEmail=patient_email,
@@ -91,7 +92,39 @@ def _build_appointment_response(
         specialty=specialty,
         hospitalOrClinic=hospital_or_clinic,
         appointmentVersion=int(doc.get("appointmentVersion", 1)),
+        bookingReference=str(doc["_id"]),
+        visitType="IN_PERSON",
+        **(payment_details or {}),
     )
+
+
+def _payment_details(db: Database, doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Authoritative payment facts for one appointment (BUG-058/BUG-059).
+
+    The fee is the amount stored on the appointment when it was booked, never the doctor's current
+    profile fee. "amountPaid" is reported only from a verified payment record; nothing is inferred.
+    """
+    appointment_id = str(doc["_id"])
+    currency = (doc.get("bookingCurrency") or "").lower() or None
+    fee_at_booking = (doc["acceptedAmountMinor"] / 100) if isinstance(doc.get("acceptedAmountMinor"), int)         else coerce_fee(doc.get("consultationFee"))
+    payment = db["payments"].find_one(
+        {"appointmentId": appointment_id, "status": {"$in": ["SUCCEEDED", "REFUNDED"]}},
+        sort=[("createdAt", -1)],
+    )
+    details: Dict[str, Any] = {"consultationFeeAtBooking": fee_at_booking, "currency": currency}
+    if payment:
+        details.update(
+            amountPaid=coerce_fee(payment.get("amount")), paidAt=payment.get("paidAt"),
+            paymentId=str(payment["_id"]), currency=(payment.get("currency") or currency or "").lower() or None,
+            paymentReconciliationState=payment.get("reconciliationState"),
+        )
+        if payment.get("refundedAmount") is not None:
+            details["refundedAmount"] = coerce_fee(payment.get("refundedAmount"))
+    refund = db["refund_requests"].find_one({"appointmentId": appointment_id}, sort=[("createdAt", -1)])
+    if refund:
+        details["refundStatus"] = refund.get("status")
+        details["refundId"] = refund.get("refundId")
+    return details
 
 
 class AppointmentService:
@@ -508,9 +541,10 @@ class AppointmentService:
                 doctor_id=dr_profile.get("doctorId") if dr_profile else None,
                 doctor_name=dr_user.get("fullName") if dr_user else None,
                 specialty=dr_profile.get("specialty") if dr_profile else None,
-                hospital_or_clinic=dr_profile.get("hospitalOrClinic") if dr_profile else None,
+                hospital_or_clinic=doc.get("hospitalOrClinic") or (dr_profile.get("hospitalOrClinic") if dr_profile else None),
                 patient_name=patient_user.fullName,
                 patient_email=patient_user.email,
+                payment_details=_payment_details(db, doc),
             ))
 
         return AppointmentListResponse(
@@ -556,11 +590,16 @@ class AppointmentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot cancel an appointment with status: {current_status}.",
             )
+        if current_status in {"HOLD", "PENDING"} and appt.get("paymentStatus") != PaymentStatus.PAID.value:
+            # An unpaid reservation is released through the race-safe path that first stops any open
+            # Stripe PaymentIntent, so no payment can be captured for a released slot (BUG-063).
+            return await AppointmentService.release_unpaid_hold(db, patient_user, appointment_id, reason)
 
         now = utc_now()
-        condition = {"_id": ObjectId(appointment_id)}
+        # Conditional on the status read above: two concurrent cancellations cannot both apply (P-05o).
+        condition = {"_id": ObjectId(appointment_id), "status": current_status}
         if only_hold:
-            condition.update(status=current_status, paymentStatus={"$ne": "PAID"})
+            condition.update(paymentStatus={"$ne": "PAID"})
         mutation = get_appointment_collection(db).update_one(
             condition,
             {
@@ -573,8 +612,24 @@ class AppointmentService:
             },
         )
 
-        if only_hold and not mutation.matched_count:
-            raise HTTPException(409, "The hold changed. Refresh the booking status.")
+        if not mutation.matched_count:
+            raise HTTPException(409, "This appointment changed. Refresh it before cancelling.")
+
+        from app.services.appointment_events import record_appointment_event
+        record_appointment_event(db, appointment_id, "APPOINTMENT_CANCELLED", actor_role="PATIENT",
+                                 actor_id=str(patient_user.id), from_status=current_status, to_status="CANCELLED",
+                                 idempotency_key=f"cancelled_{appointment_id}")
+        refund_request = None
+        if appt.get("paymentStatus") == PaymentStatus.PAID.value:
+            # Paid cancellation: open a refund request under the configured refund policy. Money moves only
+            # after an administrator approves it (human approval preserved).
+            try:
+                from app.services.refund_service import RefundService
+                refund_request = RefundService.create_refund_request(
+                    db, str(patient_user.id), appointment_id, reason or "Patient cancelled the appointment",
+                )
+            except HTTPException as refund_exc:
+                logger.warning("Refund request was not opened automatically (%s).", refund_exc.status_code)
 
         # Notify patient and doctor of cancellation
         try:
@@ -621,7 +676,167 @@ class AppointmentService:
             hospital_or_clinic=dr_profile.get("hospitalOrClinic") if dr_profile else None,
             patient_name=patient_user.fullName,
             patient_email=patient_user.email,
+            payment_details=_payment_details(db, updated),
         )
+
+    # -------------------------------------------------------------------------
+    # PATIENT: Cancellation preview (refund implications before confirming)
+    # -------------------------------------------------------------------------
+    @staticmethod
+    async def cancellation_preview(
+        db: Database, patient_user: UserResponseSchema, appointment_id: str,
+    ) -> Dict[str, Any]:
+        """What cancelling would mean, computed from the configured refund rules. Changes nothing."""
+        appt = _get_appointment_or_404(db, appointment_id)
+        if patient_user.role != UserRole.PATIENT.value or str(appt["patientUserId"]) != str(patient_user.id):
+            raise HTTPException(status_code=403, detail="You do not have permission to view this appointment.")
+        current = appt["status"]
+        can_cancel = "CANCELLED" in _ALLOWED_TRANSITIONS.get(current, set())
+        paid = appt.get("paymentStatus") == PaymentStatus.PAID.value
+        preview: Dict[str, Any] = {
+            "appointmentId": appointment_id, "status": current, "canCancel": can_cancel, "isPaid": paid,
+            "isUnpaidReservation": current in {"HOLD", "PENDING"} and not paid,
+            "refund": None, "requiresAdminApproval": False,
+        }
+        if can_cancel and paid:
+            from app.services.refund_service import RefundService
+            payment = db["payments"].find_one({"appointmentId": appointment_id, "status": "SUCCEEDED"}, {"_id": 1})
+            eligibility = RefundService.calculate_refund_eligibility(db, appointment_id, str(payment["_id"]) if payment else None)
+            preview["refund"] = {
+                "eligible": eligibility.eligible, "eligibleAmount": eligibility.eligibleAmount,
+                "penaltyAmount": eligibility.penaltyAmount, "ruleApplied": eligibility.ruleApplied,
+                "currency": (appt.get("bookingCurrency") or "lkr").lower(),
+            }
+            preview["requiresAdminApproval"] = True
+        return preview
+
+    # -------------------------------------------------------------------------
+    # SYSTEM: Release expired unpaid holds (durable, restart-safe sweep)
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def release_expired_holds(db: Database, now=None, *, limit: int = 100) -> int:
+        """Cancel unpaid HOLD/PENDING reservations whose server-owned holdExpiresAt has passed.
+
+        Each hold is claimed with a conditional update, so concurrent workers never release the same hold
+        twice and a payment that settles first always wins (paymentStatus PAID is excluded).
+        """
+        from app.services.appointment_events import record_appointment_event
+
+        now = now or utc_now()
+        released = 0
+        collection = get_appointment_collection(db)
+        for _ in range(limit):
+            doc = collection.find_one_and_update(
+                {"status": {"$in": [AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value]},
+                 "paymentStatus": {"$ne": PaymentStatus.PAID.value}, "holdExpiresAt": {"$lte": now}},
+                {"$set": {"status": AppointmentStatus.CANCELLED.value, "cancelledBy": "SYSTEM",
+                          "cancellationReason": "Booking hold expired", "updatedAt": now}},
+            )
+            if not doc:
+                break
+            released += 1
+            record_appointment_event(db, str(doc["_id"]), "HOLD_EXPIRED", actor_role="SYSTEM",
+                                     from_status=doc["status"], to_status="CANCELLED",
+                                     idempotency_key=f"hold_expired_{doc['_id']}")
+        return released
+
+    # -------------------------------------------------------------------------
+    # PATIENT: Release an unpaid reservation hold (BUG-063)
+    # -------------------------------------------------------------------------
+    @staticmethod
+    async def release_unpaid_hold(
+        db: Database,
+        patient_user: UserResponseSchema,
+        appointment_id: str,
+        reason: Optional[str] = None,
+    ) -> AppointmentResponse:
+        """Release the patient's own unpaid HOLD/PENDING reservation now instead of waiting for expiry.
+
+        Race safety with payment confirmation:
+        1. Every open Stripe PaymentIntent for the hold is cancelled first. A cancelled intent can no
+           longer succeed, so no money can be captured for a released slot.
+        2. If Stripe reports the intent already succeeded (or is processing), nothing is released: the
+           payment is settled through the normal exactly-once path and the patient is told to check status.
+        3. The appointment is then cancelled with a conditional update (still HOLD/PENDING, not PAID).
+        A paid appointment can never be cancelled through this path.
+        """
+        import stripe
+        from app.config.settings import settings
+        from app.models.payment import PaymentStatus as RecordStatus
+        from app.services.appointment_events import record_appointment_event
+        from app.services.payment_service import settle_succeeded_intent
+
+        if patient_user.role != UserRole.PATIENT.value:
+            raise HTTPException(status_code=403, detail="Only patients can release a reservation.")
+        appt = _get_appointment_or_404(db, appointment_id)
+        if str(appt["patientUserId"]) != str(patient_user.id):
+            raise HTTPException(status_code=403, detail="You do not have permission to change this reservation.")
+        if appt["status"] == AppointmentStatus.CANCELLED.value:
+            return _build_appointment_response(appt, payment_details=_payment_details(db, appt))  # idempotent
+        if appt["status"] not in {AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value} or \
+                appt.get("paymentStatus") == PaymentStatus.PAID.value:
+            raise HTTPException(409, "This appointment is already paid or confirmed. Use Cancel Appointment instead.")
+
+        now = utc_now()
+        open_payments = list(db["payments"].find({
+            "appointmentId": appointment_id, "status": {"$in": [RecordStatus.PENDING.value, RecordStatus.FAILED.value]},
+        }))
+        for payment in open_payments:
+            intent_id = payment.get("stripePaymentIntentId")
+            if not intent_id:
+                continue
+            if not settings.STRIPE_SECRET_KEY:
+                raise HTTPException(503, "The payment gateway is unavailable, so the reservation cannot be released safely yet.")
+            try:
+                intent = stripe.PaymentIntent.retrieve(intent_id, api_key=settings.STRIPE_SECRET_KEY)
+                if intent.status not in {"succeeded", "processing", "canceled"}:
+                    intent = stripe.PaymentIntent.cancel(intent_id, api_key=settings.STRIPE_SECRET_KEY,
+                                                         cancellation_reason="abandoned")
+            except stripe.error.StripeError:
+                try:  # the cancel can fail because the payment completed in the meantime
+                    intent = stripe.PaymentIntent.retrieve(intent_id, api_key=settings.STRIPE_SECRET_KEY)
+                except stripe.error.StripeError as exc:
+                    raise HTTPException(502, "Could not verify the payment. Please retry.") from exc
+            if intent.status == "succeeded":
+                settle_succeeded_intent(db, payment, intent, now)
+                raise HTTPException(409, "Your payment was already received, so the reservation was not released. "
+                                         "Refresh the booking status.")
+            if intent.status != "canceled":
+                raise HTTPException(409, "A payment is still being processed. Wait a moment and refresh.")
+            db["payments"].update_one(
+                {"_id": payment["_id"], "status": {"$ne": RecordStatus.SUCCEEDED.value}},
+                {"$set": {"status": RecordStatus.CANCELLED.value, "updatedAt": now, "cancelledAt": now}},
+            )
+
+        released = get_appointment_collection(db).find_one_and_update(
+            {"_id": ObjectId(appointment_id), "patientUserId": str(patient_user.id),
+             "status": {"$in": [AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value]},
+             "paymentStatus": {"$ne": PaymentStatus.PAID.value}},
+            {"$set": {"status": AppointmentStatus.CANCELLED.value, "cancelledBy": "PATIENT",
+                      "cancellationReason": reason or "Reservation released by patient before payment",
+                      "holdReleasedAt": now, "updatedAt": now}},
+        )
+        if not released:
+            raise HTTPException(409, "The reservation changed. Refresh the booking status.")
+        record_appointment_event(db, appointment_id, "HOLD_RELEASED", actor_role="PATIENT", actor_id=str(patient_user.id),
+                                 from_status=appt["status"], to_status="CANCELLED",
+                                 details={"cancelledPaymentIntents": len(open_payments)},
+                                 idempotency_key=f"hold_released_{appointment_id}")
+        if appt.get("bookingSource") != "ai_agent":
+            # The doctor saw a "New Booking Request" for manual holds; tell them it was withdrawn.
+            try:
+                from app.models.notification import NotificationType
+                from app.services.notification_service import NotificationService
+                NotificationService.create_notification(
+                    db=db, recipient_user_id=str(appt["doctorUserId"]), type=NotificationType.APPOINTMENT_CANCELLED,
+                    title="Reservation Released",
+                    body=f"An unpaid reservation for {appt.get('appointmentDate')} at {appt.get('startTime')} was released.",
+                    related_appointment_id=appointment_id, idempotency_key=f"hold_released_doctor_{appointment_id}",
+                )
+            except Exception as notif_err:
+                logger.warning("Failed to send hold release notification (%s).", type(notif_err).__name__)
+        updated = _get_appointment_or_404(db, appointment_id)
+        return _build_appointment_response(updated, payment_details=_payment_details(db, updated))
 
     # -------------------------------------------------------------------------
     # DOCTOR: List assigned appointments
@@ -676,6 +891,7 @@ class AppointmentService:
                 patient_name=pt_user.get("fullName") if pt_user else None,
                 patient_email=pt_user.get("email") if pt_user else None,
                 doctor_name=doctor_user.fullName,
+                payment_details=_payment_details(db, doc),
             ))
 
         return AppointmentListResponse(
@@ -715,12 +931,17 @@ class AppointmentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot confirm an appointment with status: {current_status}.",
             )
+        if appt.get("paymentStatus") not in {PaymentStatus.PAID.value, PaymentStatus.NOT_REQUIRED.value}:
+            # Never confirm before payment verification where payment is required (Phase 02).
+            raise HTTPException(409, "This appointment cannot be confirmed until the patient's payment is verified.")
 
         now = utc_now()
-        get_appointment_collection(db).update_one(
-            {"_id": ObjectId(appointment_id)},
+        result = get_appointment_collection(db).update_one(
+            {"_id": ObjectId(appointment_id), "status": AppointmentStatus.PENDING.value},
             {"$set": {"status": AppointmentStatus.CONFIRMED.value, "updatedAt": now}},
         )
+        if not result.matched_count:
+            raise HTTPException(409, "This appointment changed. Refresh it.")
 
         # Notify patient and doctor of appointment confirmation
         try:
@@ -982,7 +1203,8 @@ class AppointmentService:
             patient_email=pt_user.get("email") if pt_user else None,
             doctor_name=dr_user.get("fullName") if dr_user else None,
             specialty=dr_profile.get("specialty") if dr_profile else None,
-            hospitalOrClinic=dr_profile.get("hospitalOrClinic") if dr_profile else None,
+            hospital_or_clinic=appt.get("hospitalOrClinic") or (dr_profile.get("hospitalOrClinic") if dr_profile else None),
+            payment_details=_payment_details(db, appt),
         )
 
     # -------------------------------------------------------------------------
@@ -1059,41 +1281,81 @@ class AppointmentService:
             new_end_total = new_s_h * 60 + new_s_m + duration_minutes
             new_end_time = f"{new_end_total // 60:02d}:{new_end_total % 60:02d}"
 
+        # The new time must be a real open slot in the doctor's schedule (not any clock time), P-05q.
+        new_availability_id = appt.get("availabilityId")
+        if not is_admin:
+            from app.services.doctor_service import DoctorService
+            dr_profile_doc = db["doctor_profiles"].find_one(
+                {"_id": ObjectId(appt["doctorProfileId"])} if ObjectId.is_valid(str(appt.get("doctorProfileId")))
+                else {"userId": str(appt["doctorUserId"])}) or {}
+            open_day = await DoctorService.get_doctor_patient_slots(db, dr_profile_doc.get("doctorId") or "", new_date) \
+                if dr_profile_doc.get("doctorId") else None
+            slot = next((item for item in getattr(open_day, "slots", []) if item.startTime == new_start_time), None)
+            if not slot:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="The doctor is not available at the selected date and time.",
+                )
+            new_end_time = slot.endTime
+            new_availability_id = slot.availabilityId or new_availability_id
+
         # Check for conflict with existing active appointments for the same doctor
         conflict = get_appointment_collection(db).find_one({
             "_id": {"$ne": ObjectId(appointment_id)},
             "doctorUserId": str(appt["doctorUserId"]),
             "appointmentDate": new_date,
-            "status": {"$in": [AppointmentStatus.PENDING.value, AppointmentStatus.CONFIRMED.value]},
+            "status": {"$in": [AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value,
+                               AppointmentStatus.CONFIRMED.value, AppointmentStatus.COMPLETED.value]},
             "startTime": new_start_time,
         })
-        if conflict:
+        if conflict and not (conflict["status"] in {"HOLD", "PENDING"} and conflict.get("holdExpiresAt")
+                             and (conflict["holdExpiresAt"].replace(tzinfo=timezone.utc)
+                                  if conflict["holdExpiresAt"].tzinfo is None else conflict["holdExpiresAt"]) <= utc_now()
+                             and conflict.get("paymentStatus") != PaymentStatus.PAID.value):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="The doctor is not available at the selected date and time.",
             )
+        if conflict:  # an expired unpaid hold no longer owns the slot
+            AppointmentService.release_expired_holds(db)
 
         new_version = int(appt.get("appointmentVersion", 1)) + 1
         now = utc_now()
 
-        updated_slot = get_appointment_collection(db).update_one(
-            {"_id": ObjectId(appointment_id), "status": current_status,
-             "appointmentVersion": appt.get("appointmentVersion", {"$exists": False}),
-             "clinicQueue.status": {"$ne": "in_consultation"}},
-            {
-                "$set": {
-                    "appointmentDate": new_date,
-                    "startTime": new_start_time,
-                    "endTime": new_end_time,
-                    "appointmentVersion": new_version,
-                    "remindersSent": [],  # Invalidate previously scheduled reminders
-                    "updatedAt": now,
-                }
-            },
-        )
+        # A single atomic move: the booking keeps its payment and status, so a failed move never loses the
+        # existing confirmed appointment. The unique active-slot index rejects a slot taken concurrently.
+        try:
+            updated_slot = get_appointment_collection(db).update_one(
+                {"_id": ObjectId(appointment_id), "status": current_status,
+                 "appointmentVersion": appt.get("appointmentVersion", {"$exists": False}),
+                 "clinicQueue.status": {"$ne": "in_consultation"}},
+                {
+                    "$set": {
+                        "appointmentDate": new_date,
+                        "startTime": new_start_time,
+                        "endTime": new_end_time,
+                        "availabilityId": new_availability_id,
+                        "appointmentVersion": new_version,
+                        "remindersSent": [],  # Invalidate previously scheduled reminders
+                        "updatedAt": now,
+                    },
+                    "$push": {"rescheduleHistory": {
+                        "fromDate": appt.get("appointmentDate"), "fromStartTime": appt.get("startTime"),
+                        "toDate": new_date, "toStartTime": new_start_time, "byRole": requester.role, "at": now,
+                    }},
+                },
+            )
+        except DuplicateKeyError:
+            raise HTTPException(409, "That time was just booked by someone else. Your original appointment is unchanged.")
 
         if updated_slot.matched_count != 1:
             raise HTTPException(409, "The appointment changed. Refresh before rescheduling.")
+        from app.services.appointment_events import record_appointment_event
+        record_appointment_event(db, appointment_id, "APPOINTMENT_RESCHEDULED", actor_role=requester.role,
+                                 actor_id=str(requester.id), from_status=current_status, to_status=current_status,
+                                 details={"from": f"{appt.get('appointmentDate')} {appt.get('startTime')}",
+                                          "to": f"{new_date} {new_start_time}", "version": new_version},
+                                 idempotency_key=f"rescheduled_{appointment_id}_v{new_version}")
 
         # Notify patient and doctor
         try:

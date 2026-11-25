@@ -81,6 +81,7 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
     from app.models.notification import create_notification_indexes
     from app.models.password_reset import create_password_reset_indexes
     from app.models.payment import create_payment_indexes
+    from app.services.appointment_events import create_appointment_event_indexes
     from app.models.health_content import create_health_content_indexes
     from app.models.prescription import create_prescription_indexes
     from app.models.review import create_review_indexes
@@ -129,6 +130,7 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         ("care_scheduler", create_care_scheduler_indexes),
         ("doctor_communications", create_doctor_communication_indexes),
         ("payments", create_payment_indexes),
+        ("appointment_events", create_appointment_event_indexes),
         ("notifications", create_notification_indexes),
         ("booking_sessions", create_booking_session_indexes),
         ("health_chat", create_health_chat_indexes),

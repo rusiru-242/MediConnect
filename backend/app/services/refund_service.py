@@ -149,6 +149,18 @@ class RefundService:
         if not payment:
             raise HTTPException(status_code=400, detail="No successful payment found for this appointment to refund.")
 
+        # A refund belongs to a cancelled booking (the policy rules are cancellation rules), or to a completed
+        # visit under dispute review. A patient cannot keep a confirmed appointment and also be refunded.
+        if appt.get("status") not in {AppointmentStatus.CANCELLED.value, AppointmentStatus.COMPLETED.value}:
+            raise HTTPException(status_code=409, detail="Cancel the appointment before requesting a refund.")
+        open_request = db["refund_requests"].find_one({
+            "appointmentId": appointment_id,
+            "status": {"$in": [RefundStatus.REQUESTED.value, RefundStatus.UNDER_REVIEW.value,
+                               RefundStatus.APPROVED.value, RefundStatus.PROCESSING.value]},
+        }, {"refundId": 1})
+        if open_request:
+            raise HTTPException(status_code=400, detail="A refund request for this appointment is already open.")
+
         # Calculate policy eligibility
         eligibility = cls.calculate_refund_eligibility(db, appointment_id, str(payment["_id"]))
         if eligibility.alreadyRefunded:
@@ -287,98 +299,93 @@ class RefundService:
         current_status = r.get("status")
         if current_status in [RefundStatus.SUCCEEDED.value, RefundStatus.APPROVED.value]:
             raise HTTPException(status_code=400, detail="Refund has already been approved or processed.")
+        if current_status == RefundStatus.REJECTED.value:
+            raise HTTPException(status_code=409, detail="A rejected refund request cannot be approved.")
 
-        # Determine refund amount from policy eligibility or explicit admin input
+        payment = db["payments"].find_one({"_id": ObjectId(r["paymentId"])}) if ObjectId.is_valid(r["paymentId"]) else None
+        payment_intent_id = (payment.get("stripePaymentIntentId") or payment.get("paymentIntentId")) if payment else None
+        if not payment or not payment_intent_id:
+            raise HTTPException(status_code=409, detail="The captured payment for this refund could not be verified.")
+        if not settings.STRIPE_SECRET_KEY:
+            # Never record a refund that did not happen.
+            raise HTTPException(status_code=503, detail="The payment gateway is unavailable. No refund was issued.")
+
+        # Amount: policy amount by default; an admin may set a different amount, but never more than what was
+        # captured minus what was already refunded.
+        captured = float(payment.get("amount", 0.0))
+        already = float(payment.get("refundedAmount") or 0.0)
+        remaining = round(captured - already, 2)
         policy = r.get("policyEligibility") or {}
-        max_eligible = float(policy.get("eligibleAmount", r.get("amount", 0.0)))
-        amount_to_refund = float(approved_amount) if approved_amount is not None else max_eligible
-
+        policy_amount = float(policy.get("eligibleAmount") or 0.0)
+        amount_to_refund = round(float(approved_amount), 2) if approved_amount is not None else policy_amount
         if amount_to_refund <= 0:
             raise HTTPException(status_code=400, detail="Refund amount must be greater than 0.")
+        if amount_to_refund > remaining:
+            raise HTTPException(status_code=400, detail="The refund cannot exceed the captured amount still refundable.")
 
-        # Atomic transition to PROCESSING
-        db["refund_requests"].update_one(
-            {"_id": r["_id"]},
-            {
-                "$set": {
-                    "status": RefundStatus.PROCESSING.value,
-                    "adminReviewerId": str(admin_user_id),
-                    "reviewNotes": notes,
-                    "updatedAt": utc_now(),
-                }
-            }
+        # Atomic claim: only one approval can move this request into PROCESSING (no duplicate Stripe refunds).
+        claimed = db["refund_requests"].update_one(
+            {"_id": r["_id"], "status": {"$in": [RefundStatus.REQUESTED.value, RefundStatus.UNDER_REVIEW.value,
+                                                 RefundStatus.FAILED.value]}},
+            {"$set": {"status": RefundStatus.PROCESSING.value, "adminReviewerId": str(admin_user_id),
+                      "reviewNotes": notes, "approvedAmount": amount_to_refund, "updatedAt": utc_now()}},
         )
+        if not claimed.matched_count and current_status != RefundStatus.PROCESSING.value:
+            raise HTTPException(status_code=409, detail="This refund request changed. Refresh it.")
 
-        # Lookup payment intent
-        payment = db["payments"].find_one({"_id": ObjectId(r["paymentId"])}) if ObjectId.is_valid(r["paymentId"]) else db["payments"].find_one({"appointmentId": r["appointmentId"]})
-        payment_intent_id = (payment.get("stripePaymentIntentId") or payment.get("paymentIntentId")) if payment else None
+        amount_minor = int(round(amount_to_refund * 100))
+        try:
+            stripe_resp = stripe.Refund.create(
+                payment_intent=payment_intent_id,
+                amount=amount_minor,
+                idempotency_key=r.get("idempotencyKey", f"ref_{r['refundId']}"),
+                reason="requested_by_customer",
+            )
+        except stripe.error.StripeError as exc:
+            logger.error("Stripe refund error for %s (%s).", r["refundId"], type(exc).__name__)
+            db["refund_requests"].update_one(
+                {"_id": r["_id"]},
+                {"$set": {"status": RefundStatus.FAILED.value, "failureReason": type(exc).__name__,
+                          "updatedAt": utc_now()}},
+            )
+            AdminAuditService.log_action(
+                db=db, actor_id=admin_user_id, actor_role="ADMIN", action_type=AdminAuditAction.REFUND_EXECUTION,
+                target_id=r["refundId"], target_type="refund_request", status="FAILED", reason=type(exc).__name__,
+            )
+            raise HTTPException(status_code=502, detail="Stripe refund processing failed. The request can be retried.")
 
-        stripe_refund_id = None
+        stripe_refund_id = getattr(stripe_resp, "id", None)
+        stripe_status = getattr(stripe_resp, "status", None)
+        new_status = {"succeeded": RefundStatus.SUCCEEDED.value, "failed": RefundStatus.FAILED.value,
+                      "canceled": RefundStatus.FAILED.value}.get(stripe_status, RefundStatus.PROCESSING.value)
         now = utc_now()
-
-        # Execute Stripe refund if test/live key configured
-        if payment_intent_id and settings.STRIPE_SECRET_KEY:
-            try:
-                # Convert to integer cents (or smallest currency unit)
-                amount_cents = int(amount_to_refund * 100)
-                stripe_resp = stripe.Refund.create(
-                    payment_intent=payment_intent_id,
-                    amount=amount_cents,
-                    idempotency_key=r.get("idempotencyKey", f"ref_{r['refundId']}"),
-                    reason="requested_by_customer",
-                )
-                stripe_refund_id = stripe_resp.id
-            except stripe.error.StripeError as exc:
-                logger.error("Stripe refund error for %s: %s", r["refundId"], exc)
-                db["refund_requests"].update_one(
-                    {"_id": r["_id"]},
-                    {
-                        "$set": {
-                            "status": RefundStatus.FAILED.value,
-                            "failureReason": str(exc),
-                            "updatedAt": utc_now(),
-                        }
-                    }
-                )
-                AdminAuditService.log_action(
-                    db=db,
-                    actor_id=admin_user_id,
-                    actor_role="ADMIN",
-                    action_type=AdminAuditAction.REFUND_EXECUTION,
-                    target_id=r["refundId"],
-                    target_type="refund_request",
-                    status="FAILED",
-                    reason=str(exc),
-                )
-                raise HTTPException(status_code=502, detail=f"Stripe refund processing failed: {str(exc)}")
-        else:
-            # Synthetic / test mode fallback when running in offline or test mode
-            stripe_refund_id = f"re_test_{uuid4().hex[:16]}"
-
-        # Mark SUCCEEDED and update related records
         db["refund_requests"].update_one(
             {"_id": r["_id"]},
-            {
-                "$set": {
-                    "status": RefundStatus.SUCCEEDED.value,
-                    "stripeRefundId": stripe_refund_id,
-                    "updatedAt": now,
-                    "completedAt": now,
-                }
-            }
+            {"$set": {"status": new_status, "stripeRefundId": stripe_refund_id, "stripeRefundStatus": stripe_status,
+                      "refundedAmount": amount_to_refund, "updatedAt": now,
+                      **({"completedAt": now} if new_status == RefundStatus.SUCCEEDED.value else {})}},
         )
-
-        if payment:
+        if new_status == RefundStatus.SUCCEEDED.value:
+            refunded_total = round(already + amount_to_refund, 2)
+            full = refunded_total >= captured
             db["payments"].update_one(
                 {"_id": payment["_id"]},
-                {"$set": {"status": PaymentStatus.REFUNDED.value, "updatedAt": now}}
+                {"$set": {"refundedAmount": refunded_total, "updatedAt": now,
+                          **({"status": PaymentStatus.REFUNDED.value} if full else {})}},
             )
-
-        if ObjectId.is_valid(r["appointmentId"]):
-            db["appointments"].update_one(
-                {"_id": ObjectId(r["appointmentId"])},
-                {"$set": {"paymentStatus": ApptPaymentStatus.REFUNDED.value, "updatedAt": now}}
-            )
+            if full and ObjectId.is_valid(r["appointmentId"]):
+                db["appointments"].update_one(
+                    {"_id": ObjectId(r["appointmentId"])},
+                    {"$set": {"paymentStatus": ApptPaymentStatus.REFUNDED.value, "updatedAt": now}},
+                )
+            try:
+                from app.services.appointment_events import record_appointment_event
+                record_appointment_event(db, r["appointmentId"], "REFUND_SUCCEEDED", actor_role="ADMIN",
+                                         actor_id=str(admin_user_id),
+                                         details={"refundId": r["refundId"], "amount": amount_to_refund, "full": full},
+                                         idempotency_key=f"refund_succeeded_{r['refundId']}")
+            except Exception:
+                pass
 
         # Audit log
         AdminAuditService.log_action(
@@ -389,16 +396,21 @@ class RefundService:
             target_id=r["refundId"],
             target_type="refund_request",
             previous_state=current_status,
-            new_state=RefundStatus.SUCCEEDED.value,
+            new_state=new_status,
             reason=notes or "Admin approved refund",
-            metadata={"amount": amount_to_refund, "stripeRefundId": stripe_refund_id},
+            metadata={"amount": amount_to_refund, "stripeRefundId": stripe_refund_id, "stripeStatus": stripe_status},
         )
 
+        message = {
+            RefundStatus.SUCCEEDED.value: f"Refund of LKR {amount_to_refund:,.2f} succeeded in Stripe.",
+            RefundStatus.PROCESSING.value: f"Refund of LKR {amount_to_refund:,.2f} was submitted and is pending in Stripe.",
+        }.get(new_status, "Stripe reported the refund as failed.")
         return {
-            "message": f"Refund of LKR {amount_to_refund:,.2f} approved and processed successfully.",
+            "message": message,
             "refundId": r["refundId"],
             "stripeRefundId": stripe_refund_id,
-            "status": RefundStatus.SUCCEEDED.value,
+            "status": new_status,
+            "amount": amount_to_refund,
         }
 
     @classmethod
@@ -416,8 +428,8 @@ class RefundService:
             raise HTTPException(status_code=404, detail="Refund request not found.")
 
         current_status = r.get("status")
-        if current_status in [RefundStatus.SUCCEEDED.value, RefundStatus.APPROVED.value]:
-            raise HTTPException(status_code=400, detail="Cannot reject an already settled refund.")
+        if current_status in [RefundStatus.SUCCEEDED.value, RefundStatus.APPROVED.value, RefundStatus.PROCESSING.value]:
+            raise HTTPException(status_code=400, detail="Cannot reject a refund that is processing or settled.")
 
         now = utc_now()
         db["refund_requests"].update_one(

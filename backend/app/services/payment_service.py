@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 import stripe
 
@@ -35,6 +36,105 @@ logger = logging.getLogger(__name__)
 def _init_stripe() -> None:
     if settings.STRIPE_SECRET_KEY:
         stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+def _intent_value(intent, key):
+    return intent.get(key) if isinstance(intent, dict) else getattr(intent, key, None)
+
+
+def _livemode_mismatch(obj) -> bool:
+    """A live-mode Stripe object must never settle a booking on a test-key backend (and vice versa)."""
+    livemode = _intent_value(obj, "livemode")
+    if livemode is None:
+        return False
+    return bool(livemode) != (settings.STRIPE_SECRET_KEY or "").startswith("sk_live_")
+
+
+def settle_legacy_payment(db: Database, payment: Dict[str, Any], intent: Any, now: datetime) -> str:
+    """Confirm a non-AI booking from a succeeded PaymentIntent, exactly once (Phase 02).
+
+    Confirms only when the intent id, received amount, currency and patient all match the server-owned
+    payment record and the reservation is still valid. Anything else is kept as a durable
+    REVIEW_REQUIRED record for an authorized refund decision; money is never silently applied.
+    Returns "success", "already_processed" or "reconciliation_required".
+    """
+    if payment.get("status") == PaymentStatus.SUCCEEDED.value and payment.get("reconciliationState") == "CONFIRMED":
+        return "already_processed"
+    expected_minor = int(round(float(payment.get("amount") or 0) * 100))
+    received = _intent_value(intent, "amount_received")
+    if received is None:
+        received = _intent_value(intent, "amount")
+    valid = (
+        _intent_value(intent, "id") == payment.get("stripePaymentIntentId")
+        and received == expected_minor and expected_minor > 0
+        and (_intent_value(intent, "currency") or "").lower() == (payment.get("currency") or "").lower()
+        and not _livemode_mismatch(intent)
+    )
+    appointment_id = payment.get("appointmentId")
+    confirmed = False
+    if valid and ObjectId.is_valid(str(appointment_id)):
+        updated = db["appointments"].find_one_and_update(
+            {"_id": ObjectId(appointment_id), "patientUserId": payment["patientUserId"],
+             "paymentStatus": {"$ne": AppointmentPaymentStatus.PAID.value},
+             "$or": [{"status": {"$in": [AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value]},
+                      "holdExpiresAt": {"$gt": now}},
+                     {"status": AppointmentStatus.CONFIRMED.value}]},
+            {"$set": {"status": AppointmentStatus.CONFIRMED.value, "paymentStatus": AppointmentPaymentStatus.PAID.value,
+                      "stripePaymentIntentId": payment["stripePaymentIntentId"], "confirmedAt": now, "updatedAt": now}},
+            return_document=ReturnDocument.AFTER,
+        )
+        current = updated or db["appointments"].find_one({"_id": ObjectId(appointment_id)}) or {}
+        confirmed = (current.get("paymentStatus") == AppointmentPaymentStatus.PAID.value
+                     and current.get("stripePaymentIntentId") == payment["stripePaymentIntentId"])
+    if confirmed:
+        result = get_payment_collection(db).update_one(
+            {"_id": payment["_id"], "reconciliationState": {"$ne": "CONFIRMED"}},
+            {"$set": {"status": PaymentStatus.SUCCEEDED.value, "paidAt": payment.get("paidAt") or now,
+                      "updatedAt": now, "reconciliationState": "CONFIRMED"}, "$unset": {"failureReason": ""}},
+        )
+        if not result.modified_count:
+            return "already_processed"
+        from app.services.appointment_events import record_appointment_event
+        record_appointment_event(db, appointment_id, "PAYMENT_CONFIRMED", actor_role="SYSTEM", to_status="CONFIRMED",
+                                 details={"paymentId": str(payment["_id"]), "amountMinor": expected_minor},
+                                 idempotency_key=f"payment_confirmed_{payment['_id']}")
+        return "success"
+    get_payment_collection(db).update_one(
+        {"_id": payment["_id"], "reconciliationState": {"$nin": ["CONFIRMED", "REFUND_PENDING", "REFUNDED", "REFUND_FAILED"]}},
+        {"$set": {"status": PaymentStatus.SUCCEEDED.value, "paidAt": now, "updatedAt": now,
+                  "reconciliationState": "REVIEW_REQUIRED",
+                  "reconciliationReason": "booking_unavailable" if valid else "amount_currency_or_mode_mismatch"}},
+    )
+    return "reconciliation_required"
+
+
+def settle_succeeded_intent(db: Database, payment: Dict[str, Any], intent: Any, now: datetime) -> str:
+    outcome = settle_ai_payment(db, payment, intent, now)
+    return outcome if outcome is not None else settle_legacy_payment(db, payment, intent, now)
+
+
+def _notify_payment_success(db: Database, payment: Dict[str, Any]) -> None:
+    try:
+        from app.models.notification import NotificationType
+        from app.services.notification_service import NotificationService
+
+        amount = coerce_fee(payment.get("amount"))
+        NotificationService.create_notification(
+            db=db, recipient_user_id=str(payment["patientUserId"]), type=NotificationType.PAYMENT_SUCCESS,
+            title="Payment Successful",
+            body=(f"Your payment of LKR {amount:,.0f} was successful. Your appointment has been confirmed."
+                  if amount is not None else "Your payment was successful. Your appointment has been confirmed."),
+            related_appointment_id=str(payment["appointmentId"]), related_payment_id=str(payment["_id"]),
+            idempotency_key=f"pay_success_{payment['_id']}",
+        )
+        NotificationService.create_notification(
+            db=db, recipient_user_id=str(payment["doctorUserId"]), type=NotificationType.APPOINTMENT_CONFIRMED,
+            title="Appointment Confirmed", body="A patient has completed payment and confirmed their appointment.",
+            related_appointment_id=str(payment["appointmentId"]), related_payment_id=str(payment["_id"]),
+            idempotency_key=f"doc_confirmed_{payment['_id']}",
+        )
+    except Exception as notif_err:
+        logger.warning("Failed to send payment success notification (%s).", type(notif_err).__name__)
 
 
 class PaymentService:
@@ -156,7 +256,9 @@ class PaymentService:
             if amount_in_cents <= 0:
                 raise HTTPException(409, "This booking does not require payment.")
         else:
-            consultation_fee = coerce_fee(doctor_profile.get("consultationFee"))
+            # The fee recorded on the appointment when the slot was reserved (server-derived at that time);
+            # a later profile change must not alter what this booking costs.
+            consultation_fee = coerce_fee(appt_doc.get("consultationFee"))
             if consultation_fee is None:
                 # Never charge an invented default amount (BUG-028).
                 raise HTTPException(409, "This doctor has not listed a consultation fee, so payment cannot be started.")
@@ -177,22 +279,18 @@ class PaymentService:
             try:
                 intent = stripe.PaymentIntent.retrieve(intent_id)
                 if intent.status == "succeeded":
+                    # Duplicate submission after a payment that already succeeded: settle once, never charge again.
+                    outcome = settle_succeeded_intent(db, existing_payment, intent, now)
+                    if outcome == "success" and appt_doc.get("bookingSource") != "ai_agent":
+                        _notify_payment_success(db, existing_payment)
                     if appt_doc.get("bookingSource") == "ai_agent":
-                        outcome = settle_ai_payment(db, existing_payment, intent, now)
                         raise HTTPException(409, "Payment received. Check booking status." if outcome == "success"
                                             else "Payment received and awaiting reconciliation.")
-                    # Payment was already completed in Stripe
-                    payment_col.update_one(
-                        {"_id": existing_payment["_id"]},
-                        {"$set": {"status": PaymentStatus.SUCCEEDED.value, "paidAt": now, "updatedAt": now}},
-                    )
-                    db["appointments"].update_one(
-                        {"_id": appt_doc["_id"]},
-                        {"$set": {"status": AppointmentStatus.CONFIRMED.value, "paymentStatus": AppointmentPaymentStatus.PAID.value, "updatedAt": now}},
-                    )
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="This appointment has already been paid for and confirmed.",
+                        detail=("This appointment has already been paid for and confirmed."
+                                if outcome in {"success", "already_processed"}
+                                else "Payment received and awaiting reconciliation."),
                     )
                 if intent.status in ["requires_payment_method", "requires_confirmation", "requires_action", "processing"]:
                     if existing_payment["status"] == PaymentStatus.FAILED.value:
@@ -324,85 +422,27 @@ class PaymentService:
 
         payment_col = get_payment_collection(db)
 
+        if _livemode_mismatch(event):
+            logger.warning("Ignored a Stripe event whose livemode does not match the configured key.")
+            return {"status": "ignored", "reason": "livemode_mismatch"}
+
         # Handle payment_intent.succeeded
         if event_type == "payment_intent.succeeded":
             intent_id = data_object["id"]
             payment = payment_col.find_one({"stripePaymentIntentId": intent_id})
             if not payment:
-                logger.warning(f"PaymentIntent {intent_id} not found in MediConnect DB.")
+                logger.warning("A PaymentIntent from a webhook is not linked to a MediConnect payment.")
                 return {"status": "ignored", "reason": "Payment record not found"}
 
             outcome = settle_ai_payment(db, payment, data_object, now)
             if outcome is not None:
                 return {"status": outcome, "appointmentId": payment["appointmentId"]}
 
-            # Idempotency check: if already SUCCEEDED, return early
-            if payment.get("status") == PaymentStatus.SUCCEEDED.value:
-                return {"status": "already_processed"}
-
-            # Mark payment as SUCCEEDED atomically (prevents concurrent race conditions)
-            update_res = payment_col.update_one(
-                {
-                    "_id": payment["_id"],
-                    "status": {"$ne": PaymentStatus.SUCCEEDED.value},
-                },
-                {
-                    "$set": {
-                        "status": PaymentStatus.SUCCEEDED.value,
-                        "paidAt": now,
-                        "updatedAt": now,
-                    }
-                },
-            )
-            if update_res.modified_count == 0:
-                return {"status": "already_processed"}
-
-            # Confirm appointment and mark paymentStatus = PAID
-            appt_id_str = payment["appointmentId"]
-            if ObjectId.is_valid(appt_id_str):
-                db["appointments"].update_one(
-                    {"_id": ObjectId(appt_id_str)},
-                    {
-                        "$set": {
-                            "status": AppointmentStatus.CONFIRMED.value,
-                            "paymentStatus": AppointmentPaymentStatus.PAID.value,
-                            "updatedAt": now,
-                        }
-                    },
-                )
-
-            logger.info(f"Payment succeeded for appointment {appt_id_str}, intent {intent_id}.")
-
-            # Send notifications safely (guaranteed isolation: never fails webhook)
-            try:
-                from app.models.notification import NotificationType
-                from app.services.notification_service import NotificationService
-
-                NotificationService.create_notification(
-                    db=db,
-                    recipient_user_id=str(payment["patientUserId"]),
-                    type=NotificationType.PAYMENT_SUCCESS,
-                    title="Payment Successful",
-                    body=f"Your payment of LKR {float(payment.get('amount', 2500)):,.0f} was successful. Your appointment has been confirmed.",
-                    related_appointment_id=appt_id_str,
-                    related_payment_id=str(payment["_id"]),
-                    idempotency_key=f"pay_success_{payment['_id']}",
-                )
-
-                NotificationService.create_notification(
-                    db=db,
-                    recipient_user_id=str(payment["doctorUserId"]),
-                    type=NotificationType.APPOINTMENT_CONFIRMED,
-                    title="Appointment Confirmed",
-                    body="A patient has completed payment and confirmed their appointment.",
-                    related_appointment_id=appt_id_str,
-                    related_payment_id=str(payment["_id"]),
-                    idempotency_key=f"doc_confirmed_{payment['_id']}",
-                )
-            except Exception as notif_err:
-                logger.warning("Failed to send payment success notification: %s", notif_err)
-
-            return {"status": "success", "appointmentId": appt_id_str}
+            outcome = settle_legacy_payment(db, payment, data_object, now)
+            if outcome == "success":
+                logger.info("Payment confirmed for appointment %s.", payment["appointmentId"])
+                _notify_payment_success(db, payment)
+            return {"status": outcome, "appointmentId": payment["appointmentId"]}
 
         # Handle payment_intent.payment_failed
         elif event_type == "payment_intent.payment_failed":
@@ -411,7 +451,7 @@ class PaymentService:
             if not payment:
                 return {"status": "ignored", "reason": "Payment record not found"}
 
-            error_msg = data_object.get("last_payment_error", {}).get("message", "Payment failed")
+            error_msg = (data_object.get("last_payment_error") or {}).get("message", "Payment failed")
             payment_col.update_one(
                 {
                     "_id": payment["_id"],
@@ -504,40 +544,12 @@ class PaymentService:
             try:
                 intent = stripe.PaymentIntent.retrieve(payment["stripePaymentIntentId"])
                 now = utc_now()
-                outcome = settle_ai_payment(db, payment, intent, now) if intent.status == "succeeded" else None
+                outcome = settle_succeeded_intent(db, payment, intent, now) if intent.status == "succeeded" else None
                 if outcome:
+                    if outcome == "success" and not db["appointments"].find_one(
+                            {"_id": ObjectId(payment["appointmentId"]), "bookingSource": "ai_agent"}, {"_id": 1}):
+                        _notify_payment_success(db, payment)
                     payment = payment_col.find_one({"_id": payment["_id"]}) or payment
-                elif intent.status == "succeeded":
-                    payment_col.update_one(
-                        {"_id": payment["_id"]},
-                        {"$set": {"status": PaymentStatus.SUCCEEDED.value, "paidAt": now, "updatedAt": now}},
-                    )
-                    payment["status"] = PaymentStatus.SUCCEEDED.value
-                    payment["paidAt"] = now
-
-                    appt_id_str = payment["appointmentId"]
-                    if ObjectId.is_valid(appt_id_str):
-                        db["appointments"].update_one(
-                            {"_id": ObjectId(appt_id_str)},
-                            {"$set": {"status": AppointmentStatus.CONFIRMED.value, "paymentStatus": AppointmentPaymentStatus.PAID.value, "updatedAt": now}},
-                        )
-
-                    try:
-                        from app.models.notification import NotificationType
-                        from app.services.notification_service import NotificationService
-
-                        NotificationService.create_notification(
-                            db=db,
-                            recipient_user_id=str(payment["patientUserId"]),
-                            type=NotificationType.PAYMENT_SUCCESS,
-                            title="Payment Successful",
-                            body=f"Your payment of LKR {float(payment.get('amount', 2500)):,.0f} was successful. Your appointment has been confirmed.",
-                            related_appointment_id=appt_id_str,
-                            related_payment_id=str(payment["_id"]),
-                            idempotency_key=f"pay_success_{payment['_id']}",
-                        )
-                    except Exception as fallback_err:
-                        logger.warning("Failed to dispatch fallback payment notification: %s", fallback_err)
                 elif intent.status in ["canceled", "requires_payment_method"]:
                     if intent.last_payment_error:
                         payment_col.update_one(

@@ -791,16 +791,31 @@ class BookingAgent:
 
         # 8. Check if user mentioned a time slot from candidate slots (by time or ordinal)
         matched_slot = None
-        if selected_doctor and not selected_slot and candidate_slots:
+        wanted_date = parsed_delta.get("date")
+        if selected_doctor and not selected_slot and (candidate_slots or wanted_date):
             time_match = re.search(r"(\d{1,2}[:.]\d{2})", clean_text)
+            raw_time = None
             if time_match:
                 raw_time = time_match.group(1).replace(".", ":")
                 if len(raw_time) == 4:
                     raw_time = "0" + raw_time
+            raw_time = raw_time or requested_time
+            # Slots loaded when the doctor was picked can belong to another date (BUG-061 / P02-N01):
+            # a time typed for a named date must be matched against that date's real slots only.
+            if wanted_date and (not candidate_slots or any(s.get("date") != wanted_date for s in candidate_slots)):
+                candidate_slots = await cls._fetch_available_slots(db, selected_doctor["doctorId"], wanted_date)
+                session_data["candidateSlots"] = candidate_slots
+            if raw_time:
                 for s in candidate_slots:
-                    if s.get("startTime") == raw_time:
+                    if s.get("startTime") == raw_time and (not wanted_date or s.get("date") == wanted_date):
                         matched_slot = s
                         break
+                if not matched_slot and intent in {CompanionIntent.BOOK_APPOINTMENT, CompanionIntent.FOLLOW_UP}:
+                    return await cls._offer_same_doctor_alternatives(
+                        db, session_data, selected_doctor, wanted_date or (candidate_slots[0].get("date")
+                                                                           if candidate_slots else None),
+                        raw_time, lang, current_state,
+                    )
             else:
                 # Check for ordinal slot selection e.g. "first slot", "second slot"
                 slot_ord = parsed_delta.get("ordinalDoctorIndex")
@@ -1308,6 +1323,70 @@ class BookingAgent:
             return f"{name} වෛද්‍යතුමාගේ {date_sample} දින වේලාවන් ({slot_count}) පහතින් තෝරන්න:"
 
         return f"Please select an available appointment slot for {name} on {date_sample}:" 
+
+    @classmethod
+    async def _offer_same_doctor_alternatives(
+        cls,
+        db: Database,
+        session_data: Dict[str, Any],
+        doctor: Dict[str, Any],
+        requested_date: Optional[str],
+        requested_time: str,
+        lang: str,
+        current_state: str,
+    ) -> Dict[str, Any]:
+        """The requested time is not open: keep the doctor and offer real nearby times (BUG-061).
+
+        Same date first; another date only when that date has no openings. The doctor, specialty,
+        location and budget preferences are left unchanged, and no availability is invented.
+        """
+        name = doctor.get("fullName", "the doctor")
+        nearby = await cls._fetch_available_slots(
+            db, doctor["doctorId"], requested_date, preferred_time=requested_time,
+        ) if requested_date else []
+        nearby = [slot for slot in nearby if not requested_date or slot.get("date") == requested_date][:4]
+        other_date = None
+        if not nearby:
+            upcoming = await cls._fetch_available_slots(db, doctor["doctorId"])
+            later = [slot for slot in upcoming if not requested_date or slot.get("date", "") > requested_date]
+            if later:
+                other_date = later[0]["date"]
+                target = int(requested_time[:2]) * 60 + int(requested_time[3:])
+                same_day = [slot for slot in later if slot["date"] == other_date]
+                nearby = sorted(same_day, key=lambda slot: abs(
+                    int(slot["startTime"][:2]) * 60 + int(slot["startTime"][3:]) - target))[:4]
+        when = f"{requested_time} on {requested_date}" if requested_date else requested_time
+        times = ", ".join(slot["startTime"] for slot in nearby)
+        if nearby and not other_date:
+            content = (f"{name} වෛද්‍යතුමා {when} ලබා ගත නොහැක. එදින ආසන්නම වේලාවන්: {times}. පහතින් එකක් තෝරන්න."
+                       if lang == "si" else
+                       f"{name} is not available at {when}. The nearest open times with {name} that day are "
+                       f"{times}. Choose one below, or ask for another date.")
+        elif nearby:
+            content = (f"{name} වෛද්‍යතුමාට {requested_date} දින වේලාවන් නැත. ඊළඟ දිනය {other_date}: {times}."
+                       if lang == "si" else
+                       f"{name} has no open times on {requested_date}. The next date with openings is "
+                       f"{other_date}: {times}. Choose one below, or ask for another date.")
+        else:
+            content = (f"{name} වෛද්‍යතුමාට දැනට ලබාගත හැකි වේලාවන් නොමැත."
+                       if lang == "si" else
+                       f"{name} is not available at {when}, and there are no upcoming open times for {name}. "
+                       f"Would you like me to search for another doctor? I will not change the doctor unless you ask.")
+        session_data["candidateSlots"] = nearby
+        session_data["selectedSlot"] = None
+        session_data["bookingSummary"] = None
+        session_data["activeIntent"] = CompanionIntent.BOOK_APPOINTMENT.value
+        target_state = BookingAgentState.AWAITING_SLOT_SELECTION.value
+        if validate_state_transition(current_state, target_state) or session_data.get("persistent"):
+            session_data["state"] = target_state
+        session_data["messages"].append({
+            "id": str(ObjectId()), "sender": "assistant", "content": content, "timestamp": utc_now(),
+            "metadata": {"type": "slot_unavailable_alternatives", "doctorId": doctor["doctorId"],
+                         "requestedDate": requested_date, "requestedTime": requested_time,
+                         "alternativeDate": other_date, "alternatives": nearby},
+        })
+        session_data["updatedAt"] = utc_now()
+        return session_data
 
     @classmethod
     def _build_confirmation_prompt_message(

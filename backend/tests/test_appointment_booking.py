@@ -160,6 +160,11 @@ def _run(coro):
 # TEST 1 to TEST 17
 # ===========================================================================
 
+
+def _mark_paid(db, appointment_id):
+    """Phase 02: a doctor can confirm only after payment verification; record a verified payment first."""
+    get_appointment_collection(db).update_one({"_id": ObjectId(appointment_id)}, {"$set": {"paymentStatus": "PAID"}})
+
 def test_1_patient_books_valid_available_slot(db):
     """TEST 1: Patient books valid available slot. Expected: PENDING appointment created."""
     uid = _uid()
@@ -434,6 +439,7 @@ def test_11_doctor_confirms_own_pending_appointment(db):
     )))
     assert r.appointment.status == "PENDING"
 
+    _mark_paid(db, r.appointment.id)
     confirmed = _run(AppointmentService.confirm_doctor_appointment(db, dr_schema, r.appointment.id))
     assert confirmed.status == AppointmentStatus.CONFIRMED.value
 
@@ -479,6 +485,7 @@ def test_13_patient_cancels_confirmed_appointment(db):
         date=date_str,
         startTime="09:00",
     )))
+    _mark_paid(db, r.appointment.id)
     _run(AppointmentService.confirm_doctor_appointment(db, dr_schema, r.appointment.id))
 
     cancelled = _run(AppointmentService.cancel_patient_appointment(
@@ -542,6 +549,7 @@ def test_15_doctor_completes_confirmed_appointment_at_valid_time(db):
         date=date_str,
         startTime="09:00",
     )))
+    _mark_paid(db, r.appointment.id)
     _run(AppointmentService.confirm_doctor_appointment(db, dr_schema, r.appointment.id))
 
     # Move appointmentDate to past so consultation time is reached
@@ -593,6 +601,7 @@ def test_17_try_completed_to_cancelled_rejected(db):
         date=date_str,
         startTime="09:00",
     )))
+    _mark_paid(db, r.appointment.id)
     _run(AppointmentService.confirm_doctor_appointment(db, dr_schema, r.appointment.id))
 
     # Move appointmentDate to past so consultation time is reached

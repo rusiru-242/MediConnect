@@ -33,6 +33,7 @@ from app.routes import (
 from app.routes.ai_conversations import router as ai_conversations_router
 from app.services.booking_notifications import run_confirmation_outbox
 from app.services.care_scheduler import run_scheduler
+from app.services.appointment_service import AppointmentService
 from app.routes.doctor_workflow import router as doctor_workflow_router
 from app.services.doctor_communications import run_communications
 from app.routes.care_automation import router as care_automation_router
@@ -55,6 +56,7 @@ async def _run_reminder_worker():
                 db = DatabaseManager.get_database()
                 t0 = asyncio.get_event_loop().time()
                 await asyncio.to_thread(run_scheduler, db)
+                await asyncio.to_thread(AppointmentService.release_expired_holds, db)
                 await asyncio.to_thread(run_confirmation_outbox, db)
                 await asyncio.to_thread(run_communications, db)
                 duration = asyncio.get_event_loop().time() - t0

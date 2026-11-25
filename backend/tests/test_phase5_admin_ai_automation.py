@@ -326,6 +326,10 @@ def test_refund_policy_rules_and_admin_approval(test_env):
     assert policy.eligibleAmount == 4000.0
     assert policy.penaltyAmount == 0.0
 
+    # Phase 02: a refund belongs to a cancelled booking; the patient cancels first.
+    db["appointments"].update_one({"_id": ObjectId(appt_id)}, {"$set": {"status": AppointmentStatus.CANCELLED.value,
+                                                                       "cancelledBy": "PATIENT"}})
+
     # Patient creates refund request
     ref_req = client.post(
         "/api/admin/workflow/refunds",
@@ -339,7 +343,7 @@ def test_refund_policy_rules_and_admin_approval(test_env):
 
     # Admin approves refund
     with patch("stripe.Refund.create") as mock_stripe:
-        mock_stripe.return_value = MagicMock(id=f"re_test_{test_env['ts']}")
+        mock_stripe.return_value = MagicMock(id=f"re_test_{test_env['ts']}", status="succeeded")
         appr_resp = client.post(
             f"/api/admin/workflow/refunds/{r_id}/approve",
             json={"notes": "Approved based on >24h notice policy"},
