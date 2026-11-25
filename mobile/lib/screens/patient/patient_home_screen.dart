@@ -1065,7 +1065,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isSi ? 'විශේෂඥයින් 120+' : (isTa ? '120+ நிபுணர்கள்' : '120+ Specialists'),
+                    // Phase 03 (P03-N24): was an invented '120+ Specialists' count.
+                    isSi ? 'විශේෂඥයින් සොයන්න' : (isTa ? 'நிபுணர்களைத் தேடுங்கள்' : 'Browse specialists'),
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,

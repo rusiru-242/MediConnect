@@ -13,6 +13,7 @@ import 'package:mediconnect/providers/auth_provider.dart';
 import 'package:mediconnect/providers/locale_provider.dart';
 import 'package:mediconnect/providers/notification_provider.dart';
 import 'package:mediconnect/providers/theme_provider.dart';
+import 'package:mediconnect/screens/doctor/consultation_details_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_home_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_schedule_screen.dart';
 import 'package:mediconnect/screens/doctor/doctor_workflow_screen.dart';
@@ -39,6 +40,10 @@ class _Schedule extends ConsultationService {
 
   @override
   Future<DailyScheduleStats> getScheduleSummary([String? date]) async => schedule.stats;
+
+  @override
+  Future<ConsultationDetail> getConsultationDetails(String appointmentId) async =>
+      ConsultationDetail(appointment: schedule.appointments.firstWhere((a) => a.appointmentId == appointmentId));
 
   @override
   Future<ConsultationSession> startConsultation(String appointmentId, {String? notes}) async {
@@ -116,6 +121,9 @@ void main() {
       'VERIFIED & ACTIVE', 'TELEMETRY', 'National Hospital Center']) {
       expect(find.textContaining(invented), findsNothing, reason: invented);
     }
+    // P03-N23: the prescription renewal queue is reachable from the doctor home.
+    await tester.scrollUntilVisible(find.byKey(const Key('doctor_renewals_card')), 300);
+    expect(find.byKey(const Key('doctor_renewals_card')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -172,5 +180,28 @@ void main() {
     expect(find.text('ACTIVE · 1/2 tasks completed'), findsOneWidget);
     expect(find.text('ACTIVE · No care tasks'), findsOneWidget);
     expect(find.textContaining('100%'), findsNothing);
+  });
+
+  testWidgets('P03-N23 SOAP notes open from a confirmed visit; an unpaid request cannot start', (tester) async {
+    final service = _Schedule(DoctorDailySchedule(
+      date: '2026-11-25', timezone: 'Asia/Colombo',
+      stats: const DailyScheduleStats(date: '2026-11-25', timezone: 'Asia/Colombo', totalScheduled: 2, upcoming: 2,
+          waiting: 0, inProgress: 0, completed: 0, cancelled: 0),
+      nextPatient: null, appointments: [_item('C1', 'CONFIRMED'), _item('P1', 'PENDING')],
+    ));
+    Future<void> open(String id) async {
+      await tester.pumpWidget(MultiProvider(
+        providers: [ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider())],
+        child: MaterialApp(home: ConsultationDetailsScreen(key: Key(id), appointmentId: id, consultationService: service)),
+      ));
+      await tester.pumpAndSettle();
+    }
+    await open('C1');
+    expect(find.byKey(const Key('open_clinical_notes')), findsOneWidget);
+    expect(find.byKey(const Key('details_start_consultation_button')), findsOneWidget);
+    await open('P1');
+    expect(find.byKey(const Key('open_clinical_notes')), findsNothing);
+    expect(find.byKey(const Key('details_awaiting_confirmation')), findsOneWidget);
+    expect(find.byKey(const Key('details_start_consultation_button')), findsNothing);
   });
 }

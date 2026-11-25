@@ -573,6 +573,17 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               ),
               const SizedBox(height: 10),
 
+              // Phase 03 (P03-N23): the renewal queue was unreachable although doctors are notified to open it.
+              _buildSectionCard(
+                key: const Key('doctor_renewals_card'),
+                icon: Icons.autorenew_rounded,
+                iconColor: AppTheme.primaryBlue,
+                title: isSi ? 'බෙහෙත් වට්ටෝරු අලුත් කිරීම්' : (isTa ? 'மருந்துச்சீட்டு புதுப்பித்தல்' : 'Prescription renewals'),
+                subtitle: isSi ? 'රෝගීන්ගේ අලුත් කිරීමේ ඉල්ලීම් සමාලෝචනය' : (isTa ? 'நோயாளி புதுப்பித்தல் கோரிக்கைகளை மதிப்பாய்வு செய்யவும்' : 'Review patient renewal requests for your prescriptions'),
+                isDark: isDark,
+                onTap: () => Navigator.of(context).pushNamed('/doctor/prescription-renewals'),
+              ),
+              const SizedBox(height: 12),
               // 3. Manage Availability Card
               _buildSectionCard(
                 key: const Key('doctor_home_manage_availability_card'),

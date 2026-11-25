@@ -7,6 +7,7 @@ import '../../models/appointment.dart';
 import '../../models/consultation.dart';
 import '../../services/consultation_service.dart';
 import 'create_care_plan_screen.dart';
+import 'doctor_clinical_documentation_screen.dart';
 
 /// Screen allowing an assigned doctor to view full consultation details, start/complete the consultation,
 /// and navigate to clinical records and follow-up plans (Phase 57).
@@ -495,6 +496,20 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
               child: const Icon(Icons.description_rounded, color: Colors.indigo, size: 20),
             ),
             title: const Text('Clinical Consultation Record', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            // Phase 03 (P03-N23): the SOAP note screen had no entry point; it opens here with the visit's patient.
+            trailing: (_detail!.appointment.isConfirmedBooking || _detail!.appointment.bookingStatus.toUpperCase() == 'COMPLETED')
+                ? TextButton(
+                    key: const Key('open_clinical_notes'),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => DoctorClinicalDocumentationScreen(
+                        patientUserId: _detail!.appointment.patientUserId,
+                        patientName: _detail!.appointment.patientName,
+                        appointmentId: _detail!.appointment.appointmentId,
+                      ),
+                    )),
+                    child: const Text('SOAP notes'),
+                  )
+                : null,
             subtitle: Text(
               mr != null ? 'Record: ${mr['recordId']}' : 'No formal clinical notes documented',
               style: const TextStyle(fontSize: 12),

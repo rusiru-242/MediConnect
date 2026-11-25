@@ -759,13 +759,14 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.location_on_outlined,
+                                Icons.local_hospital_outlined,
                                 size: 12,
                                 color: AppTheme.textMuted,
                               ),
                               SizedBox(width: 2),
                               Text(
-                                'Nearby',
+                                // Was 'Nearby' for every doctor (no location data exists). Visits are in-person only.
+                                'In-person visit',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: AppTheme.textSecondary,
@@ -774,32 +775,8 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Row(
-                          children: const [
-                            Icon(
-                              Icons.star_rounded,
-                              size: 15,
-                              color: Colors.amber,
-                            ),
-                            SizedBox(width: 2),
-                            Text(
-                              '4.9',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            SizedBox(width: 2),
-                            Text(
-                              '(120+)',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppTheme.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
+                        // Phase 03 (P03-N24): a hard-coded '4.9 (120+)' rating was shown for every doctor; the list API has
+                        // no rating, so none is shown here (verified ratings are on the doctor's reviews page).
                       ],
                     ),
                   ],
