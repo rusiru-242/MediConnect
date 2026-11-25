@@ -168,8 +168,17 @@ class FraudDetectionService:
             "reviewStatus": {"$in": [FraudReviewStatus.DETECTED.value, FraudReviewStatus.AWAITING_REVIEW.value, FraudReviewStatus.INVESTIGATING.value]},
         })
 
+        # Explanation: the score is the sum of fixed rule weights, not a probability, and a signal is not proof.
+        explanation = (
+            f"Rule weight total {calculated_score:.1f}/100 ({risk_level.value}). "
+            f"Triggered {len(triggered_rules)} deterministic rule(s): {', '.join(triggered_rules)}. "
+            f"Supported by {len(supporting_events)} event reference(s). These are signals for human review, "
+            f"not a finding of fraud; no account action is taken automatically."
+        )
+
         if existing:
-            # Update existing assessment score and triggers without creating duplicate alert
+            # Re-evaluation refreshes the open assessment instead of creating a duplicate alert. The explanation and
+            # the returned document were stale before Phase 04: only score and level were refreshed (P04-N22).
             db["fraud_risk_assessments"].update_one(
                 {"_id": existing["_id"]},
                 {
@@ -178,22 +187,14 @@ class FraudDetectionService:
                         "riskLevel": risk_level.value,
                         "triggeredRules": triggered_rules,
                         "supportingEventReferences": supporting_events,
+                        "explanation": explanation,
                         "updatedAt": now,
                     }
                 },
             )
-            existing["_id"] = str(existing["_id"])
-            existing["riskScore"] = calculated_score
-            existing["riskLevel"] = risk_level.value
-            return FraudAssessmentDocument(**existing)
-
-        # Explanation: the score is the sum of fixed rule weights, not a probability, and a signal is not proof.
-        explanation = (
-            f"Rule weight total {calculated_score:.1f}/100 ({risk_level.value}). "
-            f"Triggered {len(triggered_rules)} deterministic rule(s): {', '.join(triggered_rules)}. "
-            f"Supported by {len(supporting_events)} event reference(s). These are signals for human review, "
-            f"not a finding of fraud; no account action is taken automatically."
-        )
+            refreshed = db["fraud_risk_assessments"].find_one({"_id": existing["_id"]})
+            refreshed["_id"] = str(refreshed["_id"])
+            return FraudAssessmentDocument(**refreshed)
 
         assessment = FraudAssessmentDocument(
             assessmentId=f"FRAUD-{uuid4().hex[:10].upper()}",

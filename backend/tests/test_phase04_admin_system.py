@@ -489,3 +489,20 @@ def test_n20_repeated_security_events_and_assessments_can_be_stored(db):
                           "severity": "LOW", "category": "SYSTEM"}, headers=_auth(admin))
         assert res.status_code in (201, 422), res.text
     assert db["operational_incidents"].count_documents({"_id": None}) == 0
+
+
+# ------------------------------------------------------------------------------------------------ P04-N22
+def test_n22_re_evaluation_returns_current_rules_and_explanation(db):
+    patient, doctor = _make_test_patient(db, "P04N22"), _make_test_doctor(db, "P04N22Doc")
+    for _ in range(3):
+        _payment(db, str(ObjectId()), patient, doctor, status="FAILED")
+    first = FraudDetectionService.evaluate_account_risk(account_id=patient["id"], db=db)
+    assert first.triggeredRules == ["MULTIPLE_FAILED_PAYMENTS"]
+    for _ in range(6):  # now also a booking burst
+        db["appointments"].insert_one({"patientUserId": patient["id"], "doctorUserId": str(ObjectId()),
+                                       "appointmentDate": _day(), "startTime": "09:00", "status": "HOLD",
+                                       "createdAt": utc_now()})
+    second = FraudDetectionService.evaluate_account_risk(account_id=patient["id"], db=db)
+    assert second.assessmentId == first.assessmentId  # no duplicate alert
+    assert set(second.triggeredRules) == {"MULTIPLE_FAILED_PAYMENTS", "EXCESSIVE_BOOKING_RATE"}  # was the stale list
+    assert "Triggered 2 deterministic rule(s)" in second.explanation and "65.0/100" in second.explanation
