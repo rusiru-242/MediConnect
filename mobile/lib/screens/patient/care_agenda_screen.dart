@@ -393,7 +393,7 @@ class _CareTrackingState extends State<_CareTracking> {
     }
     setState(() => _busy = true);
     try {
-      await widget.api.post(
+      final saved = await widget.api.post(
         '$_base/measurements',
         body: {
           'metric': _metric,
@@ -401,9 +401,11 @@ class _CareTrackingState extends State<_CareTracking> {
           if (_metric == 'blood_pressure') 'secondary': second,
         },
       );
+      final alert = saved is Map ? saved['criticalAlert']?.toString() : null;
       if (mounted) {
         setState(() {
-          _message = 'Reading saved.';
+          // Show the same safety alert as Health Tracking when a reading is concerning (P02-N09).
+          _message = alert != null && alert.isNotEmpty ? 'Reading saved (patient-reported). $alert' : 'Reading saved.';
           _value.clear();
           _secondary.clear();
           _items = widget.api.get('$_base/measurements');

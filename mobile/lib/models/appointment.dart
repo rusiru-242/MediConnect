@@ -12,7 +12,8 @@ class Appointment {
   final String endTime;
   final String status; // PENDING | CONFIRMED | COMPLETED | CANCELLED
   final String paymentStatus; // UNPAID | PENDING | PAID | FAILED | REFUNDED
-  final double consultationFee;
+  /// Fee recorded on the appointment when it was booked. Null when the backend has none (never a default).
+  final double? consultationFee;
   final DateTime? holdExpiresAt;
   final String? patientNote;
   final String? cancelledBy;
@@ -27,6 +28,18 @@ class Appointment {
   final String? specialty;
   final String? hospitalOrClinic;
 
+  // Booking and payment facts from the backend (BUG-058/BUG-059). All optional; nothing is inferred.
+  final String? bookingReference;
+  final String visitType;
+  final double? consultationFeeAtBooking;
+  final String? currency;
+  final double? amountPaid;
+  final DateTime? paidAt;
+  final String? paymentId;
+  final String? paymentReconciliationState;
+  final double? refundedAmount;
+  final String? refundStatus;
+
   const Appointment({
     required this.id,
     required this.patientUserId,
@@ -38,7 +51,7 @@ class Appointment {
     required this.endTime,
     required this.status,
     this.paymentStatus = 'UNPAID',
-    this.consultationFee = 2500.0,
+    this.consultationFee,
     this.holdExpiresAt,
     this.patientNote,
     this.cancelledBy,
@@ -50,7 +63,19 @@ class Appointment {
     this.doctorName,
     this.specialty,
     this.hospitalOrClinic,
+    this.bookingReference,
+    this.visitType = 'IN_PERSON',
+    this.consultationFeeAtBooking,
+    this.currency,
+    this.amountPaid,
+    this.paidAt,
+    this.paymentId,
+    this.paymentReconciliationState,
+    this.refundedAmount,
+    this.refundStatus,
   });
+
+  static double? _money(dynamic value) => value is num ? value.toDouble() : null;
 
   factory Appointment.fromJson(Map<String, dynamic> json) {
     return Appointment(
@@ -64,9 +89,7 @@ class Appointment {
       endTime: (json['endTime'] ?? '').toString(),
       status: (json['status'] ?? 'PENDING').toString(),
       paymentStatus: (json['paymentStatus'] ?? 'UNPAID').toString(),
-      consultationFee: json['consultationFee'] is num
-          ? (json['consultationFee'] as num).toDouble()
-          : 2500.0,
+      consultationFee: _money(json['consultationFee']),
       holdExpiresAt: json['holdExpiresAt'] != null
           ? DateTime.tryParse(json['holdExpiresAt'].toString())
           : null,
@@ -84,6 +107,16 @@ class Appointment {
       doctorName: json['doctorName']?.toString(),
       specialty: json['specialty']?.toString(),
       hospitalOrClinic: json['hospitalOrClinic']?.toString(),
+      bookingReference: json['bookingReference']?.toString(),
+      visitType: (json['visitType'] ?? 'IN_PERSON').toString(),
+      consultationFeeAtBooking: _money(json['consultationFeeAtBooking']),
+      currency: json['currency']?.toString(),
+      amountPaid: _money(json['amountPaid']),
+      paidAt: json['paidAt'] != null ? DateTime.tryParse(json['paidAt'].toString()) : null,
+      paymentId: json['paymentId']?.toString(),
+      paymentReconciliationState: json['paymentReconciliationState']?.toString(),
+      refundedAmount: _money(json['refundedAmount']),
+      refundStatus: json['refundStatus']?.toString(),
     );
   }
 
@@ -117,6 +150,14 @@ class Appointment {
   bool get isCancelled => status == 'CANCELLED';
   bool get isActive => isPending || isConfirmed;
   bool get canCancel => isPending || isConfirmed;
+  bool get isPaid => paymentStatus == 'PAID';
+  bool get isUnpaidReservation => isPending && !isPaid;
+
+  /// The fee to show for this booking: the amount stored at booking time, never a profile or default fee.
+  double? get bookedFee => consultationFeeAtBooking ?? consultationFee;
+
+  /// Full booking reference (the appointment id unless the backend supplies one).
+  String get reference => bookingReference ?? id;
 }
 
 class AppointmentListResponse {

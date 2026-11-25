@@ -130,9 +130,9 @@ void main() {
 
       await tester.pump();
 
-      expect(find.text('ප්‍රතිකාර දළ විශ්ලේෂණය'), findsOneWidget);
+      // Phase 02: the fabricated "Practice Overview" grid was replaced by today's real figures.
+      expect(find.text('අද දින'), findsOneWidget);
       expect(find.text('අද දින කාලසටහන සහ උපදේශන'), findsOneWidget);
-      expect(find.text('හමුවීම්'), findsOneWidget);
     });
   });
 }

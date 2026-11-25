@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,30 +8,35 @@ import 'package:mediconnect/core/network/api_exceptions.dart';
 import 'package:mediconnect/core/storage/secure_storage_service.dart';
 import 'package:mediconnect/services/auth_api_service.dart';
 
+import 'live_target.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final originalOverrides = HttpOverrides.current;
 
   bool isServerAvailable = false;
+  // Explicit target only (see live_target.dart): no default, no fallback to port 8000.
+  final liveBaseUrl = (Platform.environment['LIVE_API_BASE_URL'] ?? '').trim();
+  // An account that already exists in the target database (the UAT seed uses uat.mediconnect.lk addresses).
+  final existingEmail = (Platform.environment['LIVE_API_EXISTING_EMAIL'] ?? 'patient@example.com').trim();
 
   setUpAll(() async {
     final runLive = Platform.environment['RUN_LIVE_TESTS'] == 'true';
-    if (runLive) {
-      try {
-        final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 500);
-        final request = await client.getUrl(Uri.parse('http://127.0.0.1:8000/api/health'));
-        final response = await request.close();
-        isServerAvailable = (response.statusCode == 200);
-      } catch (_) {
-        isServerAvailable = false;
-      }
-    } else {
-      isServerAvailable = false;
+    if (!runLive) return;
+    final refusal = refuseLiveTarget(liveBaseUrl);
+    if (refusal != null) {
+      throw StateError('Live API tests refused: $refusal');
     }
-
-    if (isServerAvailable) {
-      HttpOverrides.global = null; // Enable live HTTP connections only when server is available
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+    final request = await client.getUrl(Uri.parse('$liveBaseUrl/health'));
+    final response = await request.close();
+    final body = jsonDecode(await response.transform(utf8.decoder).join()) as Map<String, dynamic>;
+    final healthRefusal = response.statusCode == 200 ? refuseHealth(body) : 'Health check returned ${response.statusCode}.';
+    if (healthRefusal != null) {
+      throw StateError('Live API tests refused: $healthRefusal');
     }
+    isServerAvailable = true;
+    HttpOverrides.global = null; // Enable live HTTP connections only for a verified isolated target
   });
 
   tearDownAll(() {
@@ -38,7 +44,7 @@ void main() {
   });
 
   setUp(() {
-    ApiConstants.baseUrl = 'http://127.0.0.1:8000/api';
+    if (liveBaseUrl.isNotEmpty) ApiConstants.baseUrl = liveBaseUrl;
     FlutterSecureStorage.setMockInitialValues({});
   });
 
@@ -58,7 +64,7 @@ void main() {
       try {
         await authService.registerPatient(
           fullName: 'Test Patient',
-          email: 'patient@example.com',
+          email: existingEmail,
           phone: '0771234567',
           password: 'Password@123',
         );
@@ -142,7 +148,7 @@ void main() {
       if (!isServerAvailable) return;
       try {
         await authService.login(
-          email: 'patient@example.com',
+          email: existingEmail,
           password: 'IncorrectPassword@999',
         );
         fail('Expected AuthException to be thrown');
@@ -252,7 +258,7 @@ void main() {
       if (!isServerAvailable) return;
       try {
         await authService.verifyResetOtp(
-          email: 'patient@example.com',
+          email: existingEmail,
           otp: '000000',
         );
         fail('Expected 400 bad request');
@@ -283,7 +289,7 @@ void main() {
 
       try {
         await authService.login(
-          email: 'patient@example.com',
+          email: existingEmail,
           password: 'Password@123',
         );
         fail('Expected NetworkException');
@@ -293,7 +299,7 @@ void main() {
           'Unable to connect to MediConnect. Please check your internet connection and try again.',
         );
       } finally {
-        ApiConstants.baseUrl = 'http://127.0.0.1:8000/api';
+        ApiConstants.baseUrl = liveBaseUrl;
       }
     });
   });

@@ -212,7 +212,7 @@ class _PatientVisitDetailScreenState extends State<PatientVisitDetailScreen> {
             children: [
               _buildInfoColumn('Appointment Date', _detail!.appointmentDate),
               _buildInfoColumn('Time Slot', '${_detail!.startTime} - ${_detail!.endTime}'),
-              _buildInfoColumn('Consultation Fee', 'LKR ${_detail!.consultationFee.toInt()}'),
+              _buildInfoColumn('Consultation Fee', _detail!.consultationFee == null ? 'Not available' : 'LKR ${_detail!.consultationFee!.toInt()}'),
             ],
           ),
           if (_detail!.patientNote != null && _detail!.patientNote!.isNotEmpty) ...[

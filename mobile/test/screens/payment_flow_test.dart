@@ -308,7 +308,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('Payment was cancelled.'), findsOneWidget);
+    // Phase 02: the message also explains the slot is still held and can be released.
+    expect(find.textContaining('Payment was cancelled.'), findsOneWidget);
     // Must NOT navigate to confirmation screen
     expect(find.byType(PaymentSuccessScreen), findsNothing);
   });

@@ -6,6 +6,7 @@ import '../../models/appointment.dart';
 import '../../services/appointment_service.dart';
 import 'consultation_details_screen.dart';
 import 'create_care_plan_screen.dart';
+import '../../widgets/appointment_payment_summary.dart';
 
 /// Doctor's detail view for managing an assigned appointment.
 /// Supports state transitions:
@@ -58,6 +59,9 @@ class _DoctorAppointmentDetailScreenState
         _effectiveId = args.id;
       } else if (args is String) {
         _effectiveId = args;
+      } else if (args is Map && args['appointmentId'] != null) {
+        // Notification, push and care-agenda links pass {'appointmentId': id} (BUG-060).
+        _effectiveId = args['appointmentId'].toString();
       }
     }
 
@@ -507,9 +511,8 @@ class _DoctorAppointmentDetailScreenState
                                             color: AppTheme.textSecondary)),
                                     const Spacer(),
                                     Text(
-                                      _appointment!.paymentStatus == 'PAID'
-                                          ? 'Paid'
-                                          : _appointment!.paymentStatus,
+                                      paymentStatusLabel(_appointment!),
+                                      key: const Key('doctor_appt_payment_status'),
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -520,25 +523,43 @@ class _DoctorAppointmentDetailScreenState
                                     ),
                                   ],
                                 ),
-                                if (_appointment!.consultationFee > 0) ...[
+                                const Divider(height: 20),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.monetization_on_outlined,
+                                        size: 18, color: AppTheme.primary),
+                                    const SizedBox(width: 10),
+                                    const Text('Consultation Fee:',
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            color: AppTheme.textSecondary)),
+                                    const Spacer(),
+                                    // BUG-059: the fee recorded when this appointment was booked.
+                                    Text(
+                                      formatMoney(_appointment!.bookedFee, currency: _appointment!.currency),
+                                      key: const Key('doctor_appt_fee'),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_appointment!.amountPaid != null) ...[
                                   const Divider(height: 20),
                                   Row(
                                     children: [
-                                      const Icon(Icons.monetization_on_outlined,
-                                          size: 18, color: AppTheme.primary),
+                                      const Icon(Icons.receipt_long_outlined, size: 18, color: AppTheme.primary),
                                       const SizedBox(width: 10),
-                                      const Text('Consultation Fee:',
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              color: AppTheme.textSecondary)),
+                                      const Text('Amount Paid:',
+                                          style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
                                       const Spacer(),
                                       Text(
-                                        'LKR ',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textPrimary,
-                                        ),
+                                        formatMoney(_appointment!.amountPaid, currency: _appointment!.currency),
+                                        key: const Key('doctor_appt_amount_paid'),
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
+                                            color: AppTheme.textPrimary),
                                       ),
                                     ],
                                   ),

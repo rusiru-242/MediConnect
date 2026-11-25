@@ -356,7 +356,7 @@ void main() {
       expect(service.acceptedProposal, 'proposal-for-current-slot');
       expect(service.acceptedSms, isTrue);
       expect(find.text('Appointment Confirmed'), findsOneWidget);
-      expect(find.text('SMS: accepted'), findsOneWidget);
+      expect(find.text('SMS: accepted by provider'), findsOneWidget); // Phase 02: truthful delivery wording
     });
 
     testWidgets('Restores a conversation, starts a new one, and reopens history', (tester) async {

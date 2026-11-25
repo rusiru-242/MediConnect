@@ -4,6 +4,7 @@ import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/appointment.dart';
 import '../../services/appointment_service.dart';
+import '../../widgets/appointment_payment_summary.dart';
 import 'submit_review_dialog.dart';
 
 /// Screen displaying complete details of an appointment for a patient.
@@ -53,6 +54,9 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         _effectiveId = args.id;
       } else if (args is String) {
         _effectiveId = args;
+      } else if (args is Map && args['appointmentId'] != null) {
+        // Notification, push and care-agenda links pass {'appointmentId': id} (BUG-060).
+        _effectiveId = args['appointmentId'].toString();
       }
     }
 
@@ -84,8 +88,65 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     }
   }
 
+  Future<void> _promptReleaseReservation() async {
+    final release = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('release_reservation_dialog'),
+        title: const Text('Release this reservation?'),
+        content: const Text(
+          'The time slot will be released now and any unfinished payment will be cancelled. '
+          'You have not been charged. You can book again later if the slot is still free.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Reservation')),
+          ElevatedButton(
+            key: const Key('release_reservation_confirm'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Release'),
+          ),
+        ],
+      ),
+    );
+    if (release != true || !mounted) return;
+    setState(() => _isCancelling = true);
+    try {
+      final updated = await _appointmentService.releaseHold(_appointment!.id);
+      if (!mounted) return;
+      setState(() {
+        _appointment = updated;
+        _isCancelling = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Reservation released. No payment was taken.'),
+        backgroundColor: AppTheme.success,
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e is ApiException ? e.message : 'Could not release the reservation.'),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
   Future<void> _promptCancelAppointment() async {
+    if (_appointment!.isUnpaidReservation) {
+      return _promptReleaseReservation();
+    }
     final reasonController = TextEditingController();
+    Map<String, dynamic>? preview;
+    try {
+      preview = await _appointmentService.getCancellationPreview(_appointment!.id);
+    } catch (_) {
+      preview = null; // the dialog then says the refund outcome could not be checked
+    }
+    if (!mounted) return;
+    final refund = preview?['refund'] as Map?;
 
     final shouldCancel = await showDialog<bool>(
       context: context,
@@ -99,6 +160,20 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
               'Are you sure you want to cancel this appointment? This action cannot be undone.',
               style: TextStyle(fontSize: 14),
             ),
+            if (_appointment!.isPaid) ...[
+              const SizedBox(height: 12),
+              Text(
+                refund == null
+                    ? 'Refund: the refund outcome could not be checked right now. A refund request will be reviewed by MediConnect.'
+                    : refund['eligible'] == true
+                        ? 'Refund under the cancellation policy: ${formatMoney((refund['eligibleAmount'] as num?)?.toDouble(), currency: refund['currency']?.toString())}'
+                            '${((refund['penaltyAmount'] as num?) ?? 0) > 0 ? ' (deduction ${formatMoney((refund['penaltyAmount'] as num).toDouble(), currency: refund['currency']?.toString())})' : ''}. '
+                            'The refund is reviewed and approved by MediConnect before it is issued.'
+                        : 'Refund: not eligible under the cancellation policy (${refund['ruleApplied']}).',
+                key: const Key('cancel_refund_implication'),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
             const SizedBox(height: 16),
             TextField(
               key: const Key('cancellation_reason_input'),
@@ -151,8 +226,10 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Appointment has been cancelled.'),
+        SnackBar(
+          content: Text(updated.refundStatus == 'requested'
+              ? 'Appointment cancelled. Your refund request was sent for review.'
+              : 'Appointment has been cancelled.'),
           backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
         ),
@@ -292,13 +369,9 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               _buildStatusChip(_appointment!.status),
-                              Text(
-                                'ID: ${_appointment!.id.substring(0, _appointment!.id.length > 8 ? 8 : _appointment!.id.length)}...',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                  fontFamily: 'monospace',
-                                ),
+                              const Text(
+                                'In-person visit',
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                               ),
                             ],
                           ),
@@ -440,6 +513,11 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
 
                           const SizedBox(height: 16),
 
+                          // Payment & booking reference (BUG-058)
+                          AppointmentPaymentSummary(appointment: _appointment!),
+
+                          const SizedBox(height: 16),
+
                           // Patient Note (if present)
                           if (_appointment!.patientNote != null &&
                               _appointment!.patientNote!.isNotEmpty) ...[
@@ -558,7 +636,9 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                                 label: Text(
                                   _isCancelling
                                       ? 'Cancelling...'
-                                      : 'Cancel Appointment',
+                                      : _appointment!.isUnpaidReservation
+                                          ? 'Release Reservation'
+                                          : 'Cancel Appointment',
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w600),
                                 ),

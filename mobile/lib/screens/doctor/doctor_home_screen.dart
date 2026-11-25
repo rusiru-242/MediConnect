@@ -8,6 +8,8 @@ import '../../providers/locale_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/language_selector_sheet.dart';
+import '../../models/appointment.dart';
+import '../../widgets/doctor_today_overview.dart';
 import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
@@ -15,7 +17,10 @@ import '../../widgets/server_settings_sheet.dart';
 
 /// Doctor Home Dashboard redesigned with Google Stitch Clinical Clarity design system (Phase 41).
 class DoctorHomeScreen extends StatefulWidget {
-  const DoctorHomeScreen({super.key});
+  /// Loads today's appointments for the overview; injected in tests.
+  final Future<List<Appointment>> Function(String date)? todayAppointmentsLoader;
+
+  const DoctorHomeScreen({super.key, this.todayAppointmentsLoader});
 
   @override
   State<DoctorHomeScreen> createState() => _DoctorHomeScreenState();
@@ -638,174 +643,18 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 const SizedBox(height: 14),
               ],
 
-              // 3. Practice Overview KPI Metrics (2x2 Grid)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      isSi ? 'ප්‍රතිකාර දළ විශ්ලේෂණය' : (isTa ? 'பயிற்சி கண்ணோட்டம்' : 'Practice Overview'),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  StitchPulseBadge(
-                    label: isSi ? 'සජීවී' : (isTa ? 'நேரலை' : 'LIVE STREAM'),
-                    dotColor: AppTheme.secondaryBlue,
-                    backgroundColor: isDark ? AppTheme.darkSurfaceContainerLow : AppTheme.surfaceContainerLow,
-                  ),
-                ],
+              // 3. Today's figures from real appointments (Phase 02: replaces a hard-coded overview with
+              //    "12 Patients · 4 video · 8 clinic", "3 In Queue", "5 Reports", "LKR 18,500").
+              Text(
+                isSi ? 'අද දින' : (isTa ? 'இன்று' : 'Today'),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: StitchCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  isSi ? 'හමුවීම්' : (isTa ? 'சந்திப்புகள்' : 'Appointments'),
-                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.primaryBlue),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            isSi ? 'රෝගීන් 12' : (isTa ? '12 நோயாளிகள்' : '12 Patients'),
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isSi ? '4 වීඩියෝ • 8 සායන' : (isTa ? '4 வீடியோ • 8 கிளினிக்' : '4 video • 8 clinic'),
-                            style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.secondaryBlue),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: StitchCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  isSi ? 'පොරොත්තු කාමරය' : (isTa ? 'காத்திருப்பு அறை' : 'Waiting Room'),
-                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.hourglass_top_rounded, size: 16, color: AppTheme.secondaryBlue),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            isSi ? '3 පෝලිමේ' : (isTa ? '3 வரிசையில்' : '3 In Queue'),
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isSi ? 'පොරොත්තු ~12m' : (isTa ? 'காத்திருப்பு ~12 நிமிடம்' : 'Est. wait ~12m'),
-                            style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkSuccess : AppTheme.success, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: StitchCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  isSi ? 'පරීක්ෂණ වාර්තා' : (isTa ? 'ஆய்வக மதிப்புரைகள்' : 'Lab Reviews'),
-                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(Icons.biotech_rounded, size: 16, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            isSi ? 'වාර්තා 5' : (isTa ? '5 அறிக்கைகள்' : '5 Reports'),
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isSi ? 'හදිසි ප්‍රතිඵල 2' : (isTa ? '2 அவசர முடிவுகள்' : '2 urgent results'),
-                            style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkError : AppTheme.error, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: StitchCard(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  isSi ? 'අද දින එකතුව' : (isTa ? 'இன்றைய மொத்தம்' : 'Today\'s Total'),
-                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(Icons.payments_rounded, size: 16, color: isDark ? AppTheme.darkSuccess : AppTheme.success),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text('LKR 18,500', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
-                          const SizedBox(height: 2),
-                          Text(
-                            '+18% vs avg',
-                            style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkSuccess : AppTheme.success, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              DoctorTodayOverview(loader: widget.todayAppointmentsLoader, isSi: isSi, isTa: isTa),
               const SizedBox(height: 18),
 
               // 4. Clinical Operations

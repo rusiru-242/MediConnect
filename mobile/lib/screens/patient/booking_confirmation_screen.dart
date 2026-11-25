@@ -4,6 +4,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/appointment.dart';
 import '../../models/doctor.dart';
 import '../../models/doctor_availability.dart';
 import '../../services/appointment_service.dart';
@@ -43,6 +44,14 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
+  /// The reservation created by this screen. A retry after a cancelled or declined payment reuses it
+  /// (P02-N07) instead of trying to reserve the same slot again.
+  Appointment? _heldAppointment;
+
+  bool get _holdIsValid =>
+      _heldAppointment != null &&
+      (_heldAppointment!.holdExpiresAt == null || _heldAppointment!.holdExpiresAt!.isAfter(DateTime.now()));
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +65,48 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
     super.dispose();
   }
 
+  Future<void> _releaseReservation() async {
+    final held = _heldAppointment;
+    if (held == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('booking_release_dialog'),
+        title: const Text('Release this reservation?'),
+        content: const Text('The slot will be released now and the unfinished payment cancelled. You have not been charged.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Reservation')),
+          ElevatedButton(
+            key: const Key('booking_release_confirm'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Release'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await _appointmentService.releaseHold(held.id);
+      if (!mounted) return;
+      setState(() {
+        _heldAppointment = null;
+        _isSubmitting = false;
+        _errorMessage = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reservation released. No payment was taken.')),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = e is ApiException ? e.message : 'Could not release the reservation. Please retry.';
+      });
+    }
+  }
+
   Future<void> _startPaymentFlow() async {
     if (_isSubmitting) return;
 
@@ -65,16 +116,19 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
     });
 
     try {
-      // 1. Create temporary appointment hold on backend
-      final appointment = await _appointmentService.createAppointment(
-        doctorId: widget.doctor.doctorId,
-        availabilityId: widget.slot.availabilityId,
-        date: widget.date,
-        startTime: widget.slot.startTime,
-        patientNote: _noteController.text.trim().isNotEmpty
-            ? _noteController.text.trim()
-            : null,
-      );
+      // 1. Create the temporary hold once; reuse it while it is still valid.
+      final appointment = _holdIsValid
+          ? _heldAppointment!
+          : await _appointmentService.createAppointment(
+              doctorId: widget.doctor.doctorId,
+              availabilityId: widget.slot.availabilityId,
+              date: widget.date,
+              startTime: widget.slot.startTime,
+              patientNote: _noteController.text.trim().isNotEmpty
+                  ? _noteController.text.trim()
+                  : null,
+            );
+      _heldAppointment = appointment;
 
       // 2. Request Stripe PaymentIntent from backend
       final intentResp = await _paymentService.createPaymentIntent(
@@ -165,7 +219,8 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
       setState(() {
         _isSubmitting = false;
         if (e.error.code == FailureCode.Canceled) {
-          _errorMessage = 'Payment was cancelled.';
+          _errorMessage = 'Payment was cancelled. You have not been charged. The slot stays reserved for '
+              'you until the hold ends; pay again or release the reservation.';
         } else {
           _errorMessage = 'Payment could not be completed. Please try again.';
         }
@@ -592,6 +647,18 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ],
+              if (_heldAppointment != null && _holdIsValid && !_isSubmitting) ...[
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    key: const Key('booking_release_reservation'),
+                    onPressed: _releaseReservation,
+                    icon: const Icon(Icons.event_busy_outlined, size: 18),
+                    label: const Text('Release Reservation'),
                   ),
                 ),
               ],
