@@ -1,5 +1,6 @@
 """Incident Management Service: Lifecycle management, deduplication, and AI investigation assistance."""
 
+from app.utils.mongo_documents import document_for_insert
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -73,7 +74,7 @@ class IncidentManagementService:
             createdAt=utc_now(),
         )
 
-        db["operational_incidents"].insert_one(incident.model_dump(by_alias=True))
+        db["operational_incidents"].insert_one(document_for_insert(incident))  # never "_id": None (P04-N20)
         return incident
 
     @classmethod

@@ -1,5 +1,6 @@
 """Workflow Monitoring Service: Lifecycle tracking, stuck workflow detection, and idempotent recovery."""
 
+from app.utils.mongo_documents import document_for_insert
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -40,7 +41,7 @@ class WorkflowMonitoringService:
             lastUpdatedAt=utc_now(),
             metadata=metadata or {},
         )
-        db["workflow_monitoring_events"].insert_one(doc.model_dump(by_alias=True))
+        db["workflow_monitoring_events"].insert_one(document_for_insert(doc))  # never "_id": None (P04-N20)
         return doc
 
     @classmethod

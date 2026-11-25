@@ -124,18 +124,20 @@ class OperationalIncidentListResponse(StrictBase):
 
 class DependencyHealth(StrictBase):
     name: str
-    status: str  # healthy, degraded, unavailable, unconfigured
+    status: str  # healthy, unavailable, not_configured, configured_not_verified, disabled, unknown
     latencyMs: Optional[float] = None
     message: Optional[str] = None
 
 
 class WorkerHeartbeatResponse(StrictBase):
     workerName: str
-    status: str  # active, stale, stopped
-    lastHeartbeat: datetime
-    lastDurationSeconds: float
-    pendingJobCount: int
-    failedJobCount: int
+    status: str  # active, stale, error, not_reported
+    lastHeartbeat: Optional[datetime] = None
+    lastDurationSeconds: Optional[float] = None
+    pendingJobCount: Optional[int] = None
+    failedJobCount: Optional[int] = None
+    lastError: Optional[str] = None
+    lastSuccessAt: Optional[datetime] = None
 
 
 class PlatformHealthResponse(StrictBase):
@@ -160,15 +162,23 @@ class NotificationStateMetrics(StrictBase):
     failed: int = 0
     retryScheduled: int = 0
     deadLettered: int = 0
+    skipped: int = 0
+    uncertain: int = 0
     total: int = 0
+    providerStatus: Optional[str] = None
+    statusCounts: Dict[str, int] = Field(default_factory=dict)
 
 
 class NotificationMonitoringMetricsResponse(StrictBase):
     timestamp: datetime
     byChannel: List[NotificationStateMetrics]
     totalBacklog: int
-    failureRatePercent: float
+    failureRatePercent: Optional[float] = None
     deadLetterQueueCount: int
+    careReminderEvents: Dict[str, int] = Field(default_factory=dict)
+    inAppStored: int = 0
+    inAppUnread: int = 0
+    notes: List[str] = Field(default_factory=list)
 
 
 class DeadLetterNotificationResponse(StrictBase):
@@ -228,7 +238,8 @@ class WorkflowRecoveryResponse(StrictBase):
 
 class AIProviderMetricsResponse(StrictBase):
     provider: str  # gemini, openai, fallback
-    status: str  # healthy, degraded, circuit_open
+    status: str  # healthy, degraded, circuit_open, not_configured, not_verified
+    configured: Optional[bool] = None
     circuitBreakerState: str  # CLOSED, OPEN, HALF_OPEN
     totalRequests: int
     successfulRequests: int

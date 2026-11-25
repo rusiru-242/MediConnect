@@ -49,18 +49,21 @@ class AdminMonitoringAssistant:
         # 2. Failed payments / Payment issues
         # e.g. "ada failed payments monawada?", "what are today's failed payments?", "payment status"
         elif any(kw in msg for kw in ["payment", "geweema", "failed payment", "salika", "stripe"]):
-            failed_payments = list(db["payments"].find({"status": "failed"}).sort("createdAt", -1).limit(10))
-            count = len(failed_payments)
+            # Upper-case status; the lower-case query never matched and always answered "operating normally" (P04-N16).
+            failed_query = {"status": "FAILED"}
+            count = db["payments"].count_documents(failed_query)
+            failed_payments = list(db["payments"].find(failed_query).sort("createdAt", -1).limit(10))
 
             if count == 0:
-                response = "ada kisi ma failed payment ekak record wela naha. All payments are operating normally."
+                response = ("No failed payments are recorded. This only covers payments recorded by MediConnect; "
+                            "Stripe itself is not queried.")
             else:
-                response = f"Adha record wu failed payments ganana: {count}. The most recent failed payments are flagged for reconciliation."
+                response = f"{count} failed payment(s) are recorded. The most recent are listed for review."
 
             return {
                 "intent": "failed_payments_check",
                 "response": response,
-                "relevantMetrics": {"failedCount": count, "recentFailures": [str(p.get("paymentIntentId") or p.get("_id")) for p in failed_payments[:5]]},
+                "relevantMetrics": {"failedCount": count, "recentFailures": [str(p.get("stripePaymentIntentId") or p.get("paymentIntentId") or p.get("_id")) for p in failed_payments[:5]]},
                 "suggestedActions": ["Go to Payments Reconciliation", "Inspect Stripe Webhooks"],
             }
 
@@ -71,11 +74,13 @@ class AdminMonitoringAssistant:
             dead_letters = NotificationMonitoringService.list_dead_letters(limit=5, db=db)
 
             response = (
-                f"Notification System Telemetry:\n"
+                f"Notification delivery records (from stored outbox and reminder events):\n"
                 f"• Total Outbox Backlog: {metrics['totalBacklog']}\n"
-                f"• Failure Rate: {metrics['failureRatePercent']}%\n"
+                f"• Failure Rate: {str(metrics['failureRatePercent']) + '%' if metrics['failureRatePercent'] is not None else 'not available (nothing attempted)'}\n"
                 f"• Unresolved Dead-Letter Items: {metrics['deadLetterQueueCount']}\n"
-                f"SMS/Email failures are automatically scheduled with exponential backoff (1m, 5m, 15m)."
+                + "".join(f"\u2022 {ch['channel']}: provider {ch.get('providerStatus')}, delivered {ch['delivered']}, "
+                          f"failed {ch['failed']}, skipped {ch.get('skipped', 0)}\n" for ch in metrics["byChannel"])
+                + "\n".join(metrics.get("notes") or [])
             )
             return {
                 "intent": "notification_status_check",
@@ -112,7 +117,7 @@ class AdminMonitoringAssistant:
         elif any(kw in msg for kw in ["ai", "gemini", "openai", "provider", "model"]):
             metrics = AIProviderMonitoringService.get_metrics()
             gemini = next((m for m in metrics if m["provider"] == "gemini"), {})
-            status = gemini.get("status", "healthy").upper()
+            status = gemini.get("status", "unknown").upper()
             cb = gemini.get("circuitBreakerState", "CLOSED")
 
             response = (
@@ -120,7 +125,7 @@ class AdminMonitoringAssistant:
                 f"• Total Requests: {gemini.get('totalRequests', 0)}\n"
                 f"• Average Latency: {gemini.get('averageLatencyMs', 0.0)} ms\n"
                 f"• Fallback Activations: {gemini.get('fallbackActivations', 0)}\n"
-                f"If Gemini is unreachable, bilingual deterministic NLP automatically handles patient interactions."
+                f"When no provider answers, the deterministic engine handles patient conversations."
             )
             return {
                 "intent": "ai_provider_status_check",

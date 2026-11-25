@@ -60,12 +60,19 @@ async def _run_reminder_worker():
                 await asyncio.to_thread(run_confirmation_outbox, db)
                 await asyncio.to_thread(run_communications, db)
                 duration = asyncio.get_event_loop().time() - t0
-                PlatformMonitoringService.record_worker_heartbeat("reminder_care_worker", job_count=3, duration_seconds=duration, db=db)
+                # job_count was a constant 3 (the number of job types), shown as "pending jobs"; it is not recorded
+                # now because the worker does not measure a backlog (P04-N14).
+                PlatformMonitoringService.record_worker_heartbeat("reminder_care_worker", duration_seconds=duration, db=db)
         except asyncio.CancelledError:
             logger.info("Appointment reminder background worker stopping.")
             break
         except Exception as exc:
             logger.warning("Care worker iteration failed (%s)", type(exc).__name__)
+            try:
+                PlatformMonitoringService.record_worker_heartbeat(
+                    "reminder_care_worker", failed_count=1, db=DatabaseManager.get_database(), error=type(exc).__name__)
+            except Exception:
+                pass
 
 
 @asynccontextmanager

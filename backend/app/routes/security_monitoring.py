@@ -132,7 +132,7 @@ def create_security_event(
         actor_role=req.actorRole or current_admin.role,
         ip_address=req.ipAddress,
         endpoint=req.endpoint,
-        metadata=req.metadata,
+        metadata={**(req.metadata or {}), "source": "manual_admin_entry", "enteredBy": str(current_admin.id)},
         db=db,
     )
     return SecurityEventResponse(**ev.model_dump())
@@ -291,13 +291,18 @@ def get_platform_monitoring(
 
 @router.post("/security/monitoring/workers/heartbeat", summary="Record background worker heartbeat")
 def record_worker_heartbeat(
-    workerName: str = Query(...),
-    jobCount: int = Query(0),
-    durationSeconds: float = Query(0.0),
-    failedCount: int = Query(0),
+    workerName: str = Query(..., min_length=1, max_length=80),
+    jobCount: int = Query(0, ge=0),
+    durationSeconds: float = Query(0.0, ge=0),
+    failedCount: int = Query(0, ge=0),
+    current_admin: UserResponseSchema = Depends(require_admin),
     db: Database = Depends(get_database),
 ):
-    """Background worker ingestion endpoint for durable heartbeat telemetry."""
+    """Record an external worker heartbeat. Admin only (P04-N13).
+
+    Before Phase 04 this endpoint had no authentication, so anyone could make a stale or failing worker look
+    healthy. The built-in reminder worker records its heartbeat in-process and does not use this endpoint.
+    """
     PlatformMonitoringService.record_worker_heartbeat(
         worker_name=workerName,
         job_count=jobCount,

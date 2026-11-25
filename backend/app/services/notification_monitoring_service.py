@@ -14,74 +14,119 @@ class NotificationMonitoringService:
 
     MAX_RETRIES = 3
 
+    # Outbox results that will never succeed by retrying (P04-N15): retrying them only inflated the backlog.
+    PERMANENT_REASONS = frozenset({"provider_not_configured", "verified_email_required", "authorized_mobile_required",
+                                   "preference_disabled", "invalid_recipient", "gateway_rejected"})
+    _DELIVERED = {"delivered", "stored", "sent", "accepted"}
+    _PENDING = {"pending", "retry", "retry_scheduled"}
+    _SKIPPED = {"skipped", "unavailable", "cancelled"}
+
+    @classmethod
+    def _bucket(cls, counts: Dict[str, int]) -> Dict[str, int]:
+        return {
+            "pending": sum(v for k, v in counts.items() if k in cls._PENDING),
+            "processing": counts.get("sending", 0),
+            "delivered": sum(v for k, v in counts.items() if k in cls._DELIVERED),
+            "failed": counts.get("failed", 0),
+            "retryScheduled": counts.get("retry_scheduled", 0) + counts.get("retry", 0),
+            "skipped": sum(v for k, v in counts.items() if k in cls._SKIPPED),
+            "uncertain": counts.get("uncertain", 0),
+        }
+
+    @staticmethod
+    def _status_counts(db: Database, collection: str, path: str) -> Dict[str, int]:
+        coll = db[collection]
+        if hasattr(coll, "aggregate"):
+            rows = coll.aggregate([
+                {"$match": {path: {"$exists": True}}},
+                {"$group": {"_id": f"${path}", "n": {"$sum": 1}}},
+            ])
+            return {str(r["_id"]): int(r["n"]) for r in rows if r["_id"] is not None}
+        counts: Dict[str, int] = {}
+        for doc in coll.find({}):  # minimal stores without aggregation (unit-test doubles)
+            value: Any = doc
+            for part in path.split("."):
+                value = value.get(part) if isinstance(value, dict) else None
+            if value is not None:
+                counts[str(value)] = counts.get(str(value), 0) + 1
+        return counts
+
     @classmethod
     def get_notification_metrics(cls, db: Optional[Database] = None) -> Dict[str, Any]:
-        """Aggregate notification telemetry across all delivery channels."""
+        """Delivery state per channel from the records the workers actually write (P04-N15).
+
+        Sources: the booking-confirmation outbox on appointments (email, SMS, doctor in-app), the care reminder
+        events written by the care scheduler (in-app, push, email, SMS) and the stored in-app notifications.
+        Before Phase 04, "push" and "in_app" both reported every stored notification as delivered (push was
+        counted as delivered with FCM not configured), email "delivered" never matched the outbox value "sent", and
+        care reminders were not counted at all.
+        """
         if db is None:
             db = get_database()
+        from app.services.platform_monitoring_service import PlatformMonitoringService
+        providers = {row["name"].split(" ")[0].lower(): row["status"]
+                     for row in PlatformMonitoringService.check_notification_channels()}
 
-        channels = ["email", "sms", "push", "in_app"]
+        sources = {
+            "email": [("appointments", "confirmationOutbox.email.status"), ("care_reminder_events", "channels.email.status")],
+            "sms": [("appointments", "confirmationOutbox.sms.status"), ("care_reminder_events", "channels.sms.status")],
+            "push": [("care_reminder_events", "channels.push.status")],
+            "in_app": [("appointments", "confirmationOutbox.doctor.status"), ("care_reminder_events", "channels.inApp.status")],
+        }
         metrics_by_channel = []
-        total_backlog = 0
-        total_delivered = 0
-        total_failed = 0
+        total_backlog = total_delivered = total_failed = 0
+        notes: List[str] = []
+        for ch, paths in sources.items():
+            counts: Dict[str, int] = {}
+            for coll, path in paths:
+                for k, v in cls._status_counts(db, coll, path).items():
+                    counts[k] = counts.get(k, 0) + v
+            dead_lettered = db["notification_dead_letters"].count_documents({"channel": ch, "status": "unresolved"})
+            b = cls._bucket(counts)
+            provider = "in_app_store" if ch == "in_app" else providers.get(ch, "unknown")
+            total = sum(counts.values())
+            total_backlog += b["pending"]
+            total_delivered += b["delivered"]
+            total_failed += b["failed"] + dead_lettered
+            if provider == "not_configured" and (b["failed"] or b["skipped"]):
+                notes.append(f"{ch}: provider not configured; {b['failed']} failed and {b['skipped']} skipped. "
+                             f"Nothing was sent on this channel.")
+            metrics_by_channel.append({"channel": ch, **b, "deadLettered": dead_lettered, "total": total,
+                                       "providerStatus": provider, "statusCounts": counts})
 
-        for ch in channels:
-            # Query outbox states
-            if ch in ("email", "sms"):
-                path = f"confirmationOutbox.{ch}"
-                pending = db["appointments"].count_documents({f"{path}.status": "pending"})
-                delivered = db["appointments"].count_documents({f"{path}.status": "delivered"})
-                failed = db["appointments"].count_documents({f"{path}.status": "failed"})
-                retry_scheduled = db["appointments"].count_documents({f"{path}.status": "retry_scheduled"})
-            else:
-                pending = db["notifications"].count_documents({"isRead": False})
-                delivered = db["notifications"].count_documents({})
-                failed = 0
-                retry_scheduled = 0
-
-            dead_lettered = db["notification_dead_letters"].count_documents({"channel": ch})
-
-            total_channel = pending + delivered + failed + retry_scheduled + dead_lettered
-            total_backlog += (pending + retry_scheduled)
-            total_delivered += delivered
-            total_failed += (failed + dead_lettered)
-
-            metrics_by_channel.append({
-                "channel": ch,
-                "pending": pending,
-                "processing": 0,
-                "delivered": delivered,
-                "failed": failed,
-                "retryScheduled": retry_scheduled,
-                "deadLettered": dead_lettered,
-                "total": total_channel,
-            })
-
-        dead_letters_count = db["notification_dead_letters"].count_documents({"status": "unresolved"})
-        denom = (total_delivered + total_failed)
-        failure_rate = (total_failed / denom * 100.0) if denom > 0 else 0.0
-
+        denom = total_delivered + total_failed
+        event_states = cls._status_counts(db, "care_reminder_events", "state")
         return {
             "timestamp": utc_now(),
             "byChannel": metrics_by_channel,
             "totalBacklog": total_backlog,
-            "failureRatePercent": round(failure_rate, 2),
-            "deadLetterQueueCount": dead_letters_count,
+            "failureRatePercent": round(total_failed / denom * 100.0, 2) if denom else None,
+            "deadLetterQueueCount": db["notification_dead_letters"].count_documents({"status": "unresolved"}),
+            "careReminderEvents": event_states,
+            "inAppStored": db["notifications"].count_documents({}),
+            "inAppUnread": db["notifications"].count_documents({"isRead": False}),
+            "notes": notes,
         }
 
     @classmethod
     def process_notification_retries(cls, db: Optional[Database] = None) -> Dict[str, Any]:
-        """Safely process pending notification retries with bounded exponential backoff and context validation."""
+        """Re-queue transient booking-confirmation failures for the outbox worker (P04-N15).
+
+        - A failure whose reason is permanent (for example provider_not_configured) is not retried.
+        - An "uncertain" result is never retried automatically: the message may already have been sent.
+        - A retry is handed back as "pending" with nextAttemptAt=now, which is the state the outbox worker
+          processes. The former "retry_scheduled" state was not processed by any worker.
+        - After MAX_RETRIES attempts the item goes to the dead-letter queue for a human.
+        """
         if db is None:
             db = get_database()
 
         retried_count = 0
         dead_lettered_count = 0
         cancelled_count = 0
+        not_retryable = 0
         now = utc_now()
 
-        # Find appointments with failed/retry_scheduled confirmationOutbox
         for channel in ("email", "sms"):
             path = f"confirmationOutbox.{channel}"
             cursor = db["appointments"].find({
@@ -92,55 +137,51 @@ class NotificationMonitoringService:
                 appt_id = str(appt["_id"])
                 outbox_entry = appt.get("confirmationOutbox", {}).get(channel, {})
                 attempts = outbox_entry.get("attempts", 0)
+                current = outbox_entry.get("status")
 
-                # Context Revalidation: Check if appointment was cancelled
+                # Context revalidation: a cancelled appointment's confirmation is obsolete.
                 if appt.get("status") == "CANCELLED":
                     db["appointments"].update_one(
-                        {"_id": appt["_id"]},
+                        {"_id": appt["_id"], f"{path}.status": current},
                         {"$set": {f"{path}.status": "cancelled", f"{path}.cancellationReason": "appointment_cancelled_before_retry"}},
                     )
                     cancelled_count += 1
                     continue
 
-                # Dead-letter threshold exceeded
+                if current == "failed" and outbox_entry.get("reason") in cls.PERMANENT_REASONS:
+                    not_retryable += 1
+                    continue
+
                 if attempts >= cls.MAX_RETRIES:
-                    dead_letter_doc = {
-                        "deadLetterId": f"DL-{uuid4().hex[:10].upper()}",
-                        "appointmentId": appt_id,
-                        "recipientUserId": appt.get("patientUserId"),
-                        "channel": channel,
-                        "reason": outbox_entry.get("error") or "Max retry attempts exceeded",
-                        "retryCount": attempts,
-                        "status": "unresolved",
-                        "createdAt": now,
-                    }
-                    db["notification_dead_letters"].insert_one(dead_letter_doc)
-                    db["appointments"].update_one(
-                        {"_id": appt["_id"]},
+                    moved = db["appointments"].update_one(
+                        {"_id": appt["_id"], f"{path}.status": current},
                         {"$set": {f"{path}.status": "dead_lettered"}},
                     )
-                    dead_lettered_count += 1
+                    if moved.modified_count:
+                        db["notification_dead_letters"].insert_one({
+                            "deadLetterId": f"DL-{uuid4().hex[:10].upper()}",
+                            "appointmentId": appt_id,
+                            "recipientUserId": appt.get("patientUserId"),
+                            "channel": channel,
+                            "reason": outbox_entry.get("reason") or outbox_entry.get("error") or "Max retry attempts exceeded",
+                            "retryCount": attempts,
+                            "status": "unresolved",
+                            "createdAt": now,
+                        })
+                        dead_lettered_count += 1
                 else:
-                    # Schedule next retry with exponential backoff (1m, 5m, 15m)
-                    backoff_minutes = [1, 5, 15][min(attempts, 2)]
-                    next_retry_at = now + timedelta(minutes=backoff_minutes)
-
-                    db["appointments"].update_one(
-                        {"_id": appt["_id"]},
-                        {
-                            "$set": {
-                                f"{path}.status": "retry_scheduled",
-                                f"{path}.nextRetryAt": next_retry_at,
-                            },
-                            "$inc": {f"{path}.attempts": 1},
-                        },
+                    requeued = db["appointments"].update_one(
+                        {"_id": appt["_id"], f"{path}.status": current},
+                        {"$set": {f"{path}.status": "pending", f"{path}.nextAttemptAt": now,
+                                  f"{path}.requeuedAt": now}},
                     )
-                    retried_count += 1
+                    retried_count += requeued.modified_count
 
         return {
             "retriedCount": retried_count,
             "deadLetteredCount": dead_lettered_count,
             "cancelledObsoleteCount": cancelled_count,
+            "notRetryableCount": not_retryable,
         }
 
     @classmethod
@@ -174,21 +215,26 @@ class NotificationMonitoringService:
         appt_id = dead_letter.get("appointmentId")
         channel = dead_letter.get("channel")
 
+        if dead_letter.get("status") != "unresolved":
+            return True  # already requeued: repeated clicks do not queue the message twice
         if appt_id and channel:
             from bson import ObjectId
-            db["appointments"].update_one(
-                {"_id": ObjectId(appt_id)},
-                {
-                    "$set": {
-                        f"confirmationOutbox.{channel}.status": "retry_scheduled",
-                        f"confirmationOutbox.{channel}.attempts": 0,
-                        f"confirmationOutbox.{channel}.requeuedBy": admin_id,
-                    }
-                },
-            )
+            if ObjectId.is_valid(str(appt_id)):
+                db["appointments"].update_one(
+                    {"_id": ObjectId(appt_id), f"confirmationOutbox.{channel}.status": "dead_lettered"},
+                    {
+                        "$set": {
+                            # "pending" is the state the outbox worker processes (was "retry_scheduled").
+                            f"confirmationOutbox.{channel}.status": "pending",
+                            f"confirmationOutbox.{channel}.nextAttemptAt": utc_now(),
+                            f"confirmationOutbox.{channel}.attempts": 0,
+                            f"confirmationOutbox.{channel}.requeuedBy": admin_id,
+                        }
+                    },
+                )
 
         db["notification_dead_letters"].update_one(
-            {"deadLetterId": dead_letter_id},
+            {"deadLetterId": dead_letter_id, "status": "unresolved"},
             {
                 "$set": {
                     "status": "requeued",
@@ -197,6 +243,11 @@ class NotificationMonitoringService:
                 }
             },
         )
+        from app.services.admin_audit_service import AdminAuditService
+        AdminAuditService.log_action(db=db, actor_id=admin_id, actor_role="ADMIN", action_type="NOTIFICATION_REQUEUE",
+                                     target_id=dead_letter_id, target_type="notification_dead_letter",
+                                     previous_state="unresolved", new_state="requeued",
+                                     metadata={"channel": channel, "appointmentId": appt_id})
         return True
 
     @classmethod

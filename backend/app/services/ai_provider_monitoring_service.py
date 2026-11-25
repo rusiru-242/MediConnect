@@ -113,9 +113,18 @@ class AIProviderMonitoringService:
             latencies = data.get("latencies", [])
             avg_lat = (sum(latencies) / len(latencies)) if latencies else 0.0
 
+            from app.config.settings import settings as _settings
+            key_name = {"gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY"}.get(p)
+            configured = bool((getattr(_settings, key_name, None) or "").strip()) if key_name else None
+            status_value = data.get("status", "healthy")
+            if configured is False:
+                status_value = "not_configured"
+            elif not data.get("totalRequests"):
+                status_value = "not_verified"  # no call observed since start-up
             results.append({
                 "provider": p,
-                "status": data.get("status", "healthy"),
+                "configured": configured,
+                "status": status_value,
                 "circuitBreakerState": data.get("circuitBreakerState", "CLOSED"),
                 "totalRequests": data.get("totalRequests", 0),
                 "successfulRequests": data.get("successfulRequests", 0),

@@ -22,9 +22,13 @@ class PlatformMonitoringService:
         """Return application uptime in seconds."""
         return max(0.0, time.time() - _PROCESS_START_TIME)
 
+    # Status vocabulary (P04-N14): healthy and unavailable are measured; "not_configured" means no credentials;
+    # "configured_not_verified" means credentials exist but nothing proved the provider works; "disabled" means
+    # switched off on purpose. A configured provider is never reported as healthy without a successful call.
+
     @classmethod
     def check_database_health(cls, db: Optional[Database] = None) -> Dict[str, Any]:
-        """Verify database connectivity and measure command ping latency."""
+        """Verify database connectivity and measure command ping latency (no host names are returned)."""
         t0 = time.time()
         try:
             if db is None:
@@ -32,15 +36,15 @@ class PlatformMonitoringService:
             db.command("ping")
             latency = (time.time() - t0) * 1000.0
             return {
-                "name": "MongoDB Atlas",
+                "name": "MongoDB",
                 "status": "healthy",
                 "latencyMs": round(latency, 2),
-                "message": "Connected and responsive.",
+                "message": "Ping succeeded.",
             }
         except Exception as exc:
             latency = (time.time() - t0) * 1000.0
             return {
-                "name": "MongoDB Atlas",
+                "name": "MongoDB",
                 "status": "unavailable",
                 "latencyMs": round(latency, 2),
                 "message": f"Connection check failed: {type(exc).__name__}",
@@ -48,46 +52,62 @@ class PlatformMonitoringService:
 
     @classmethod
     def check_stripe_health(cls) -> Dict[str, Any]:
-        """Check Stripe integration configuration without processing real charges."""
-        configured = bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_SECRET_KEY.strip())
-        return {
-            "name": "Stripe Payments",
-            "status": "healthy" if configured else "unconfigured",
-            "latencyMs": None,
-            "message": "API keys configured." if configured else "Stripe key not configured.",
-        }
+        """Report Stripe configuration and mode. No Stripe API call is made from monitoring (no paid operation)."""
+        key = (settings.STRIPE_SECRET_KEY or "").strip()
+        if not key:
+            return {"name": "Stripe Payments", "status": "not_configured", "latencyMs": None,
+                    "message": "No Stripe secret key is configured."}
+        mode = "test" if key.startswith("sk_test_") else ("live" if key.startswith("sk_live_") else "unknown")
+        return {"name": "Stripe Payments", "status": "configured_not_verified", "latencyMs": None,
+                "message": f"A {mode}-mode key is configured. Monitoring does not call Stripe, so availability is not verified."}
 
     @classmethod
     def check_notification_providers_health(cls) -> Dict[str, Any]:
-        """Check SMS and Email outbound provider configuration status."""
-        twilio_configured = bool(os.getenv("TWILIO_ACCOUNT_SID") and os.getenv("TWILIO_AUTH_TOKEN"))
-        email_configured = bool(settings.SMTP_HOST and settings.SMTP_USERNAME)
-
-        if twilio_configured and email_configured:
-            status = "healthy"
-            msg = "Email (SMTP) and SMS (Twilio) configured."
-        elif email_configured or twilio_configured:
-            status = "degraded"
-            msg = "Partial provider configuration."
-        else:
-            status = "unconfigured"
-            msg = "Email and SMS providers unconfigured."
-
+        """Combined email/SMS/push configuration (kept for callers that expect one entry)."""
+        rows = cls.check_notification_channels()
+        configured = [r["name"] for r in rows if r["status"] != "not_configured"]
         return {
             "name": "Notification Providers",
-            "status": status,
+            "status": "configured_not_verified" if configured else "not_configured",
             "latencyMs": None,
-            "message": msg,
+            "message": (f"Configured, not verified: {', '.join(configured)}." if configured
+                        else "Email, SMS and push providers are not configured; only in-app notifications are stored."),
         }
+
+    @classmethod
+    def check_notification_channels(cls) -> List[Dict[str, Any]]:
+        def entry(name, configured, detail):
+            return {"name": name, "status": "configured_not_verified" if configured else "not_configured",
+                    "latencyMs": None, "message": detail if configured else f"{name} is not configured."}
+        smtp = bool((settings.SMTP_HOST or "").strip() and (settings.SMTP_USERNAME or "").strip())
+        twilio = bool((os.getenv("TWILIO_ACCOUNT_SID") or "").strip() and (os.getenv("TWILIO_AUTH_TOKEN") or "").strip())
+        fcm = bool((settings.FIREBASE_CREDENTIALS_PATH or "").strip() or (settings.FIREBASE_SERVICE_ACCOUNT_JSON or "").strip())
+        return [
+            entry("Email (SMTP)", smtp, "SMTP credentials are configured; delivery is not verified by monitoring."),
+            entry("SMS (Twilio)", twilio, "Twilio credentials are configured; delivery is not verified by monitoring."),
+            entry("Push (FCM)", fcm, "Firebase credentials are configured; delivery is not verified by monitoring."),
+        ]
+
+    @classmethod
+    def check_ai_provider_health(cls) -> Dict[str, Any]:
+        gemini = bool((settings.GEMINI_API_KEY or "").strip())
+        openai = bool((getattr(settings, "OPENAI_API_KEY", None) or "").strip())
+        if not (gemini or openai):
+            return {"name": "AI Providers", "status": "disabled", "latencyMs": None,
+                    "message": "No Gemini or OpenAI key is configured; the deterministic engine answers."}
+        names = [n for n, ok in (("Gemini", gemini), ("OpenAI", openai)) if ok]
+        return {"name": "AI Providers", "status": "configured_not_verified", "latencyMs": None,
+                "message": f"Configured: {', '.join(names)}. See AI provider metrics for observed calls."}
 
     @classmethod
     def record_worker_heartbeat(
         cls,
         worker_name: str,
-        job_count: int = 0,
+        job_count: Optional[int] = None,
         duration_seconds: float = 0.0,
         failed_count: int = 0,
         db: Optional[Database] = None,
+        error: Optional[str] = None,
     ) -> None:
         """Record or update a background worker's heartbeat in durable storage."""
         if db is None:
@@ -102,8 +122,10 @@ class PlatformMonitoringService:
                     "lastDurationSeconds": round(duration_seconds, 3),
                     "pendingJobCount": job_count,
                     "failedJobCount": failed_count,
-                    "status": "active",
+                    "status": "error" if error else "active",
+                    "lastError": error,
                     "updatedAt": now,
+                    **({} if error else {"lastSuccessAt": now}),
                 }
             },
             upsert=True,
@@ -122,26 +144,32 @@ class PlatformMonitoringService:
         results = []
         for w in workers:
             last_hb = w.get("lastHeartbeat")
+            if isinstance(last_hb, datetime) and last_hb.tzinfo is None:
+                last_hb = last_hb.replace(tzinfo=timezone.utc)
             is_stale = last_hb is None or last_hb < threshold
+            last_state = w.get("status")
             results.append({
                 "workerName": w.get("workerName", "unknown"),
-                "status": "stale" if is_stale else "active",
-                "lastHeartbeat": last_hb or now,
-                "lastDurationSeconds": w.get("lastDurationSeconds", 0.0),
-                "pendingJobCount": w.get("pendingJobCount", 0),
+                "status": "stale" if is_stale else ("error" if last_state == "error" else "active"),
+                "lastHeartbeat": last_hb,
+                "lastDurationSeconds": w.get("lastDurationSeconds"),
+                "pendingJobCount": w.get("pendingJobCount"),
                 "failedJobCount": w.get("failedJobCount", 0),
+                "lastError": w.get("lastError"),
+                "lastSuccessAt": w.get("lastSuccessAt"),
             })
 
-        # Ensure default workers are represented even before first run
+        # The built-in worker is listed even before its first heartbeat, but as "not_reported" (it used to be
+        # reported "active" with a heartbeat of "now", which hid a worker that never ran) (P04-N14).
         known_names = {r["workerName"] for r in results}
         if "reminder_care_worker" not in known_names:
             results.append({
                 "workerName": "reminder_care_worker",
-                "status": "active",
-                "lastHeartbeat": now,
-                "lastDurationSeconds": 0.0,
-                "pendingJobCount": 0,
-                "failedJobCount": 0,
+                "status": "not_reported",
+                "lastHeartbeat": None,
+                "lastDurationSeconds": None,
+                "pendingJobCount": None,
+                "failedJobCount": None,
             })
 
         return results
@@ -154,9 +182,8 @@ class PlatformMonitoringService:
 
         db_health = cls.check_database_health(db)
         stripe_health = cls.check_stripe_health()
-        notification_health = cls.check_notification_providers_health()
 
-        dependencies = [db_health, stripe_health, notification_health]
+        dependencies = [db_health, stripe_health, *cls.check_notification_channels(), cls.check_ai_provider_health()]
         workers = cls.get_worker_heartbeats(db)
 
         # Count active incidents & open fraud assessments
@@ -166,7 +193,8 @@ class PlatformMonitoringService:
         # Determine overall status
         if db_health["status"] == "unavailable":
             overall_status = "critical"
-        elif any(d["status"] in ("degraded", "unavailable") for d in dependencies) or any(w["status"] == "stale" for w in workers):
+        elif any(d["status"] in ("degraded", "unavailable") for d in dependencies) or any(
+                w["status"] in ("stale", "error", "not_reported") for w in workers):
             overall_status = "degraded"
         else:
             overall_status = "healthy"
