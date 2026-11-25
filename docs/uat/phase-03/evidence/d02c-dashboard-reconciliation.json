@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-25",
+  "byStatus": {
+    "COMPLETED": 2,
+    "CANCELLED": 2
+  },
+  "visits": 2,
+  "paidForVisits": 4000.0,
+  "screen": {
+    "visits": 2,
+    "paid": "LKR 4,000"
+  }
+}

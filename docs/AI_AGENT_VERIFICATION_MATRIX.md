@@ -70,6 +70,12 @@ Abbreviations: **Tests** = automated test files (count of test functions). **UI*
 | 20 | Queue Management Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | tools `doctor_queue` / `doctor_next`, `services/doctor_workflow.py` | `/doctor/workflow/queue` | `doctor_workflow_screen.dart` | `appointments` | test_phase4_workflow | |
 | 21 | Doctor Analytics Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/analytics_service.py` | `/doctor/workflow/*` (doctor), `/admin/analytics/*` (admin) | `doctor_home_screen.dart` | aggregates over `appointments`, `payments` | test_health_content_and_analytics (6) | Computed from real collections, not hard-coded. |
 
+**Phase 03 update (2026-11-25):** components 14–21 were verified live on the UAT backend and emulator. All eight are deterministic services, with no LLM; the doctor assistant routes to read-only tools only.
+- **14, 16, 18, 19, 20, 21:** PASS.
+- **15 and 17:** PASS with documented limitations.
+- **Fixes:** defects P03-N01 to N24 fixed.
+- **Details:** see [docs/uat/phase-03/PHASE_03_AI_AGENT_VERIFICATION_MATRIX.md](uat/phase-03/PHASE_03_AI_AGENT_VERIFICATION_MATRIX.md). Clinical approval is still pending.
+
 ### Admin components (React admin web)
 
 | # | Component | Status | Source | API | UI page | Tests | Notes |

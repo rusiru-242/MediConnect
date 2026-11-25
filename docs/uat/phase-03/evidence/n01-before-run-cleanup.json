@@ -1,0 +1,14 @@
+{
+  "note": "Appointment left CONFIRMED/UNPAID by the P03-N01 defect during the before-fix reproduction, cancelled through the fixed doctor-cancel API",
+  "rows": [
+    {
+      "id": "e9baa3",
+      "cancel_http": 200,
+      "after": {
+        "_id": "6b06f10e10993f4410e9baa3",
+        "status": "CANCELLED",
+        "paymentStatus": "UNPAID"
+      }
+    }
+  ]
+}

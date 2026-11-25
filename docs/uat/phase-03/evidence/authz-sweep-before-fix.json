@@ -1,0 +1,359 @@
+{
+  "suspendedLoginHttp": 403,
+  "suspendedLoginDetail": "Account is suspended. Please contact support.",
+  "rejectedLoginHttp": 403,
+  "rejectedLoginDetail": "Your doctor registration application was not approved. Please contact MediConnect support for further information.",
+  "rows": [
+    {
+      "method": "GET",
+      "path": "/doctors/me/application-status",
+      "area": "support",
+      "approved": 200,
+      "pending": 200,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctors/me/availability",
+      "area": "schedule",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "POST",
+      "path": "/doctors/me/availability",
+      "area": "schedule",
+      "approved": "not called",
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctors/me/weekly-schedule",
+      "area": "schedule",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctors/me/leave",
+      "area": "schedule",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "POST",
+      "path": "/doctors/me/blocked-time",
+      "area": "schedule",
+      "approved": "not called",
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctors/me/calendar-overview",
+      "area": "schedule",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctors/me/appointments",
+      "area": "appointments",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/appointments/doctor/list",
+      "area": "appointments",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/appointments/{alphaAppointment}",
+      "area": "appointments",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 200,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctor/schedule/today",
+      "area": "appointments",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctor/consultations/{alphaAppointment}",
+      "area": "appointments",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctor/workflow/queue",
+      "area": "workflow",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctor/workflow/preparation/{alphaAppointment}",
+      "area": "clinical",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctor/workflow/follow-ups",
+      "area": "workflow",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/doctor/workflow/analytics",
+      "area": "workflow",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "POST",
+      "path": "/doctor/workflow/assistant",
+      "area": "ai",
+      "approved": "not called",
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/clinical/records?patientId={patientA}",
+      "area": "clinical",
+      "approved": 200,
+      "pending": 403,
+      "patient": 200,
+      "admin": 200,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/clinical/records/summary?patientId={patientA}",
+      "area": "clinical",
+      "approved": 500,
+      "pending": 403,
+      "patient": 500,
+      "admin": 200,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/clinical/notes?patientId={patientA}",
+      "area": "clinical",
+      "approved": 200,
+      "pending": 403,
+      "patient": 200,
+      "admin": 200,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/clinical/measurements/trends?patientId={patientA}",
+      "area": "clinical",
+      "approved": 200,
+      "pending": 403,
+      "patient": 200,
+      "admin": 200,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "POST",
+      "path": "/clinical/notes/draft",
+      "area": "clinical",
+      "approved": "not called",
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "POST",
+      "path": "/clinical/prescriptions/assistant-review",
+      "area": "clinical",
+      "approved": "not called",
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "POST",
+      "path": "/clinical/prescriptions/sign",
+      "area": "clinical",
+      "approved": "not called",
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/clinical/prescriptions/renewals",
+      "area": "clinical",
+      "approved": 200,
+      "pending": 403,
+      "patient": 200,
+      "admin": 200,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/care-plans/doctor",
+      "area": "care",
+      "approved": 200,
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "POST",
+      "path": "/care-plans",
+      "area": "care",
+      "approved": "not called",
+      "pending": 403,
+      "patient": 403,
+      "admin": 403,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/medical-records/me",
+      "area": "clinical",
+      "approved": 200,
+      "pending": 200,
+      "patient": 200,
+      "admin": 200,
+      "invalid": 401,
+      "none": 401
+    },
+    {
+      "method": "GET",
+      "path": "/prescriptions/me",
+      "area": "clinical",
+      "approved": 200,
+      "pending": 200,
+      "patient": 200,
+      "admin": 200,
+      "invalid": 401,
+      "none": 401
+    }
+  ],
+  "unauthorizedSuccesses": [
+    {
+      "path": "/clinical/records?patientId={patientA}",
+      "pending": 403,
+      "patient": 200
+    },
+    {
+      "path": "/clinical/notes?patientId={patientA}",
+      "pending": 403,
+      "patient": 200
+    },
+    {
+      "path": "/clinical/measurements/trends?patientId={patientA}",
+      "pending": 403,
+      "patient": 200
+    },
+    {
+      "path": "/clinical/prescriptions/renewals",
+      "pending": 403,
+      "patient": 200
+    },
+    {
+      "path": "/medical-records/me",
+      "pending": 200,
+      "patient": 200
+    },
+    {
+      "path": "/prescriptions/me",
+      "pending": 200,
+      "patient": 200
+    }
+  ]
+}
