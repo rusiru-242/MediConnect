@@ -27,7 +27,6 @@ class DoctorHomeScreen extends StatefulWidget {
 }
 
 class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
-  bool _isOnDuty = true;
 
   @override
   void initState() {
@@ -179,7 +178,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          appStatus?.verificationStatus.toUpperCase() ?? 'VERIFIED & ACTIVE',
+                          appStatus?.verificationStatus.toUpperCase() ?? 'STATUS UNAVAILABLE',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -327,7 +326,8 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
     final doctorName = user?.fullName.isNotEmpty == true
         ? (user!.fullName.startsWith('Dr.') ? user.fullName : 'Dr. ${user.fullName}')
         : (isSi ? 'වෛද්‍යවරයා' : (isTa ? 'மருத்துவர்' : 'Dr. Doctor'));
-    final specialty = authProvider.doctorApplicationStatus?.specialty ?? (isSi ? 'හෘද රෝග විශේෂඥ' : (isTa ? 'இதய நிபுணர்' : 'Cardiology Specialist'));
+    // P03-N16: the real specialty from the application status, or nothing; never an invented "Cardiology Specialist".
+    final specialty = authProvider.doctorApplicationStatus?.specialty ?? '';
 
     ThemeProvider? themeProvider;
     try {
@@ -418,18 +418,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                               alignment: Alignment.center,
                               child: const Icon(Icons.medical_services_rounded, size: 28, color: AppTheme.primaryBlue),
                             ),
-                            Positioned(
-                              bottom: -2,
-                              right: -2,
-                              child: Container(
-                                width: 16,
-                                height: 16,
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.success,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
+
                           ],
                         ),
                         const SizedBox(width: 14),
@@ -455,8 +444,8 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                                   const Icon(Icons.verified_rounded, size: 16, color: AppTheme.primaryBlue),
                                 ],
                               ),
-                              const SizedBox(height: 2),
-                              Text(
+                              if (specialty.isNotEmpty) const SizedBox(height: 2),
+                              if (specialty.isNotEmpty) Text(
                                 specialty,
                                 style: const TextStyle(
                                   fontSize: 12,
@@ -467,45 +456,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ],
-                          ),
-                        ),
-                        // On Duty Pulse Toggle Button
-                        InkWell(
-                          onTap: () {
-                            setState(() => _isOnDuty = !_isOnDuty);
-                          },
-                          borderRadius: BorderRadius.circular(9999),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: _isOnDuty ? AppTheme.successContainer : AppTheme.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(9999),
-                              border: Border.all(
-                                color: _isOnDuty ? AppTheme.success.withValues(alpha: 0.3) : AppTheme.border,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: _isOnDuty ? AppTheme.success : AppTheme.textMuted,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  _isOnDuty ? 'On Duty' : 'Off Duty',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: _isOnDuty ? AppTheme.stitchTertiary : AppTheme.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                       ],
@@ -575,7 +525,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 iconColor: const Color(0xFF1565C0),
                 title: isSi ? 'අද දින කාලසටහන සහ උපදේශන' : (isTa ? 'இன்றைய அட்டவணை மற்றும் ஆலோசனைகள்' : "Today's Schedule & Consultations"),
                 subtitle: isSi ? 'කාලානුක්‍රමික කාලසටහන, මීළඟ රෝගියා, උපදේශන ආරම්භය' : (isTa ? 'காலவரிசை அட்டவணை, அடுத்த நோயாளி, ஆலோசனைகளை தொடங்குங்கள்' : 'Chronological schedule, next patient, start & complete consultations'),
-                badgeText: 'Phase 57',
                 badgeColor: const Color(0xFF1565C0),
                 isDark: isDark,
                 onTap: () {
@@ -616,7 +565,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 iconColor: AppTheme.secondaryBlue,
                 title: isSi ? 'උපදේශන සටහන් සහ බෙහෙත් වට්ටෝරු' : (isTa ? 'ஆலோசனை குறிப்புகள் மற்றும் மருந்துச்சீட்டுகள்' : 'Consultations & Prescriptions'),
                 subtitle: isSi ? 'සායනික සටහන් ලිවීම සහ ඩිජිටල් බෙහෙත් වට්ටෝරු නිකුත් කිරීම' : (isTa ? 'மருத்துவ குறிப்புகளை ஆவணப்படுத்தி டிஜிட்டல் மருந்துச்சீட்டுகளை வழங்கவும்' : 'Document clinical notes, assessment, treatment plans & issue digital prescriptions'),
-                badgeText: 'Phase 21',
                 badgeColor: AppTheme.primaryBlue,
                 isDark: isDark,
                 onTap: () {
@@ -632,7 +580,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                 iconColor: AppTheme.success,
                 title: l10n?.manageAvailability ?? (isSi ? 'පවතින වේලාවන් කළමනාකරණය' : (isTa ? 'இருப்பினை நிர்வகிக்கவும்' : 'Manage Availability')),
                 subtitle: isSi ? 'වැඩ කරන දිනයන්, වේලාවන් සහ කාල පරාස සැකසීම' : (isTa ? 'வேலை செய்யும் நாட்கள் மற்றும் மணிநேரங்களை உள்ளமைக்கவும்' : 'Configure upcoming working dates, hours, and slot durations'),
-                badgeText: isSi ? 'සක්‍රියයි' : (isTa ? 'செயலில்' : 'Active'),
                 badgeColor: AppTheme.success,
                 isDark: isDark,
                 onTap: () {

@@ -526,6 +526,15 @@ class _ConsultationDetailsScreenState extends State<ConsultationDetailsScreen> {
       );
     }
 
+    if (item.isNotStarted && !item.isConfirmedBooking) {
+      // Phase 03 (P03-N01): an unpaid or unconfirmed request cannot be started.
+      return const Text(
+        'This visit is not confirmed yet. A consultation can start once the booking and payment are confirmed.',
+        key: Key('details_awaiting_confirmation'),
+        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+      );
+    }
+
     if (item.isNotStarted) {
       return SizedBox(
         width: double.infinity,

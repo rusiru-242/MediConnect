@@ -58,7 +58,10 @@ class _DoctorTodayOverviewState extends State<DoctorTodayOverview> {
             style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           );
         }
-        final items = (snap.data ?? const <Appointment>[]).where((a) => !a.isCancelled).toList();
+        final all = (snap.data ?? const <Appointment>[]).where((a) => !a.isCancelled).toList();
+        // Phase 03: only confirmed or completed visits are patients to see; unpaid requests are counted apart.
+        final items = all.where((a) => a.isConfirmed || a.isCompleted).toList();
+        final awaiting = all.where((a) => a.isUnpaidReservation).length;
         final paid = items.where((a) => a.amountPaid != null).toList();
         final total = paid.fold<double>(0, (sum, a) => sum + a.amountPaid!);
         final currency = paid.isNotEmpty ? paid.first.currency : null;
@@ -67,16 +70,19 @@ class _DoctorTodayOverviewState extends State<DoctorTodayOverview> {
             Expanded(
               child: _tile(
                 key: const Key('doctor_today_appointments'),
-                label: _t('Appointments today', 'අද හමුවීම්', 'இன்றைய சந்திப்புகள்'),
+                label: _t('Visits today', 'අද හමුවීම්', 'இன்றைய சந்திப்புகள்'),
                 value: '${items.length}',
-                note: _t('In-person visits', 'සායන හමුවීම්', 'நேரடி வருகைகள்'),
+                note: awaiting > 0
+                    ? _t('$awaiting awaiting payment', 'ගෙවීම් බලාපොරොත්තුවෙන් $awaiting', '$awaiting கட்டணத்திற்காக காத்திருக்கிறது')
+                    : _t('Confirmed in-person visits', 'තහවුරු සායන හමුවීම්', 'உறுதிப்படுத்திய நேரடி வருகைகள்'),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _tile(
                 key: const Key('doctor_today_paid_total'),
-                label: _t('Paid today', 'අද ගෙවූ මුදල', 'இன்று செலுத்தியது'),
+                // The amount paid for today's visits (gross; refunds and platform fees are not deducted).
+                label: _t("Paid for today's visits", 'අද හමුවීම් සඳහා ගෙවූ මුදල', 'இன்றைய வருகைகளுக்கு செலுத்தியது'),
                 value: paid.isEmpty ? formatMoney(0, currency: currency) : formatMoney(total, currency: currency),
                 note: _t('${paid.length} verified payment(s)', 'තහවුරු ගෙවීම් ${paid.length}',
                     '${paid.length} உறுதிப்படுத்திய கட்டணம்'),

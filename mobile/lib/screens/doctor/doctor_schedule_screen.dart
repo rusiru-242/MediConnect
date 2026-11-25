@@ -781,7 +781,12 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
                 ),
                 const SizedBox(width: 8),
 
-                if (!item.isCancelled && item.isNotStarted) ...[
+                if (!item.isCancelled && item.isNotStarted && !item.isConfirmedBooking) ...[
+                  const Expanded(
+                    child: Text('Awaiting confirmation', key: Key('awaiting_confirmation_label'),
+                        textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                  ),
+                ] else if (!item.isCancelled && item.isNotStarted) ...[
                   Expanded(
                     child: ElevatedButton(
                       key: Key('start_consultation_button_${item.appointmentId}'),

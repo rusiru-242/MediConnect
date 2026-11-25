@@ -295,7 +295,11 @@ class _DoctorWorkflowScreenState extends State<DoctorWorkflowScreen> {
               for (final plan in plans.cast<Map>())
                 ListTile(
                   title: Text('Follow-up ${plan['followUpDate']}'),
-                  subtitle: Text(plan['status'].toString()),
+                  // Server-side task progress, the same figure the patient sees (Phase 03, P03-N18).
+                  subtitle: Text(
+                    '${plan['status']} · ${(plan['totalTasks'] ?? 0) == 0 ? 'No care tasks' : '${plan['completedTasks']}/${plan['totalTasks']} tasks completed'}',
+                    key: Key('follow_up_progress_${plan['id']}'),
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () =>
                       Navigator.push(
