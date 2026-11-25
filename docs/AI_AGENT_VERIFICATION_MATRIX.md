@@ -14,6 +14,16 @@ Branch `fix/comprehensive-system-ai-stabilization` · 2026-11-24
 
 **No component is marked VERIFIED.** This audit had no emulator or device, no live AI, Stripe, FCM, SMS or email credentials, and no staging database. All evidence below is automated: backend pytest against a local MongoDB, Flutter widget tests, and admin-web Vitest. Passing tests do not prove end-to-end behaviour on a phone.
 
+## Addendum 2026-11-25: AI Assistant UI stabilization (`fix/uat-ai-assistant-ui-stabilization`)
+
+The first emulator run of this project (Android 17 emulator, debug build, UAT backend on port 8001 with the deterministic provider) reproduced the UAT UI blockers and confirmed their shared root cause (BUG-043, see [UAT_UI_STABILIZATION_REPORT.md](UAT_UI_STABILIZATION_REPORT.md)). Statuses stay **IMPLEMENTED BUT NOT FULLY VERIFIED**: manual UAT retest (P-17) is still outstanding, and part of the emulator checklist could not be completed.
+
+| # | Component | Change | Automated evidence | Emulator evidence (2026-11-25) |
+|---|---|---|---|---|
+| 1 | AI Doctor Booking Agent (assistant screen) | Layout crash fixed; one composer | `ai-ui2` (10), 37 assistant tests now run under the real app theme | 15 valid cycles (open, keyboard open/close, New Chat, Chat History, Back): one composer at every checkpoint, 0 framework exceptions. **Sending through the composer on the device was not exercised** (see report §6) |
+| 34 | Symptom Triage Engine (emergency UI) | Banner, dedicated 1990 action, confirmation dialog, dialer intent, routine chips hidden; en/si/ta strings | `ai-ui2` BUG-042 group (7) | Banner, 1990 button, Call 1990 action, Cancel, and Open dialer (1990 pre-filled, no call placed) verified for an English cardiac emergency. Sinhala and Romanized Sinhala on the device: **pending** |
+| 35 | AI Conversation Memory | Not changed | — | P-01f not tested |
+
 ## Architecture finding: how "intelligent" the agents actually are
 
 - **Model-driven tool calling exists in one place only:** doctor search (`agents/orchestrator.py`, `agents/tool_provider.py`). It uses Gemini function calling or OpenAI tools.

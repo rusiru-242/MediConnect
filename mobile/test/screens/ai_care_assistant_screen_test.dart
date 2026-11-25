@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mediconnect/core/theme/app_theme.dart';
 import 'package:mediconnect/models/booking_session.dart';
 import 'package:mediconnect/screens/patient/ai_care_assistant_screen.dart';
 import 'package:mediconnect/services/ai_booking_service.dart';
@@ -318,7 +319,7 @@ class FakeAiBookingService implements AiBookingService {
 
 void main() {
   Widget createTestWidget({required AiBookingService service}) {
-    return MaterialApp(
+    return MaterialApp(theme: AppTheme.lightTheme, 
       home: AiCareAssistantScreen(
         bookingService: service,
       ),
@@ -573,7 +574,11 @@ void main() {
       await tester.pumpWidget(createTestWidget(service: service));
       await tester.pumpAndSettle();
 
-      expect(find.text('Potential Emergency Detected'), findsOneWidget);
+      // Runs under the real app theme: before the BUG-042/043 fix this layout threw
+      // "BoxConstraints forces an infinite width" for the 1990 button.
+      expect(tester.takeException(), isNull);
+      expect(find.text('Possible medical emergency'), findsOneWidget);
+      expect(find.byKey(const Key('ai_emergency_call_1990')), findsOneWidget);
       expect(find.text('1990'), findsWidgets);
     });
 

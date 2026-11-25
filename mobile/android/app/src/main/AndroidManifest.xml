@@ -56,5 +56,10 @@
             <action android:name="android.intent.action.OPEN_DOCUMENT"/>
             <data android:mimeType="*/*"/>
         </intent>
+        <!-- Emergency 1990 dialer from the AI Assistant (BUG-042); ACTION_DIAL never places a call. -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
     </queries>
 </manifest>
