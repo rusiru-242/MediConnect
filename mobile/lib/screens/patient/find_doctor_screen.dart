@@ -815,15 +815,17 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
+                        // Phase 03 (P03-N24): every card used to say "Next Slot: Today, 2:00 PM". The list API has no
+                        // availability, so the card points to the doctor's real slots instead of inventing one.
                         Text(
-                          'Next Slot',
+                          'Availability',
                           style: TextStyle(
                             fontSize: 10,
                             color: AppTheme.textMuted,
                           ),
                         ),
                         Text(
-                          'Today, 2:00 PM',
+                          'See available times',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,

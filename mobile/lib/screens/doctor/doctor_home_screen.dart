@@ -291,7 +291,8 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
             const SizedBox(height: 16),
             const Center(
               child: Text(
-                'MediConnect Doctor Portal v2.4 (Clinical Clarity)',
+                // Phase 03 (P03-N24): no unverified compliance claim; version from pubspec.yaml.
+                'MediConnect v1.0.0',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
             ),

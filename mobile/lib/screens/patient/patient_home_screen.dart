@@ -357,7 +357,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
             const SizedBox(height: 16),
             Center(
               child: Text(
-                'MediConnect Clinical Clarity v2.4 (HIPAA Compliant)',
+                // Phase 03 (P03-N24): no unverified compliance claim; version from pubspec.yaml.
+                'MediConnect v1.0.0',
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,

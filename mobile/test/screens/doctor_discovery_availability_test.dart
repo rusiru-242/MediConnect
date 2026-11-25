@@ -279,6 +279,8 @@ void main() {
     expect(find.text('4.9'), findsNothing);
     expect(find.text('(120+)'), findsNothing);
     expect(find.text('Nearby'), findsNothing);
+    expect(find.text('Today, 2:00 PM'), findsNothing);
+    expect(find.text('See available times'), findsWidgets);
     expect(find.text('In-person visit'), findsWidgets);
   });
 
