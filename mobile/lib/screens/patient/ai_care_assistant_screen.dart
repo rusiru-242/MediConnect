@@ -551,6 +551,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
     if (ok != true || !mounted) return;
     _countdownTimer?.cancel();
+    setState(() => _errorMessage = null); // the earlier "payment cancelled, slot still held" note no longer applies
     await _cancelProposal();
   }
 

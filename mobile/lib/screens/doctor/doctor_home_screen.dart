@@ -28,7 +28,6 @@ class DoctorHomeScreen extends StatefulWidget {
 
 class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
   bool _isOnDuty = true;
-  bool _showAlert = true;
 
   @override
   void initState() {
@@ -518,24 +517,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                       spacing: 8,
                       runSpacing: 4,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.apartment_rounded, size: 15, color: AppTheme.secondaryBlue),
-                            const SizedBox(width: 4),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 160),
-                              child: Text(
-                                'National Hospital Center',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
+                        // Phase 02: the hard-coded "National Hospital Center" label was removed (not the doctor's clinic).
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -558,90 +540,8 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               ),
               const SizedBox(height: 14),
 
-              // 2. Urgent Clinical Alert Banner (Stitch)
-              if (_showAlert) ...[
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.errorContainer,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.error.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.error,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'CRITICAL TELEMETRY ALERT',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.error, letterSpacing: 0.5),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text('3m ago', style: TextStyle(fontSize: 10, color: AppTheme.error)),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            const Text(
-                              'ECG anomaly detected on Patient #9401 monitor. ST-elevation trigger requires physician review.',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF93000A), height: 1.3),
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.error,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    visualDensity: VisualDensity.compact,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Opening telemetry ECG strip viewer...')),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.monitor_heart_rounded, size: 14),
-                                  label: const Text('Review Strip', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                ),
-                                TextButton(
-                                  style: TextButton.styleFrom(
-                                    visualDensity: VisualDensity.compact,
-                                    foregroundColor: AppTheme.error,
-                                  ),
-                                  onPressed: () => setState(() => _showAlert = false),
-                                  child: const Text('Dismiss', style: TextStyle(fontSize: 11)),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
+              // Phase 02: a hard-coded "CRITICAL TELEMETRY ALERT" (ECG anomaly on "Patient #9401") was removed;
+              // MediConnect has no telemetry source, so no clinical alert is shown here.
 
               // 3. Today's figures from real appointments (Phase 02: replaces a hard-coded overview with
               //    "12 Patients · 4 video · 8 clinic", "3 In Queue", "5 Reports", "LKR 18,500").

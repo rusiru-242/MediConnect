@@ -730,7 +730,8 @@ class AppointmentService:
                 {"status": {"$in": [AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value]},
                  "paymentStatus": {"$ne": PaymentStatus.PAID.value}, "holdExpiresAt": {"$lte": now}},
                 {"$set": {"status": AppointmentStatus.CANCELLED.value, "cancelledBy": "SYSTEM",
-                          "cancellationReason": "Booking hold expired", "updatedAt": now}},
+                          "cancellationReason": "Booking hold expired", "paymentStatus": PaymentStatus.UNPAID.value,
+                          "updatedAt": now}},
             )
             if not doc:
                 break
@@ -814,6 +815,8 @@ class AppointmentService:
              "paymentStatus": {"$ne": PaymentStatus.PAID.value}},
             {"$set": {"status": AppointmentStatus.CANCELLED.value, "cancelledBy": "PATIENT",
                       "cancellationReason": reason or "Reservation released by patient before payment",
+                      # No money was taken: a released hold is "not paid", not "payment pending".
+                      "paymentStatus": PaymentStatus.UNPAID.value,
                       "holdReleasedAt": now, "updatedAt": now}},
         )
         if not released:

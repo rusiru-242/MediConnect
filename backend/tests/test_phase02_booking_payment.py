@@ -209,6 +209,7 @@ def test_bug063_release_hold_cancels_intent_and_frees_slot(db):
         res = client.post(f"/api/appointments/{appt.id}/release-hold", json={}, headers=_auth(patient))
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "CANCELLED" and cancel.call_count == 1
+    assert res.json()["paymentStatus"] == "UNPAID"  # nothing was taken
     assert db["payments"].find_one({"_id": payment["_id"]})["status"] == "CANCELLED"
     day = client.get(f"/api/doctors/{doctor['doctorId']}/availability?date={avail['date']}", headers=_auth(patient)).json()
     assert "09:00" in [slot["startTime"] for slot in day["slots"]]
