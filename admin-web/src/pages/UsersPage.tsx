@@ -143,7 +143,6 @@ export const UsersPage: React.FC = () => {
             <option value="ACTIVE">Active</option>
             <option value="SUSPENDED">Suspended</option>
             <option value="PENDING">Pending</option>
-            <option value="DEACTIVATED">Deactivated</option>
           </select>
         </div>
       </div>
@@ -232,15 +231,19 @@ export const UsersPage: React.FC = () => {
                               >
                                 Suspend
                               </Button>
-                            ) : (
+                            ) : u.accountStatus === 'SUSPENDED' ? (
                               <Button
                                 variant="outline"
                                 size="sm"
                                 className="text-emerald-600 hover:bg-emerald-50 border-emerald-200"
                                 onClick={() => handleStatusClick(u, 'ACTIVE')}
                               >
-                                Activate
+                                Reinstate
                               </Button>
+                            ) : (
+                              // PENDING accounts finish registration (email verification, doctor review); an admin
+                              // cannot activate them directly (P04-N08).
+                              <span className="text-[11px] text-slate-400">Awaiting registration</span>
                             )}
                           </div>
                         )}
@@ -272,9 +275,9 @@ export const UsersPage: React.FC = () => {
           onConfirm={() =>
             statusMutation.mutate({ userId: targetUser.id, status: newStatus })
           }
-          title={`${newStatus === 'ACTIVE' ? 'Activate' : 'Suspend'} User Account`}
+          title={`${newStatus === 'ACTIVE' ? 'Reinstate' : 'Suspend'} User Account`}
           message={`Are you sure you want to change the status of ${targetUser.fullName} (${targetUser.email}) to ${newStatus}?`}
-          confirmText={`Yes, ${newStatus === 'ACTIVE' ? 'Activate' : 'Suspend'}`}
+          confirmText={`Yes, ${newStatus === 'ACTIVE' ? 'Reinstate' : 'Suspend'}`}
           variant={newStatus === 'ACTIVE' ? 'primary' : 'danger'}
           isLoading={statusMutation.isPending}
         />

@@ -116,7 +116,8 @@ def doctor_cancel_appointment_record(db: Database, appt: Dict[str, Any], doctor_
         try:
             from app.services.refund_service import RefundService
             refund_request = RefundService.create_refund_request(
-                db, str(appt["patientUserId"]), appointment_id, reason or "Doctor cancelled the appointment")
+                db, str(appt["patientUserId"]), appointment_id, reason or "Doctor cancelled the appointment",
+                source=source if source in {"doctor", "leave"} else "doctor", requested_by=str(doctor_user_id))
         except HTTPException as refund_exc:
             logger.warning("Refund request was not opened automatically (%s).", refund_exc.status_code)
     record_appointment_event(db, appointment_id, "APPOINTMENT_CANCELLED", actor_role="DOCTOR", actor_id=str(doctor_user_id),
@@ -717,6 +718,7 @@ class AppointmentService:
                 from app.services.refund_service import RefundService
                 refund_request = RefundService.create_refund_request(
                     db, str(patient_user.id), appointment_id, reason or "Patient cancelled the appointment",
+                    source="patient",
                 )
             except HTTPException as refund_exc:
                 logger.warning("Refund request was not opened automatically (%s).", refund_exc.status_code)

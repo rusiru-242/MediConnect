@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Literal, Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from typing import Annotated
 
@@ -25,7 +25,8 @@ class CreateSupportTicketRequest(StrictModel):
 
 class ReplySupportTicketRequest(StrictModel):
     message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
-    status: Optional[str] = Field(default=None, description="Optional new status (in_progress, waiting_for_user, resolved, closed)")
+    status: Optional[Literal["in_progress", "waiting_for_user", "resolved", "closed"]] = Field(
+        default=None, description="Optional new status (in_progress, waiting_for_user, resolved, closed)")
     resolve: Optional[bool] = Field(default=False)
 
 
@@ -121,6 +122,12 @@ class RefundRequestResponse(StrictModel):
     adminReviewerId: Optional[str] = None
     reviewNotes: Optional[str] = None
     failureReason: Optional[str] = None
+    source: Optional[str] = Field(default=None, description="patient, doctor, leave or admin; None for legacy requests")
+    cancelledBy: Optional[str] = None
+    cancellationReason: Optional[str] = None
+    approvedAmount: Optional[float] = None
+    refundedAmount: Optional[float] = None
+    stripeRefundStatus: Optional[str] = None
     createdAt: datetime
     updatedAt: datetime
     completedAt: Optional[datetime] = None
@@ -187,6 +194,8 @@ class DoctorVerificationAIDecision(StrictModel):
     needsManualExternalCheck: bool = True
     summary: str
     recommendedAction: str  # APPROVE, REJECT, REQUEST_INFO, MANUAL_VERIFY
+    registrationOfficiallyVerified: bool = False
+    humanDecisionRequired: bool = True
 
 
 # -----------------------------------------------------------------------------
@@ -194,7 +203,9 @@ class DoctorVerificationAIDecision(StrictModel):
 # -----------------------------------------------------------------------------
 
 class GenerateReportRequest(StrictModel):
-    reportType: str  # daily_appointment, weekly_booking, monthly_payment, doctor_verification_backlog, support_ticket_resolution, refund_status
+    # Only implemented reports. "weekly_booking" was accepted and silently answered with the refund report (P04-N17).
+    reportType: Literal["daily_appointment", "monthly_payment", "doctor_verification_backlog",
+                        "support_ticket_resolution", "refund_status"]
     startDate: Optional[str] = None
     endDate: Optional[str] = None
 

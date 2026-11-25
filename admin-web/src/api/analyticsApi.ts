@@ -10,6 +10,11 @@ interface RawOverviewTotals {
   totalAppointments?: number;
   completedAppointments?: number;
   cancelledAppointments?: number;
+  confirmedAppointments?: number;
+  pendingAppointments?: number;
+  rejectedDoctorApplications?: number;
+  activeApprovedDoctors?: number;
+  suspendedDoctors?: number;
 }
 
 interface RawOverviewResponse {
@@ -22,12 +27,8 @@ interface RawOverviewResponse {
   totalAppointments?: number;
   completedAppointments?: number;
   cancelledAppointments?: number;
-  payments?: {
-    totalRevenueByCurrency?: Record<string, number>;
-    succeededTransactions?: number;
-    failedTransactions?: number;
-    pendingTransactions?: number;
-  };
+  payments?: AnalyticsOverview['payments'];
+  timezone?: string;
   successfulPaymentsCount?: number;
   failedPaymentsCount?: number;
   totalRevenueByCurrency?: Array<{
@@ -64,8 +65,11 @@ interface RawPaymentCurrencyItem {
   netAmount?: number;
   totalAmount?: number;
   grossAmount?: number;
+  refundedAmount?: number;
   paymentCount?: number;
   transactionCount?: number;
+  pendingRefundAmount?: number;
+  pendingRefundCount?: number;
 }
 
 interface RawPaymentResponse {
@@ -76,6 +80,8 @@ interface RawPaymentResponse {
   failedPaymentsCount?: number;
   revenueByCurrency?: RawPaymentCurrencyItem[];
   dailyTrends?: PaymentAnalytics['dailyTrends'];
+  paymentSuccessRate?: number | null;
+  note?: string | null;
 }
 
 export const analyticsApi = {
@@ -113,6 +119,7 @@ export const analyticsApi = {
 
     return {
       generatedAt: data.generatedAt || new Date().toISOString(),
+      timezone: data.timezone,
       totals: {
         totalUsers,
         totalPatients,
@@ -122,8 +129,14 @@ export const analyticsApi = {
         totalAppointments,
         completedAppointments,
         cancelledAppointments,
+        confirmedAppointments: rawTotals.confirmedAppointments,
+        pendingAppointments: rawTotals.pendingAppointments,
+        rejectedDoctorApplications: rawTotals.rejectedDoctorApplications,
+        activeApprovedDoctors: rawTotals.activeApprovedDoctors,
+        suspendedDoctors: rawTotals.suspendedDoctors,
       },
       payments: {
+        ...(data.payments || {}),
         totalRevenueByCurrency: revMap,
         succeededTransactions: data.payments?.succeededTransactions ?? data.successfulPaymentsCount ?? 0,
         failedTransactions: data.payments?.failedTransactions ?? data.failedPaymentsCount ?? 0,
@@ -166,8 +179,12 @@ export const analyticsApi = {
     if (Array.isArray(data.revenueByCurrency)) {
       revList = data.revenueByCurrency.map((c: RawPaymentCurrencyItem) => ({
         currency: (c.currency || 'lkr').toUpperCase(),
-        totalAmount: c.netAmount ?? c.totalAmount ?? c.grossAmount ?? 0,
-        transactionCount: c.paymentCount ?? c.transactionCount ?? 0,
+        grossAmount: c.grossAmount ?? 0,
+        refundedAmount: c.refundedAmount ?? 0,
+        netAmount: c.netAmount ?? c.totalAmount ?? 0,
+        paymentCount: c.paymentCount ?? c.transactionCount ?? 0,
+        pendingRefundAmount: c.pendingRefundAmount,
+        pendingRefundCount: c.pendingRefundCount,
       }));
     }
 
@@ -177,6 +194,8 @@ export const analyticsApi = {
       failedCount: data.failedCount ?? data.failedPaymentsCount ?? 0,
       revenueByCurrency: revList,
       dailyTrends: data.dailyTrends || [],
+      paymentSuccessRate: data.paymentSuccessRate ?? null,
+      note: data.note ?? null,
     };
   },
 };

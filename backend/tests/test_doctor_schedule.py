@@ -18,7 +18,7 @@ Covers:
 15. Doctor schedule summary endpoint returns quick snapshot.
 """
 
-from datetime import datetime, timezone
+from datetime import timedelta, datetime, timezone
 import time
 from bson import ObjectId
 from fastapi.testclient import TestClient
@@ -37,7 +37,9 @@ client = TestClient(app)
 
 
 def now_date_str() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # The doctor schedule uses Asia/Colombo days. A UTC date made these tests fail every day between 18:30 and
+    # 24:00 UTC, when the two calendars differ (found in Phase 04; not a product change).
+    return datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%Y-%m-%d")
 
 
 @pytest.fixture

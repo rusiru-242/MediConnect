@@ -10,6 +10,8 @@ export interface PaymentItem {
   currency: string;
   status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
   isTestMode: boolean;
+  refundedAmount?: number;
+  reconciliationState?: string | null;
   failureReason?: string | null;
   paidAt?: string | null;
   createdAt: string;

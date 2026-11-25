@@ -179,6 +179,7 @@ async def update_user_status(
         user_id=userId,
         new_status=request.accountStatus,
         admin_user_id=current_admin.id,
+        reason=request.reason,
     )
 
 

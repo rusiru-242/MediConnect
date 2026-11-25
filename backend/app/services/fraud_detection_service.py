@@ -1,5 +1,6 @@
 """Fraud Detection Service: Rule-based explainable risk scoring, deduplication, and admin review workflow."""
 
+from app.utils.mongo_documents import document_for_insert
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -43,6 +44,9 @@ class FraudDetectionService:
         "SLOT_HOARDING_ATTEMPT": {
             "weight": 20.0,
             "description": "Repeated booking attempts against already reserved slots.",
+            # Declared but not evaluated: booking conflicts are rejected by a unique index and are not recorded
+            # per account, so there is no evidence source for this rule (P04-N12).
+            "implemented": False,
         },
         "UNAUTHORIZED_ACCESS_BURST": {
             "weight": 35.0,
@@ -82,15 +86,27 @@ class FraudDetectionService:
         calculated_score: float = 0.0
 
         # 1. Rule: MULTIPLE_FAILED_PAYMENTS
+        # Payment statuses are upper case; the former lower-case "failed" never matched, so this rule could never
+        # fire (P04-N12).
         failed_payments = list(db["payments"].find({
             "patientUserId": account_id,
-            "status": "failed",
+            "status": "FAILED",
             "createdAt": {"$gte": day_ago},
         }))
         if len(failed_payments) >= 3:
             triggered_rules.append("MULTIPLE_FAILED_PAYMENTS")
             calculated_score += cls.RULES_DEFINITION["MULTIPLE_FAILED_PAYMENTS"]["weight"]
-            supporting_events.extend([str(p.get("paymentIntentId") or p.get("_id")) for p in failed_payments[:5]])
+            supporting_events.extend([str(p.get("stripePaymentIntentId") or p.get("paymentIntentId") or p.get("_id")) for p in failed_payments[:5]])
+
+        # 1b. Rule: DUPLICATE_PAYMENT_REFERENCES - this account's PaymentIntent is also recorded for another account.
+        own_intents = [p["stripePaymentIntentId"] for p in db["payments"].find(
+            {"patientUserId": account_id, "stripePaymentIntentId": {"$nin": [None, ""]}}, {"stripePaymentIntentId": 1})]
+        shared = list(db["payments"].find({"stripePaymentIntentId": {"$in": own_intents},
+                                           "patientUserId": {"$ne": account_id}}, {"stripePaymentIntentId": 1})) if own_intents else []
+        if shared:
+            triggered_rules.append("DUPLICATE_PAYMENT_REFERENCES")
+            calculated_score += cls.RULES_DEFINITION["DUPLICATE_PAYMENT_REFERENCES"]["weight"]
+            supporting_events.extend(sorted({str(x["stripePaymentIntentId"]) for x in shared})[:5])
 
         # 2. Rule: EXCESSIVE_BOOKING_RATE
         recent_bookings = list(db["appointments"].find({
@@ -124,10 +140,12 @@ class FraudDetectionService:
             supporting_events.extend([str(r.get("refundId") or r.get("_id")) for r in refunds[:5]])
 
         # 5. Rule: UNAUTHORIZED_ACCESS_BURST
+        # Events typed in by an administrator (POST /security/events) are not evidence about the account.
         auth_failures = list(db["security_events"].find({
             "actorId": account_id,
             "category": {"$in": ["AUTH_FAILURE", "UNAUTHORIZED_ACCESS"]},
             "timestamp": {"$gte": fifteen_mins_ago},
+            "metadata.source": {"$ne": "manual_admin_entry"},
         }))
         if len(auth_failures) >= 5:
             triggered_rules.append("UNAUTHORIZED_ACCESS_BURST")
@@ -150,8 +168,17 @@ class FraudDetectionService:
             "reviewStatus": {"$in": [FraudReviewStatus.DETECTED.value, FraudReviewStatus.AWAITING_REVIEW.value, FraudReviewStatus.INVESTIGATING.value]},
         })
 
+        # Explanation: the score is the sum of fixed rule weights, not a probability, and a signal is not proof.
+        explanation = (
+            f"Rule weight total {calculated_score:.1f}/100 ({risk_level.value}). "
+            f"Triggered {len(triggered_rules)} deterministic rule(s): {', '.join(triggered_rules)}. "
+            f"Supported by {len(supporting_events)} event reference(s). These are signals for human review, "
+            f"not a finding of fraud; no account action is taken automatically."
+        )
+
         if existing:
-            # Update existing assessment score and triggers without creating duplicate alert
+            # Re-evaluation refreshes the open assessment instead of creating a duplicate alert. The explanation and
+            # the returned document were stale before Phase 04: only score and level were refreshed (P04-N22).
             db["fraud_risk_assessments"].update_one(
                 {"_id": existing["_id"]},
                 {
@@ -160,21 +187,14 @@ class FraudDetectionService:
                         "riskLevel": risk_level.value,
                         "triggeredRules": triggered_rules,
                         "supportingEventReferences": supporting_events,
+                        "explanation": explanation,
                         "updatedAt": now,
                     }
                 },
             )
-            existing["_id"] = str(existing["_id"])
-            existing["riskScore"] = calculated_score
-            existing["riskLevel"] = risk_level.value
-            return FraudAssessmentDocument(**existing)
-
-        # Generate explainable narrative
-        explanation = (
-            f"Risk Score {calculated_score:.1f}/100 ({risk_level.value}). "
-            f"Triggered {len(triggered_rules)} deterministic rules: {', '.join(triggered_rules)}. "
-            f"Supported by {len(supporting_events)} audited event references."
-        )
+            refreshed = db["fraud_risk_assessments"].find_one({"_id": existing["_id"]})
+            refreshed["_id"] = str(refreshed["_id"])
+            return FraudAssessmentDocument(**refreshed)
 
         assessment = FraudAssessmentDocument(
             assessmentId=f"FRAUD-{uuid4().hex[:10].upper()}",
@@ -190,7 +210,7 @@ class FraudDetectionService:
             updatedAt=now,
         )
 
-        db["fraud_risk_assessments"].insert_one(assessment.model_dump(by_alias=True))
+        db["fraud_risk_assessments"].insert_one(document_for_insert(assessment))  # never "_id": None (P04-N20)
 
         # Log security audit event for high/critical fraud scores
         if risk_level in (FraudRiskLevel.HIGH, FraudRiskLevel.CRITICAL):
@@ -229,7 +249,11 @@ class FraudDetectionService:
             "investigate": FraudReviewStatus.INVESTIGATING.value,
             "resolve": FraudReviewStatus.RESOLVED.value,
         }
-        new_status = status_map.get(decision.lower(), FraudReviewStatus.INVESTIGATING.value)
+        # An unknown decision was silently recorded as "investigating" (P04-N12).
+        new_status = status_map.get((decision or "").strip().lower())
+        if new_status is None:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=422, detail="decision must be dismiss, confirm, investigate or resolve.")
 
         investigation_entry = {
             "adminId": admin_id,
@@ -251,6 +275,13 @@ class FraudDetectionService:
             },
         )
 
+        from app.services.admin_audit_service import AdminAuditService
+        AdminAuditService.log_action(
+            db=db, actor_id=admin_id, actor_role="ADMIN", action_type="FRAUD_REVIEW_DECISION",
+            target_id=assessment_id, target_type="fraud_assessment", previous_state=assessment.get("reviewStatus"),
+            new_state=new_status, reason=notes,
+            metadata={"relatedAccountId": assessment.get("relatedAccountId"), "accountActionTaken": False},
+        )
         updated = db["fraud_risk_assessments"].find_one({"assessmentId": assessment_id})
         updated["_id"] = str(updated["_id"])
         return FraudAssessmentDocument(**updated)

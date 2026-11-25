@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { AlertTriangle } from 'lucide-react';
@@ -26,6 +26,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   variant = 'danger',
   isLoading = false,
 }) => {
+  // A double click fires two click events before React re-renders the button as disabled. The ref blocks the
+  // second confirmation synchronously (P04-N23); it re-arms when the action finishes or the dialog reopens.
+  const firing = useRef(false);
+  useEffect(() => {
+    if (!isLoading) firing.current = false;
+  }, [isLoading, isOpen]);
+  const handleConfirm = () => {
+    if (firing.current || isLoading) return;
+    firing.current = true;
+    onConfirm();
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="md">
       <div className="flex items-start gap-4">
@@ -43,7 +55,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <Button variant="outline" onClick={onClose} disabled={isLoading}>
           {cancelText}
         </Button>
-        <Button variant={variant} onClick={onConfirm} isLoading={isLoading}>
+        <Button variant={variant} onClick={handleConfirm} isLoading={isLoading}>
           {confirmText}
         </Button>
       </div>

@@ -1,0 +1,67 @@
+{
+  "stripe": {
+    "stepsP03": 36,
+    "stepsP04": 36,
+    "differences": {
+      "S4_admin_payment_list": {
+        "p03": [
+          {
+            "http": 200,
+            "total": 29
+          }
+        ],
+        "p04": [
+          {
+            "http": 200,
+            "total": 41
+          }
+        ]
+      }
+    }
+  },
+  "care": {
+    "stepsP03": 71,
+    "stepsP04": 71,
+    "differences": {
+      "11_renewal:patient_sees_status": {
+        "p03": [
+          {
+            "http": 200,
+            "statuses": [
+              "approved",
+              "approved",
+              "approved"
+            ],
+            "patient_notified": true
+          }
+        ],
+        "p04": [
+          {
+            "http": 200,
+            "statuses": [
+              "approved",
+              "approved",
+              "approved",
+              "approved"
+            ],
+            "patient_notified": true
+          }
+        ]
+      }
+    }
+  },
+  "p01": {
+    "turns": 45,
+    "fieldsCompared": [
+      "http",
+      "isUrgent",
+      "intent",
+      "metaType",
+      "category",
+      "hasMedicineCard",
+      "state"
+    ],
+    "nonNullValuesCompared": 268,
+    "differences": []
+  }
+}

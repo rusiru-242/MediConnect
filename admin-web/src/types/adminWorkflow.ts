@@ -113,6 +113,13 @@ export interface RefundRequest {
   adminReviewerId?: string;
   reviewNotes?: string;
   failureReason?: string;
+  /** Why the request exists: patient cancellation, doctor cancellation or doctor leave (null for legacy rows). */
+  source?: 'patient' | 'doctor' | 'leave' | 'admin' | null;
+  cancelledBy?: string | null;
+  cancellationReason?: string | null;
+  approvedAmount?: number | null;
+  refundedAmount?: number | null;
+  stripeRefundStatus?: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;

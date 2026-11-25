@@ -25,6 +25,8 @@ def create_admin():
     parser.add_argument("--password", help="Admin password", default=os.getenv("ADMIN_PASSWORD"))
     parser.add_argument("--name", help="Admin full name", default=os.getenv("ADMIN_FULL_NAME", "MediConnect Administrator"))
     parser.add_argument("--phone", help="Admin phone number", default=os.getenv("ADMIN_PHONE", "0770000000"))
+    parser.add_argument("--allow-remote", action="store_true",
+                        help="Required when MONGODB_URI is not a local server (owner-approved operations only).")
 
     args = parser.parse_args()
 
@@ -49,6 +51,15 @@ def create_admin():
     if len(password) < 8:
         print("Error: Admin password must be at least 8 characters.", file=sys.stderr)
         sys.exit(1)
+
+    # P04-N01: show the (redacted) target and refuse a remote database unless explicitly allowed.
+    from app.config.db_safety import redacted_target
+    target = redacted_target(settings.MONGODB_URI or "", settings.DATABASE_NAME)
+    print(f"Target database: {target}")
+    if not target["local"] and not args.allow_remote:
+        print("Refusing: MONGODB_URI is not a local server. Re-run with --allow-remote only with owner approval.",
+              file=sys.stderr)
+        sys.exit(2)
 
     # Connect to MongoDB using managed DNS resolution
     from app.config.database import DatabaseManager

@@ -71,6 +71,14 @@ Abbreviations: **Tests** = automated test files (count of test functions). **UI*
 | 21 | Doctor Analytics Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/analytics_service.py` | `/doctor/workflow/*` (doctor), `/admin/analytics/*` (admin) | `doctor_home_screen.dart` | aggregates over `appointments`, `payments` | test_health_content_and_analytics (6) | Computed from real collections, not hard-coded. |
 
 **Phase 03 update (2026-11-25):** components 14–21 were verified live on the UAT backend and emulator. All eight are deterministic services, with no LLM; the doctor assistant routes to read-only tools only.
+
+**Phase 04 update (2026-11-26):** admin components 22–30 were verified live:
+- **Implementation:** all nine are deterministic, with no LLM, and their tools are read-only and restricted to ADMIN.
+- **Fixes:** Phase 04 fixed invented figures and states in 23, 24, 25, 28, 29 and 30 (P04-N05/N11/N12/N14/N15/N16/N17).
+- **Partial:** components 25 and 26 are PARTIAL:
+  - 25: slot-hoarding rule not implemented; login failures not recorded.
+  - 26: template drafts; no user reply.
+- **Details:** see [uat/phase-04/PHASE_04_AI_AGENT_VERIFICATION_MATRIX.md](uat/phase-04/PHASE_04_AI_AGENT_VERIFICATION_MATRIX.md).
 - **14, 16, 18, 19, 20, 21:** PASS.
 - **15 and 17:** PASS with documented limitations.
 - **Fixes:** defects P03-N01 to N24 fixed.

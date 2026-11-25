@@ -194,7 +194,7 @@ export const MonitoringPage: React.FC = () => {
             Platform Security & Health Command Center
           </h1>
           <p className="text-sm text-slate-500">
-            Real-time infrastructure health, rule-based fraud detection, notification outbox telemetry & AI provider metrics.
+            Infrastructure checks, rule-based fraud signals, notification delivery records and AI provider metrics. Values refresh when this page loads.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -237,7 +237,7 @@ export const MonitoringPage: React.FC = () => {
           <p className="mt-3 text-2xl font-bold text-slate-900">
             {health ? `${(health.uptimeSeconds / 3600).toFixed(1)} hrs` : '--'}
           </p>
-          <p className="mt-1 text-xs text-slate-500">Continuous Process Uptime</p>
+          <p className="mt-1 text-xs text-slate-500">Backend process uptime since last start (not availability %)</p>
         </div>
 
         {/* Active Incidents */}
@@ -268,7 +268,11 @@ export const MonitoringPage: React.FC = () => {
           </div>
           <p className="mt-3 text-2xl font-bold text-slate-900">{notificationMetrics?.totalBacklog ?? 0}</p>
           <p className="mt-1 text-xs text-slate-500">
-            {notificationMetrics ? `${notificationMetrics.failureRatePercent}% failure rate` : '--'}
+            {notificationMetrics
+              ? notificationMetrics.failureRatePercent === null || notificationMetrics.failureRatePercent === undefined
+                ? 'No deliveries attempted yet'
+                : `${notificationMetrics.failureRatePercent}% failure rate`
+              : '--'}
           </p>
         </div>
       </div>
@@ -339,14 +343,14 @@ export const MonitoringPage: React.FC = () => {
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                         dep.status === 'healthy'
                           ? 'bg-emerald-50 text-emerald-700'
-                          : dep.status === 'degraded'
+                          : dep.status === 'degraded' || dep.status === 'configured_not_verified'
                           ? 'bg-amber-50 text-amber-700'
-                          : dep.status === 'unconfigured'
+                          : dep.status === 'not_configured' || dep.status === 'disabled' || dep.status === 'unknown'
                           ? 'bg-slate-100 text-slate-600'
                           : 'bg-rose-50 text-rose-700'
                       }`}
                     >
-                      {dep.status.toUpperCase()}
+                      {dep.status === 'configured_not_verified' ? 'CONFIGURED, NOT VERIFIED' : dep.status.replace(/_/g, ' ').toUpperCase()}
                     </span>
                   </div>
                 </div>
@@ -365,7 +369,10 @@ export const MonitoringPage: React.FC = () => {
                   <div>
                     <p className="text-sm font-medium text-slate-800">{w.workerName}</p>
                     <p className="text-xs text-slate-500">
-                      Last execution: {w.lastDurationSeconds}s • Pending: {w.pendingJobCount} • Failed: {w.failedJobCount}
+                      {w.lastHeartbeat
+                        ? `Last heartbeat: ${new Date(w.lastHeartbeat).toLocaleString()} • Run time: ${w.lastDurationSeconds ?? '?'}s`
+                        : 'No heartbeat recorded since this database was created'}
+                      {w.lastError ? ` • Last error: ${w.lastError}` : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -546,6 +553,43 @@ export const MonitoringPage: React.FC = () => {
       {/* Tab 4: Outbox & Workflows */}
       {activeTab === 'notifications' && (
         <div className="space-y-6">
+          {/* Delivery records per channel (P04-N15): from the outbox and reminder events the workers write. */}
+          <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs" data-testid="notification-channels">
+            <h3 className="text-base font-semibold text-slate-900 mb-2">Delivery by channel</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Counts come from stored delivery records. A channel whose provider is not configured sends nothing.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                  <tr>
+                    <th className="py-2 px-3">Channel</th>
+                    <th className="py-2 px-3">Provider</th>
+                    <th className="py-2 px-3">Delivered / stored</th>
+                    <th className="py-2 px-3">Pending</th>
+                    <th className="py-2 px-3">Failed</th>
+                    <th className="py-2 px-3">Skipped</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(notificationMetrics?.byChannel || []).map((ch) => (
+                    <tr key={ch.channel}>
+                      <td className="py-2 px-3 font-medium text-slate-800">{ch.channel.replace('_', '-')}</td>
+                      <td className="py-2 px-3 text-xs text-slate-600">{(ch.providerStatus || 'unknown').replace(/_/g, ' ')}</td>
+                      <td className="py-2 px-3">{ch.delivered}</td>
+                      <td className="py-2 px-3">{ch.pending}</td>
+                      <td className="py-2 px-3">{ch.failed}</td>
+                      <td className="py-2 px-3">{ch.skipped ?? 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {(notificationMetrics?.notes || []).map((n) => (
+              <p key={n} className="mt-2 text-xs text-amber-700">{n}</p>
+            ))}
+          </div>
+
           {/* Dead Letters */}
           <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs">
             <h3 className="text-base font-semibold text-slate-900 mb-2">Notification Dead-Letter Queue</h3>

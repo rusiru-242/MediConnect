@@ -549,7 +549,11 @@ def test_11_reminder_sweep_dispatches_and_marks_overdue(care_plan_setup):
     """Reminder sweep dispatches notifications for 7d, 1d, due dates and marks past plans overdue."""
     db = care_plan_setup["db"]
     doc_token = care_plan_setup["doc1_token"]
-    today = datetime.now()
+    # The sweep counts days in Asia/Colombo. datetime.now() is the machine's local time, so on a UTC machine
+    # (GitHub Actions) between 18:30 and 24:00 UTC the "7 days" plan was 6 Colombo days away and nothing was
+    # sent. Found in Phase 04 CI; not a product change.
+    from app.services.care_plan_service import get_sl_now
+    today = get_sl_now().replace(tzinfo=None)
 
     # Plan A: Due in 7 days
     date_7d = (today + timedelta(days=7)).strftime("%Y-%m-%d")

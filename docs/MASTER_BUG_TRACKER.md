@@ -336,3 +336,20 @@ The owner's BUG-049 to BUG-063 descriptions are now recorded and mapped to the P
 - **Phase 02 blockers:** B11 (device re-run of E8 to E10) and B14 (doctor dashboard review) are closed.
 - **Owner check needed:** a test run may have written test records to the remote database configured in `backend/.env` (P3-B1).
 - **Details:** [docs/uat/phase-03/PHASE_03_BUG_FIX_REPORT.md](uat/phase-03/PHASE_03_BUG_FIX_REPORT.md) and [PHASE_03_FINAL_COMPLETION_REPORT.md](uat/phase-03/PHASE_03_FINAL_COMPLETION_REPORT.md).
+
+## Phase 04 (2026-11-26, branch `fix/phase-04-admin-system-stabilization`)
+
+- **New defects fixed and verified:** P04-N01 to N23 (23 defects). The most serious:
+  - P04-N05: dashboard, analytics, assistant and reports counted refunds twice, ignored partial refunds, and showed an invented 10% "platform revenue".
+  - P04-N01: the Phase 03 test-database guard could be bypassed by look-alike or multi-host URIs.
+  - P04-N13: the worker heartbeat endpoint required no authentication.
+  - P04-N11: reconciliation advised "confirm the booking immediately" for cancelled paid bookings.
+  - P04-N09: a refund rejection could overwrite a concurrent approval.
+  - P04-N15: push notifications were counted as delivered with FCM not configured.
+  - P04-N20: security events and fraud assessments failed after the first insert (`_id: null`).
+  - P04-N12/N16: the failed-payment rule and the failed-payment query never matched (lower case).
+  - P04-N04: every payment was shown as test mode.
+- **Closed blockers:** B15 (admin refund page), P3-B2 (null-fee crash), P3-B3 (doctor-initiated refund requests).
+- **Corrected finding:** P3-B4. Admins cannot read patient clinical records, notes, measurements or prescriptions (verified by content). Care-plan content and booking notes remain owner decisions (P4-B4a/b).
+- **Still urgent (owner):** P4-B1, the remote database incident, is unverified, and its possible impact is wider than first recorded (worker sweeps and SMTP).
+- **Details:** [docs/uat/phase-04/PHASE_04_BUG_FIX_REPORT.md](uat/phase-04/PHASE_04_BUG_FIX_REPORT.md) and [PHASE_04_FINAL_COMPLETION_REPORT.md](uat/phase-04/PHASE_04_FINAL_COMPLETION_REPORT.md).

@@ -28,6 +28,14 @@ REQUIRED_PROFILE_FIELDS = [
 ]
 
 
+def _non_negative_int(value) -> bool:
+    """A malformed experience value is an incomplete field, not a 500 (P04-N08)."""
+    try:
+        return value is not None and int(value) >= 0
+    except (TypeError, ValueError):
+        return False
+
+
 class DoctorVerificationAssistant:
     """Deterministic and AI-augmented review analysis for doctor onboarding."""
 
@@ -64,7 +72,7 @@ class DoctorVerificationAssistant:
             "specialty": bool(specialty and len(specialty) >= 2),
             "qualifications": bool(qualifications and len(qualifications) >= 2),
             "hospitalOrClinic": bool(hospital and len(hospital) >= 2),
-            "experienceYears": experience is not None and int(experience) >= 0,
+            "experienceYears": _non_negative_int(experience),
             "emailVerified": email_verified,
         }
 
@@ -135,7 +143,8 @@ class DoctorVerificationAssistant:
             recommended_action = "APPROVE"
             summary = (
                 f"Application has {completeness_score}% completeness with all standard fields and verification documents submitted. "
-                f"Ready for authorized administrator review and manual SLMC registry confirmation."
+                f"Ready for an administrator's decision. The registration number has not been checked against the "
+                f"SLMC register by MediConnect; confirm it manually before approving."
             )
 
         return {
@@ -148,6 +157,8 @@ class DoctorVerificationAssistant:
             "inconsistencies": inconsistencies,
             "riskFlags": risk_flags,
             "needsManualExternalCheck": True,  # Mandatory external check requirement
+            "registrationOfficiallyVerified": False,  # no registry source is integrated
+            "humanDecisionRequired": True,
             "summary": summary,
             "recommendedAction": recommended_action,
         }

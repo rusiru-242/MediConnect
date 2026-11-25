@@ -1,0 +1,1294 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "stripe": "test_mode",
+  "steps": [
+    {
+      "id": "A-17a",
+      "scenario": "Local UAT backend and isolated database",
+      "expected": "backend ready on 127.0.0.1:8001; database mediconnect_uat (local)",
+      "actual": {
+        "ready": "ready",
+        "dbName": "mediconnect_uat",
+        "mongoHost": "127.0.0.1"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-17c",
+      "scenario": "Stripe test mode only",
+      "expected": "sk_test_ key; every Stripe object has livemode=false",
+      "actual": {
+        "keyMode": "test",
+        "sampleLivemode": [
+          false
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01a",
+      "scenario": "Admin login",
+      "expected": "200 with tokens",
+      "actual": {
+        "http": 200,
+        "access": true,
+        "refresh": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01b",
+      "scenario": "Invalid credentials",
+      "expected": "401, no token",
+      "actual": {
+        "http": 401
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01c",
+      "scenario": "Expired, forged and missing admin tokens",
+      "expected": "401 for all",
+      "actual": {
+        "expired": 401,
+        "forged": 401,
+        "none": 401
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01d",
+      "scenario": "Patient access to admin endpoints",
+      "expected": "403 on every admin endpoint",
+      "actual": {
+        "/admin/users": 403,
+        "/admin/doctors/applications": 403,
+        "/admin/appointments": 403,
+        "/admin/payments": 403,
+        "/admin/analytics/overview": 403,
+        "/admin/workflow/refunds": 403,
+        "/admin/workflow/audit-logs": 403,
+        "/security/monitoring/platform": 403,
+        "/security/monitoring/notifications": 403,
+        "/security/fraud/assessments": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01e",
+      "scenario": "Doctor access to admin endpoints",
+      "expected": "403 on every admin endpoint",
+      "actual": {
+        "/admin/users": 403,
+        "/admin/doctors/applications": 403,
+        "/admin/appointments": 403,
+        "/admin/payments": 403,
+        "/admin/analytics/overview": 403,
+        "/admin/workflow/refunds": 403,
+        "/admin/workflow/audit-logs": 403,
+        "/security/monitoring/platform": 403,
+        "/security/monitoring/notifications": 403,
+        "/security/fraud/assessments": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01g",
+      "scenario": "Admin access to the same endpoints",
+      "expected": "200 on every admin endpoint",
+      "actual": {
+        "/admin/users": 200,
+        "/admin/doctors/applications": 200,
+        "/admin/appointments": 200,
+        "/admin/payments": 200,
+        "/admin/analytics/overview": 200,
+        "/admin/workflow/refunds": 200,
+        "/admin/workflow/audit-logs": 200,
+        "/security/monitoring/platform": 200,
+        "/security/monitoring/notifications": 200,
+        "/security/fraud/assessments": 200
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01h",
+      "scenario": "Role claim manipulation: validly signed patient token claiming role ADMIN",
+      "expected": "403 (role read from the account, not the token)",
+      "actual": {
+        "http": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01f",
+      "scenario": "Logout invalidates the refresh token",
+      "expected": "logout 200; refresh with the old token 401",
+      "actual": {
+        "logout": 200,
+        "refreshAfterLogout": 401
+      },
+      "status": "PASS",
+      "limitation": "Access tokens are stateless JWTs and stay valid until expiry (60 min); suspension is enforced per request"
+    },
+    {
+      "id": "A-02a",
+      "scenario": "Dashboard counts equal MongoDB counts",
+      "expected": "every count matches an independent query",
+      "actual": {
+        "api": {
+          "totalPatients": 27,
+          "totalDoctors": 19,
+          "verifiedDoctors": 13,
+          "pendingDoctorApprovals": 5,
+          "rejectedDoctorApplications": 1,
+          "totalAppointments": 69,
+          "confirmedAppointments": 17,
+          "completedAppointments": 7,
+          "cancelledAppointments": 45
+        },
+        "db": {
+          "totalPatients": 27,
+          "totalDoctors": 19,
+          "verifiedDoctors": 13,
+          "pendingDoctorApprovals": 5,
+          "rejectedDoctorApplications": 1,
+          "totalAppointments": 69,
+          "confirmedAppointments": 17,
+          "completedAppointments": 7,
+          "cancelledAppointments": 45
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-02c",
+      "scenario": "Dashboard money equals an independent recomputation (gross, refunded incl. partial, net)",
+      "expected": "identical per currency; platform revenue null",
+      "actual": {
+        "api": {
+          "LKR": {
+            "gross": 74100.0,
+            "refunded": 16800.0,
+            "net": 57300.0
+          }
+        },
+        "db": {
+          "LKR": {
+            "gross": 74100.0,
+            "refunded": 16800.0,
+            "net": 57300.0
+          }
+        },
+        "platformRevenue": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-02b",
+      "scenario": "Empty range shows no invented figures",
+      "expected": "zero counts and success rate null",
+      "actual": {
+        "succeeded": 0,
+        "paymentSuccessRate": null,
+        "revenue": [
+          {
+            "currency": "lkr",
+            "grossAmount": 0.0,
+            "refundedAmount": 0.0,
+            "netAmount": 0.0,
+            "paymentCount": 0,
+            "partiallyRefundedCount": 0,
+            "fullyRefundedCount": 0,
+            "pendingRefundAmount": 10000.0,
+            "pendingRefundCount": 5
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-02d",
+      "scenario": "API error handling for invalid input",
+      "expected": "400 with a readable message",
+      "actual": {
+        "http": 400,
+        "detail": "Invalid startDate value. Expected a valid YYYY-MM-DD calendar date."
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-03a",
+      "scenario": "Pending applications listed",
+      "expected": "P04 applicant, reject and no-registration applications listed",
+      "actual": [
+        "Dr. P04 Applicant",
+        "Dr. P04 No Registration",
+        "Dr. P04 Reject"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "A-03b",
+      "scenario": "Application details",
+      "expected": "registration number, specialty, qualifications, clinic, experience; no password hash",
+      "actual": {
+        "medicalRegistrationNumber": "UAT-P04-APPLICANT",
+        "specialty": "Dermatology",
+        "qualifications": "MBBS (synthetic UAT profile)",
+        "hospitalOrClinic": "UAT P04 Clinic",
+        "experienceYears": 6,
+        "emailVerified": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-03c",
+      "scenario": "Verification documents",
+      "expected": "admin receives the stored file; patient 403; path traversal refused",
+      "actual": {
+        "bytes": 186,
+        "type": "application/pdf",
+        "synthetic": true,
+        "patient": 403,
+        "traversal": 404
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-03d",
+      "scenario": "Registration number required; checklist is not a registry check",
+      "expected": "missing number flagged and approval 400; registrationOfficiallyVerified false; human decision required",
+      "actual": {
+        "applicantRecommended": "APPROVE",
+        "officiallyVerified": false,
+        "humanDecisionRequired": true,
+        "noRegFlags": [
+          "Missing medical registration number."
+        ],
+        "noRegApprove": 400,
+        "detail": "Cannot approve an application without a medical registration number."
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-03i",
+      "scenario": "Pending doctor restrictions",
+      "expected": "not in patient search; cannot be booked",
+      "actual": {
+        "inSearch": false,
+        "bookHttp": 404
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-03e",
+      "scenario": "Doctor approval by an administrator",
+      "expected": "approve 200 once (second 400); audit actor/target/state; doctor notified; account ACTIVE",
+      "actual": {
+        "approve": 200,
+        "again": 400,
+        "audit": {
+          "actorId": "6b05c3fc88a1403facad0202",
+          "previousState": "PENDING_ADMIN_APPROVAL",
+          "newState": "APPROVED"
+        },
+        "notified": true,
+        "account": "ACTIVE"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-03h",
+      "scenario": "Approved doctor visible in patient search",
+      "expected": "Dr. P04 Applicant listed",
+      "actual": [
+        "Dr. P04 Applicant"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "A-03f",
+      "scenario": "Doctor rejection",
+      "expected": "reject 200 with reason; audited; rejected doctor login 403 (no appeal flow: P3-B6)",
+      "actual": {
+        "reject": 200,
+        "audited": 2,
+        "login": 403,
+        "detail": "Your doctor registration application was not approved. Please contact MediConnect support for further information."
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-03g",
+      "scenario": "Suspension revokes clinical access immediately",
+      "expected": "records 200 before; suspend 200; same token 403 on records and appointments; login refused; reinstate restores access",
+      "actual": {
+        "before": 200,
+        "suspend": 200,
+        "recordsAfter": 401,
+        "appointmentsAfter": 401,
+        "login": 403,
+        "reinstate": 200,
+        "recordsAfterReinstate": 200
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-04a",
+      "scenario": "Patient list with search",
+      "expected": "only P04 patients; total matches",
+      "actual": {
+        "total": 2,
+        "emails": [
+          "uat.p04.patienta@uat.mediconnect.lk",
+          "uat.p04.patientb@uat.mediconnect.lk"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-04b",
+      "scenario": "Doctor directory",
+      "expected": "P04 doctors listed with verification and account status",
+      "actual": [
+        [
+          "Dr. P04 Applicant",
+          "APPROVED",
+          "ACTIVE"
+        ],
+        [
+          "Dr. P04 No Registration",
+          "PENDING_ADMIN_APPROVAL",
+          "PENDING"
+        ],
+        [
+          "Dr. P04 Reject",
+          "REJECTED",
+          "PENDING"
+        ],
+        [
+          "Dr. P04 Revoke",
+          "APPROVED",
+          "ACTIVE"
+        ]
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "A-04c",
+      "scenario": "Pagination and status filter",
+      "expected": "page 2 has at most 5 rows; SUSPENDED filter returns only suspended accounts",
+      "actual": {
+        "page2": 5,
+        "suspended": [
+          "SUSPENDED"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-04d",
+      "scenario": "Account status management",
+      "expected": "PENDING cannot be activated by admin (409); self-suspension 400; patient cannot change status (403); changes audited",
+      "actual": {
+        "pendingToActive": 409,
+        "self": 400,
+        "byPatient": 403,
+        "audits": 4
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-04e",
+      "scenario": "Sensitive data not exposed",
+      "expected": "no password hashes, refresh tokens or medical fields in admin user/doctor lists",
+      "actual": {
+        "passwordHash": false,
+        "tokenHash": false,
+        "refreshToken": false,
+        "allergies": false,
+        "diagnosis": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-05c",
+      "scenario": "Null-fee historical appointment (P3-B2)",
+      "expected": "consultationFee null (not 0.0); API 200",
+      "actual": {
+        "fee": null,
+        "type": "IN_PERSON"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-05a",
+      "scenario": "Appointment list",
+      "expected": "total equals MongoDB count",
+      "actual": {
+        "api": 69,
+        "db": 69
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-05e",
+      "scenario": "Status and date filtering",
+      "expected": "same count as MongoDB",
+      "actual": {
+        "api": 3,
+        "db": 3
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-05d",
+      "scenario": "In-person semantics",
+      "expected": "every item IN_PERSON; no video fields",
+      "actual": {
+        "types": [
+          "IN_PERSON"
+        ],
+        "videoFields": []
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "X-03",
+      "scenario": "Patient books and pays -> doctor sees it -> admin sees the payment",
+      "expected": "CONFIRMED/PAID; admin row SUCCEEDED with the same PI, amount and test mode",
+      "actual": {
+        "appointment": [
+          "CONFIRMED",
+          "PAID"
+        ],
+        "admin": {
+          "status": "SUCCEEDED",
+          "amount": 2000.0,
+          "currency": "LKR",
+          "isTestMode": true
+        },
+        "pi": "pi_3Uf\u2026IGeb",
+        "doctorSees": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10b",
+      "scenario": "Doctor cancellation opens a refund request in the admin queue (P3-B3)",
+      "expected": "source doctor; 100% policy; visible with source filter; status requested",
+      "actual": {
+        "cancel": 200,
+        "source": "doctor",
+        "eligible": 2000.0,
+        "paid": 2000.0,
+        "inQueue": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10j0",
+      "scenario": "Refund cannot exceed the captured amount",
+      "expected": "400; nothing sent to Stripe",
+      "actual": {
+        "http": 400,
+        "detail": "The refund cannot exceed the captured amount still refundable.",
+        "stripeRefunds": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10h",
+      "scenario": "Concurrent admin approvals (4 at once)",
+      "expected": "exactly one 200; one Stripe test refund; others 400/409",
+      "actual": {
+        "codes": [
+          200,
+          400,
+          400,
+          400
+        ],
+        "stripeRefunds": 1,
+        "status": "succeeded"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10f",
+      "scenario": "Stripe test-mode refund",
+      "expected": "Stripe refund succeeded on a livemode=false PaymentIntent; amount = captured amount",
+      "actual": {
+        "stripeStatus": "succeeded",
+        "piLivemode": false,
+        "amountMinor": 200000,
+        "captured": 2000.0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10j",
+      "scenario": "Cross-role financial reconciliation after refund",
+      "expected": "Stripe, payment, appointment, patient view and notification agree",
+      "actual": {
+        "payment": [
+          "REFUNDED",
+          2000.0
+        ],
+        "appointmentPayment": "REFUNDED",
+        "patientView": {
+          "paymentStatus": "REFUNDED",
+          "refundStatus": "succeeded",
+          "refundedAmount": 2000.0
+        },
+        "notified": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10g",
+      "scenario": "Duplicate refund prevention",
+      "expected": "re-approval 400; a second request for the same appointment 400; still one Stripe refund",
+      "actual": {
+        "reapprove": 400,
+        "secondRequest": 400,
+        "stripeRefunds": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10d",
+      "scenario": "Admin approval",
+      "expected": "approval moved money only after the admin action; audit REFUND_APPROVAL recorded",
+      "actual": {
+        "audit": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10a",
+      "scenario": "Patient cancellation refund request",
+      "expected": "source patient; existing policy (more than 24 h ahead: 100%)",
+      "actual": {
+        "cancel": 200,
+        "source": "patient",
+        "rule": "Cancelled with more than 24 hours notice; 100% full refund eligible.",
+        "eligible": 2000.0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10e",
+      "scenario": "Admin rejection",
+      "expected": "reject 200; second reject 409; approval after rejection 409; no Stripe refund; patient notified",
+      "actual": {
+        "reject": 200,
+        "again": 409,
+        "approveAfter": 409,
+        "stripeRefunds": 0,
+        "notified": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10c",
+      "scenario": "Leave-related refund request",
+      "expected": "leave cancels the paid booking; refund request source leave, 100%",
+      "actual": {
+        "leave": 201,
+        "appointment": "CANCELLED",
+        "source": "leave",
+        "eligible": 1800.0,
+        "paid": 1800.0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-10i",
+      "scenario": "External refund failure (Stripe rejects the request)",
+      "expected": "502; request failed with the error type; payment not marked refunded; retry fails the same way, nothing invented",
+      "actual": {
+        "approve": 400,
+        "detail": "Refund amount must be greater than 0.",
+        "status": "requested",
+        "failureReason": null,
+        "payment": [
+          "SUCCEEDED",
+          null
+        ],
+        "retry": 400
+      },
+      "status": "FAIL"
+    },
+    {
+      "id": "A-07c",
+      "scenario": "Stripe test-mode reconciliation of every real test PaymentIntent",
+      "expected": "status, amount, currency and refunded amount agree; livemode false",
+      "actual": {
+        "checked": 46,
+        "mismatches": [],
+        "mismatchCount": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-07a",
+      "scenario": "Successful payment retrieval",
+      "expected": "admin list shows the SUCCEEDED/REFUNDED payment with booking reference and test mode",
+      "actual": {
+        "row": {
+          "appointmentId": "6b074d152fc2bc62443bac27",
+          "status": "SUCCEEDED",
+          "isTestMode": true
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-07b",
+      "scenario": "Declined payment (Stripe test card) is not recorded as paid",
+      "expected": "Stripe requires_payment_method; local payment not SUCCEEDED; booking not CONFIRMED",
+      "actual": {
+        "stripe": "requires_payment_method",
+        "local": "FAILED",
+        "appointment": [
+          "PENDING",
+          "PENDING"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-07e",
+      "scenario": "Reconciliation: amount/currency checks and no confirm-the-booking advice",
+      "expected": "no recommendation to confirm a booking; doctor-cancelled refunds classified as awaiting decision",
+      "actual": {
+        "byType": {
+          "CANCELLED_AWAITING_REFUND_DECISION": 7,
+          "CANCELLED_PAID_WITHOUT_REFUND_REQUEST": 1,
+          "MISSING_PAYMENT_EVIDENCE": 1,
+          "DELAYED_PENDING": 3
+        },
+        "unsafeAdvice": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-07d",
+      "scenario": "Duplicate PaymentIntent reference",
+      "expected": "database unique index rejects a second record for the same PI",
+      "actual": {
+        "insert": "DuplicateKeyError"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-07f",
+      "scenario": "Unauthorized payment and booking mutation",
+      "expected": "patients/doctors cannot reconcile or approve refunds (403); admin cannot set a booking status (403)",
+      "actual": {
+        "patientReconcile": 403,
+        "doctorReconcile": 403,
+        "patientApproveRefund": 403,
+        "doctorApproveRefund": 403,
+        "adminStatusChange": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-05f",
+      "scenario": "Payment bypass prevention",
+      "expected": "no admin route confirms an unpaid booking; the status route is doctor-only and payment-checked",
+      "actual": {
+        "adminPut": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-06c",
+      "scenario": "Financial analytics for the last 30 days",
+      "expected": "counts equal MongoDB (Asia/Colombo days); success rate from real attempts; no platform revenue",
+      "actual": {
+        "api": {
+          "succeeded": 30,
+          "failed": 3,
+          "refunded": 7,
+          "successRate": 92.5,
+          "platformRevenue": null
+        },
+        "db": {
+          "succeeded": 30,
+          "failed": 3,
+          "refunded": 7
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-06b",
+      "scenario": "Appointment analytics",
+      "expected": "total equals MongoDB for the same appointment dates",
+      "actual": {
+        "api": 16,
+        "db": 16
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-06a",
+      "scenario": "User/doctor analytics",
+      "expected": "approved/pending/rejected equal MongoDB; no invented specialty",
+      "actual": {
+        "api": {
+          "approvedDoctors": 14,
+          "pendingDoctors": 3,
+          "rejectedDoctors": 2
+        },
+        "db": {
+          "approvedDoctors": 13
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-06d",
+      "scenario": "Date boundaries use Asia/Colombo days",
+      "expected": "today (Colombo) count equals MongoDB with +05:30 bounds",
+      "actual": {
+        "api": 3,
+        "db": 3,
+        "day": "2026-11-26"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-06e",
+      "scenario": "Refund-aware totals",
+      "expected": "net = gross - refunded per currency; refunded includes the Stripe test refund above",
+      "actual": {
+        "LKR": [
+          81800.0,
+          18800.0,
+          63000.0
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-08c",
+      "scenario": "Repeated failed payments signal",
+      "expected": "MULTIPLE_FAILED_PAYMENTS triggered from 3 FAILED payments; explanation says it is not proof; account untouched",
+      "actual": {
+        "http": 200,
+        "rules": [
+          "MULTIPLE_FAILED_PAYMENTS"
+        ],
+        "explanation": "Rule weight total 35.0/100 (MEDIUM). Triggered 1 deterministic rule(s): MULTIPLE_FAILED_PAYMENTS. Supported by 3 event reference(s). These are signals for human",
+        "account": "ACTIVE"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-08b",
+      "scenario": "Duplicate payment reference signal",
+      "expected": "not reachable through the application: the unique PaymentIntent index blocks the data (A-07d)",
+      "actual": {
+        "uniqueIndex": "idx_payments_stripe_pi_unique"
+      },
+      "status": "PASS",
+      "classification": "NOT APPLICABLE (prevented)"
+    },
+    {
+      "id": "A-08a",
+      "scenario": "Supported risk signals only",
+      "expected": "a normal account (bookings, one refund) produces no assessment",
+      "actual": {
+        "http": 200,
+        "body": {
+          "assessmentId": "FRAUD-3BD5B0D55E",
+          "relatedAccountId": "6b074bbf2dc2c96d9c6ec87e",
+          "relatedEntityReference": "ACCOUNT-6b074bbf2dc2c96d9c6ec87e",
+          "riskScore": 55.0,
+          "riskLevel": "HIGH",
+          "triggeredRules": [
+            "RAPID_CANCELLATION_PATTERN",
+            "EXCESSIVE_REFUND_REQUESTS"
+          ],
+          "supportingEventReferences": [
+            "6b074d20381c194ab9948182",
+            "6b074cd92fc2bc62443bac0c",
+            "6b074d152fc2bc62443bac27",
+            "6b074d1e2fc2bc62443bac40",
+            "REF-12A55F23AB",
+            "REF-59949A33C6",
+            "REF-EA54439C1C",
+            "REF-D71DAE06CB"
+          ],
+          "explanation": "Rule weight total 55.0/100 (HIGH). Triggered 2 deterministic rule(s): RAPID_CANCELLATION_PATTERN, EXCESSIVE_REFUND_REQUESTS. Supported by 8 event reference(s). These are signals for human review, not a finding of fraud; no account action is taken automatically.",
+          "reviewStatus": "AWAITING_REVIEW",
+          "investigationNotes": [],
+          "assignedAdminId": null,
+          "createdAt": "2026-11-25T21:03:55.617745Z",
+          "updatedAt": "2026-11-25T21:03:55.617745Z"
+        }
+      },
+      "status": "FAIL"
+    },
+    {
+      "id": "A-08d",
+      "scenario": "False-positive handling",
+      "expected": "admin dismisses; decision audited; no account action",
+      "actual": {
+        "http": 200,
+        "reviewStatus": "DISMISSED",
+        "audited": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-09a",
+      "scenario": "Support ticket creation and retrieval",
+      "expected": "patient creates (201); admin lists it; linking another patient's booking 403",
+      "actual": {
+        "create": 201,
+        "adminSees": true,
+        "otherLink": 422
+      },
+      "status": "FAIL"
+    },
+    {
+      "id": "A-09d",
+      "scenario": "User isolation",
+      "expected": "another patient gets 403 and does not see it in their list",
+      "actual": {
+        "otherPatient": 403,
+        "otherList": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-09e",
+      "scenario": "Draft review (template, not sent)",
+      "expected": "draft returned to the admin only; no message added; no refund promised",
+      "actual": {
+        "draftType": "template",
+        "messages": 1,
+        "promisesRefund": false,
+        "excerpt": "Dear P04 Patient A,\n\nThank you for reaching out regarding your refund request for ticket #TCK-228F6958.\n\nOur administrative team has receive"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-09b",
+      "scenario": "Ticket response",
+      "expected": "reply 200; message stored; requester notified in-app",
+      "actual": {
+        "reply": 200,
+        "notified": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-09c",
+      "scenario": "Ticket resolution",
+      "expected": "status resolved; audited",
+      "actual": {
+        "status": "resolved",
+        "audit": 2
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-11a",
+      "scenario": "Backend health",
+      "expected": "readiness ready; uptime reported as process uptime only",
+      "actual": {
+        "ready": "ready",
+        "uptimeSeconds": 478.1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-11b",
+      "scenario": "Database health",
+      "expected": "MongoDB healthy with measured latency",
+      "actual": {
+        "MongoDB": "healthy"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-11c",
+      "scenario": "Worker status from real heartbeats",
+      "expected": "reminder_care_worker active with a recent heartbeat recorded by the worker itself",
+      "actual": {
+        "reminder_care_worker": [
+          "active",
+          "2026-11-25T21:02:57.984000Z"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-11d",
+      "scenario": "Disabled/unconfigured providers reported truthfully",
+      "expected": "Stripe configured-not-verified; email/SMS/push not configured; AI disabled",
+      "actual": {
+        "MongoDB": "healthy",
+        "Stripe Payments": "configured_not_verified",
+        "Email (SMTP)": "not_configured",
+        "SMS (Twilio)": "not_configured",
+        "Push (FCM)": "not_configured",
+        "AI Providers": "disabled"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-11e",
+      "scenario": "Heartbeat spoofing / failed-job monitoring",
+      "expected": "anonymous heartbeat 401; worker errors recorded as status error (unit-tested)",
+      "actual": {
+        "anonymous": 401
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-12a",
+      "scenario": "In-app delivery counted from stored records",
+      "expected": "in-app delivered > 0; equals stored outbox/reminder records",
+      "actual": {
+        "inApp": {
+          "delivered": 15,
+          "pending": 0,
+          "providerStatus": "in_app_store"
+        },
+        "inAppStored": 245
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-12c",
+      "scenario": "Disabled channels reported, nothing claimed as sent",
+      "expected": "push/email/SMS provider not_configured and 0 delivered",
+      "actual": {
+        "push": [
+          "not_configured",
+          0,
+          0,
+          12
+        ],
+        "email": [
+          "not_configured",
+          0,
+          3,
+          12
+        ],
+        "sms": [
+          "not_configured",
+          0,
+          0,
+          15
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-12b",
+      "scenario": "Failed delivery visible",
+      "expected": "email outbox failures (provider_not_configured) counted as failed with a note",
+      "actual": {
+        "emailFailed": 3,
+        "notes": [
+          "email: provider not configured; 3 failed and 12 skipped. Nothing was sent on this channel.",
+          "sms: provider not configured; 0 failed and 15 skipped. Nothing was sent on this channel.",
+          "push: provider not configured; 0 failed and 12 skipped. Nothing was sent on this channel."
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-12d",
+      "scenario": "Retry handling",
+      "expected": "permanent failures (provider not configured) are not re-queued",
+      "actual": {
+        "first": {
+          "retriedCount": 0,
+          "deadLetteredCount": 0,
+          "cancelledObsoleteCount": 0,
+          "notRetryableCount": 3
+        },
+        "second": {
+          "retriedCount": 0,
+          "deadLetteredCount": 0,
+          "cancelledObsoleteCount": 0,
+          "notRetryableCount": 3
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-12e",
+      "scenario": "Duplicate prevention",
+      "expected": "no idempotency key is stored twice",
+      "actual": {
+        "duplicates": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-13a",
+      "scenario": "Appointment report",
+      "expected": "total equals MongoDB for the same dates",
+      "actual": {
+        "report": 16,
+        "db": 16
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-13b",
+      "scenario": "Financial report reconciles with analytics",
+      "expected": "captured/refunded/net LKR equal the analytics figures; platform revenue null; no platform fee",
+      "actual": {
+        "report": {
+          "capturedAmountLKR": 81800.0,
+          "refundedAmountLKR": 18800.0,
+          "netCollectedLKR": 63000.0,
+          "platformRevenue": null
+        },
+        "analytics": [
+          81800.0,
+          18800.0,
+          63000.0
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-13c",
+      "scenario": "Doctor verification report",
+      "expected": "counts equal MongoDB",
+      "actual": {
+        "report": {
+          "approvedCount": 14,
+          "rejectedCount": 2
+        },
+        "db": [
+          14,
+          2
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-13e",
+      "scenario": "Formula injection prevention",
+      "expected": "formula-like subjects exported with a leading quote; no cell starts with = + - @ tab CR",
+      "actual": {
+        "dangerousCells": [],
+        "quoted": [
+          "'=HYPERLINK(\"http://example.invalid\",\"x\")"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-13d",
+      "scenario": "Export accuracy",
+      "expected": "metric rows and record header present; counts equal the generated report; export audited",
+      "actual": {
+        "header": [
+          "ticketId",
+          "category",
+          "priority",
+          "status",
+          "subject",
+          "createdAt"
+        ],
+        "audit": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-14a",
+      "scenario": "Clinical data access inventory (P3-B4)",
+      "expected": "admin gets no patient clinical content from clinical routes (patientId ignored for non-doctors)",
+      "actual": {
+        "/clinical/records?patientId=6b074bbf2dc2c96d9c6ec87e": {
+          "http": 200,
+          "containsPatientRecord": false
+        },
+        "/clinical/records/summary?patientId=6b074bbf2dc2c96d9c6ec87e": {
+          "http": 200,
+          "containsPatientRecord": false
+        },
+        "/clinical/notes?patientId=6b074bbf2dc2c96d9c6ec87e": {
+          "http": 200,
+          "containsPatientRecord": false
+        },
+        "/clinical/measurements/trends?patientId=6b074bbf2dc2c96d9c6ec87e": {
+          "http": 200,
+          "containsPatientRecord": false
+        },
+        "/medical-records/me": {
+          "http": 200,
+          "containsPatientRecord": false
+        },
+        "/prescriptions/me": {
+          "http": 200,
+          "containsPatientRecord": false
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-14b",
+      "scenario": "Object-level authorization",
+      "expected": "admin appointment detail allowed (operational); other patient 403; unrelated doctor 403",
+      "actual": {
+        "admin": 200,
+        "otherPatient": 403,
+        "unrelatedDoctor": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-14c",
+      "scenario": "Sensitive-data redaction",
+      "expected": "monitored payments mask patient names; no card data",
+      "actual": {
+        "cardFields": []
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-14d",
+      "scenario": "Admin action audit",
+      "expected": "approvals, rejections, status changes, refunds, fraud reviews, report exports audited with actor/target/time/result",
+      "actual": {
+        "actionTypes": [
+          "DOCTOR_VERIFICATION_DECISION",
+          "FRAUD_REVIEW_DECISION",
+          "REFUND_APPROVAL",
+          "REFUND_REJECTION",
+          "REPORT_EXPORTED",
+          "REPORT_GENERATED",
+          "SUPPORT_RESPONSE_SENT",
+          "SUPPORT_TICKET_RESOLVED",
+          "USER_STATUS_CHANGE"
+        ],
+        "sampleFields": [
+          "actionType",
+          "actorEmail",
+          "actorId",
+          "actorRole",
+          "auditId",
+          "correlationId",
+          "metadata",
+          "newState",
+          "previousState",
+          "reason",
+          "status",
+          "targetId",
+          "targetType",
+          "timestamp"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-14e",
+      "scenario": "Unauthorized audit modification",
+      "expected": "no write route exists (404/405); patients cannot read audit logs (403)",
+      "actual": {
+        "PUT": 404,
+        "PATCH": 404,
+        "DELETE": 404,
+        "patientRead": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-15c",
+      "scenario": "Prompt injection resistance",
+      "expected": "only a read-only tool runs; no refund or doctor state changes",
+      "actual": {
+        "tool": "get_pending_doctor_verifications",
+        "refundsBefore": {
+          "requested": 7,
+          "succeeded": 5,
+          "rejected": 1,
+          "failed": 0
+        },
+        "refundsAfter": {
+          "requested": 7,
+          "succeeded": 5,
+          "rejected": 1,
+          "failed": 0
+        },
+        "pendingDoctorsUnchanged": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-15a",
+      "scenario": "Admin AI role validation",
+      "expected": "patients and doctors 403 on admin assistants",
+      "actual": {
+        "patient": 403,
+        "doctor": 403,
+        "monitorPatient": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-15b",
+      "scenario": "Answers use authorized tools only; no invented revenue",
+      "expected": "tool get_admin_dashboard_metrics; reply states gross/refunded/net and that platform revenue is not calculated",
+      "actual": {
+        "tool": "get_admin_dashboard_metrics",
+        "reply": "LKR: gross collections 9,700.00, refunded 4,000.00, net collections 5,700.00 for 2026-11-26 to 2026-11-26 (Asia/Colombo). Gross collections are patient payments, not platform profit. No platform fee or doctor payout mode"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-15d",
+      "scenario": "Human confirmation requirement",
+      "expected": "no admin AI tool changes state; approvals happen only through explicit admin endpoints",
+      "actual": {
+        "assistantTools": "read-only registry (ADMIN_ROLES)",
+        "refundsChangedByAssistant": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-15e",
+      "scenario": "AI provider failure / disabled handling",
+      "expected": "provider status reported as not configured, not healthy",
+      "actual": {
+        "reply": "AI Provider Status: NOT_CONFIGURED (Circuit Breaker: CLOSED).\n\u2022 Total Requests: 0\n\u2022 Average Latency: 0.0 ms\n\u2022 Fallback Activations: 0\nWhen no provider answers, "
+      },
+      "status": "PASS"
+    }
+  ],
+  "run": "8df967",
+  "fixtureReset": [
+    "uat.p04.doctor.applicant",
+    "uat.p04.doctor.reject"
+  ],
+  "startedAt": "2026-11-25T21:03:11.542669+00:00",
+  "stripeReconciliation": {
+    "checked": 46,
+    "mismatches": []
+  },
+  "finishedAt": "2026-11-25T21:03:56.304123+00:00",
+  "summary": {
+    "total": 90,
+    "passed": 87,
+    "failed": [
+      "A-10i",
+      "A-08a",
+      "A-09a"
+    ]
+  }
+}

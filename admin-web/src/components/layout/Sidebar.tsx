@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
+import { API_BASE_URL } from '../../api/client';
 import {
   LayoutDashboard,
   UserCheck,
@@ -47,6 +48,14 @@ const navigationItems = [
   { name: 'Platform Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings & Profile', href: '/settings', icon: Settings },
 ];
+
+function apiHost(url: string): string {
+  try {
+    return new URL(url, window.location.origin).host;
+  } catch {
+    return url;
+  }
+}
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   // Listen for Escape key to close mobile sidebar
@@ -137,11 +146,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         {/* Security & System Info Footer */}
         <div className="border-t border-slate-100 p-4 bg-slate-50/60">
           <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
-              <p className="text-[11px] font-semibold text-slate-700">Production API v1.0</p>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-0.5">Role: Super Administrator</p>
+            {/* Was a hard-coded "Production API v1.0" with a green dot and "Super Administrator" (P04-N21). It now
+                names the API host this build talks to; health is shown on the Monitoring page, not here. */}
+            <p className="text-[11px] font-semibold text-slate-700 truncate" title={API_BASE_URL}>
+              API: {apiHost(API_BASE_URL)}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Role: Administrator</p>
           </div>
         </div>
       </aside>

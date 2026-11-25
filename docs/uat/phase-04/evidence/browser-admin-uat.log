@@ -1,0 +1,14 @@
+PASS A-16a1 Dashboard in a real browser against the UAT backend | {"hasNet":true,"hasGross":true,"revenueWord":false,"realtime":false}
+PASS A-16a Navigate all 16 admin pages | {"dashboard":{"errors":0,"errorBoundary":0},"doctor-approvals":{"errors":0,"errorBoundary":0},"reconciliation":{"errors":0,"errorBoundary":0},"refunds":{"errors":0,"errorBoundary":0},"support-tickets":{"errors":0,"errorB
+PASS A-05c-ui Appointments page with the null-fee historical record (P3-B2) | {"feeCells":["Not available"],"pageErrors":0}
+PASS A-16b Table search and filters (users) | {"rows":2,"sample":["P04 Patient A","P04 Patient B"]}
+PASS A-16d Confirmation before suspending an account | {"dialog":"Suspend User Account\nAre you sure you want to change the status of P04 Patient A (uat.p04.patienta@uat.mediconnect.lk) t"}
+PASS A-16f Refund approval from the browser: validation, single submission, Stripe result shown | {"leaveRows":2,"source":true,"overLimitDisabled":true,"alert":"The refund cannot exceed the captured payment (LKR 1,800.00).","approvePosts":1}
+PASS A-16e Error state instead of a misleading empty list | {"emptyShown":0}
+PASS A-11-ui Monitoring page states | {"configuredNotVerified":true,"notConfigured":true,"disabled":true,"uptimePct":false}
+PASS A-13-ui Report types offered | {"offered":["Daily Appointment Operations","Payments & Collections (gross, refunded, net)","Doctor Verification & Credentialing Backlog","Customer Support Ticket Resolution","Refund Status & Cancellation Settlements"]}
+PASS A-16c Responsive layout at 390 px | {"dashboard":0,"refunds":0,"appointments":0}
+PASS A-01c-ui Invalid/expired session in the browser | {"url":"/login?expired=1"}
+PASS A-01d-ui Patient login to the admin app | {"url":"/login","message":"MediConnect Admin\n\nSecure clinical administration and operations console\n\nAccess denied: You must hold the ADMIN role to access this portal."}
+PASS A-17b-ui Browser network stayed local | {"blockedHosts":["fonts.googleapis.com"]}
+SUMMARY {"total":13,"passed":13,"failed":[]}

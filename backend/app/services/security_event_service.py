@@ -1,5 +1,6 @@
 """Security Event Service: Logs, queries, and audits security events with strict PII sanitization."""
 
+from app.utils.mongo_documents import document_for_insert
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -65,7 +66,7 @@ class SecurityEventService:
             timestamp=utc_now(),
         )
 
-        db["security_events"].insert_one(event.model_dump(by_alias=True))
+        db["security_events"].insert_one(document_for_insert(event))  # never "_id": None (P04-N20)
         return event
 
     @classmethod

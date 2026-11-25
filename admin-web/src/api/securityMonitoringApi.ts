@@ -2,18 +2,20 @@ import { apiClient } from './client';
 
 export interface DependencyHealth {
   name: string;
-  status: 'healthy' | 'degraded' | 'unavailable' | 'unconfigured';
+  status: 'healthy' | 'degraded' | 'unavailable' | 'not_configured' | 'configured_not_verified' | 'disabled' | 'unknown';
   latencyMs?: number;
   message?: string;
 }
 
 export interface WorkerHeartbeat {
   workerName: string;
-  status: 'active' | 'stale' | 'stopped';
-  lastHeartbeat: string;
-  lastDurationSeconds: number;
-  pendingJobCount: number;
-  failedJobCount: number;
+  status: 'active' | 'stale' | 'error' | 'not_reported';
+  lastHeartbeat: string | null;
+  lastDurationSeconds: number | null;
+  pendingJobCount: number | null;
+  failedJobCount: number | null;
+  lastError?: string | null;
+  lastSuccessAt?: string | null;
 }
 
 export interface PlatformHealthResponse {
@@ -92,10 +94,18 @@ export interface NotificationMetrics {
     failed: number;
     retryScheduled: number;
     deadLettered: number;
+    skipped?: number;
+    uncertain?: number;
     total: number;
+    providerStatus?: string | null;
+    statusCounts?: Record<string, number>;
   }>;
   totalBacklog: number;
-  failureRatePercent: number;
+  /** null when nothing was attempted. */
+  failureRatePercent: number | null;
+  notes?: string[];
+  inAppStored?: number;
+  inAppUnread?: number;
   deadLetterQueueCount: number;
 }
 

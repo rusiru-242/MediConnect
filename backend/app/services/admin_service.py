@@ -10,6 +10,8 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
+from app.models.admin_audit import AdminAuditAction
+from app.services.admin_audit_service import AdminAuditService
 from app.config.settings import settings
 from app.models.doctor_profile import DoctorVerificationStatus, utc_now
 from app.models.user import AccountStatus, UserRole
@@ -42,6 +44,14 @@ DOCUMENT_TITLES = {
     "medicalRegistrationDocument": "Medical Registration Document",
     "qualificationDocument": "Qualification Document",
 }
+
+
+def _locked_fee(appt: Dict[str, Any]) -> Optional[float]:
+    """The fee locked at booking, or None when unknown. Never an invented 0.00 (P04-N03 / P3-B2)."""
+    if isinstance(appt.get("acceptedAmountMinor"), int):
+        return appt["acceptedAmountMinor"] / 100
+    from app.agents.doctor_ranking import coerce_fee
+    return coerce_fee(appt.get("consultationFee"))
 
 
 class AdminService:
@@ -339,6 +349,14 @@ class AdminService:
                 detail="Doctor's email must be verified before the application can be approved.",
             )
 
+        # Clinical workflows (note signing, prescriptions) need the doctor's real registration number, so an
+        # application without one cannot be approved (P04-N08). It is never generated.
+        if not str(profile.get("medicalRegistrationNumber") or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot approve an application without a medical registration number.",
+            )
+
         # Validate professional documents exist
         docs = profile.get("verificationDocuments", {})
         required_keys = {"identityDocument", "medicalRegistrationDocument", "qualificationDocument"}
@@ -386,6 +404,15 @@ class AdminService:
             },
         )
 
+        AdminAuditService.log_action(
+            db=db, actor_id=str(admin_user_id), actor_role="ADMIN",
+            action_type=AdminAuditAction.DOCTOR_VERIFICATION_DECISION, target_id=str(prof_oid),
+            target_type="doctor_profile", previous_state=current_status,
+            new_state=DoctorVerificationStatus.APPROVED.value, reason="Approved by administrator",
+            metadata={"doctorUserId": str(user["_id"]), "decision": "approve",
+                      "registrationNumberOfficiallyVerified": False},
+        )
+
         # Dispatch approval email with doctor's personal details and login portal link
         login_url = settings.DOCTOR_PORTAL_URL or "https://mediconnect-admin-staging.vercel.app/login"
         try:
@@ -409,7 +436,8 @@ class AdminService:
                 recipient_user_id=str(user["_id"]),
                 type=NotificationType.SYSTEM,
                 title="Doctor Application Approved",
-                body=f"Congratulations Dr. {user.get('fullName', 'Doctor')}! Your medical credentials have been verified and approved. You now have full clinical access.",
+                body="Your MediConnect doctor application has been approved by an administrator. You can now sign in "
+                     "and manage your schedule and appointments.",
             )
         except Exception as exc:
             logger.warning("Failed to create in-app notification for approved doctor: %s", exc)
@@ -477,6 +505,14 @@ class AdminService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Application status was modified by another administrator.",
             )
+
+        AdminAuditService.log_action(
+            db=db, actor_id=str(admin_user_id), actor_role="ADMIN",
+            action_type=AdminAuditAction.DOCTOR_VERIFICATION_DECISION, target_id=str(prof_oid),
+            target_type="doctor_profile", previous_state=current_status,
+            new_state=DoctorVerificationStatus.REJECTED.value, reason=clean_reason,
+            metadata={"doctorUserId": str(profile.get("userId")), "decision": "reject"},
+        )
 
         # Notify doctor via email and in-app notification
         user_id_val = profile.get("userId")
@@ -604,8 +640,9 @@ class AdminService:
         user_id: str,
         new_status: str,
         admin_user_id: str,
+        reason: Optional[str] = None,
     ) -> AdminActionResponse:
-        """Modify user account status (ACTIVE, SUSPENDED, DEACTIVATED). Prevents self-modification."""
+        """Suspend or reinstate an account. Prevents self-modification; audited."""
         if str(user_id) == str(admin_user_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -613,11 +650,13 @@ class AdminService:
             )
 
         clean_status = (new_status or "").strip().upper()
-        valid_statuses = {s.value for s in AccountStatus}
-        if clean_status not in valid_statuses:
+        # Admins suspend and reinstate accounts. PENDING belongs to registration (email verification and doctor
+        # review); setting an account ACTIVE from PENDING would skip those checks (P04-N08).
+        allowed = {AccountStatus.ACTIVE.value, AccountStatus.SUSPENDED.value}
+        if clean_status not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Invalid account status '{new_status}'. Allowed: {', '.join(sorted(valid_statuses))}",
+                detail=f"Invalid account status '{new_status}'. Allowed: ACTIVE, SUSPENDED",
             )
 
         u_oid = AdminService._parse_object_id(user_id, "User")
@@ -627,11 +666,31 @@ class AdminService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User account not found.",
             )
+        previous = user.get("accountStatus")
+        if previous == clean_status:
+            return AdminActionResponse(message=f"User account status is already {clean_status}.")
+        if clean_status == AccountStatus.ACTIVE.value and previous != AccountStatus.SUSPENDED.value:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only a suspended account can be reinstated. Pending accounts must finish registration.",
+            )
 
         now = utc_now()
-        db["users"].update_one(
-            {"_id": u_oid},
+        changed = db["users"].update_one(
+            {"_id": u_oid, "accountStatus": previous},
             {"$set": {"accountStatus": clean_status, "updatedAt": now}},
+        )
+        if not changed.matched_count:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="The account status changed. Refresh and try again.")
+        if clean_status == AccountStatus.SUSPENDED.value:
+            # Access tokens already stop working on the next request (the auth middleware reads the account);
+            # refresh tokens are revoked as well so no new session can be issued.
+            db["refresh_tokens"].update_many({"userId": str(u_oid), "revokedAt": None}, {"$set": {"revokedAt": now}})
+        AdminAuditService.log_action(
+            db=db, actor_id=str(admin_user_id), actor_role="ADMIN", action_type=AdminAuditAction.USER_STATUS_CHANGE,
+            target_id=str(u_oid), target_type="user", previous_state=previous, new_state=clean_status,
+            reason=(reason or "").strip() or None, metadata={"role": user.get("role")},
         )
 
         return AdminActionResponse(message=f"User account status updated to {clean_status}.")
@@ -808,6 +867,10 @@ class AdminService:
         ]
         profs_cursor = db["doctor_profiles"].find({"_id": {"$in": doc_prof_ids}})
         profs_by_id = {str(p["_id"]): p for p in profs_cursor}
+        refunds_by_appt: Dict[str, Any] = {}
+        for r in db["refund_requests"].find({"appointmentId": {"$in": [str(a["_id"]) for a in raw_appointments]}},
+                                            {"appointmentId": 1, "status": 1, "refundId": 1, "createdAt": 1}).sort("createdAt", 1):
+            refunds_by_appt[r["appointmentId"]] = r  # latest request wins
 
         items: List[AdminAppointmentItem] = []
         for a in raw_appointments:
@@ -822,11 +885,11 @@ class AdminService:
             p_name = patient.get("fullName", "Patient")
             p_email = patient.get("email", "")
             d_name = doctor.get("fullName", "Doctor")
-            d_spec = profile.get("specialty", "General Medicine")
+            d_spec = profile.get("specialty") or None
 
             if search and search.strip():
                 term = search.strip().lower()
-                combined = f"{p_name} {p_email} {d_name} {d_spec} {a.get('appointmentDate', '')}".lower()
+                combined = f"{p_name} {p_email} {d_name} {d_spec or ''} {a.get('appointmentDate', '')} {a['_id']}".lower()
                 if term not in combined:
                     continue
 
@@ -850,7 +913,11 @@ class AdminService:
                     endTime=a.get("endTime", ""),
                     status=a.get("status", "PENDING"),
                     paymentStatus=a.get("paymentStatus", "UNPAID"),
-                    consultationFee=float(a.get("consultationFee") or 0.0),
+                    consultationFee=_locked_fee(a),
+                    currency=(a.get("bookingCurrency") or "").upper() or None,
+                    consultationType="IN_PERSON",
+                    refundStatus=(refunds_by_appt.get(str(a["_id"])) or {}).get("status"),
+                    refundId=(refunds_by_appt.get(str(a["_id"])) or {}).get("refundId"),
                     patientNote=a.get("patientNote"),
                     cancellationReason=a.get("cancellationReason"),
                     cancelledBy=a.get("cancelledBy"),
@@ -894,6 +961,12 @@ class AdminService:
         if currency and currency.strip().upper() != "ALL":
             query["currency"] = currency.strip().lower()
 
+        # The date filters were accepted but ignored before Phase 04 (P04-N04). Asia/Colombo days, by paidAt
+        # (createdAt for payments that were never paid).
+        from app.services.financial_metrics import payment_time_query, platform_range
+        start_dt, end_dt, _, _ = platform_range(start_date, end_date)
+        query.update(payment_time_query(start_dt, end_dt))
+
         raw_payments = list(db["payments"].find(query).sort("createdAt", -1))
         if not raw_payments:
             return AdminPaymentListResponse(items=[], total=0, page=page, pageSize=page_size, totalPages=1)
@@ -909,6 +982,8 @@ class AdminService:
 
         users_cursor = db["users"].find({"_id": {"$in": list(user_ids_set)}})
         users_by_id = {str(u["_id"]): u for u in users_cursor}
+        key_is_test = (settings.STRIPE_SECRET_KEY or "").startswith("sk_test_")
+        from app.services.financial_metrics import payment_refunded_amount
 
         items: List[AdminPaymentItem] = []
         for p in raw_payments:
@@ -928,8 +1003,11 @@ class AdminService:
             if isinstance(p_at, datetime) and p_at.tzinfo is None:
                 p_at = p_at.replace(tzinfo=timezone.utc)
 
-            intent_id = p.get("stripePaymentIntentId", "")
-            is_test = "test" in intent_id.lower() or intent_id.startswith("mock_") or True
+            intent_id = p.get("stripePaymentIntentId") or ""
+            # Was "... or True": every payment was reported as test mode. A recorded payment is verified against the
+            # configured key and a livemode mismatch is rejected, so the key's mode is the payment's mode; a stored
+            # livemode flag, when present, wins.
+            is_test = (not p["livemode"]) if isinstance(p.get("livemode"), bool) else key_is_test
 
             items.append(
                 AdminPaymentItem(
@@ -944,6 +1022,8 @@ class AdminService:
                     currency=(p.get("currency") or "lkr").upper(),
                     status=p.get("status", "PENDING"),
                     isTestMode=is_test,
+                    refundedAmount=payment_refunded_amount(p) if p.get("status") in ("SUCCEEDED", "REFUNDED") else 0.0,
+                    reconciliationState=p.get("reconciliationState"),
                     failureReason=p.get("failureReason"),
                     paidAt=p_at,
                     createdAt=c_at,

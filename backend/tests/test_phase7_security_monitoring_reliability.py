@@ -215,7 +215,9 @@ def test_fraud_risk_scoring_and_review_workflow(sec_env):
     for _ in range(3):
         db["payments"].insert_one({
             "patientUserId": pat_a["id"],
-            "status": "failed",
+            # P04-N12: payments are stored with the upper-case PaymentStatus value. The fixture used "failed",
+            # which the payment service never writes; the rule queried the same wrong value, so both were wrong.
+            "status": "FAILED",
             "amount": 2500,
             "createdAt": utc_now(),
         })
@@ -277,8 +279,14 @@ def test_platform_health_endpoints_and_worker_heartbeats(sec_env):
     assert res_ready.json()["status"] == "ready"
 
     # 3. Record Worker Heartbeat
+    # P04-N13: the heartbeat endpoint now requires an administrator; an anonymous caller could fake worker health.
+    res_anon = client.post(
+        "/api/security/monitoring/workers/heartbeat?workerName=appointment_reminder_worker&jobCount=12&durationSeconds=0.45",
+    )
+    assert res_anon.status_code == 401
     res_hb = client.post(
         "/api/security/monitoring/workers/heartbeat?workerName=appointment_reminder_worker&jobCount=12&durationSeconds=0.45",
+        headers=admin["headers"],
     )
     assert res_hb.status_code == 200
 
