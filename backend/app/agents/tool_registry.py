@@ -264,7 +264,6 @@ class AdminRefundArgs(Arguments):
 class AdminReportArgs(Arguments):
     report_type: Literal[
         "daily_appointment",
-        "weekly_booking",
         "monthly_payment",
         "doctor_verification_backlog",
         "support_ticket_resolution",

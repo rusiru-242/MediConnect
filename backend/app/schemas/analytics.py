@@ -23,10 +23,14 @@ class TrendDataPoint(BaseModel):
 class CurrencyRevenue(BaseModel):
     """Revenue totals per currency."""
     currency: str = Field(..., description="ISO currency code (e.g. 'lkr', 'usd')")
-    grossAmount: float = Field(0.0, description="Gross succeeded payment amount")
-    refundedAmount: float = Field(0.0, description="Total refunded amount")
-    netAmount: float = Field(0.0, description="Net earned revenue (gross - refunded)")
-    paymentCount: int = Field(0, description="Count of succeeded transactions")
+    grossAmount: float = Field(0.0, description="Gross collections: captured payments (SUCCEEDED or REFUNDED)")
+    refundedAmount: float = Field(0.0, description="Money returned on those payments (full and partial refunds)")
+    netAmount: float = Field(0.0, description="Net collections (gross - refunded). Not platform profit.")
+    paymentCount: int = Field(0, description="Count of captured payments")
+    partiallyRefundedCount: int = 0
+    fullyRefundedCount: int = 0
+    pendingRefundAmount: float = Field(0.0, description="Amount set for refund requests that are still open")
+    pendingRefundCount: int = 0
 
 
 class SpecialtyCountItem(BaseModel):
@@ -60,14 +64,29 @@ class OverviewTotalsSchema(BaseModel):
     totalAppointments: int = 0
     completedAppointments: int = 0
     cancelledAppointments: int = 0
+    confirmedAppointments: int = 0
+    pendingAppointments: int = 0
+    rejectedDoctorApplications: int = 0
+    activeApprovedDoctors: int = Field(0, description="Approved doctors whose account is ACTIVE (bookable)")
+    suspendedDoctors: int = 0
 
 
 class PaymentRevenueBreakdownSchema(BaseModel):
     """Payment transaction counts and revenue map per currency."""
-    totalRevenueByCurrency: Dict[str, float] = Field(default_factory=dict)
+    totalRevenueByCurrency: Dict[str, float] = Field(
+        default_factory=dict, description="Kept for compatibility: net collections per currency (not profit)")
+    netCollectedByCurrency: Dict[str, float] = Field(default_factory=dict)
+    capturedByCurrency: Dict[str, float] = Field(default_factory=dict)
+    refundedByCurrency: Dict[str, float] = Field(default_factory=dict)
+    pendingRefundsByCurrency: Dict[str, float] = Field(default_factory=dict)
+    pendingRefundRequests: int = 0
     succeededTransactions: int = 0
+    refundedTransactions: int = 0
     failedTransactions: int = 0
     pendingTransactions: int = 0
+    paymentSuccessRate: Optional[float] = Field(None, description="None when no payment was attempted")
+    platformRevenue: Optional[float] = Field(None, description="Not calculated: no platform fee model is configured")
+    note: Optional[str] = None
 
 
 class RecentActivityItemSchema(BaseModel):
@@ -106,6 +125,7 @@ class AnalyticsOverviewResponse(BaseModel):
 
     startDate: Optional[str] = None
     endDate: Optional[str] = None
+    timezone: str = "Asia/Colombo"
     generatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Structured nested fields expected by admin-web
@@ -161,6 +181,12 @@ class PaymentAnalyticsResponse(BaseModel):
     totalTransactions: int = 0
     succeededCount: int = 0
     failedCount: int = 0
+    pendingCount: int = 0
+    cancelledCount: int = 0
+    paymentSuccessRate: Optional[float] = None
+    platformRevenue: Optional[float] = None
+    note: Optional[str] = None
+    timezone: str = "Asia/Colombo"
     dailyTrends: List[Dict[str, Any]] = Field(default_factory=list)
 
 
@@ -171,8 +197,8 @@ class DoctorAnalyticsResponse(BaseModel):
     pendingDoctors: int = 0
     rejectedDoctors: int = 0
     specialtyDistribution: List[SpecialtyCountItem] = Field(default_factory=list)
-    averageExperienceYears: float = 0.0
-    averageConsultationFee: float = 0.0
+    averageExperienceYears: Optional[float] = None
+    averageConsultationFee: Optional[float] = None
 
 
 class ContentAnalyticsResponse(BaseModel):

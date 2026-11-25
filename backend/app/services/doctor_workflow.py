@@ -181,10 +181,12 @@ def financials(db, user, start, end):
             bucket("lkr")["bookedFees"] += float(appt["consultationFee"])
     for pay in db.payments.find({"appointmentId": {"$in": ids}, "doctorUserId": str(user.id),
                                  "status": {"$in": ["SUCCEEDED", "REFUNDED"]}},
-                                {"amount": 1, "currency": 1, "refundedAmount": 1}):
+                                {"amount": 1, "currency": 1, "refundedAmount": 1, "status": 1}):
+        from app.services.financial_metrics import payment_refunded_amount
         row = bucket(pay.get("currency"))
         row["paid"] += float(pay.get("amount") or 0)
-        row["refunded"] += float(pay.get("refundedAmount") or 0)
+        # A REFUNDED payment without refundedAmount (admin reconcile-refund path) was refunded in full (P04-N05).
+        row["refunded"] += payment_refunded_amount(pay)
     for row in money.values():
         row["netCollected"] = round(row["paid"] - row["refunded"], 2)
         for key in ("bookedFees", "paid", "refunded"):

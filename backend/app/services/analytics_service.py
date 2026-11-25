@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
+from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
@@ -12,7 +13,8 @@ from app.models.appointment import AppointmentStatus, get_appointment_collection
 from app.models.doctor_profile import DoctorVerificationStatus, get_doctor_profile_collection
 from app.models.health_content import ContentStatus, SUPPORTED_CATEGORIES, get_content_bookmark_collection, get_health_content_collection
 from app.models.payment import PaymentStatus, get_payment_collection
-from app.models.user import UserRole, get_user_collection
+from app.models.user import AccountStatus, UserRole, get_user_collection
+from app.services.financial_metrics import NO_REVENUE_MODEL_NOTE, payment_time_query, platform_financials, platform_range
 from app.schemas.analytics import (
     AnalyticsOverviewResponse,
     AppointmentAnalyticsResponse,
@@ -41,53 +43,27 @@ class AnalyticsService:
     def _parse_date_range(
         cls, start_date: Optional[str], end_date: Optional[str]
     ) -> Tuple[Optional[datetime], Optional[datetime], Optional[str], Optional[str]]:
-        """Validate and parse ISO/YYYY-MM-DD date strings into UTC datetimes."""
-        date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+        """Validate YYYY-MM-DD dates and return Asia/Colombo calendar-day bounds in UTC (P04-N06).
 
-        parsed_start = None
-        parsed_end = None
+        Before Phase 04 the bounds were UTC midnights, so a payment made at 03:00 in Sri Lanka was counted on the
+        previous day.
+        """
+        return platform_range(start_date, end_date)
 
-        if start_date:
-            s = start_date.strip()
-            if not date_pattern.match(s):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid startDate format. Expected YYYY-MM-DD.",
-                )
-            try:
-                parsed_start = datetime.strptime(s, "%Y-%m-%d").replace(
-                    hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc
-                )
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid startDate value. Expected valid YYYY-MM-DD calendar date.",
-                )
-
-        if end_date:
-            e = end_date.strip()
-            if not date_pattern.match(e):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid endDate format. Expected YYYY-MM-DD.",
-                )
-            try:
-                parsed_end = datetime.strptime(e, "%Y-%m-%d").replace(
-                    hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
-                )
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid endDate value. Expected valid YYYY-MM-DD calendar date.",
-                )
-
-        if parsed_start and parsed_end and parsed_start > parsed_end:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="startDate cannot be after endDate.",
-            )
-
-        return parsed_start, parsed_end, start_date, end_date
+    @staticmethod
+    def _currency_rows(fin: Dict[str, Any]) -> List[CurrencyRevenue]:
+        rows = []
+        currencies = sorted(set(fin["byCurrency"]) | set(fin["pendingRefunds"])) or ["lkr"]
+        for cur in currencies:
+            c = fin["byCurrency"].get(cur, {})
+            pend = fin["pendingRefunds"].get(cur, {})
+            rows.append(CurrencyRevenue(
+                currency=cur, grossAmount=c.get("capturedAmount", 0.0), refundedAmount=c.get("refundedAmount", 0.0),
+                netAmount=c.get("netCollected", 0.0), paymentCount=c.get("capturedCount", 0),
+                partiallyRefundedCount=c.get("partiallyRefundedCount", 0),
+                fullyRefundedCount=c.get("fullyRefundedCount", 0),
+                pendingRefundAmount=pend.get("amount", 0.0), pendingRefundCount=pend.get("count", 0)))
+        return rows
 
     @classmethod
     def _is_test_payment(cls, stripe_pi_id: str) -> bool:
@@ -123,30 +99,25 @@ class AnalyticsService:
         total_verified_doctors = doc_coll.count_documents(
             {"verificationStatus": DoctorVerificationStatus.APPROVED.value}
         )
-        pending_doctors = doc_coll.count_documents(
-            {"verificationStatus": DoctorVerificationStatus.PENDING.value}
-        )
+        pending_doctors = doc_coll.count_documents({"verificationStatus": {"$in": [
+            DoctorVerificationStatus.PENDING.value, DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+            DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value]}})
+        approved_user_ids = [str(d.get("userId")) for d in doc_coll.find(
+            {"verificationStatus": DoctorVerificationStatus.APPROVED.value}, {"userId": 1})]
+        approved_oids = [ObjectId(u) for u in approved_user_ids if ObjectId.is_valid(u)]
+        active_approved = users_coll.count_documents({"_id": {"$in": approved_oids},
+                                                      "accountStatus": AccountStatus.ACTIVE.value})
+        suspended_doctors = users_coll.count_documents({"role": UserRole.DOCTOR.value,
+                                                        "accountStatus": AccountStatus.SUSPENDED.value})
         rejected_doctors = doc_coll.count_documents(
             {"verificationStatus": DoctorVerificationStatus.REJECTED.value}
         )
 
-        # Appointments filter
+        # Appointments are placed in a range by their (Asia/Colombo) appointment date only; mixing createdAt and
+        # appointmentDate counted the same booking under two different meanings.
         appt_query: Dict[str, Any] = {}
-        if parsed_start and parsed_end:
-            appt_query["$or"] = [
-                {"createdAt": {"$gte": parsed_start, "$lte": parsed_end}},
-                {"appointmentDate": {"$gte": s_str, "$lte": e_str}},
-            ]
-        elif parsed_start:
-            appt_query["$or"] = [
-                {"createdAt": {"$gte": parsed_start}},
-                {"appointmentDate": {"$gte": s_str}},
-            ]
-        elif parsed_end:
-            appt_query["$or"] = [
-                {"createdAt": {"$lte": parsed_end}},
-                {"appointmentDate": {"$lte": e_str}},
-            ]
+        if s_str or e_str:
+            appt_query["appointmentDate"] = {**({"$gte": s_str} if s_str else {}), **({"$lte": e_str} if e_str else {})}
 
         total_appts = appt_coll.count_documents(appt_query)
         confirmed_appts = appt_coll.count_documents({**appt_query, "status": AppointmentStatus.CONFIRMED.value})
@@ -154,64 +125,16 @@ class AnalyticsService:
         cancelled_appts = appt_coll.count_documents({**appt_query, "status": AppointmentStatus.CANCELLED.value})
         pending_appts = appt_coll.count_documents({**appt_query, "status": AppointmentStatus.PENDING.value})
 
-        # Payments & Revenue accounting
-        pay_query: Dict[str, Any] = {}
-        if parsed_start and parsed_end:
-            pay_query["createdAt"] = {"$gte": parsed_start, "$lte": parsed_end}
-        elif parsed_start:
-            pay_query["createdAt"] = {"$gte": parsed_start}
-        elif parsed_end:
-            pay_query["createdAt"] = {"$lte": parsed_end}
+        # Money: one authoritative calculation (P04-N05). Gross collections include refunded payments, refunds
+        # include partial refunds, and nothing is presented as platform revenue.
+        fin = platform_financials(db, parsed_start, parsed_end)
+        currencies_rev = cls._currency_rows(fin)
+        pay_query = payment_time_query(parsed_start, parsed_end)
+        successful_count = fin["paymentCounts"]["SUCCEEDED"]
 
-        # Revenue grouping by currency (SUCCEEDED vs REFUNDED)
-        pipeline = [
-            {"$match": {**pay_query, "status": {"$in": [PaymentStatus.SUCCEEDED.value, PaymentStatus.REFUNDED.value]}}},
-            {
-                "$group": {
-                    "_id": "$currency",
-                    "grossAmount": {
-                        "$sum": {
-                            "$cond": [{"$eq": ["$status", PaymentStatus.SUCCEEDED.value]}, "$amount", 0.0]
-                        }
-                    },
-                    "refundedAmount": {
-                        "$sum": {
-                            "$cond": [{"$eq": ["$status", PaymentStatus.REFUNDED.value]}, "$amount", 0.0]
-                        }
-                    },
-                    "paymentCount": {
-                        "$sum": {
-                            "$cond": [{"$eq": ["$status", PaymentStatus.SUCCEEDED.value]}, 1, 0]
-                        }
-                    },
-                }
-            },
-        ]
-        rev_results = list(pay_coll.aggregate(pipeline))
-        currencies_rev = []
-        for r in rev_results:
-            cur = (r["_id"] or "lkr").lower()
-            gross = float(r.get("grossAmount", 0.0))
-            refunded = float(r.get("refundedAmount", 0.0))
-            net = max(0.0, round(gross - refunded, 2))
-            currencies_rev.append(
-                CurrencyRevenue(
-                    currency=cur,
-                    grossAmount=round(gross, 2),
-                    refundedAmount=round(refunded, 2),
-                    netAmount=net,
-                    paymentCount=int(r.get("paymentCount", 0)),
-                )
-            )
-
-        if not currencies_rev:
-            currencies_rev.append(CurrencyRevenue(currency="lkr", grossAmount=0.0, refundedAmount=0.0, netAmount=0.0, paymentCount=0))
-
-        # Payments count
+        # Every recorded SUCCEEDED payment was verified against the configured Stripe key (a livemode mismatch is
+        # rejected), so the key's mode is the payment's mode.
         succeeded_query = {**pay_query, "status": PaymentStatus.SUCCEEDED.value}
-        successful_count = pay_coll.count_documents(succeeded_query)
-
-        # Test vs live breakdown
         all_succeeded = list(pay_coll.find(succeeded_query, {"stripePaymentIntentId": 1}))
         test_count = sum(1 for p in all_succeeded if cls._is_test_payment(p.get("stripePaymentIntentId", "")))
         live_count = len(all_succeeded) - test_count
@@ -232,17 +155,29 @@ class AnalyticsService:
             totalAppointments=total_appts,
             completedAppointments=completed_appts,
             cancelledAppointments=cancelled_appts,
+            confirmedAppointments=confirmed_appts,
+            pendingAppointments=pending_appts,
+            rejectedDoctorApplications=rejected_doctors,
+            activeApprovedDoctors=active_approved,
+            suspendedDoctors=suspended_doctors,
         )
 
         # Revenue breakdown map by currency
         rev_map = {r.currency.upper(): r.netAmount for r in currencies_rev}
-        failed_count = pay_coll.count_documents({**pay_query, "status": PaymentStatus.FAILED.value})
-        pending_pay_count = pay_coll.count_documents({**pay_query, "status": PaymentStatus.PENDING.value})
         payments_obj = PaymentRevenueBreakdownSchema(
             totalRevenueByCurrency=rev_map,
+            netCollectedByCurrency=rev_map,
+            capturedByCurrency={r.currency.upper(): r.grossAmount for r in currencies_rev},
+            refundedByCurrency={r.currency.upper(): r.refundedAmount for r in currencies_rev},
+            pendingRefundsByCurrency={c.upper(): v["amount"] for c, v in fin["pendingRefunds"].items()},
+            pendingRefundRequests=sum(v["count"] for v in fin["pendingRefunds"].values()),
             succeededTransactions=successful_count,
-            failedTransactions=failed_count,
-            pendingTransactions=pending_pay_count,
+            refundedTransactions=fin["paymentCounts"]["REFUNDED"],
+            failedTransactions=fin["paymentCounts"]["FAILED"],
+            pendingTransactions=fin["paymentCounts"]["PENDING"],
+            paymentSuccessRate=fin["paymentSuccessRate"],
+            platformRevenue=None,
+            note=NO_REVENUE_MODEL_NOTE,
         )
 
         # Build recent activity log from latest events across collections
@@ -255,7 +190,8 @@ class AnalyticsService:
             recent_activity.append(
                 RecentActivityItemSchema(
                     type=action_type,
-                    description=f"Doctor profile {st.lower()} ({d.get('medicalLicenseNumber', 'MD')})",
+                    description=f"Doctor profile {st.lower().replace('_', ' ')}"
+                                + (f" ({d['medicalRegistrationNumber']})" if d.get("medicalRegistrationNumber") else ""),
                     timestamp=ts if isinstance(ts, datetime) else datetime.now(timezone.utc),
                 )
             )
@@ -418,61 +354,15 @@ class AnalyticsService:
         elif parsed_end:
             query["createdAt"] = {"$lte": parsed_end}
 
-        # Status counts
-        status_pipeline = [
-            {"$match": query},
-            {"$group": {"_id": "$status", "count": {"$sum": 1}}},
-        ]
-        s_counts = {r["_id"]: r["count"] for r in pay_coll.aggregate(status_pipeline)}
+        fin = platform_financials(db, parsed_start, parsed_end)
+        query = payment_time_query(parsed_start, parsed_end)
+        counts = fin["paymentCounts"]
+        succeeded_count = counts["SUCCEEDED"]
+        failed_count = counts["FAILED"]
+        refunded_count = counts["REFUNDED"]
+        revenue_by_curr = cls._currency_rows(fin)
 
-        succeeded_count = s_counts.get(PaymentStatus.SUCCEEDED.value, 0)
-        failed_count = s_counts.get(PaymentStatus.FAILED.value, 0)
-        refunded_count = s_counts.get(PaymentStatus.REFUNDED.value, 0)
-
-        # Revenue per currency
-        rev_pipeline = [
-            {"$match": {**query, "status": {"$in": [PaymentStatus.SUCCEEDED.value, PaymentStatus.REFUNDED.value]}}},
-            {
-                "$group": {
-                    "_id": "$currency",
-                    "grossAmount": {
-                        "$sum": {
-                            "$cond": [{"$eq": ["$status", PaymentStatus.SUCCEEDED.value]}, "$amount", 0.0]
-                        }
-                    },
-                    "refundedAmount": {
-                        "$sum": {
-                            "$cond": [{"$eq": ["$status", PaymentStatus.REFUNDED.value]}, "$amount", 0.0]
-                        }
-                    },
-                    "paymentCount": {
-                        "$sum": {
-                            "$cond": [{"$eq": ["$status", PaymentStatus.SUCCEEDED.value]}, 1, 0]
-                        }
-                    },
-                }
-            },
-        ]
-        rev_records = list(pay_coll.aggregate(rev_pipeline))
-        revenue_by_curr = []
-        for r in rev_records:
-            gross = float(r.get("grossAmount", 0.0))
-            refunded = float(r.get("refundedAmount", 0.0))
-            revenue_by_curr.append(
-                CurrencyRevenue(
-                    currency=(r["_id"] or "lkr").lower(),
-                    grossAmount=round(gross, 2),
-                    refundedAmount=round(refunded, 2),
-                    netAmount=max(0.0, round(gross - refunded, 2)),
-                    paymentCount=int(r.get("paymentCount", 0)),
-                )
-            )
-
-        if not revenue_by_curr:
-            revenue_by_curr.append(CurrencyRevenue(currency="lkr", grossAmount=0.0, refundedAmount=0.0, netAmount=0.0, paymentCount=0))
-
-        # Test vs live payments check
-        succeeded_docs = list(pay_coll.find({**query, "status": PaymentStatus.SUCCEEDED.value}))
+        succeeded_docs = list(pay_coll.find({**query, "status": PaymentStatus.SUCCEEDED.value}, {"stripePaymentIntentId": 1}))
         test_count = sum(1 for p in succeeded_docs if cls._is_test_payment(p.get("stripePaymentIntentId", "")))
         live_count = len(succeeded_docs) - test_count
 
@@ -512,6 +402,11 @@ class AnalyticsService:
             totalTransactions=succeeded_count + failed_count + refunded_count,
             succeededCount=succeeded_count,
             failedCount=failed_count,
+            pendingCount=counts["PENDING"],
+            cancelledCount=counts["CANCELLED"],
+            paymentSuccessRate=fin["paymentSuccessRate"],
+            platformRevenue=None,
+            note=NO_REVENUE_MODEL_NOTE,
             dailyTrends=[],
         )
 
@@ -526,7 +421,9 @@ class AnalyticsService:
 
         total_doctors = doc_coll.count_documents({})
         approved = doc_coll.count_documents({"verificationStatus": DoctorVerificationStatus.APPROVED.value})
-        pending = doc_coll.count_documents({"verificationStatus": DoctorVerificationStatus.PENDING.value})
+        pending = doc_coll.count_documents({"verificationStatus": {"$in": [
+            DoctorVerificationStatus.PENDING.value, DoctorVerificationStatus.PENDING_ADMIN_APPROVAL.value,
+            DoctorVerificationStatus.PENDING_EMAIL_VERIFICATION.value]}})
         rejected = doc_coll.count_documents({"verificationStatus": DoctorVerificationStatus.REJECTED.value})
 
         # Specialty distribution
@@ -537,7 +434,7 @@ class AnalyticsService:
         ]
         specialty_docs = list(doc_coll.aggregate(pipeline))
         specialties = [
-            SpecialtyCountItem(specialty=r["_id"] or "General Practice", count=r["count"])
+            SpecialtyCountItem(specialty=r["_id"] or "Not specified", count=r["count"])
             for r in specialty_docs
         ]
 
@@ -553,8 +450,8 @@ class AnalyticsService:
             },
         ]
         avg_res = list(doc_coll.aggregate(avg_pipeline))
-        avg_exp = round(float(avg_res[0]["avgExp"]), 1) if avg_res and avg_res[0].get("avgExp") is not None else 0.0
-        avg_fee = round(float(avg_res[0]["avgFee"]), 2) if avg_res and avg_res[0].get("avgFee") is not None else 0.0
+        avg_exp = round(float(avg_res[0]["avgExp"]), 1) if avg_res and avg_res[0].get("avgExp") is not None else None
+        avg_fee = round(float(avg_res[0]["avgFee"]), 2) if avg_res and avg_res[0].get("avgFee") is not None else None
 
         return DoctorAnalyticsResponse(
             totalDoctors=total_doctors,

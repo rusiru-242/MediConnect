@@ -5,6 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from pymongo.database import Database
 
+from app.services.financial_metrics import PLATFORM_TZ_NAME, platform_financials, platform_range
 from app.models.appointment import AppointmentStatus, PaymentStatus as ApptPaymentStatus
 from app.models.doctor_profile import DoctorVerificationStatus
 from app.models.payment import PaymentStatus
@@ -23,26 +24,16 @@ def resolve_date_bounds(
     start_date_str: Optional[str] = None,
     end_date_str: Optional[str] = None,
 ) -> tuple[datetime, datetime, str, str]:
-    """Calculate exact datetime and YYYY-MM-DD boundaries."""
-    now = _utc_now()
-    if timeframe == "today":
-        start_dt = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
-        end_dt = datetime(now.year, now.month, now.day, 23, 59, 59, tzinfo=timezone.utc)
-    elif timeframe == "last_7_days":
-        start_dt = now - timedelta(days=7)
-        end_dt = now
-    elif timeframe == "custom" and start_date_str and end_date_str:
-        try:
-            start_dt = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-            end_dt = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
-        except Exception:
-            start_dt = now - timedelta(days=30)
-            end_dt = now
-    else:  # last_30_days default
-        start_dt = now - timedelta(days=30)
-        end_dt = now
+    """Asia/Colombo calendar-day bounds (P04-N06).
 
-    return start_dt, end_dt, start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d")
+    Before Phase 04 these were UTC instants: "today" was the UTC day, and a custom range "2026-11-25 to 2026-11-25"
+    ended at 00:00, so it excluded the whole end day. An invalid custom date silently became "last 30 days"; it is
+    now a 400. "last_7_days" and "last_30_days" include today.
+    """
+    if timeframe == "custom" and (start_date_str or end_date_str):
+        return platform_range(start_date_str or end_date_str, end_date_str or start_date_str)
+    days = {"today": 1, "last_7_days": 7}.get(timeframe, 30)
+    return platform_range(None, None, default_days=days)
 
 
 class AdminAnalyticsAssistant:
@@ -85,61 +76,17 @@ class AdminAnalyticsAssistant:
         successful_bookings = confirmed_appts + completed_appts
         booking_conversion_rate = round((successful_bookings / total_appts) * 100.0, 1) if total_appts > 0 else 0.0
 
-        # Geographical breakdown
-        geo_colombo = db["appointments"].count_documents({
-            **appt_query,
-            "consultationLocation": {"$regex": "colombo", "$options": "i"},
-        })
-        geo_kandy = db["appointments"].count_documents({
-            **appt_query,
-            "consultationLocation": {"$regex": "kandy", "$options": "i"},
-        })
-        geo_galle = db["appointments"].count_documents({
-            **appt_query,
-            "consultationLocation": {"$regex": "galle", "$options": "i"},
-        })
+        # Appointments are in person at the doctor's clinic; there is no appointment location field to group by,
+        # so no city breakdown is reported (the former Colombo/Kandy/Galle counts were always 0).
 
-        # 3. Payments & Financial Metrics within date range
-        pay_query: Dict[str, Any] = {
-            "createdAt": {"$gte": start_dt, "$lte": end_dt}
-        }
-        succeeded_payments_cursor = db["payments"].find({
-            **pay_query,
-            "status": PaymentStatus.SUCCEEDED.value,
-        })
-        gross_processed = sum(float(p.get("amount", 0.0)) for p in succeeded_payments_cursor)
-
-        failed_payments_count = db["payments"].count_documents({
-            **pay_query,
-            "status": PaymentStatus.FAILED.value,
-        })
-        succeeded_payments_count = db["payments"].count_documents({
-            **pay_query,
-            "status": PaymentStatus.SUCCEEDED.value,
-        })
-        total_payment_attempts = succeeded_payments_count + failed_payments_count
-        payment_success_rate = (
-            round((succeeded_payments_count / total_payment_attempts) * 100.0, 1)
-            if total_payment_attempts > 0 else 100.0
-        )
-
-        # Refunds within date range
-        refunds_cursor = db["refund_requests"].find({
-            "updatedAt": {"$gte": start_dt, "$lte": end_dt},
-            "status": RefundStatus.SUCCEEDED.value,
-        })
-        refund_totals = sum(float(r.get("amount", 0.0)) for r in refunds_cursor)
-
-        # Net payments formula: Gross Processed Payments - Refunds
-        net_payment_amount = round(gross_processed - refund_totals, 2)
-
-        # Platform Revenue: 10% platform facilitation fee on net consultation volume
-        platform_revenue = round(net_payment_amount * 0.10, 2)
+        # Money: the shared refund-aware calculation (P04-N05). No platform revenue is invented.
+        fin = platform_financials(db, start_dt, end_dt)
+        by_currency = fin["byCurrency"]
+        counts = fin["paymentCounts"]
 
         return {
             "timeframe": timeframe,
             "dateRange": {"startDate": start_str, "endDate": end_str},
-            "currency": "LKR",
             "accounts": {
                 "totalRegisteredPatients": total_patients,
                 "totalRegisteredDoctors": total_doctors,
@@ -152,20 +99,19 @@ class AdminAnalyticsAssistant:
                 "completedAppointments": completed_appts,
                 "cancelledAppointments": cancelled_appts,
                 "bookingConversionRate": booking_conversion_rate,
-                "locations": {
-                    "Colombo": geo_colombo,
-                    "Kandy": geo_kandy,
-                    "Galle": geo_galle,
-                },
             },
             "financials": {
-                "grossProcessedPayments": round(gross_processed, 2),
-                "refundTotals": round(refund_totals, 2),
-                "netPaymentAmount": net_payment_amount,
-                "platformRevenue": platform_revenue,
-                "paymentSuccessRate": payment_success_rate,
-                "succeededTransactions": succeeded_payments_count,
-                "failedTransactions": failed_payments_count,
+                "byCurrency": by_currency,
+                "pendingRefunds": fin["pendingRefunds"],
+                "paymentSuccessRate": fin["paymentSuccessRate"],
+                "succeededTransactions": counts["SUCCEEDED"],
+                "refundedTransactions": counts["REFUNDED"],
+                "failedTransactions": counts["FAILED"],
+                "pendingTransactions": counts["PENDING"],
+                "platformRevenue": None,
+                "doctorEarnings": None,
+                "note": fin["note"],
             },
+            "timezone": PLATFORM_TZ_NAME,
             "generatedAt": _utc_now().isoformat(),
         }
