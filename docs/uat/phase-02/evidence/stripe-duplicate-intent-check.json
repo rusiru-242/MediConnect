@@ -1,0 +1,8 @@
+{
+ "method": "Stripe test-mode PaymentIntent.search on metadata.appointmentId, run ~10 minutes after the payments (search indexing lag made the in-run count read 0)",
+ "results": [
+  {"appointment": "P02 patient A, Dr. P02 Ortho, 2026-12-02 09:00 (left from the interrupted first S1 run)", "status": "CONFIRMED/PAID", "stripe_payment_intents": 1},
+  {"appointment": "P02 patient B, S2 decline-then-retry booking, rescheduled to 2026-12-03 09:00", "status": "CONFIRMED/PAID", "stripe_payment_intents": 1}
+ ],
+ "conclusion": "One PaymentIntent per paid booking; the decline and the retry used the same intent."
+}

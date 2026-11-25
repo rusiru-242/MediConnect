@@ -1,0 +1,99 @@
+{
+ "blocker_hold_http": 201,
+ "flow1": [
+  {
+   "user": "Find an orthopedic doctor in Kandy",
+   "http": 200,
+   "state": "AWAITING_DOCTOR_SELECTION",
+   "replies": [
+    "I found 2 verified doctors in Kandy matching your search. Select a doctor to view their profile or check appointment slots.\n\nOrthopedic surgeons assess bone, joint, back and muscle problems. This is a suggestion of the right type of doctor, not a diagnosis."
+   ],
+   "selectedDoctor": null,
+   "proposal": null,
+   "selectionReason": null,
+   "candidates": [
+    [
+     "Dr. P02 Spine",
+     [
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30"
+     ]
+    ],
+    [
+     "Dr. P02 Ortho",
+     [
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30"
+     ]
+    ]
+   ]
+  },
+  {
+   "select_doctor_http": 200,
+   "selectedDoctor": "Dr. P02 Ortho"
+  },
+  {
+   "user": "Book November 29, 2026 at 10:00",
+   "http": 200,
+   "state": "AWAITING_BOOKING_CONFIRMATION",
+   "replies": [
+    "Great! Please tap 'Confirm Booking' below to reserve your slot with Dr. P02 Ortho on 2026-11-26 (10:00 - 10:30)."
+   ],
+   "selectedDoctor": "Dr. P02 Ortho",
+   "proposal": "Dr. P02 Ortho 10:00",
+   "selectionReason": null,
+   "candidates": [
+    [
+     "Dr. P02 Spine",
+     [
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30"
+     ]
+    ],
+    [
+     "Dr. P02 Ortho",
+     [
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30"
+     ]
+    ]
+   ]
+  }
+ ],
+ "flow2": [
+  {
+   "user": "Book orthopedic Dr. P02 Ortho in Kandy on November 29, 2026 at 10:00",
+   "http": 200,
+   "state": "AWAITING_BOOKING_CONFIRMATION",
+   "replies": [
+    "Here are doctors with open slots on your requested date.",
+    "10:00 was unavailable. The closest option is 09:30 on 2026-11-29. Review it below."
+   ],
+   "selectedDoctor": "Dr. P02 Ortho",
+   "proposal": "Dr. P02 Ortho 09:30",
+   "selectionReason": "Closest available time on the requested date.",
+   "candidates": [
+    [
+     "Dr. P02 Ortho",
+     [
+      "09:30",
+      "10:30",
+      "09:00",
+      "11:00",
+      "11:30",
+      "14:00"
+     ]
+    ]
+   ]
+  }
+ ],
+ "blocker_released_http": 200
+}

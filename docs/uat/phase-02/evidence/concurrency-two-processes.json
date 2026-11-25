@@ -1,0 +1,133 @@
+{
+ "processes": [
+  "http://127.0.0.1:8001/api",
+  "http://127.0.0.1:8002/api"
+ ],
+ "database": "mediconnect_uat",
+ "rounds": [
+  {
+   "slot": "09:00",
+   "http_codes": [
+    201,
+    409,
+    409,
+    409,
+    409,
+    409
+   ],
+   "created": 1,
+   "active_records_for_slot": 1,
+   "loser_reads_winner_appointment": [
+    403,
+    403
+   ],
+   "conflict_detail": "This time slot is no longer available.",
+   "cleanup_release_http": 200
+  },
+  {
+   "slot": "09:30",
+   "http_codes": [
+    201,
+    409,
+    409,
+    409,
+    409,
+    409
+   ],
+   "created": 1,
+   "active_records_for_slot": 1,
+   "loser_reads_winner_appointment": [
+    403,
+    403
+   ],
+   "conflict_detail": "This time slot is no longer available.",
+   "cleanup_release_http": 200
+  },
+  {
+   "slot": "10:00",
+   "http_codes": [
+    201,
+    409,
+    409,
+    409,
+    409,
+    409
+   ],
+   "created": 1,
+   "active_records_for_slot": 1,
+   "loser_reads_winner_appointment": [
+    403,
+    403
+   ],
+   "conflict_detail": "This time slot is no longer available.",
+   "cleanup_release_http": 200
+  },
+  {
+   "slot": "10:30",
+   "http_codes": [
+    201,
+    409,
+    409,
+    409,
+    409,
+    409
+   ],
+   "created": 1,
+   "active_records_for_slot": 1,
+   "loser_reads_winner_appointment": [
+    403,
+    403
+   ],
+   "conflict_detail": "This time slot is no longer available.",
+   "cleanup_release_http": 200
+  },
+  {
+   "slot": "11:00",
+   "http_codes": [
+    201,
+    409,
+    409,
+    409,
+    409,
+    409
+   ],
+   "created": 1,
+   "active_records_for_slot": 1,
+   "loser_reads_winner_appointment": [
+    403,
+    403
+   ],
+   "conflict_detail": "This time slot is no longer available.",
+   "cleanup_release_http": 200
+  }
+ ],
+ "ai_accept_race": {
+  "http_codes": [
+   200,
+   409
+  ],
+  "winner_state": "AWAITING_PAYMENT",
+  "loser_message": "Unfortunately, this appointment slot is no longer available. Open times with Dr. P02 Spine that day: 11:00, 10:30, 10:00, 09:30. Choose one, or select another doctor.",
+  "loser_alternatives": [
+   "11:00",
+   "10:30",
+   "10:00",
+   "09:30"
+  ],
+  "loser_message_mentions_other_patient": false,
+  "active_records_for_slot": 1
+ },
+ "double_tap_intent": {
+  "http_codes": [
+   201,
+   201
+  ],
+  "payment_records": 1,
+  "distinct_payment_intents": 1,
+  "same_payment_id_returned": true
+ },
+ "cleanup_winner_session_cancel_http": 200,
+ "cleanup_intents_cancelled_in_stripe": [
+  "CANCELLED"
+ ]
+}

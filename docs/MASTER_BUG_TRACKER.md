@@ -311,3 +311,13 @@ Details, reproduction steps and evidence: [uat/phase-01/PHASE_01_BUG_FIX_REPORT.
 
 - **Admin web:** no defect was reproduced. Lint, typecheck, 32 unit tests and build pass. The pages were not exercised in a browser against live data (UAT A-01 to A-10).
 - **Stripe webhooks, refunds, FCM push, email and SMS:** the code paths have mocked tests. Live delivery is unverified (BLOCKED, see the final report).
+
+## Phase 02 (2026-11-25, branch `fix/phase-02-booking-payment-patient-care`)
+
+The owner's BUG-049 to BUG-063 descriptions are now recorded and mapped to the Phase 01 provisional IDs in [docs/uat/phase-02/PHASE_02_BUG_ID_RECONCILIATION.md](uat/phase-02/PHASE_02_BUG_ID_RECONCILIATION.md).
+
+- **Fixed in Phase 02:**
+  - Owner IDs: BUG-055, BUG-056 (completed), BUG-058, BUG-059, BUG-060, BUG-061, BUG-063.
+  - New defects: P02-N01 to P02-N17, including the privacy defect P02-N10 and the payment and refund integrity defects P02-N02, N04 and N05.
+- **Already fixed in Phase 01 (re-verified):** BUG-049 to 054, 057, 062.
+- **Live verification:** Stripe test-mode refunds and payments were verified live. Real webhook delivery, FCM, email and SMS remain **BLOCKED**. See [docs/uat/phase-02/PHASE_02_FINAL_COMPLETION_REPORT.md](uat/phase-02/PHASE_02_FINAL_COMPLETION_REPORT.md).
