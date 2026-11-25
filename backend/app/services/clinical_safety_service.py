@@ -73,6 +73,16 @@ class ClinicalSafetyService:
                 detail="Doctor and patient identities must both be specified.",
             )
 
+        # 0. Only an active, APPROVED doctor can hold a care relationship (P03-N02). Pending, rejected or
+        # suspended doctors are refused even if older appointments exist.
+        doctor_profile = db["doctor_profiles"].find_one({"userId": str(doctor_user_id)}, {"verificationStatus": 1})
+        doctor_account = db["users"].find_one({"_id": ObjectId(doctor_user_id)}, {"accountStatus": 1, "role": 1}) \
+            if ObjectId.is_valid(str(doctor_user_id)) else None
+        if (not doctor_profile or doctor_profile.get("verificationStatus") != "APPROVED"
+                or (doctor_account and doctor_account.get("accountStatus") != "ACTIVE")):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Access Denied: only approved, active doctors can access patient records.")
+
         # 1. Check appointments. Only a confirmed (paid) or completed visit creates a care relationship
         # (P02-N10): a released hold, an expired reservation or a cancelled booking never grants a doctor
         # access to the patient's clinical records.
@@ -96,13 +106,22 @@ class ClinicalSafetyService:
                                             "status": care_statuses}, {"_id": 1}):
                 return True
 
-        # 2. Check consultation sessions
-        if db["consultation_sessions"].find_one({"patientUserId": patient_user_id, "doctorUserId": doctor_user_id}, {"_id": 1}):
-            return True
+        # 2. A consultation session counts only while its appointment is still a confirmed or completed visit
+        # (P03-N02): a session started on a reservation that was later released or cancelled grants nothing.
+        for session in db["consultation_sessions"].find({"patientUserId": patient_user_id, "doctorUserId": doctor_user_id},
+                                                        {"appointmentId": 1}).limit(20):
+            appointment_ref = str(session.get("appointmentId") or "")
+            if ObjectId.is_valid(appointment_ref) and db["appointments"].find_one(
+                    {"_id": ObjectId(appointment_ref), "status": care_statuses}, {"_id": 1}):
+                return True
 
-        # 3. Check care plans
-        if db["care_plans"].find_one({"patientUserId": patient_user_id, "doctorUserId": doctor_user_id}, {"_id": 1}):
-            return True
+        # 3. Care plans count only when they follow a real (confirmed or completed) visit (P03-N17).
+        for plan in db["care_plans"].find({"patientUserId": patient_user_id, "doctorUserId": doctor_user_id},
+                                          {"appointmentId": 1}).limit(20):
+            appointment_ref = str(plan.get("appointmentId") or "")
+            if ObjectId.is_valid(appointment_ref) and db["appointments"].find_one(
+                    {"_id": ObjectId(appointment_ref), "status": care_statuses}, {"_id": 1}):
+                return True
 
         # 4. Check existing medical records or clinical notes authored by this doctor for this patient
         if db["clinical_notes"].find_one({"patientUserId": patient_user_id, "doctorUserId": doctor_user_id}, {"_id": 1}):

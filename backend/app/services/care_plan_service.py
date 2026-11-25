@@ -37,6 +37,25 @@ from app.services.notification_service import NotificationService
 logger = logging.getLogger(__name__)
 
 
+def care_plan_progress(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Authoritative task progress, shared by patient and doctor views (P03-N18).
+
+    A plan without tasks has no progress figure (None), not "100% done".
+    """
+    tasks = doc.get("tasks") or []
+    done = sum(1 for task in tasks if task.get("isCompleted"))
+    return {"completedTasks": done, "totalTasks": len(tasks),
+            "progressPercentage": round(done * 100 / len(tasks)) if tasks else None}
+
+
+def _doctor_display_name(db: Database, doctor_user_id: str) -> Optional[str]:
+    user = db["users"].find_one({"_id": ObjectId(doctor_user_id)}, {"fullName": 1}) if ObjectId.is_valid(doctor_user_id) else None
+    name = (user or {}).get("fullName")
+    if not name:
+        return None
+    return name if name.startswith("Dr") else f"Dr. {name}"
+
+
 def _doc_to_response(db: Database, doc: Dict[str, Any]) -> CarePlanResponse:
     """Convert MongoDB care plan document to Pydantic CarePlanResponse with enriched metadata."""
     plan_id = str(doc["_id"]) if "_id" in doc else str(doc.get("id"))
@@ -55,7 +74,8 @@ def _doc_to_response(db: Database, doc: Dict[str, Any]) -> CarePlanResponse:
     if not doc_prof and ObjectId.is_valid(doc_user_id):
         doc_prof = db["doctor_profiles"].find_one({"userId": doc_user_id})
 
-    doctor_name = doc_prof.get("fullName") if doc_prof else "Doctor"
+    # doctor_profiles has no fullName, so this always produced "Doctor"; use the doctor's account name (P03-N17).
+    doctor_name = _doctor_display_name(db, doc_user_id) or "Doctor"
     doctor_specialty = doc_prof.get("specialty") if doc_prof else None
     doctor_hospital = doc_prof.get("hospitalOrClinic") if doc_prof else None
 
@@ -119,6 +139,7 @@ def _doc_to_response(db: Database, doc: Dict[str, Any]) -> CarePlanResponse:
         updatedBy=str(doc.get("updatedBy", "")),
         auditLog=audit_out,
         remindersSent=[str(r) for r in doc.get("remindersSent", [])],
+        **care_plan_progress(doc),
         createdAt=doc.get("createdAt", utc_now()),
         updatedAt=doc.get("updatedAt", utc_now()),
     )
@@ -188,6 +209,12 @@ class CarePlanService:
                 detail="You are not authorized to create a care plan for this consultation.",
             )
 
+        # A care plan follows a real visit: a confirmed (paid) or completed appointment. A plan on an unpaid
+        # reservation or a cancelled booking would also grant the doctor ongoing record access (P03-N17).
+        if appt.get("status") not in {"CONFIRMED", "COMPLETED"}:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="A care plan can be created only for a confirmed or completed visit.")
+
         # Derive patient from consultation
         patient_user_id = str(appt.get("patientUserId") or appt.get("patientId") or "")
 
@@ -235,7 +262,7 @@ class CarePlanService:
             performedBy=str(doctor_user.id),
             performedByRole="DOCTOR",
             timestamp=now,
-            note=f"Care plan authored by Dr. {doc_prof.get('fullName', 'Doctor')}",
+            note=f"Care plan authored by {_doctor_display_name(db, str(doctor_user.id)) or 'the treating doctor'}",
         )
 
         plan_doc = CarePlanDocument(

@@ -120,6 +120,10 @@ class CarePlanResponse(BaseModel):
     instructions: str
     recommendedConsultationType: str = "IN_PERSON"
     tasks: List[CareTaskSchema] = []
+    # Server-side progress (P03-N18); progressPercentage is None for a plan without tasks.
+    completedTasks: int = 0
+    totalTasks: int = 0
+    progressPercentage: Optional[int] = None
     linkedPrescriptionIds: List[str] = []
     linkedMedicalRecordIds: List[str] = []
     bookedAppointmentId: Optional[str] = None

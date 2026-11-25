@@ -93,7 +93,7 @@ class CreateClinicalNoteDraftRequest(StrictBase):
     patientUserId: str
     appointmentId: Optional[str] = None
     consultationSessionId: Optional[str] = None
-    rawNotes: Optional[str] = Field(default=None, description="Doctor-provided raw notes for AI SOAP formatting")
+    rawNotes: Optional[str] = Field(default=None, max_length=10000, description="Doctor-provided raw notes for AI SOAP formatting")
     content: Optional[SoapContentSchema] = None
 
 

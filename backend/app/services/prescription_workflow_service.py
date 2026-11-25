@@ -136,13 +136,19 @@ class PrescriptionWorkflowService:
                 )
             )
 
+        appointment = cls._validated_visit(db, doc_user_id, req.patientUserId, req.appointmentId)
+        item_dicts = [item.model_dump(by_alias=True, exclude_none=True) for item in med_items]  # as stored
+        cls._reject_duplicate(db, doc_user_id, req.patientUserId, req.appointmentId, item_dicts)
+        record = db["medical_records"].find_one({"appointmentId": req.appointmentId}, {"_id": 1}) if appointment else None
+
         now = utc_now()
         prescription_id = f"RX-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
         presc_doc = PrescriptionDocument(
             prescriptionId=prescription_id,
-            medicalRecordId=str(ObjectId()),  # Linked medical record reference
-            appointmentId=req.appointmentId or str(ObjectId()),
+            # Real references only (P03-N07): a generated ObjectId used to be stored here, pointing at nothing.
+            medicalRecordId=str(record["_id"]) if record else None,
+            appointmentId=req.appointmentId if appointment else None,
             patientUserId=req.patientUserId,
             doctorUserId=doc_user_id,
             doctorProfileId=str(profile["_id"]),
@@ -158,9 +164,8 @@ class PrescriptionWorkflowService:
         coll = get_prescription_collection(db)
         inserted = coll.insert_one(presc_doc.model_dump(by_alias=True, exclude_none=True))
         rx_db_id = str(inserted.inserted_id)
-
-        # Synchronize to Phase 3 medication_reminders collection
-        cls._sync_to_medication_reminders(db, rx_db_id, presc_doc, doc_user_id)
+        # No reminder schedule is created here (P03-N06). Reminder times are approved explicitly by the doctor
+        # (PUT /care-automation/prescriptions/{id}/schedule) or set by the patient against the prescribed frequency.
 
         return {
             "id": rx_db_id,
@@ -170,7 +175,32 @@ class PrescriptionWorkflowService:
             "status": PrescriptionStatus.ISSUED.value,
             "medicationCount": len(med_items),
             "issuedAt": now,
+            "reminderSchedule": "not_created",
         }
+
+    @classmethod
+    def _validated_visit(cls, db: Database, doctor_id: str, patient_id: str, appointment_id: Optional[str]):
+        """A prescription may cite only this doctor's own confirmed or completed visit with this patient."""
+        if not appointment_id:
+            return None
+        appt = db["appointments"].find_one({"_id": ObjectId(appointment_id)}) if ObjectId.is_valid(appointment_id) else None
+        if (not appt or str(appt.get("doctorUserId")) != doctor_id or str(appt.get("patientUserId")) != patient_id
+                or appt.get("status") not in {"CONFIRMED", "COMPLETED"}):
+            raise HTTPException(status_code=400, detail="The appointment is not a confirmed visit of yours with this patient.")
+        return appt
+
+    @classmethod
+    def _reject_duplicate(cls, db: Database, doctor_id: str, patient_id: str, appointment_id: Optional[str],
+                          item_dicts: List[Dict[str, Any]]) -> None:
+        """An identical prescription submitted again within 10 minutes is a repeated tap, not a new order."""
+        recent = db["prescriptions"].find_one({
+            "doctorUserId": doctor_id, "patientUserId": patient_id, "appointmentId": appointment_id,
+            "status": {"$in": [PrescriptionStatus.ISSUED.value, PrescriptionStatus.AMENDED.value]},
+            "createdAt": {"$gte": utc_now() - timedelta(minutes=10)},
+            "medicationItems": item_dicts,
+        }, {"prescriptionId": 1})
+        if recent:
+            raise HTTPException(status_code=409, detail=f"An identical prescription ({recent['prescriptionId']}) was just issued.")
 
     # -----------------------------------------------------------------------
     # Prescription Renewal Lifecycle
@@ -335,7 +365,12 @@ class PrescriptionWorkflowService:
         if req.decision == "approve":
             new_status = RenewalStatus.APPROVED.value
             # Generate new authorized prescription for the renewed medication
-            resulting_rx_id = cls._issue_renewal_prescription(db, doctor_user, profile, doc, req.adjustedDuration)
+            try:
+                resulting_rx_id = cls._issue_renewal_prescription(db, doctor_user, profile, doc, req.adjustedDuration)
+            except HTTPException:
+                # Nothing was issued: release the claim so the doctor can choose another decision.
+                coll.update_one({"_id": doc["_id"], "reviewLock": lock}, {"$unset": {"reviewLock": "", "reviewLockAt": ""}})
+                raise
         elif req.decision == "reject":
             new_status = RenewalStatus.REJECTED.value
         elif req.decision == "needs_consultation":
@@ -382,51 +417,8 @@ class PrescriptionWorkflowService:
         )
 
     # -----------------------------------------------------------------------
-    # Helper: Sync to Medication Reminders
+    # Helper: Issue the renewed prescription
     # -----------------------------------------------------------------------
-    @classmethod
-    def _sync_to_medication_reminders(
-        cls,
-        db: Database,
-        rx_db_id: str,
-        presc_doc: PrescriptionDocument,
-        doctor_id: str,
-    ) -> None:
-        """Create or update Phase 3 medication reminder entries for prescribed drugs."""
-        now = utc_now()
-        for idx, item in enumerate(presc_doc.medicationItems):
-            approval_key = f"{rx_db_id}:{idx}"
-            db["medication_reminders"].update_one(
-                {"approvalKey": approval_key},
-                {
-                    "$set": {
-                        "patientUserId": presc_doc.patientUserId,
-                        "prescriptionDbId": rx_db_id,
-                        "prescriptionId": presc_doc.prescriptionId,
-                        "prescriptionMedicationIndex": idx,
-                        "medicationName": item.medicationName,
-                        "strength": item.strength,
-                        "dose": item.dose,
-                        "route": item.route,
-                        "frequency": item.frequency,
-                        "duration": item.duration,
-                        "scheduledTimes": ["08:00", "20:00"],
-                        "patientTimezone": "Asia/Colombo",
-                        "startDate": now,
-                        "endDate": now + timedelta(days=14),
-                        "approvedBy": doctor_id,
-                        "status": "ACTIVE",
-                        "enabled": True,
-                        "updatedAt": now,
-                    },
-                    "$setOnInsert": {
-                        "reminderId": f"REM-{uuid.uuid4().hex[:6].upper()}",
-                        "createdAt": now,
-                    },
-                },
-                upsert=True,
-            )
-
     @classmethod
     def _issue_renewal_prescription(
         cls,
@@ -439,39 +431,50 @@ class PrescriptionWorkflowService:
         """Issue a fresh signed prescription upon doctor renewal approval."""
         now = utc_now()
         rx_id = f"RX-REN-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-        med_details = renewal_doc.get("medicationDetails", {})
-        duration = duration_override or med_details.get("duration", "30 days")
+        med_details = renewal_doc.get("medicationDetails") or {}
+        # Renew exactly what was prescribed (P03-N08): no "Standard" strength, "1 dose", "Once daily" or
+        # "30 days" defaults. Incomplete source details mean a new prescription is needed instead.
+        required = ("strength", "dose", "frequency", "duration", "quantity")
+        missing = [field for field in required if not str(med_details.get(field) or "").strip()]
+        if duration_override:
+            missing = [field for field in missing if field != "duration"]
+        if missing:
+            raise HTTPException(status_code=409, detail="The original prescription is missing " + ", ".join(missing)
+                                + ". Issue a new prescription instead of renewing it.")
+        original = db["prescriptions"].find_one({"prescriptionId": renewal_doc.get("originalPrescriptionId"),
+                                                 "patientUserId": renewal_doc["patientUserId"]}) or {}
 
         item = MedicationItem(
             medicationName=renewal_doc["medicationName"],
-            strength=med_details.get("strength", "Standard"),
-            dose=med_details.get("dose", "1 dose"),
-            route=med_details.get("route", "Oral"),
-            frequency=med_details.get("frequency", "Once daily"),
-            duration=duration,
-            quantity=med_details.get("quantity", "1 refill"),
-            additionalInstructions="Prescription renewed by clinician.",
+            strength=med_details["strength"],
+            dose=med_details["dose"],
+            route=med_details.get("route") or "Oral",
+            frequency=med_details["frequency"],
+            duration=duration_override or med_details["duration"],
+            quantity=med_details["quantity"],
+            additionalInstructions=med_details.get("additionalInstructions"),
         )
 
         doc = PrescriptionDocument(
             prescriptionId=rx_id,
-            medicalRecordId=str(ObjectId()),
-            appointmentId=str(ObjectId()),
+            # The renewal belongs to the original consultation, not to a generated id (P03-N07).
+            medicalRecordId=original.get("medicalRecordId"),
+            appointmentId=original.get("appointmentId"),
             patientUserId=renewal_doc["patientUserId"],
             doctorUserId=str(doctor_user.id),
             doctorProfileId=str(profile["_id"]),
             issuedAt=now,
             status=PrescriptionStatus.ISSUED.value,
             medicationItems=[item],
-            instructions=f"Prescription renewal approved: {renewal_doc.get('patientReason') or 'Standard refill'}",
-            auditLog=[{"action": "RENEWAL_APPROVED", "userId": str(doctor_user.id), "timestamp": now}],
+            instructions=f"Renewal of {renewal_doc.get('originalPrescriptionId')} approved by the prescribing doctor.",
+            auditLog=[{"action": "RENEWAL_APPROVED", "userId": str(doctor_user.id), "timestamp": now,
+                       "renewalId": renewal_doc.get("renewalId")}],
             createdAt=now,
             updatedAt=now,
         )
 
         coll = get_prescription_collection(db)
         inserted = coll.insert_one(doc.model_dump(by_alias=True, exclude_none=True))
-        cls._sync_to_medication_reminders(db, str(inserted.inserted_id), doc, str(doctor_user.id))
         return rx_id
 
     @classmethod
