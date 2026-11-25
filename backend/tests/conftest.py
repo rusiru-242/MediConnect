@@ -28,3 +28,15 @@ if _problem:
     )
 if not os.environ["STRIPE_SECRET_KEY"].strip().startswith("sk_test_"):
     raise SystemExit("Refusing to run tests with a non-test Stripe key.")
+
+
+def _gha_escape(text, prop=False):
+    text = str(text).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return text.replace(":", "%3A").replace(",", "%2C") if prop else text
+
+
+def pytest_runtest_logreport(report):
+    """On GitHub Actions, surface each failing test as an annotation (readable without log access)."""
+    if os.environ.get("GITHUB_ACTIONS") == "true" and report.failed:
+        detail = (report.longreprtext or "")[-900:]
+        print(f"\n::error title={_gha_escape(report.nodeid, prop=True)}::{_gha_escape(detail)}", flush=True)
