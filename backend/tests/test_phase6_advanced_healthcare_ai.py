@@ -356,8 +356,15 @@ def test_clinical_note_draft_organize_and_signing_workflow(clinical_env):
     assert draft_data["isAiDraft"] is True
 
     # 2. Doctor updates draft content
+    # Phase 03 (P03-N09): the assistant no longer invents examination findings or a plan. Untouched sections are
+    # "Not documented" and the draft cannot be signed until the doctor writes them.
+    assert draft_data["content"]["examinationFindings"].startswith("Not documented")
+    early = client.post(f"/api/clinical/notes/{note_id}/sign", json={"confirmSign": True}, headers=doc_a["headers"])
+    assert early.status_code == 409
     updated_content = draft_data["content"]
     updated_content["assessment"] = "Atypical chest discomfort, likely non-cardiac etiology."
+    updated_content["examinationFindings"] = "ECG normal sinus rhythm."
+    updated_content["plan"] = "Echocardiogram and lifestyle modification."
     res_update = client.put(
         f"/api/clinical/notes/{note_id}/draft",
         json={"content": updated_content},
@@ -476,12 +483,11 @@ def test_doctor_prescription_assistant_and_signing(clinical_env):
     assert rx_data["status"] == "ISSUED"
     assert rx_data["prescriptionId"].startswith("RX-")
 
-    # 4. Verify Phase 3 medication reminder synchronization
+    # 4. Phase 03 (P03-N06): signing creates no reminder schedule. It used to create an ACTIVE 08:00/20:00, 14-day
+    # schedule for this "Once at bedtime, 30 days" prescription. Times are approved explicitly by the doctor
+    # (PUT /care-automation/prescriptions/{id}/schedule) or set by the patient against the prescribed frequency.
     db = clinical_env["db"]
-    reminder = db["medication_reminders"].find_one({"prescriptionId": rx_data["prescriptionId"]})
-    assert reminder is not None
-    assert reminder["medicationName"] == "Atorvastatin"
-    assert reminder["status"] == "ACTIVE"
+    assert db["medication_reminders"].find_one({"prescriptionId": rx_data["prescriptionId"]}) is None
 
 
 # ===========================================================================
