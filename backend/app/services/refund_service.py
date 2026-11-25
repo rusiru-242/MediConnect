@@ -25,6 +25,47 @@ def _init_stripe() -> None:
         stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+REFUND_SOURCES = {"patient", "doctor", "leave", "admin"}
+_REVIEWABLE = [RefundStatus.REQUESTED.value, RefundStatus.UNDER_REVIEW.value]
+
+
+def _refund_query(refund_id: str) -> Dict[str, Any]:
+    """REF-... or an ObjectId; anything else is a 404, not a 500 from bson (P04-N09)."""
+    rid = (refund_id or "").strip()
+    if rid.startswith("REF-"):
+        return {"refundId": rid}
+    if ObjectId.is_valid(rid):
+        return {"_id": ObjectId(rid)}
+    raise HTTPException(status_code=404, detail="Refund request not found.")
+
+
+def _money_text(currency: Optional[str], amount: float) -> str:
+    return f"{(currency or 'lkr').upper()} {amount:,.2f}"
+
+
+def _notify_patient(db: Database, r: Dict[str, Any], title: str, body: str, key: str) -> None:
+    """In-app notice to the patient about their refund (P04-N09). Never states an amount that did not move."""
+    try:
+        from app.models.notification import NotificationType
+        from app.services.notification_service import NotificationService
+        NotificationService.create_notification(
+            db=db, recipient_user_id=str(r["patientUserId"]), type=NotificationType.SYSTEM, title=title, body=body,
+            related_appointment_id=r.get("appointmentId"), related_payment_id=r.get("paymentId"),
+            idempotency_key=key,
+        )
+    except Exception as exc:  # the decision itself is already stored and audited
+        logger.warning("Refund notification was not stored (%s).", type(exc).__name__)
+
+
+def _legacy_source(db: Database, r: Dict[str, Any]) -> Optional[str]:
+    """Requests created before Phase 04 have no source; the appointment's cancelledBy is the best evidence."""
+    cancelled_by = r.get("cancelledBy")
+    if not cancelled_by and ObjectId.is_valid(str(r.get("appointmentId") or "")):
+        appt = db["appointments"].find_one({"_id": ObjectId(r["appointmentId"])}, {"cancelledBy": 1}) or {}
+        cancelled_by = appt.get("cancelledBy")
+    return {"DOCTOR": "doctor", "PATIENT": "patient"}.get(cancelled_by or "")
+
+
 class RefundService:
     """Manages refund policy calculations, human approval, and idempotent Stripe refund executions."""
 
@@ -133,8 +174,14 @@ class RefundService:
         patient_user_id: str,
         appointment_id: str,
         reason: str,
+        source: str = "patient",
+        requested_by: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Submit a new refund request for an appointment with policy calculation."""
+        """Submit a new refund request for an appointment with policy calculation.
+
+        ``source`` says why it was opened: "patient" (patient cancellation), "doctor" (doctor cancellation) or
+        "leave" (a doctor leave conflict), so administrators can see doctor-initiated requests (P3-B3).
+        """
         if not ObjectId.is_valid(appointment_id):
             raise HTTPException(status_code=400, detail="Invalid appointment ID.")
 
@@ -179,13 +226,19 @@ class RefundService:
             risk_flags.append("Late cancellation penalty applied")
 
         ai_summary = {
-            "summary": f"Refund requested for appointment on {appt.get('appointmentDate')}. Reason: {reason}. {eligibility.ruleApplied}",
+            "summary": f"Refund requested ({source} cancellation) for appointment on {appt.get('appointmentDate')}. Reason: {reason}. {eligibility.ruleApplied}",
             "recommendation": "Approve refund" if eligibility.eligible else "Manual administrative review required",
             "riskFlags": risk_flags,
         }
 
+        source = source if source in REFUND_SOURCES else "patient"
         doc = {
             "refundId": refund_id,
+            "source": source,
+            "requestedBy": str(requested_by or patient_user_id),
+            "cancelledBy": appt.get("cancelledBy"),
+            "cancellationReason": appt.get("cancellationReason"),
+            "doctorUserId": str(appt.get("doctorUserId") or "") or None,
             "paymentId": str(payment["_id"]),
             "appointmentId": appointment_id,
             "patientUserId": str(patient_user_id),
@@ -213,11 +266,14 @@ class RefundService:
         status_filter: Optional[str] = None,
         page: int = 1,
         page_size: int = 20,
+        source_filter: Optional[str] = None,
     ) -> Dict[str, Any]:
         """List refund requests for admin review with filtering."""
         query: Dict[str, Any] = {}
-        if status_filter and status_filter != "ALL":
+        if status_filter and status_filter.upper() != "ALL":
             query["status"] = status_filter.lower()
+        if source_filter and source_filter.upper() != "ALL":
+            query["source"] = source_filter.lower()
 
         coll = db["refund_requests"]
         total = coll.count_documents(query)
@@ -244,6 +300,12 @@ class RefundService:
                 "adminReviewerId": r.get("adminReviewerId"),
                 "reviewNotes": r.get("reviewNotes"),
                 "failureReason": r.get("failureReason"),
+                "source": r.get("source") or _legacy_source(db, r),
+                "cancelledBy": r.get("cancelledBy"),
+                "cancellationReason": r.get("cancellationReason"),
+                "approvedAmount": r.get("approvedAmount"),
+                "refundedAmount": r.get("refundedAmount"),
+                "stripeRefundStatus": r.get("stripeRefundStatus"),
                 "createdAt": r.get("createdAt", utc_now()),
                 "updatedAt": r.get("updatedAt", utc_now()),
                 "completedAt": r.get("completedAt"),
@@ -254,7 +316,7 @@ class RefundService:
     @classmethod
     def get_refund_request(cls, db: Database, refund_id: str) -> Dict[str, Any]:
         """Get refund request detail by refundId or ObjectId."""
-        query = {"refundId": refund_id} if refund_id.startswith("REF-") else {"_id": ObjectId(refund_id)}
+        query = _refund_query(refund_id)
         r = db["refund_requests"].find_one(query)
         if not r:
             raise HTTPException(status_code=404, detail="Refund request not found.")
@@ -276,6 +338,12 @@ class RefundService:
             "adminReviewerId": r.get("adminReviewerId"),
             "reviewNotes": r.get("reviewNotes"),
             "failureReason": r.get("failureReason"),
+            "source": r.get("source") or _legacy_source(db, r),
+            "cancelledBy": r.get("cancelledBy"),
+            "cancellationReason": r.get("cancellationReason"),
+            "approvedAmount": r.get("approvedAmount"),
+            "refundedAmount": r.get("refundedAmount"),
+            "stripeRefundStatus": r.get("stripeRefundStatus"),
             "createdAt": r.get("createdAt", utc_now()),
             "updatedAt": r.get("updatedAt", utc_now()),
             "completedAt": r.get("completedAt"),
@@ -292,7 +360,7 @@ class RefundService:
     ) -> Dict[str, Any]:
         """Admin approves and executes a refund through Stripe with idempotency protection."""
         _init_stripe()
-        query = {"refundId": refund_id} if refund_id.startswith("REF-") else {"_id": ObjectId(refund_id)}
+        query = _refund_query(refund_id)
         r = db["refund_requests"].find_one(query)
         if not r:
             raise HTTPException(status_code=404, detail="Refund request not found.")
@@ -412,10 +480,19 @@ class RefundService:
             metadata={"amount": amount_to_refund, "stripeRefundId": stripe_refund_id, "stripeStatus": stripe_status},
         )
 
+        money = _money_text(r.get("currency"), amount_to_refund)
         message = {
-            RefundStatus.SUCCEEDED.value: f"Refund of LKR {amount_to_refund:,.2f} succeeded in Stripe.",
-            RefundStatus.PROCESSING.value: f"Refund of LKR {amount_to_refund:,.2f} was submitted and is pending in Stripe.",
+            RefundStatus.SUCCEEDED.value: f"Refund of {money} succeeded in Stripe.",
+            RefundStatus.PROCESSING.value: f"Refund of {money} was submitted and is pending in Stripe.",
         }.get(new_status, "Stripe reported the refund as failed.")
+        if new_status == RefundStatus.SUCCEEDED.value:
+            _notify_patient(db, r, "Refund issued",
+                            f"Your refund of {money} for your cancelled appointment was issued. Your bank may take "
+                            f"several days to show it.", f"refund_succeeded_{r['refundId']}")
+        elif new_status == RefundStatus.PROCESSING.value:
+            _notify_patient(db, r, "Refund submitted",
+                            f"Your refund of {money} was approved and submitted to the payment provider. We will "
+                            f"notify you when it is complete.", f"refund_processing_{r['refundId']}")
         return {
             "message": message,
             "refundId": r["refundId"],
@@ -433,7 +510,7 @@ class RefundService:
         reason: str,
     ) -> Dict[str, Any]:
         """Admin rejects a refund request with an explanatory reason."""
-        query = {"refundId": refund_id} if refund_id.startswith("REF-") else {"_id": ObjectId(refund_id)}
+        query = _refund_query(refund_id)
         r = db["refund_requests"].find_one(query)
         if not r:
             raise HTTPException(status_code=404, detail="Refund request not found.")
@@ -441,19 +518,28 @@ class RefundService:
         current_status = r.get("status")
         if current_status in [RefundStatus.SUCCEEDED.value, RefundStatus.APPROVED.value, RefundStatus.PROCESSING.value]:
             raise HTTPException(status_code=400, detail="Cannot reject a refund that is processing or settled.")
+        if current_status == RefundStatus.REJECTED.value:
+            raise HTTPException(status_code=409, detail="This refund request was already rejected.")
+        clean_reason = (reason or "").strip()
+        if len(clean_reason) < 3:
+            raise HTTPException(status_code=422, detail="A rejection reason is required (minimum 3 characters).")
 
         now = utc_now()
-        db["refund_requests"].update_one(
-            {"_id": r["_id"]},
+        # Conditional on the state that was read: a rejection cannot overwrite an approval that claimed the request
+        # a moment earlier (that approval may already have moved money in Stripe).
+        rejected = db["refund_requests"].update_one(
+            {"_id": r["_id"], "status": current_status},
             {
                 "$set": {
                     "status": RefundStatus.REJECTED.value,
                     "adminReviewerId": str(admin_user_id),
-                    "reviewNotes": reason,
+                    "reviewNotes": clean_reason,
                     "updatedAt": now,
                 }
             }
         )
+        if not rejected.matched_count:
+            raise HTTPException(status_code=409, detail="This refund request is already being processed or changed.")
 
         # Audit log
         AdminAuditService.log_action(
@@ -465,8 +551,11 @@ class RefundService:
             target_type="refund_request",
             previous_state=current_status,
             new_state=RefundStatus.REJECTED.value,
-            reason=reason,
+            reason=clean_reason,
         )
+        _notify_patient(db, r, "Refund request reviewed",
+                        "Your refund request was reviewed and not approved. Open MediConnect Support if you need more "
+                        "information.", f"refund_rejected_{r['refundId']}")
 
         return {
             "message": "Refund request rejected.",

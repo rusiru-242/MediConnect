@@ -110,7 +110,8 @@ class AdminUserListResponse(BaseModel):
 class UpdateUserStatusRequest(BaseModel):
     """Request payload to change a user's account status."""
 
-    accountStatus: str = Field(..., description="ACTIVE, SUSPENDED, PENDING, or DEACTIVATED")
+    accountStatus: str = Field(..., description="ACTIVE or SUSPENDED (PENDING is set by registration, not by admins)")
+    reason: Optional[str] = Field(default=None, max_length=500, description="Recorded in the audit log")
 
 
 # -----------------------------------------------------------------------------
@@ -164,13 +165,17 @@ class AdminAppointmentItem(BaseModel):
     patientEmail: str
     doctorUserId: str
     doctorName: str
-    doctorSpecialty: str
+    doctorSpecialty: Optional[str] = None
     appointmentDate: str
     startTime: str
     endTime: str
     status: str
     paymentStatus: str
-    consultationFee: Optional[float] = 0.0
+    consultationFee: Optional[float] = Field(default=None, description="Fee locked at booking; None when unknown")
+    currency: Optional[str] = None
+    consultationType: str = "IN_PERSON"
+    refundStatus: Optional[str] = None
+    refundId: Optional[str] = None
     patientNote: Optional[str] = None
     cancellationReason: Optional[str] = None
     cancelledBy: Optional[str] = None
@@ -207,6 +212,8 @@ class AdminPaymentItem(BaseModel):
     currency: str
     status: str
     isTestMode: bool = False
+    refundedAmount: float = 0.0
+    reconciliationState: Optional[str] = None
     failureReason: Optional[str] = None
     paidAt: Optional[datetime] = None
     createdAt: datetime

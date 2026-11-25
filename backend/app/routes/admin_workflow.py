@@ -109,8 +109,8 @@ async def admin_assistant(
         tool_called = "get_admin_report_data"
         tool_args = {"report_type": "refund_status"}
         res = await orch.execute(tool_called, tool_args, {tool_called})
-        metrics = res.get("metrics", {})
-        reply_text = f"Found {metrics.get('totalRequests', 0)} refund request(s). {metrics.get('succeededCount', 0)} settled (LKR {metrics.get('totalRefundedLKR', 0):,.2f}), {metrics.get('pendingCount', 0)} pending review."
+        # The report's own summary is built from the same metrics, so the reply never adds a figure (P04-N05).
+        reply_text = res.get("aiSummary") or "Refund figures are not available."
         result_data = res
         suggestions = ["Review pending refunds", "Show cancellation policy rules"]
 
@@ -133,20 +133,32 @@ async def admin_assistant(
         appts = res.get("appointments", {})
         fin = res.get("financials", {})
 
-        if "colombo" in query:
-            count = appts.get("locations", {}).get("Colombo", 0)
-            reply_text = f"There are {count} appointment(s) in the Colombo area for the timeframe ({date_range.get('startDate')} to {date_range.get('endDate')})."
+        period = f"{date_range.get('startDate')} to {date_range.get('endDate')} (Asia/Colombo)"
+        if any(city in query for city in ["colombo", "kandy", "galle"]):
+            # Appointments do not record a city; the former per-city counts were always 0 (P04-N05).
+            reply_text = ("Appointments do not record a city or area, so MediConnect cannot count bookings by "
+                          "location. Ask for total bookings instead.")
         elif "success rate" in query:
-            rate = fin.get("paymentSuccessRate", 100.0)
-            reply_text = f"Payment success rate is {rate}% ({fin.get('succeededTransactions', 0)} succeeded, {fin.get('failedTransactions', 0)} failed) for {timeframe.replace('_', ' ')}."
-        elif any(w in query for w in ["revenue", "gross", "income"]):
-            gross = fin.get("grossProcessedPayments", 0.0)
-            net = fin.get("netPaymentAmount", 0.0)
-            reply_text = f"Gross processed payments: LKR {gross:,.2f}, Net payment volume: LKR {net:,.2f} ({date_range.get('startDate')} to {date_range.get('endDate')})."
+            rate = fin.get("paymentSuccessRate")
+            if rate is None:
+                reply_text = f"No payments were attempted in {period}, so there is no payment success rate."
+            else:
+                reply_text = (f"Payment success rate is {rate}% ({fin.get('succeededTransactions', 0)} succeeded, "
+                              f"{fin.get('refundedTransactions', 0)} later refunded, {fin.get('failedTransactions', 0)} "
+                              f"failed) for {period}.")
+        elif any(w in query for w in ["revenue", "gross", "income", "collection"]):
+            rows = fin.get("byCurrency") or {}
+            if not rows:
+                reply_text = f"No payments were captured in {period}."
+            else:
+                parts = [f"{cur.upper()}: gross collections {r['capturedAmount']:,.2f}, refunded {r['refundedAmount']:,.2f}, "
+                         f"net collections {r['netCollected']:,.2f}" for cur, r in sorted(rows.items())]
+                reply_text = f"{'; '.join(parts)} for {period}. {fin.get('note', '')}".strip()
         else:
             total_b = appts.get("totalAppointments", 0)
             conf_b = appts.get("confirmedAppointments", 0)
-            reply_text = f"Platform recorded {total_b} appointment booking(s) ({conf_b} confirmed) with a {appts.get('bookingConversionRate', 0)}% conversion rate for {timeframe.replace('_', ' ')}."
+            reply_text = (f"Platform recorded {total_b} appointment booking(s) dated {period}: {conf_b} confirmed, "
+                          f"{appts.get('completedAppointments', 0)} completed and {appts.get('cancelledAppointments', 0)} cancelled.")
 
         result_data = res
         suggestions = ["Show financial revenue breakdown", "Compare with last month", "Download operational report"]
@@ -376,12 +388,14 @@ async def reply_support_ticket(
 )
 async def list_refund_requests(
     status: Optional[str] = Query(None, description="Refund status filter"),
+    source: Optional[str] = Query(None, description="patient, doctor, leave or ALL"),
     page: int = Query(1, ge=1),
     pageSize: int = Query(20, ge=1, le=100),
     current_admin: UserResponseSchema = Depends(require_admin),
     db: Database = Depends(get_database),
 ) -> RefundRequestListResponse:
-    res = RefundService.list_refund_requests(db, status_filter=status, page=page, page_size=pageSize)
+    res = RefundService.list_refund_requests(db, status_filter=status, page=page, page_size=pageSize,
+                                             source_filter=source)
     return RefundRequestListResponse(**res)
 
 
@@ -401,6 +415,7 @@ async def create_refund_request(
         patient_user_id=str(current_user.id),
         appointment_id=req.appointmentId,
         reason=req.reason,
+        source="patient",
     )
     return RefundRequestResponse(id=str(doc.get("_id", doc.get("refundId"))), **doc)
 
@@ -480,6 +495,11 @@ async def generate_operational_report(
         start_date=req.startDate,
         end_date=req.endDate,
     )
+    AdminAuditService.log_action(
+        db=db, actor_id=str(current_admin.id), actor_role="ADMIN", actor_email=current_admin.email,
+        action_type="REPORT_GENERATED", target_id=report["reportId"], target_type="report",
+        metadata={"reportType": report["reportType"], **report["dateRange"]},
+    )
     return AdminReportResponse(**report)
 
 
@@ -498,6 +518,12 @@ async def export_report_csv(
         report_type=req.reportType,
         start_date=req.startDate,
         end_date=req.endDate,
+    )
+    # Exports leave the platform, so each one is audited (P04-N19); no report content is copied into the log.
+    AdminAuditService.log_action(
+        db=db, actor_id=str(current_admin.id), actor_role="ADMIN", actor_email=current_admin.email,
+        action_type="REPORT_EXPORTED", target_id=req.reportType, target_type="report",
+        metadata={"format": "csv", "startDate": req.startDate, "endDate": req.endDate},
     )
     filename = f"mediconnect_{req.reportType}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
     return Response(

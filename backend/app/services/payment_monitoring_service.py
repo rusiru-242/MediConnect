@@ -114,23 +114,42 @@ class PaymentMonitoringService:
         now = _utc_now()
         thirty_mins_ago = now - timedelta(minutes=30)
 
-        # Check 1: Succeeded Stripe payments where appointment is NOT confirmed or completed
+        # Check 1: captured payments whose booking is not an active or completed visit (P04-N11).
+        # Before Phase 04 every such payment was "UNCONFIRMED_PAID_APPOINTMENT" with the advice "Confirm appointment
+        # booking immediately", including bookings the doctor had cancelled with a refund request already open.
+        # Confirming a cancelled booking from monitoring would bypass the booking state machine, so the advice now
+        # only ever points at the refund queue or the reconciliation refund action.
         succeeded_payments = list(db["payments"].find({
-            "status": PaymentStatus.SUCCEEDED.value,
+            "status": {"$in": [PaymentStatus.SUCCEEDED.value, PaymentStatus.REFUNDED.value]},
         }).sort("createdAt", -1).limit(500))
 
         appt_ids = [p.get("appointmentId") for p in succeeded_payments if p.get("appointmentId")]
         valid_oids = [ObjectId(a) for a in appt_ids if ObjectId.is_valid(a)]
         appts_map = {str(a["_id"]): a for a in db["appointments"].find({"_id": {"$in": valid_oids}})}
+        refunds_by_appt: Dict[str, List[Dict[str, Any]]] = {}
+        for r in db["refund_requests"].find({"appointmentId": {"$in": appt_ids}},
+                                            {"appointmentId": 1, "status": 1, "refundId": 1}):
+            refunds_by_appt.setdefault(r["appointmentId"], []).append(r)
 
         appt_payment_counts: Dict[str, int] = {}
+        intent_counts: Dict[str, List[str]] = {}
         for p in succeeded_payments:
             appt_id = p.get("appointmentId")
+            intent_id = p.get("stripePaymentIntentId") or p.get("paymentIntentId") or str(p["_id"])
+            if p.get("stripePaymentIntentId"):
+                intent_counts.setdefault(p["stripePaymentIntentId"], []).append(str(p["_id"]))
             if not appt_id:
+                discrepancies.append({
+                    "discrepancyId": f"DISC-NOAPPT-{p['_id']}", "type": "PAYMENT_WITHOUT_APPOINTMENT",
+                    "severity": "HIGH", "paymentId": str(p["_id"]), "stripePaymentIntentId": intent_id,
+                    "description": "A captured payment is not linked to any appointment.",
+                    "recommendation": "Investigate the payment in Stripe test mode and refund it through the reconciliation action if no booking exists.",
+                    "detectedAt": now,
+                })
                 continue
-
-            intent_id = p.get("stripePaymentIntentId") or p.get("paymentIntentId", str(p["_id"]))
-            appt_payment_counts[appt_id] = appt_payment_counts.get(appt_id, 0) + 1
+            fully_refunded = p.get("status") == PaymentStatus.REFUNDED.value
+            if not fully_refunded:
+                appt_payment_counts[appt_id] = appt_payment_counts.get(appt_id, 0) + 1
             appt = appts_map.get(appt_id)
 
             if not appt:
@@ -141,11 +160,66 @@ class PaymentMonitoringService:
                     "paymentId": str(p["_id"]),
                     "appointmentId": appt_id,
                     "stripePaymentIntentId": intent_id,
-                    "description": f"Payment {intent_id} succeeded but linked appointment {appt_id} does not exist.",
-                    "recommendation": "Investigate appointment creation failure and initiate refund or manual booking confirmation.",
+                    "description": f"Payment {intent_id} was captured but linked appointment {appt_id} does not exist.",
+                    "recommendation": "Investigate the booking failure and refund the payment; do not create a booking manually.",
                     "detectedAt": now,
                 })
-            elif appt.get("status") not in [AppointmentStatus.CONFIRMED.value, AppointmentStatus.COMPLETED.value]:
+                continue
+
+            # Amount and currency must match what the booking accepted.
+            expected_minor = appt.get("acceptedAmountMinor")
+            if not isinstance(expected_minor, int):
+                # Older bookings and the standard booking path lock the fee in consultationFee.
+                from app.agents.doctor_ranking import coerce_fee
+                locked = coerce_fee(appt.get("consultationFee"))
+                expected_minor = int(round(locked * 100)) if locked is not None else None
+            paid_minor = int(round(float(p.get("amount") or 0.0) * 100))
+            if isinstance(expected_minor, int) and expected_minor != paid_minor:
+                discrepancies.append({
+                    "discrepancyId": f"DISC-AMOUNT-{intent_id}", "type": "AMOUNT_MISMATCH", "severity": "HIGH",
+                    "paymentId": str(p["_id"]), "appointmentId": appt_id, "stripePaymentIntentId": intent_id,
+                    "description": f"Payment amount {paid_minor / 100:,.2f} differs from the amount accepted at booking ({expected_minor / 100:,.2f}).",
+                    "recommendation": "Compare with the PaymentIntent in Stripe test mode before any refund or status change.",
+                    "detectedAt": now,
+                })
+            booking_currency = (appt.get("bookingCurrency") or "").lower()
+            if booking_currency and (p.get("currency") or "").lower() != booking_currency:
+                discrepancies.append({
+                    "discrepancyId": f"DISC-CURRENCY-{intent_id}", "type": "CURRENCY_MISMATCH", "severity": "HIGH",
+                    "paymentId": str(p["_id"]), "appointmentId": appt_id, "stripePaymentIntentId": intent_id,
+                    "description": f"Payment currency {(p.get('currency') or '?').upper()} differs from the booking currency {booking_currency.upper()}.",
+                    "recommendation": "Compare with the PaymentIntent in Stripe test mode before any refund or status change.",
+                    "detectedAt": now,
+                })
+
+            status_now = appt.get("status")
+            if fully_refunded or status_now in [AppointmentStatus.CONFIRMED.value, AppointmentStatus.COMPLETED.value]:
+                continue
+            refunds = refunds_by_appt.get(appt_id, [])
+            open_refund = next((r for r in refunds if r.get("status") in
+                                ("requested", "under_review", "approved", "processing", "failed")), None)
+            refunded_amount = float(p.get("refundedAmount") or 0.0)
+            if status_now == AppointmentStatus.CANCELLED.value and open_refund:
+                discrepancies.append({
+                    "discrepancyId": f"DISC-REFUNDQ-{intent_id}", "type": "CANCELLED_AWAITING_REFUND_DECISION",
+                    "severity": "LOW", "paymentId": str(p["_id"]), "appointmentId": appt_id,
+                    "stripePaymentIntentId": intent_id,
+                    "description": f"Cancelled booking with a captured payment; refund request {open_refund.get('refundId')} is {open_refund.get('status')}.",
+                    "recommendation": "Review the refund request in the Refunds queue.",
+                    "detectedAt": now,
+                })
+            elif status_now == AppointmentStatus.CANCELLED.value and (refunded_amount > 0 or any(r.get("status") in ("succeeded", "rejected") for r in refunds)):
+                continue  # refund decided (partial refund or rejection under the existing policy)
+            elif status_now == AppointmentStatus.CANCELLED.value:
+                discrepancies.append({
+                    "discrepancyId": f"DISC-NOREFUND-{intent_id}", "type": "CANCELLED_PAID_WITHOUT_REFUND_REQUEST",
+                    "severity": "HIGH", "paymentId": str(p["_id"]), "appointmentId": appt_id,
+                    "stripePaymentIntentId": intent_id,
+                    "description": f"Booking was cancelled by {appt.get('cancelledBy') or 'unknown'} but the captured payment has no refund request.",
+                    "recommendation": "Open a refund review under the existing cancellation policy; do not re-confirm the booking.",
+                    "detectedAt": now,
+                })
+            else:
                 discrepancies.append({
                     "discrepancyId": f"DISC-UNCONF-{intent_id}",
                     "type": "UNCONFIRMED_PAID_APPOINTMENT",
@@ -153,12 +227,12 @@ class PaymentMonitoringService:
                     "paymentId": str(p["_id"]),
                     "appointmentId": appt_id,
                     "stripePaymentIntentId": intent_id,
-                    "description": f"Payment {intent_id} succeeded, but appointment is currently in state '{appt.get('status')}'.",
-                    "recommendation": "Confirm appointment booking immediately or issue refund if hold was abandoned.",
+                    "description": f"Payment {intent_id} was captured, but the booking is in state '{status_now}' (reconciliation state: {p.get('reconciliationState') or 'none'}).",
+                    "recommendation": "Let payment verification finish or the hold expire; if it cannot confirm, use the reconciliation refund action. Never confirm the booking from monitoring.",
                     "detectedAt": now,
                 })
 
-        # Check 2: Duplicate payments for the same appointment
+        # Check 2: duplicate captured payments for one appointment, and one PaymentIntent recorded twice.
         for appt_id, count in appt_payment_counts.items():
             if count > 1:
                 discrepancies.append({
@@ -166,8 +240,17 @@ class PaymentMonitoringService:
                     "type": "DUPLICATE_PAYMENT",
                     "severity": "HIGH",
                     "appointmentId": appt_id,
-                    "description": f"Found {count} successful payments referencing the same appointment {appt_id}.",
-                    "recommendation": "Review duplicate transactions and refund the redundant payment immediately.",
+                    "description": f"Found {count} captured, unrefunded payments for the same appointment {appt_id}.",
+                    "recommendation": "Review the duplicate transactions and refund the redundant payment after checking Stripe test mode.",
+                    "detectedAt": now,
+                })
+        for intent_id, payment_ids in intent_counts.items():
+            if len(payment_ids) > 1:
+                discrepancies.append({
+                    "discrepancyId": f"DISC-DUPPI-{intent_id}", "type": "DUPLICATE_PAYMENT_INTENT_REFERENCE",
+                    "severity": "HIGH", "stripePaymentIntentId": intent_id,
+                    "description": f"PaymentIntent {intent_id} is referenced by {len(payment_ids)} payment records ({', '.join(payment_ids)}).",
+                    "recommendation": "Only one payment record may represent a PaymentIntent; investigate before any refund.",
                     "detectedAt": now,
                 })
 
