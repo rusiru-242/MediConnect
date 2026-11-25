@@ -116,12 +116,33 @@ def approve_reminders(day: date, request: ApproveBatch, user=Depends(require_doc
     return {"statuses": communications.queue_batch(db, user, day, recipients)}
 
 
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
+def requested_range(query):
+    """Date range named in a doctor's question, in Asia/Colombo (P03-N20).
+
+    "tomorrow", "next monday" / "on friday" (the next such day after today), "this week" (today + 6 days),
+    "this month" (1st to last day of the current month); otherwise today.
+    """
+    base = today()
+    day = base + timedelta(days=int(any(word in query for word in ("tomorrow", "heta", "හෙට", "நாளை"))))
+    for index, name in enumerate(WEEKDAYS):
+        if re.search(rf"\b{name}\b", query):
+            day = base + timedelta(days=(index - base.weekday()) % 7 or 7)
+            break
+    if "month" in query:
+        first = base.replace(day=1)
+        following = (first + timedelta(days=32)).replace(day=1)
+        return first, following - timedelta(days=1)
+    return day, (day + timedelta(days=6) if "week" in query else day)
+
+
 @router.post("/assistant")
 async def assistant(request: Chat, user=Depends(require_doctor), db=Depends(get_database)):
     workflow.ConsultationService._verify_approved_doctor(db, user)
     query = request.message.casefold()
-    day = today() + timedelta(days=int(any(word in query for word in ("tomorrow", "heta", "හෙට", "நாளை"))))
-    end = day + timedelta(days=6) if "week" in query else day
+    day, end = requested_range(query)
     orch = AIOrchestrator(db, user, None)
     if any(word in query for word in ("follow-up", "follow up", "followup")) and any(
         word in query for word in ("set", "create", "schedule", "karanna")
@@ -151,14 +172,16 @@ async def assistant(request: Chat, user=Depends(require_doctor), db=Depends(get_
             if not next_row:
                 return {"message": "Select an appointment. There is no checked-in patient waiting."}
             name, args = "get_consultation_preparation", {"appointment_id": next_row["id"]}
-    elif any(word in query for word in ("free slot", "available slot", "availability", "හිස් වේලා", "காலி நேரம்")):
+    elif any(word in query for word in ("free slot", "available slot", "available time", "availability", "gap",
+                                        "හිස් වේලා", "காலி நேரம்")):
         name, args = "get_my_available_slots", {"start": day}
     elif any(word in query for word in ("next patient", "queue", "පෝලිම", "வரிசை")):
         name = "get_next_queue_patient" if "next patient" in query else "get_my_patient_queue"
         args = {"start": day}
     elif any(word in query for word in ("follow-up", "follow up", "followup")):
         name, args = "get_my_follow_up_tasks", {}
-    elif any(word in query for word in ("count", "analytics", "statistics")):
+    elif any(word in query for word in ("count", "analytics", "statistics", "how many", "complete", "attention",
+                                        "revenue", "earning", "payment")):
         name, args = "get_my_doctor_analytics", {"start": day, "end": end}
     elif any(word in query for word in ("appointment", "schedule", "හමුවීම්", "சந்திப்பு")):
         name, args = "get_my_doctor_schedule", {"start": day, "end": end}
@@ -169,11 +192,19 @@ async def assistant(request: Chat, user=Depends(require_doctor), db=Depends(get_
         return {"message": "I could not retrieve that information. Check the selection and try again."}
     messages = {
         "get_my_doctor_schedule": lambda: f"{len(result['appointments'])} appointments in the selected date range.",
-        "get_my_available_slots": lambda: f"{len(result['slots'])} open slots for {day.isoformat()} in Asia/Colombo.",
+        "get_my_available_slots": lambda: (f"{len(result['slots'])} open slots for {day.isoformat()} in Asia/Colombo."
+                                           if day == end else
+                                           f"{len(result['slots'])} open slots for {day.isoformat()} in Asia/Colombo. "
+                                           "Ask about one day at a time for other days."),
         "get_next_queue_patient": lambda: "Here is the next checked-in patient." if result["nextPatient"] else "No checked-in patient is waiting.",
         "get_my_patient_queue": lambda: "Here is your patient queue.",
         "get_consultation_preparation": lambda: result["summary"],
         "get_my_follow_up_tasks": lambda: f"{len(result['followUps'])} recent follow-up plans.",
-        "get_my_doctor_analytics": lambda: f"{result['total']} appointments in the selected date range.",
+        # Every number below comes from the analytics service; the reply only formats it (P03-N20).
+        "get_my_doctor_analytics": lambda: (
+            f"{result['from']} to {result['to']} (Asia/Colombo): {result['confirmed']} confirmed, "
+            f"{result['completed']} completed and {result['cancelled']} cancelled appointments; "
+            f"{result['financials']['awaitingPayment']} awaiting payment and "
+            f"{result['financials']['openRefundRequests']} open refund requests."),
     }
     return {"message": messages[name](), "result": result, "tool": name}

@@ -160,16 +160,55 @@ def change_queue(db, user, identifier, req):
     return {"status": queue_status(result), "version": updated["version"]}
 
 
+def financials(db, user, start, end):
+    """Refund-aware money figures for the doctor's own appointments dated start..end (Asia/Colombo dates).
+
+    Booked fees, captured payments and refunds are kept apart (P03-N19): booked fees are not earnings, and no
+    platform fee or doctor payout is invented because none is configured in MediConnect.
+    """
+    appts = list(db.appointments.find({
+        "doctorUserId": str(user.id), "appointmentDate": {"$gte": start.isoformat(), "$lte": end.isoformat()},
+    }, {"status": 1, "paymentStatus": 1, "consultationFee": 1, "holdExpiresAt": 1}))
+    ids = [str(a["_id"]) for a in appts]
+    money = {}
+
+    def bucket(currency):
+        return money.setdefault((currency or "lkr").upper(), {
+            "bookedFees": 0.0, "paid": 0.0, "refunded": 0.0, "netCollected": 0.0})
+
+    for appt in appts:
+        if appt.get("status") in {"CONFIRMED", "COMPLETED"} and appt.get("consultationFee") is not None:
+            bucket("lkr")["bookedFees"] += float(appt["consultationFee"])
+    for pay in db.payments.find({"appointmentId": {"$in": ids}, "doctorUserId": str(user.id),
+                                 "status": {"$in": ["SUCCEEDED", "REFUNDED"]}},
+                                {"amount": 1, "currency": 1, "refundedAmount": 1}):
+        row = bucket(pay.get("currency"))
+        row["paid"] += float(pay.get("amount") or 0)
+        row["refunded"] += float(pay.get("refundedAmount") or 0)
+    for row in money.values():
+        row["netCollected"] = round(row["paid"] - row["refunded"], 2)
+        for key in ("bookedFees", "paid", "refunded"):
+            row[key] = round(row[key], 2)
+    open_refunds = db.refund_requests.count_documents({
+        "appointmentId": {"$in": ids}, "status": {"$in": ["requested", "under_review", "approved", "processing"]}})
+    awaiting = sum(1 for a in appts if a.get("status") in {"HOLD", "PENDING"} and a.get("paymentStatus") != "PAID")
+    return {"byCurrency": money, "awaitingPayment": awaiting, "openRefundRequests": open_refunds,
+            "platformFee": None, "doctorEarnings": None,
+            "note": "Gross patient payments. Platform fees and doctor payouts are not configured in MediConnect."}
+
+
 def analytics(db, user, start, end):
     rows = schedule(db, user, start, end)
     durations = measured_durations(db, user, start, end)
-    return {"from": start.isoformat(), "to": end.isoformat(), "total": len(rows),
+    return {"from": start.isoformat(), "to": end.isoformat(), "timezone": "Asia/Colombo", "total": len(rows),
+            "confirmed": sum(r["status"] == "CONFIRMED" for r in rows),
             "completed": sum(r["status"] == "COMPLETED" for r in rows),
             "cancelled": sum(r["status"] == "CANCELLED" for r in rows),
             "noShow": sum(r["queueStatus"] == "no_show" for r in rows),
             "waiting": sum(r["queueStatus"] in {"checked_in", "waiting"} for r in rows),
             "averageMeasuredMinutes": round(sum(durations) / len(durations), 1) if durations else None,
-            "measuredConsultations": len(durations)}
+            "measuredConsultations": len(durations),
+            "financials": financials(db, user, start, end)}
 
 
 def preparation(db, user, identifier):
@@ -199,7 +238,11 @@ def preparation(db, user, identifier):
 
 def follow_ups(db, user):
     ConsultationService._verify_approved_doctor(db, user)
+    from app.services.care_plan_service import care_plan_progress
+
     rows = db.care_plans.find({"doctorUserId": str(user.id)}, {
-        "appointmentId": 1, "followUpDate": 1, "status": 1,
+        "appointmentId": 1, "followUpDate": 1, "status": 1, "tasks.isCompleted": 1,
     }).sort("followUpDate", -1).limit(30)
-    return [{"id": str(row.pop("_id")), **row} for row in rows]
+    # Same server-side progress as the patient sees (P03-N18).
+    return [{"id": str(row.pop("_id")), **care_plan_progress(row), **{k: v for k, v in row.items() if k != "tasks"}}
+            for row in rows]
