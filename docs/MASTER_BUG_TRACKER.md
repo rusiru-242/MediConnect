@@ -1,6 +1,6 @@
 # MediConnect — Master Bug Tracker
 
-Branch: `fix/comprehensive-system-ai-stabilization` · Baseline commit: `c3e0aac` · Last updated: 2026-11-24
+Branch: `fix/comprehensive-system-ai-stabilization` · Baseline commit: `c3e0aac` · Last updated: 2026-11-25 (UAT UI blockers added on `fix/uat-ai-assistant-ui-stabilization`)
 
 ## How to read this tracker
 
@@ -17,7 +17,7 @@ Branch: `fix/comprehensive-system-ai-stabilization` · Baseline commit: `c3e0aac
 | Known issues from manual testing (BUG-001 to BUG-026) | 26 |
 | New issues found during this audit (BUG-027 to BUG-039) | 13 |
 | FIXED (root cause confirmed in code, regression test passing) | 31 |
-| Fix applied, PENDING MANUAL RETEST on a device | 4 (BUG-004, BUG-014, BUG-015, BUG-025) |
+| Fix applied, PENDING MANUAL RETEST on a device | 4 (BUG-004, BUG-014, BUG-015, BUG-025) as of 2026-11-24; BUG-014/015 reopened and re-fixed 2026-11-25 together with BUG-042/043/045 (see the UAT UI blockers section) |
 | BLOCKED for final verification (external dependency) | 1 (BUG-023, live Vision provider) |
 | OPEN | 2 (BUG-038, BUG-039) |
 | Not a defect / regression guard | 1 (BUG-009) |
@@ -133,14 +133,16 @@ Branch: `fix/comprehensive-system-ai-stabilization` · Baseline commit: `c3e0aac
 - **Investigation:** The screen itself builds exactly one composer, and the tests confirm this. The most plausible cause is that the assistant route was pushed twice: a fast double tap on the home button or a hero chip stacks two assistant screens.
 - **Fix:** `AssistantNavigation.open()` ignores repeat requests until the route closes. Hero-chip prompts now reach the screen (they were previously dropped).
 - **Regression tests:** `ai-ui` "exactly one composer…", "keyboard inset…", "double tap opens the assistant only once…"
-- **Status:** PENDING MANUAL RETEST (not reproduced on a device; UAT P-14)
+- **Status (2026-11-24):** PENDING MANUAL RETEST (not reproduced on a device; UAT P-14)
+- **REOPENED 2026-11-25** by manual UAT (two or three composers, composer missing). **Root cause found on the emulator and FIXED:** see BUG-043. The earlier navigation guard was not the cause. **Status:** FIXED, PENDING MANUAL RETEST (UAT P-17)
 
 ### BUG-015 — `_owner != null` assertion when pressing Back in the AI Assistant
 - **Severity:** High · **Component:** Flutter AI Assistant
 - **Investigation:** Not reproduced in widget tests. Likely triggers: post-frame scroll callbacks and the hold-countdown `setState` running while the route is being torn down, focus still on the text field, and a duplicated route (BUG-014).
 - **Fix:** On pop: unfocus, cancel the timer and invalidate pending uploads. Every post-frame scroll is now guarded (disposed, mounted, `hasClients`, `hasContentDimensions`). The timer `setState` is guarded. Plus the BUG-014 navigation guard. No assertions were suppressed.
 - **Regression test:** `ai-ui` "pressing Back with a focused input and pending reply does not throw"
-- **Status:** PENDING MANUAL RETEST (UAT P-15)
+- **Status (2026-11-24):** PENDING MANUAL RETEST (UAT P-15)
+- **REOPENED 2026-11-25** by manual UAT (red error screen on Back). **Root cause found on the emulator and FIXED:** see BUG-043. **Status:** FIXED, PENDING MANUAL RETEST (UAT P-17)
 
 ### BUG-016 — Ambiguous medicine strength display (`500mg / 120mg/5ml`)
 - **Severity:** Medium · **Component:** Medicine information (#2)
@@ -248,6 +250,22 @@ Branch: `fix/comprehensive-system-ai-stabilization` · Baseline commit: `c3e0aac
 | BUG-040 | After an emergency message, later messages in the same chat (even a doctor search) were re-escalated for up to three turns | Medium | The BUG-013 context rule re-evaluated earlier messages on every turn | `emergency_detector.py` | `stab::test_bug040_*` | FIXED (found during UAT preparation) |
 | BUG-041 | Admin → Refunds page always failed with HTTP 500 | High | `RefundService.list_refund_requests` was a `@classmethod` without `cls` (an AST scan found no other occurrence) | `refund_service.py` | `stab::test_bug041_admin_refund_list_does_not_crash` | FIXED (found during UAT preparation) |
 | BUG-039 | Doctor registration silently defaults a missing fee to LKR 2,500 | Low | `schemas/doctor.py` default | — | — | OPEN (product decision; the admin should confirm fees during verification) |
+
+## UAT UI blockers (2026-11-25, branch `fix/uat-ai-assistant-ui-stabilization`)
+
+Full analysis: [UAT_UI_STABILIZATION_REPORT.md](UAT_UI_STABILIZATION_REPORT.md). Test file `ai-ui2` = `mobile/test/screens/ai_assistant_ui_stabilization_test.dart`.
+
+**BUG-014, BUG-015, BUG-042, BUG-043 and BUG-045 share one root cause (BUG-043).** It was reproduced on the Android emulator on the first opening of the assistant. A second layout defect, the composer pushed off-screen in landscape with the keyboard open, was found during emulator testing and fixed under BUG-014. **Emulator (2026-11-25):** 20/20 guarded cycles, 60 messages sent and answered, 0 framework exceptions (see the report §5).
+
+| ID | Title | Severity | Confirmed root cause | Files | Regression tests | Status |
+|---|---|---|---|---|---|---|
+| BUG-043 | Flutter lifecycle and rendering assertions in the AI Assistant (`_owner != null`, `attached`, `!debugNeedsLayout`, `child._parent == this`, …) | Critical (blocks UAT) | **First exception:** `BoxConstraints forces an infinite width` at `ai_care_assistant_screen.dart:1041`. The app theme gives every `ElevatedButton` `minimumSize: Size(double.infinity, 52)`. The emergency banner put its 1990 `ElevatedButton` directly in a `Row`, so layout threw part-way through a frame. The screen was left with render objects that were never laid out ("RenderBox was not laid out"). Every later frame, keyboard change, rebuild or route removal then hit that inconsistent tree, which produced the listed assertions. Older tests did not use the app theme or an urgent session, so they could not see it. | `ai_care_assistant_screen.dart` | `ai-ui2` (14 tests; the original 10 fail without the fix), `ai_care_assistant_screen_test` #8 now under the app theme | FIXED; emulator verified (20/20 cycles, 0 exceptions); PENDING MANUAL RETEST (P-17) |
+| BUG-042 | Emergency UI missing: no red banner, no 1990 button, routine booking chips still shown | Critical (patient safety) | (1) The banner was built but its layout threw (BUG-043), so it never painted. (2) The backend keeps `state = COLLECTING_PREFERENCES` during an emergency, so the routine quick-prompt chips (Find Doctor, Book Slot, …) stayed visible. The backend contract itself was correct (`isUrgent`, `urgencyReason`, `activeIntent: EMERGENCY_GUIDANCE`, metadata `type: emergency`, `ambulanceCall: 1990`). | `ai_care_assistant_screen.dart`, `utils/emergency_dialer.dart`, `MainActivity.kt`, `AndroidManifest.xml` | `ai-ui2` BUG-042 group (banner, dedicated action, chips hidden, normal reply, confirm/cancel, dialer failure, Sinhala) | FIXED; emulator verified for English, Romanized Sinhala (typed) and Sinhala script (sent through the API): banner, 1990, dedicated action, Cancel, dialer without a call. The banner language now follows the reply's script. PENDING MANUAL RETEST (P-01 re-run, P-17) |
+| BUG-045 | Chat becomes laggy, then unresponsive | High | Consequence of BUG-043: in debug mode each failed layout logs a full error with stack traces, and the half-laid-out subtree is laid out again (and fails again) on later frames. No separate performance defect was found in code review. The hold-countdown timer rebuilds the whole screen once a second while a booking hold is active; this is minor and was left unchanged. | (as BUG-043) | (as BUG-043) | FIXED as a consequence; emulator: 20 identical sending cycles took 38.1–39.5 s, with no growth and 0 errors. A DevTools frame-timing profile was **not** captured. PENDING MANUAL RETEST |
+| BUG-044 | Category-specific emergency guidance | Medium | Recorded by the owner for a later batch | — | — | OPEN (deferred, not in this batch) |
+| BUG-047 | Composer pushed off-screen in landscape with the keyboard open (part of the "composer disappears" report) | High | Fixed-height disclaimer and emergency banner overflowed the about 64 px body by 106 px (`RenderFlex overflowed`) | `ai_care_assistant_screen.dart` (height-aware body) | `ai-ui2` landscape tests (fail without the fix: overflow by 141 px) | FIXED; emulator verified |
+| BUG-048 | Emergency banner in English while the reply was Sinhala (Romanized Sinhala input) | Medium | Backend keeps `preferences.language = en` and an English `urgencyReason` | `ai_care_assistant_screen.dart` (language follows the reply's script) | `ai-ui2` Romanized Sinhala test | FIXED in app; emulator verified. Backend language memory recorded for BUG-004 / P-01f |
+| BUG-046 | Home-screen **Emergency SOS** shows "Calling National Ambulance Service (1990)…" but never opens the dialer or places a call | High (patient safety: misleading) | `patient_home_screen.dart` only shows a SnackBar | `patient_home_screen.dart` | — | OPEN (found during this work; not changed because it is outside the AI Assistant scope. `EmergencyDialer` can be reused for the fix.) |
 
 ## Suspected or unconfirmed issues
 

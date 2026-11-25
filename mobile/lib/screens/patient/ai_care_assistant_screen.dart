@@ -15,6 +15,7 @@ import '../../services/ai_booking_service.dart';
 import '../../services/payment_service.dart';
 import '../../widgets/safe_markdown_text.dart';
 import 'doctor_detail_screen.dart';
+import '../../utils/emergency_dialer.dart';
 import 'payment_success_screen.dart';
 
 /// Unified MediConnect AI Care Assistant Screen (Phase 39).
@@ -30,12 +31,17 @@ class AiCareAssistantScreen extends StatefulWidget {
   /// Optional image source used by tests; production uses the platform file picker.
   final Future<({Uint8List bytes, String name})?> Function()? imagePicker;
 
+  /// Opens the phone dialer pre-filled with [number] and returns whether it opened. It must
+  /// never place a call by itself. Tests inject a fake; production uses [EmergencyDialer.open].
+  final Future<bool> Function(String number)? emergencyDialer;
+
   const AiCareAssistantScreen({
     super.key,
     this.initialQuery,
     this.bookingService,
     this.paymentService,
     this.imagePicker,
+    this.emergencyDialer,
   });
 
   @override
@@ -705,28 +711,111 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     });
   }
 
-  void _callAmbulance() {
-    showDialog(
+  /// True while the backend reports an emergency for this conversation (BUG-042). The backend
+  /// contract is `isUrgent: true` plus `activeIntent: EMERGENCY_GUIDANCE`; the session `state`
+  /// stays `COLLECTING_PREFERENCES`, so the state alone must not drive routine booking UI.
+  bool get _isEmergencyActive {
+    final session = _session;
+    if (session == null) return false;
+    return session.isUrgent || session.activeIntent == 'EMERGENCY_GUIDANCE';
+  }
+
+  static final RegExp _sinhalaScript = RegExp(r'[඀-෿]');
+  static final RegExp _tamilScript = RegExp(r'[஀-௿]');
+
+  /// Language for emergency UI. The backend answers a Romanized Sinhala emergency in Sinhala but
+  /// keeps `preferences.language = en`, so the script of the latest emergency reply decides first;
+  /// then the conversation language; then the app locale.
+  String get _emergencyLanguage {
+    final messages = _session?.messages ?? const <ChatMessage>[];
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final m = messages[i];
+      if (m.isUser || m.metadata?['type'] != 'emergency') continue;
+      if (_sinhalaScript.hasMatch(m.content)) return 'si';
+      if (_tamilScript.hasMatch(m.content)) return 'ta';
+      break;
+    }
+    final conversation = _session?.preferences.language;
+    if (conversation == 'si' || conversation == 'ta') return conversation!;
+    final app = Localizations.maybeLocaleOf(context)?.languageCode;
+    return app == 'si' || app == 'ta' ? app! : 'en';
+  }
+
+  String _emergencyText(String key) {
+    return _emergencyStrings[_emergencyLanguage]?[key] ?? _emergencyStrings['en']![key]!;
+  }
+
+  static const Map<String, Map<String, String>> _emergencyStrings = {
+    'en': {
+      'title': 'Possible medical emergency',
+      'fallbackReason': 'Call 1990 now or go to the nearest Emergency Treatment Unit (ETU).',
+      'call': 'Call 1990',
+      'dialogTitle': 'Call 1990 Suwa Seriya ambulance?',
+      'dialogBody': 'This opens your phone dialer with 1990 entered. The call starts only when you '
+          'press the call button in the dialer.\n\nIf you cannot call, go to the nearest hospital '
+          'Emergency Treatment Unit (ETU) or ask someone nearby to help.',
+      'cancel': 'Cancel',
+      'open': 'Open dialer',
+      'dialerFailed': 'Could not open the phone dialer. Dial 1990 on your phone now.',
+    },
+    'si': {
+      'title': 'හදිසි වෛද්‍ය තත්ත්වයක් විය හැක',
+      'fallbackReason': 'දැන්ම 1990 අමතන්න, නැතහොත් ළඟම ඇති රෝහලේ හදිසි ප්‍රතිකාර ඒකකයට (ETU) යන්න.',
+      'call': '1990 අමතන්න',
+      'dialogTitle': '1990 සුවසැරිය ගිලන්රථ සේවය අමතන්නද?',
+      'dialogBody': 'මෙය 1990 ඇතුළත් කළ ඔබගේ දුරකථන ඩයලරය විවෘත කරයි. ඇමතුම ආරම්භ වන්නේ ඔබ '
+          'ඩයලරයේ ඇමතුම් බොත්තම එබූ විට පමණි.\n\nඇමතීමට නොහැකි නම් ළඟම ඇති රෝහලේ ETU වෙත යන්න, '
+          'නැතහොත් අසල සිටින කෙනෙකුගෙන් උදව් ඉල්ලන්න.',
+      'cancel': 'අවලංගු කරන්න',
+      'open': 'ඩයලරය විවෘත කරන්න',
+      'dialerFailed': 'දුරකථන ඩයලරය විවෘත කළ නොහැකි විය. දැන්ම ඔබගේ දුරකථනයෙන් 1990 අමතන්න.',
+    },
+    'ta': {
+      'title': 'அவசர மருத்துவ நிலை இருக்கலாம்',
+      'fallbackReason': 'இப்போதே 1990 ஐ அழைக்கவும் அல்லது அருகிலுள்ள அவசர சிகிச்சைப் பிரிவுக்கு (ETU) செல்லவும்.',
+      'call': '1990 ஐ அழைக்கவும்',
+      'dialogTitle': '1990 சுவசெரிய ஆம்புலன்ஸை அழைக்கவா?',
+      'dialogBody': 'இது 1990 உள்ளிடப்பட்ட உங்கள் தொலைபேசி டயலரைத் திறக்கும். டயலரில் அழைப்பு '
+          'பொத்தானை அழுத்தும்போது மட்டுமே அழைப்பு தொடங்கும்.\n\nஅழைக்க முடியாவிட்டால் அருகிலுள்ள '
+          'மருத்துவமனையின் ETU க்குச் செல்லவும் அல்லது அருகில் உள்ளவரிடம் உதவி கேட்கவும்.',
+      'cancel': 'ரத்துசெய்',
+      'open': 'டயலரைத் திற',
+      'dialerFailed': 'தொலைபேசி டயலரைத் திறக்க முடியவில்லை. இப்போதே உங்கள் தொலைபேசியில் 1990 ஐ அழைக்கவும்.',
+    },
+  };
+
+  /// Asks for confirmation, then opens the dialer with 1990. Never places a call by itself.
+  Future<void> _callAmbulance() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.emergency_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Emergency Hotline: 1990'),
-          ],
-        ),
-        content: const Text(
-          'Please dial 1990 immediately on your phone to reach Suwa Seriya Free Emergency Ambulance Service in Sri Lanka, or proceed to the nearest emergency department.',
-        ),
+        key: const Key('ai_emergency_call_dialog'),
+        icon: const Icon(Icons.emergency_rounded, color: Colors.red),
+        title: Text(_emergencyText('dialogTitle')),
+        content: Text(_emergencyText('dialogBody')),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
+            key: const Key('ai_emergency_call_cancel'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(_emergencyText('cancel')),
+          ),
+          TextButton.icon(
+            key: const Key('ai_emergency_call_confirm'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            icon: const Icon(Icons.phone),
+            label: Text(_emergencyText('open')),
           ),
         ],
       ),
     );
+    if (confirmed != true || !mounted) return;
+    final opened = await (widget.emergencyDialer ?? EmergencyDialer.open)('1990');
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_emergencyText('dialerFailed')), backgroundColor: AppTheme.error),
+      );
+    }
   }
 
   void _showDoctorComparisonDialog() {
@@ -944,39 +1033,78 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Stitch Clinical Clarity Informational Disclaimer Banner
-            _buildStitchDisclaimerBanner(),
-
-            // Emergency Red-Flag Banner
-            if (_session?.isUrgent == true) _buildEmergencyBanner(),
-
-            // Error banner if any
-            if (_errorMessage != null) _buildErrorBanner(),
-
-            // Main chat conversation list
-            Expanded(
-              child: _isLoading && _session == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildConversationView(),
-            ),
-
-            // Quick suggestion prompt chips
-            if (_session != null &&
-                (_session!.isCollectingPreferences || _session!.isSearchingDoctors))
-              _buildQuickPromptsBar(),
-
-            // Selected Image Preview chip if attached
-            if (_selectedImageBytes != null) _buildSelectedImagePreview(),
-
-            // Upload & analysis progress stays visible above the composer (BUG-026)
-            if (_isUploadingImage) _buildUploadProgress(),
-
-            // Bottom Chat Input Bar
-            _buildInputArea(),
-          ],
+        // The composer must always fit (BUG-014 "composer disappears"). On the emulator, landscape
+        // with the keyboard open left about 64 px for the body, and the fixed-height banners
+        // pushed the composer off-screen (RenderFlex overflow). Everything except the conversation
+        // list and the composer therefore gets a capped, scrollable share of the height.
+        child: LayoutBuilder(
+          builder: (context, constraints) => _buildBody(constraints.maxHeight),
         ),
+      ),
+    );
+  }
+
+  /// Body heights below this show only the conversation and the composer (for example landscape
+  /// with the keyboard open). The banners return as soon as there is room again.
+  static const double _tightBodyHeight = 240;
+
+  /// Body heights below this hide the quick-prompt chips (about 86 px).
+  static const double _compactBodyHeight = 420;
+
+  Widget _buildBody(double height) {
+    final tight = height < _tightBodyHeight;
+    final compact = height < _compactBodyHeight;
+
+    final header = <Widget>[
+      // Stitch Clinical Clarity Informational Disclaimer Banner
+      if (!compact || !_isEmergencyActive) _buildStitchDisclaimerBanner(),
+      // Emergency Red-Flag Banner
+      if (_isEmergencyActive) _buildEmergencyBanner(),
+      // Error banner if any
+      if (_errorMessage != null) _buildErrorBanner(),
+    ];
+
+    final attachments = <Widget>[
+      // Selected Image Preview chip if attached
+      if (_selectedImageBytes != null) _buildSelectedImagePreview(),
+      // Upload & analysis progress stays visible above the composer (BUG-026)
+      if (_isUploadingImage) _buildUploadProgress(),
+    ];
+
+    // Quick suggestion prompt chips: routine booking suggestions are hidden during an emergency
+    // so they do not compete with the 1990 guidance (BUG-042).
+    final showQuickPrompts = !compact &&
+        _session != null &&
+        !_isEmergencyActive &&
+        (_session!.isCollectingPreferences || _session!.isSearchingDoctors);
+
+    return Column(
+      children: [
+        if (!tight && header.isNotEmpty) _cappedSection(header, height * 0.35),
+
+        // Main chat conversation list
+        Expanded(
+          child: _isLoading && _session == null
+              ? const Center(child: CircularProgressIndicator())
+              : _buildConversationView(),
+        ),
+
+        if (showQuickPrompts) _buildQuickPromptsBar(),
+
+        if (!tight && attachments.isNotEmpty) _cappedSection(attachments, height * 0.3),
+
+        // Bottom Chat Input Bar: the only fixed-height child, so it always fits.
+        _buildInputArea(maxLines: tight ? 1 : 4),
+      ],
+    );
+  }
+
+  /// A section that takes at most [maxHeight] and scrolls when its content is taller.
+  Widget _cappedSection(List<Widget> children, double maxHeight) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
   }
@@ -1010,7 +1138,10 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   Widget _buildEmergencyBanner() {
+    // The backend's urgencyReason is English only, so it is shown only in the English banner.
+    final reason = _emergencyLanguage == 'en' ? _session?.urgencyReason?.trim() : null;
     return Container(
+      key: const Key('ai_emergency_banner'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: Colors.red.shade700,
       child: Row(
@@ -1021,28 +1152,31 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Potential Emergency Detected',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                Text(
+                  _emergencyText('title'),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 Text(
-                  _session?.urgencyReason ??
-                      'If you have acute chest pain or severe distress, call 1990 immediately.',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  reason == null || reason.isEmpty
+                      ? _emergencyText('fallbackReason')
+                      : '$reason. ${_emergencyText('fallbackReason')}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
+          // The app theme gives every ElevatedButton `minimumSize: Size(double.infinity, 52)`.
+          // Inside a Row that is an infinite-width constraint, which threw during layout, left the
+          // screen's render tree half laid out, and caused BUG-014/015/042/043/045. A button placed
+          // in a Row must always override `minimumSize` with a finite width.
           ElevatedButton.icon(
+            key: const Key('ai_emergency_call_1990'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Colors.red.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: const Size(72, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               visualDensity: VisualDensity.compact,
             ),
             onPressed: _callAmbulance,
@@ -1050,6 +1184,25 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             label: const Text('1990', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Dedicated 1990 action shown under the latest emergency reply (BUG-042).
+  Widget _buildEmergencyMessageAction() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 40, bottom: 12),
+      child: ElevatedButton.icon(
+        key: const Key('ai_emergency_message_call'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red.shade700,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 46),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        onPressed: _callAmbulance,
+        icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
+        label: Text(_emergencyText('call'), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -1104,6 +1257,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildChatBubble(msg),
+              if (!msg.isUser && msg.metadata?['type'] == 'emergency' && index == messages.length - 1)
+                _buildEmergencyMessageAction(),
               if (msg.metadata?['type'] == 'booking_confirmed' &&
                   msg.metadata?['appointmentId'] != _session?.bookingResult?['reference'])
                 Card(
@@ -2566,7 +2721,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
-  Widget _buildInputArea() {
+  Widget _buildInputArea({int maxLines = 4}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -2592,7 +2747,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
               key: const Key('ai_care_assistant_input'),
               controller: _textController,
               minLines: 1,
-              maxLines: 4,
+              maxLines: maxLines,
               maxLength: 2000,
               textInputAction: TextInputAction.send,
               decoration: InputDecoration(

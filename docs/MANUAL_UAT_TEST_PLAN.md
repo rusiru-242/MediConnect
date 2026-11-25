@@ -55,6 +55,8 @@ Send each message in a **new chat**:
 
 Also tap **1990** and confirm the dialog explains how to call.
 
+> **Changed 2026-11-25 (BUG-042):** the banner title is now **"Possible medical emergency"** (Sinhala and Tamil versions for those conversations). An emergency reply also shows a red **Call 1990** button under it, and the routine chips (Find Doctor, Book Slot, …) are hidden. Tapping 1990 asks for confirmation; **Open dialer** opens the phone dialer with 1990 entered. **Do not press Call in the dialer during testing.**
+
 ### P-02 Health questions get guidance, not doctor cards (BUG-012)
 | Message | Expected |
 |---|---|
@@ -137,6 +139,21 @@ A native Sinhala speaker reads the replies from P-01b/c, P-02, P-04a, P-04e and 
 - While a reply is loading, press the Android Back button: you return to Home with **no red error screen**.
 - Type a message (keyboard open), then press Back twice: no red screen.
 - Start a booking hold (P-05 step 4), then press Back: no red screen; the hold still shows in My Appointments.
+
+### P-17 AI Assistant UI stabilization retest (BUG-014/015/042/043/045, 2026-11-25) 📸
+Install the new build first (uninstall the old app, then install). Keep the phone/emulator log running if you can (`flutter run` or `adb logcat`), and note any red error screen or yellow-and-black stripes.
+1. Open the AI Assistant from Home 10 times (Back to Home each time). Every time: exactly **one** input box, one camera button and one send button.
+2. In one chat, send 5 normal messages (for example `Healthy Sri Lankan breakfast ideas`, `Cardiologist in Colombo`). Typing and scrolling stay smooth; one composer throughout.
+3. Tap the input to open the keyboard, then close it. Repeat 10 times. One composer; it never disappears.
+4. Send `I have severe chest pain and cannot breathe`. Expect: red **Possible medical emergency** banner with a **1990** button, a red **Call 1990** button under the reply, and **no** Find Doctor / Book Slot chips. 📸
+5. Tap **1990**: a confirmation dialog appears. Tap **Cancel**: nothing happens. Tap **Call 1990** then **Open dialer**: the phone dialer opens with 1990 entered. **Do not press Call.** Return to the app.
+6. Repeat step 4 with P-01b (Romanized Sinhala) and P-01c (Sinhala script) in new chats. The Sinhala-script chat shows the banner in Sinhala. 📸
+7. Tap **New Chat** 10 times, and open/close **Chat History** 10 times. One composer every time.
+8. Type a message, press send, and immediately press Back (keyboard open). Return to Home with **no red screen**. Reopen the assistant. Repeat 10 times.
+9. Rotate the device with the keyboard open and with it closed. One composer, and no yellow-and-black stripes. In landscape with the keyboard open, only the conversation and the input box are shown; the red banner returns when the keyboard closes.
+10. Tap the camera button, pick a photo, then remove it with the ✕; then pick one and send it, and tap **Cancel** on the progress card. No red screen; one composer.
+11. Use the app for 5 minutes in one chat. It must not get slower.
+Record Pass/Fail per step. Any red screen, duplicate composer or missing composer is a **Fail**; copy the first error from the log if you have it.
 
 ### P-16 Notifications (component #13, #7)
 After booking: notifications for booking confirmed and for the reminder before the appointment (if configured) appear in the bell list and as push notifications. Mark one as read.
@@ -226,6 +243,22 @@ Each component maps to the tests above:
 |---|---|---|---|
 | P-01a | | | |
 | … | | | |
+
+### UAT execution log (results reported by the project owner)
+
+Recorded 2026-11-25. These are the owner's manual results before the UI stabilization fix; they are kept as reported and are **not** upgraded by this change.
+
+| Test ID | Result | Notes |
+|---|---|---|
+| P-01a | PARTIAL PASS | Emergency detected; red banner and dedicated 1990 button missing; routine chips still shown (BUG-042) |
+| P-01b | PARTIAL PASS | As P-01a |
+| P-01c | PARTIAL PASS | As P-01a |
+| P-01d | PARTIAL PASS | As reported by the owner |
+| P-01e | PARTIAL PASS | As reported by the owner |
+| P-01f | NOT TESTED | Next test after P-17 (Emergency Conversation Memory) |
+| P-14 / P-15 | FAIL (reopened as BUG-014 / BUG-015) | Duplicate or missing composer, lag, red screen on Back. Fix on `fix/uat-ai-assistant-ui-stabilization`; retest with P-17 |
+
+Next: run **P-17**, then re-run **P-01a–e** (emergency UI now expected), then **P-01f**.
 
 ## 6. Blocked or device-dependent items
 

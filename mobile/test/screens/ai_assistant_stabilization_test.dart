@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mediconnect/core/theme/app_theme.dart';
 import 'package:mediconnect/core/network/api_error_mapper.dart';
 import 'package:mediconnect/core/network/api_exceptions.dart';
 import 'package:mediconnect/models/booking_session.dart';
@@ -58,7 +59,7 @@ BookingSession _withAssistantReply(BookingSession base, String text) {
 }
 
 Widget _app(FakeAiBookingService service, {Future<({Uint8List bytes, String name})?> Function()? picker}) {
-  return MaterialApp(
+  return MaterialApp(theme: AppTheme.lightTheme, 
     home: AiCareAssistantScreen(bookingService: service, imagePicker: picker),
   );
 }
@@ -68,7 +69,7 @@ void main() {
 
   group('BUG-024 Markdown rendering', () {
     testWidgets('bold, headings and bullets render without raw markers', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, 
         home: Scaffold(body: SafeMarkdownText('**Medicine Packaging Analysis**\n\n## Next steps\n- Ask a **pharmacist**\n1. Keep the box')),
       ));
       final rendered = tester.widgetList<RichText>(find.byType(RichText)).map((w) => w.text.toPlainText()).join('\n');
@@ -137,7 +138,7 @@ void main() {
 
     testWidgets('pressing Back with a focused input and pending reply does not throw', (tester) async {
       final service = FakeAiBookingService();
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, 
         initialRoute: '/',
         routes: {
           '/': (context) => Scaffold(
@@ -168,7 +169,7 @@ void main() {
     testWidgets('double tap opens the assistant only once and forwards the prompt', (tester) async {
       final service = FakeAiBookingService();
       String? receivedPrompt;
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, 
         routes: {
           '/': (context) => Scaffold(
                 body: ElevatedButton(
