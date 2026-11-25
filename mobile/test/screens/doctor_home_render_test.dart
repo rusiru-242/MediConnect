@@ -74,7 +74,9 @@ void main() {
       expect(find.byType(DoctorHomeScreen), findsOneWidget);
       expect(find.byType(SingleChildScrollView), findsOneWidget);
       expect(find.text('Dr. Asinsa'), findsOneWidget);
-      expect(find.text('National Hospital Center'), findsOneWidget);
+      // Phase 02: no fabricated hospital name or telemetry alert on the doctor dashboard.
+      expect(find.text('National Hospital Center'), findsNothing);
+      expect(find.textContaining('TELEMETRY'), findsNothing);
       expect(find.text("Today's Schedule & Consultations"), findsOneWidget);
       expect(find.byKey(const Key('doctor_home_today_schedule_card')), findsOneWidget);
       expect(find.byKey(const Key('doctor_home_appointments_card')), findsOneWidget);
@@ -130,9 +132,9 @@ void main() {
 
       await tester.pump();
 
-      expect(find.text('ප්‍රතිකාර දළ විශ්ලේෂණය'), findsOneWidget);
+      // Phase 02: the fabricated "Practice Overview" grid was replaced by today's real figures.
+      expect(find.text('අද දින'), findsOneWidget);
       expect(find.text('අද දින කාලසටහන සහ උපදේශන'), findsOneWidget);
-      expect(find.text('හමුවීම්'), findsOneWidget);
     });
   });
 }

@@ -464,6 +464,12 @@ def test_reschedule_appointment_invalidates_reminders_and_notifies(db):
         "updatedAt": utc_now(),
     }
     db["appointments"].insert_one(appt)
+    # Phase 02: rescheduling requires a real open slot in the doctor's schedule.
+    db["doctor_availabilities"].insert_one({
+        "doctorUserId": dr_user["id"], "doctorProfileId": str(dr_profile["_id"]), "date": new_date,
+        "startTime": "14:00", "endTime": "17:00", "slotDurationMinutes": 30, "isActive": True,
+        "createdAt": utc_now(), "updatedAt": utc_now(),
+    })
 
     # Patient calls reschedule
     pt_headers = {"Authorization": f"Bearer {pt_user['token']}"}

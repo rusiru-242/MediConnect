@@ -528,6 +528,33 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     }
   }
 
+  Future<void> _releaseReservation() async {
+    if (_session == null || _isLoading || _isPaymentProcessing) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('ai_release_reservation_dialog'),
+        title: const Text('Release this reservation?'),
+        content: const Text(
+          'The time slot will be released now and any unfinished payment cancelled. You have not been charged.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Reservation')),
+          ElevatedButton(
+            key: const Key('ai_release_reservation_confirm'),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(72, 40)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Release'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    _countdownTimer?.cancel();
+    setState(() => _errorMessage = null); // the earlier "payment cancelled, slot still held" note no longer applies
+    await _cancelProposal();
+  }
+
   Future<void> _cancelProposal() async {
     if (_session == null || _isLoading || _isPaymentProcessing) return;
     setState(() => _isLoading = true);
@@ -647,7 +674,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
           setState(() {
             _isPaymentProcessing = false;
             _errorMessage = e.error.code == FailureCode.Canceled
-                ? 'Payment was cancelled.'
+                ? 'Payment was cancelled. You have not been charged. The slot stays held until the timer ends; '
+                    'pay again or release the reservation.'
                 : 'Payment failed: ${e.error.localizedMessage ?? "Try again"}';
           });
           return;
@@ -2634,6 +2662,24 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
+  static String _deliveryLabel(dynamic status) {
+    switch (status?.toString()) {
+      case 'sent':
+      case 'delivered':
+        return status.toString();
+      case 'accepted':
+        return 'accepted by provider';
+      case 'skipped':
+        return 'not requested';
+      case 'failed':
+        return 'not sent';
+      case 'uncertain':
+        return 'delivery unconfirmed';
+      default:
+        return 'pending';
+    }
+  }
+
   Widget _buildVerifiedBookingResult(Map<String, dynamic> result) {
     final notices = result['notifications'] as Map? ?? {};
     return Card(
@@ -2648,8 +2694,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             Text('${result['date']} at ${result['time']} (Sri Lanka time)'),
             if (result['clinic'] != null) Text(result['clinic'].toString()),
             Text(result['paymentStatus'] == 'PAID' ? 'Paid' : 'No payment required'),
-            Text('Email: ${notices['email'] ?? 'pending'}'),
-            Text('SMS: ${notices['sms'] ?? 'pending'}'),
+            // Truthful delivery wording (Phase 02): never implies an email/SMS was sent when it was not.
+            Text('Email: ${_deliveryLabel(notices['email'])}', key: const Key('ai_booking_email_status')),
+            Text('SMS: ${_deliveryLabel(notices['sms'])}', key: const Key('ai_booking_sms_status')),
           ],
         ),
       ),
@@ -2767,6 +2814,16 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
               ),
+            if (!isHoldExpired) ...[
+              const SizedBox(height: 6),
+              TextButton.icon(
+                key: const Key('ai_release_reservation'),
+                style: TextButton.styleFrom(foregroundColor: AppTheme.error, minimumSize: const Size(0, 40)),
+                onPressed: _isPaymentProcessing || _isLoading ? null : _releaseReservation,
+                icon: const Icon(Icons.event_busy_outlined, size: 18),
+                label: const Text('Release Reservation'),
+              ),
+            ],
             if (isHoldExpired)
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(

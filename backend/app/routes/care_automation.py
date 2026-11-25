@@ -335,10 +335,14 @@ def record_measurement(req: Reading, patient=Depends(require_patient), db=Depend
     if (req.value > maximum or (req.secondary is not None) != pressure
         or pressure and req.secondary >= req.value or req.metric == "temperature" and req.value < 25):
         raise HTTPException(422, "Enter a valid reading in the units shown.")
+    # Same alert rules as Health Tracking (/clinical/measurements), so a concerning reading entered from the
+    # Care Agenda is not silently stored (P02-N09). Thresholds are existing rules pending clinical review.
+    from app.services.clinical_safety_service import ClinicalSafetyService
+    alert = ClinicalSafetyService.evaluate_measurement_safety(req.metric, req.value, req.secondary)
     row = {**req.model_dump(), "patientUserId": str(patient.id), "unit": unit,
-           "recordedAt": datetime.now(timezone.utc), "source": "patient_reported"}
+           "recordedAt": datetime.now(timezone.utc), "source": "patient_reported", "criticalAlert": alert}
     db["patient_health_measurements"].insert_one(row)
-    return {"id": str(row["_id"]), "source": row["source"]}
+    return {"id": str(row["_id"]), "source": row["source"], "unit": unit, "criticalAlert": alert}
 
 
 @router.get("/measurements")

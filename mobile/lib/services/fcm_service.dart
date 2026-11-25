@@ -5,6 +5,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
+import '../providers/auth_provider.dart';
 import 'notification_service.dart';
 
 /// Background message handler for FCM. Must be a top-level function.
@@ -208,8 +211,14 @@ class FcmService {
     final type = data['type']?.toString();
 
     if (appointmentId != null && appointmentId.isNotEmpty) {
-      // Determine if appointment detail is for patient or doctor
-      nav.pushNamed('/patient/appointment-detail', arguments: {'appointmentId': appointmentId});
+      // Doctors open the doctor view of the same appointment (BUG-060).
+      var isDoctor = false;
+      final ctx = navigatorKey.currentContext;
+      try {
+        isDoctor = ctx != null && Provider.of<AuthProvider>(ctx, listen: false).user?.role == 'DOCTOR';
+      } catch (_) {}
+      nav.pushNamed(isDoctor ? '/doctor/appointment-detail' : '/patient/appointment-detail',
+          arguments: {'appointmentId': appointmentId});
     } else if (paymentId != null && paymentId.isNotEmpty || type == 'PAYMENT_SUCCESS' || type == 'PAYMENT_FAILED') {
       nav.pushNamed('/patient/payments');
     } else {

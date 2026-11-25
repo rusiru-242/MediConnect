@@ -148,6 +148,9 @@ class MockAppointmentService extends AppointmentService {
   }
 
   @override
+  Future<Map<String, dynamic>> getCancellationPreview(String appointmentId) async => {'refund': null};
+
+  @override
   Future<Appointment> createAppointment({
     required String doctorId,
     String? availabilityId,
@@ -545,7 +548,9 @@ void main() {
   testWidgets('TEST 22: Patient cancels appointment and status updates to CANCELLED',
       (tester) async {
     final mockApptService = MockAppointmentService();
-    final appt = mockApptService.appointments.first; // PENDING appointment
+    // Phase 02: an unpaid PENDING hold is released (covered in phase02_booking_payment_ui_test.dart);
+    // this test cancels the confirmed booking.
+    final appt = mockApptService.appointments[1]; // CONFIRMED appointment
 
     await tester.pumpWidget(createTestApp(
       child: AppointmentDetailScreen(
@@ -556,10 +561,11 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('PENDING'), findsOneWidget);
+    expect(find.text('CONFIRMED'), findsOneWidget);
     expect(find.byKey(const Key('cancel_appointment_button')), findsOneWidget);
 
-    // Tap Cancel Appointment
+    // Tap Cancel Appointment (the page is taller since the Phase 02 payment summary was added)
+    await tester.ensureVisible(find.byKey(const Key('cancel_appointment_button')));
     await tester.tap(find.byKey(const Key('cancel_appointment_button')));
     await tester.pumpAndSettle();
 

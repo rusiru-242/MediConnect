@@ -1,0 +1,70 @@
+{
+ "slot_10_before": true,
+ "blocker_hold_http": 201,
+ "blocker_appointment_id": "6b06b025de7d376a792bf92f",
+ "bug061": [
+  {
+   "user": "Book Dr. P02 Ortho on November 27, 2026 at 10:00",
+   "http": 200,
+   "state": "AWAITING_BOOKING_CONFIRMATION",
+   "replies": [
+    "Here are doctors with open slots on your requested date.",
+    "10:00 was unavailable. The closest option is 09:30 on 2026-11-27. Review it below."
+   ],
+   "selectedDoctor": "Dr. P02 Ortho",
+   "proposalSlot": "09:30",
+   "selectionReason": "Closest available time on the requested date.",
+   "candidates": [
+    [
+     "Dr. P02 Ortho",
+     [
+      "09:30",
+      "10:30",
+      "09:00",
+      "11:00",
+      "11:30",
+      "14:00",
+      "14:30",
+      "15:00"
+     ]
+    ]
+   ]
+  }
+ ],
+ "bug055_request": [
+  {
+   "user": "Book Dr. P02 Ortho on November 28, 2026 at 10:30",
+   "http": 200,
+   "state": "AWAITING_BOOKING_CONFIRMATION",
+   "replies": [
+    "Here are doctors with open slots on your requested date.",
+    "Review the proposed appointment below. Your booking requires your acceptance."
+   ],
+   "selectedDoctor": "Dr. P02 Ortho",
+   "proposalSlot": "10:30",
+   "selectionReason": "Exact match for your requested time.",
+   "candidates": [
+    [
+     "Dr. P02 Ortho",
+     [
+      "10:30",
+      "10:00",
+      "11:00",
+      "09:30",
+      "11:30",
+      "09:00",
+      "14:00",
+      "14:30"
+     ]
+    ]
+   ]
+  }
+ ],
+ "bug055_manual_select": {
+  "http": 200,
+  "selected": "15:00",
+  "requestedTime": "10:30",
+  "selectionReason": "Selected by you."
+ },
+ "blocker_released_http": 200
+}

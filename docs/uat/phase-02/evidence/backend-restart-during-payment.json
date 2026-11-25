@@ -1,0 +1,21 @@
+{
+ "process_8002": "stopped after creating the hold and PaymentIntent",
+ "slot_still_held_on_8001": true,
+ "hold_expiry_unchanged": true,
+ "stripe_confirm_while_original_process_down": "succeeded",
+ "status_via_8001": {
+  "http": 200,
+  "payment": "SUCCEEDED",
+  "appointment": "CONFIRMED"
+ },
+ "db": {
+  "status": "CONFIRMED",
+  "paymentStatus": "PAID",
+  "payments": 1
+ },
+ "cleanup": {
+  "cancel_http": 200,
+  "refund_http": 200,
+  "refund_status": "succeeded"
+ }
+}

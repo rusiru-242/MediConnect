@@ -357,6 +357,8 @@ class TestDoctorStatusUpdate:
             startTime="08:00",
         )
         appt = _run(AppointmentService.create_appointment(db, patient_schema, req))
+        # Phase 02: doctor confirmation requires a verified payment.
+        db["appointments"].update_one({"_id": ObjectId(appt.id)}, {"$set": {"paymentStatus": "PAID"}})
         update_req = UpdateAppointmentStatusRequest(status="CONFIRMED")
         result = _run(AppointmentService.update_appointment_status(db, doctor_schema, appt.id, update_req))
 
@@ -433,6 +435,8 @@ class TestDoctorStatusUpdate:
         appt = _run(AppointmentService.create_appointment(db, patient_schema, req))
         assert appt.status == "PENDING"
 
+        # Phase 02: doctor confirmation requires a verified payment.
+        db["appointments"].update_one({"_id": ObjectId(appt.id)}, {"$set": {"paymentStatus": "PAID"}})
         confirmed = _run(AppointmentService.update_appointment_status(
             db, doctor_schema, appt.id, UpdateAppointmentStatusRequest(status="CONFIRMED")
         ))

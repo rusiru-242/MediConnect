@@ -33,6 +33,7 @@ from app.routes import (
 from app.routes.ai_conversations import router as ai_conversations_router
 from app.services.booking_notifications import run_confirmation_outbox
 from app.services.care_scheduler import run_scheduler
+from app.services.appointment_service import AppointmentService
 from app.routes.doctor_workflow import router as doctor_workflow_router
 from app.services.doctor_communications import run_communications
 from app.routes.care_automation import router as care_automation_router
@@ -55,6 +56,7 @@ async def _run_reminder_worker():
                 db = DatabaseManager.get_database()
                 t0 = asyncio.get_event_loop().time()
                 await asyncio.to_thread(run_scheduler, db)
+                await asyncio.to_thread(AppointmentService.release_expired_holds, db)
                 await asyncio.to_thread(run_confirmation_outbox, db)
                 await asyncio.to_thread(run_communications, db)
                 duration = asyncio.get_event_loop().time() - t0
@@ -185,14 +187,22 @@ def root() -> Dict[str, str]:
 def health_check() -> Dict[str, Any]:
     """Report API and database connectivity without exposing sensitive configuration."""
     db_health = check_database_connection()
+    database = {
+        "connected": db_health["connected"],
+        "status": db_health["status"],
+        "message": db_health["message"],
+    }
+    if (settings.ENVIRONMENT or "").lower() != "production":
+        # Lets integration tests refuse to run against anything but an isolated local test database
+        # (Phase 02). A boolean only: no database name, host or URI is exposed.
+        from urllib.parse import urlsplit
+        host = (urlsplit(settings.MONGODB_URI or "").hostname or "").lower()
+        name = (settings.DATABASE_NAME or "").strip()
+        database["isolatedTestData"] = host in {"localhost", "127.0.0.1"} and name.endswith(("_uat", "_test"))
     return {
         "status": "healthy" if db_health["connected"] else "degraded",
         "api": "healthy",
-        "database": {
-            "connected": db_health["connected"],
-            "status": db_health["status"],
-            "message": db_health["message"],
-        },
+        "database": database,
         "environment": settings.ENVIRONMENT,
     }
 

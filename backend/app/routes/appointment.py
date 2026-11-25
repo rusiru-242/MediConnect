@@ -87,6 +87,38 @@ async def cancel_appointment(
     )
 
 
+@appointment_router.get(
+    "/{appointmentId}/cancellation-preview",
+    status_code=status.HTTP_200_OK,
+    summary="Refund implications of cancelling (read-only)",
+)
+async def cancellation_preview(
+    appointmentId: str,
+    current_user: UserResponseSchema = Depends(require_patient),
+    db: Database = Depends(get_database),
+):
+    return await AppointmentService.cancellation_preview(db=db, patient_user=current_user, appointment_id=appointmentId)
+
+
+@appointment_router.post(
+    "/{appointmentId}/release-hold",
+    response_model=AppointmentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Patient releases an unpaid reservation hold",
+    description="Cancels any open Stripe PaymentIntent for the hold, then releases the slot. Paid appointments are rejected (409).",
+)
+async def release_hold(
+    appointmentId: str,
+    req: Optional[CancelAppointmentRequest] = None,
+    current_user: UserResponseSchema = Depends(require_patient),
+    db: Database = Depends(get_database),
+) -> AppointmentResponse:
+    """Patient releases their own unpaid reservation (BUG-063)."""
+    return await AppointmentService.release_unpaid_hold(
+        db=db, patient_user=current_user, appointment_id=appointmentId, reason=req.reason if req else None,
+    )
+
+
 @appointment_router.post(
     "/{appointmentId}/reschedule",
     response_model=AppointmentResponse,

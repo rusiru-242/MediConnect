@@ -176,7 +176,7 @@ class ScheduleAppointmentItem {
   final String endTime;
   final String bookingStatus;
   final String consultationStatus;
-  final double consultationFee;
+  final double? consultationFee; // null when not recorded (never a default amount)
 
   final String patientUserId;
   final String patientName;
@@ -203,7 +203,7 @@ class ScheduleAppointmentItem {
     required this.endTime,
     required this.bookingStatus,
     this.consultationStatus = 'NOT_STARTED',
-    this.consultationFee = 2500.0,
+    this.consultationFee,
     required this.patientUserId,
     required this.patientName,
     this.patientEmail,
@@ -281,7 +281,7 @@ class ScheduleAppointmentItem {
       endTime: json['endTime']?.toString() ?? '',
       bookingStatus: json['bookingStatus']?.toString() ?? 'PENDING',
       consultationStatus: json['consultationStatus']?.toString() ?? 'NOT_STARTED',
-      consultationFee: (json['consultationFee'] is num) ? (json['consultationFee'] as num).toDouble() : 2500.0,
+      consultationFee: (json['consultationFee'] is num) ? (json['consultationFee'] as num).toDouble() : null,
       patientUserId: json['patientUserId']?.toString() ?? '',
       patientName: json['patientName']?.toString() ?? 'Patient',
       patientEmail: json['patientEmail']?.toString(),

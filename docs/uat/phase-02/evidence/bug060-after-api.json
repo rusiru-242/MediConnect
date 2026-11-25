@@ -1,0 +1,121 @@
+{
+ "uat.patient1": [
+  {
+   "id": "6b06825ccc345d412f2d7898",
+   "doctorName": "Dr. UAT Neuro",
+   "appointmentDate": "2026-11-26",
+   "startTime": "10:00",
+   "endTime": "10:30",
+   "status": "CONFIRMED",
+   "paymentStatus": "PAID",
+   "consultationFee": 2500.0
+  }
+ ],
+ "uat.patient1_detail": {
+  "http": 200,
+  "body": "{'id': '6b06825ccc345d412f2d7898', 'patientUserId': '6b05c3fc88a1403facad0200', 'doctorUserId': '6b05c3fc88a1403facad0210', 'doctorProfileId': '6b05c3fc88a1403facad0211', 'availabilityId': '6b05c3fd88"
+ },
+ "uat.patient2": [
+  {
+   "id": "6b05c53f55fc82dec4b0e83a",
+   "doctorName": "Dr. UAT General",
+   "appointmentDate": "2026-12-03",
+   "startTime": "16:30",
+   "endTime": "17:00",
+   "status": "CANCELLED",
+   "paymentStatus": "PENDING",
+   "consultationFee": 1500.0
+  },
+  {
+   "id": "6b069108cc345d412f2d793d",
+   "doctorName": "Dr. UAT Neuro",
+   "appointmentDate": "2026-11-26",
+   "startTime": "11:00",
+   "endTime": "11:30",
+   "status": "CONFIRMED",
+   "paymentStatus": "PAID",
+   "consultationFee": 2500.0
+  },
+  {
+   "id": "6b068ce9cc345d412f2d7918",
+   "doctorName": "Dr. UAT Neuro",
+   "appointmentDate": "2026-11-26",
+   "startTime": "11:00",
+   "endTime": "11:30",
+   "status": "CANCELLED",
+   "paymentStatus": "PENDING",
+   "consultationFee": 2500.0
+  },
+  {
+   "id": "6b068bd2cc345d412f2d78dc",
+   "doctorName": "Dr. UAT Neuro",
+   "appointmentDate": "2026-11-26",
+   "startTime": "10:30",
+   "endTime": "11:00",
+   "status": "CONFIRMED",
+   "paymentStatus": "PAID",
+   "consultationFee": 2500.0
+  }
+ ],
+ "uat.patient2_detail": {
+  "http": 200,
+  "body": "{'id': '6b05c53f55fc82dec4b0e83a', 'patientUserId': '6b05c3fc88a1403facad0201', 'doctorUserId': '6b05c3fc88a1403facad0212', 'doctorProfileId': '6b05c3fc88a1403facad0213', 'availabilityId': '6b05c3fd88"
+ },
+ "doctor_list": [
+  {
+   "id": "6b06825ccc345d412f2d7898",
+   "patientName": "UAT Patient One",
+   "appointmentDate": "2026-11-26",
+   "startTime": "10:00",
+   "status": "CONFIRMED",
+   "paymentStatus": "PAID",
+   "consultationFee": 2500.0
+  },
+  {
+   "id": "6b068bd2cc345d412f2d78dc",
+   "patientName": "UAT Patient Two",
+   "appointmentDate": "2026-11-26",
+   "startTime": "10:30",
+   "status": "CONFIRMED",
+   "paymentStatus": "PAID",
+   "consultationFee": 2500.0
+  },
+  {
+   "id": "6b069108cc345d412f2d793d",
+   "patientName": "UAT Patient Two",
+   "appointmentDate": "2026-11-26",
+   "startTime": "11:00",
+   "status": "CONFIRMED",
+   "paymentStatus": "PAID",
+   "consultationFee": 2500.0
+  }
+ ],
+ "doctor_notifications_http": 200,
+ "doctor_notifications": [
+  {
+   "type": "APPOINTMENT_CONFIRMED",
+   "title": "Appointment Confirmed",
+   "relatedAppointmentId": "6b069108cc345d412f2d793d",
+   "isRead": false,
+   "data": null
+  },
+  {
+   "type": "APPOINTMENT_CONFIRMED",
+   "title": "Appointment Confirmed",
+   "relatedAppointmentId": "6b068bd2cc345d412f2d78dc",
+   "isRead": false,
+   "data": null
+  },
+  {
+   "type": "APPOINTMENT_CONFIRMED",
+   "title": "Appointment Confirmed",
+   "relatedAppointmentId": "6b06825ccc345d412f2d7898",
+   "isRead": true,
+   "data": null
+  }
+ ],
+ "doctor_detail": {
+  "http": 200,
+  "body": "{'id': '6b06825ccc345d412f2d7898', 'patientUserId': '6b05c3fc88a1403facad0200', 'doctorUserId': '6b05c3fc88a1403facad0210', 'doctorProfileId': '6b05c3fc88a1403facad0211', 'availabilityId': '6b05c3fd88"
+ }
+}

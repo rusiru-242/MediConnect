@@ -96,6 +96,26 @@ class AppointmentService {
     return Appointment.fromJson(response as Map<String, dynamic>);
   }
 
+  /// Patient releases an unpaid reservation hold now (BUG-063). The backend cancels any open
+  /// PaymentIntent first and refuses if the payment already succeeded.
+  Future<Appointment> releaseHold(String appointmentId) async {
+    final response = await _apiClient.post(
+      ApiConstants.releaseHoldEndpoint(appointmentId),
+      body: const <String, dynamic>{},
+      includeAuth: true,
+    );
+    return Appointment.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// Read-only: what cancelling would mean (refund policy result for a paid booking).
+  Future<Map<String, dynamic>> getCancellationPreview(String appointmentId) async {
+    final response = await _apiClient.get(
+      ApiConstants.cancellationPreviewEndpoint(appointmentId),
+      includeAuth: true,
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
   /// Doctor retrieves their assigned appointments.
   Future<AppointmentListResponse> getDoctorAppointments({
     int page = 1,

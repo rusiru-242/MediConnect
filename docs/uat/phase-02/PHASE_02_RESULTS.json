@@ -1,0 +1,394 @@
+{
+  "phase": "02",
+  "title": "Appointment, Payment and Patient Care Automation Stabilization",
+  "date": "2026-11-25",
+  "branch": "fix/phase-02-booking-payment-patient-care",
+  "baselineCommit": "877c08d",
+  "implementationCommits": [
+    "c4423e1",
+    "2528673",
+    "07b1bb0",
+    "0858d86",
+    "56d6bc8"
+  ],
+  "documentationCommit": "see git log (commit adding docs/uat/phase-02)",
+  "mergedToMain": false,
+  "deployed": false,
+  "clinicallyApproved": false,
+  "productionReady": false,
+  "environment": {
+    "uatBackend": "127.0.0.1:8001",
+    "secondProcessForConcurrency": "127.0.0.1:8002",
+    "uatDatabase": "mediconnect_uat",
+    "testDatabase": "mediconnect_test",
+    "port8000Used": false,
+    "stripe": "test mode (livemode=false)",
+    "aiProvider": "deterministic",
+    "externalImageProcessing": "disabled",
+    "fcm": "not configured",
+    "smtp": "disabled",
+    "sms": "not configured"
+  },
+  "bugStatistics": {
+    "distinctDefectsReviewed": 32,
+    "ownerIds": 15,
+    "newlyDiscovered": 17,
+    "ownerFixedInPhase01RegressionVerified": 8,
+    "fixedInPhase02": 24,
+    "reproducedBeforeFixInPhase02": 24,
+    "reproducedVia": {
+      "uatApi": 7,
+      "emulator": 2,
+      "failingRun": 2,
+      "codeInspectionConfirmedByTests": 13
+    },
+    "openDefectsInScope": 0,
+    "openDecisionsOrTechnicalItems": 4,
+    "ownerUatItemsExecuted": {
+      "P-05n": "PASS",
+      "P-05o": "PASS",
+      "P-05p": "PASS",
+      "P-05q": "PASS",
+      "P-05r": "PASS"
+    }
+  },
+  "ownerBugs": [
+    {
+      "id": "BUG-049",
+      "title": "Keyboard UX",
+      "severity": "Medium",
+      "status": "FIXED_PHASE01_REGRESSION_PASS",
+      "phase01Alias": "P01-21"
+    },
+    {
+      "id": "BUG-050",
+      "title": "Mental-health crisis UI",
+      "severity": "High",
+      "status": "FIXED_PHASE01_CLINICAL_DESIGN_PENDING",
+      "phase01Alias": "P01-04"
+    },
+    {
+      "id": "BUG-051",
+      "title": "Cough tiering",
+      "severity": "Medium",
+      "status": "FIXED_PHASE01_CLINICAL_REVIEW_PENDING",
+      "phase01Alias": "P01-07"
+    },
+    {
+      "id": "BUG-052",
+      "title": "Educational emergency questions",
+      "severity": "High",
+      "status": "FIXED_PHASE01",
+      "phase01Alias": "P01-01"
+    },
+    {
+      "id": "BUG-053",
+      "title": "Recommendation ranking transparency",
+      "severity": "Medium",
+      "status": "FIXED_VERIFIED_LIVE",
+      "phase01Alias": "P01-16/P01-17"
+    },
+    {
+      "id": "BUG-054",
+      "title": "Context retention",
+      "severity": "High",
+      "status": "FIXED_PHASE01",
+      "phase01Alias": "P01-09"
+    },
+    {
+      "id": "BUG-055",
+      "title": "Manual slot described as closest",
+      "severity": "Low",
+      "status": "FIXED",
+      "phase01Alias": null
+    },
+    {
+      "id": "BUG-056",
+      "title": "Video channelling",
+      "severity": "Medium",
+      "status": "FIXED_MIGRATION_NOT_RUN",
+      "phase01Alias": "P01-26"
+    },
+    {
+      "id": "BUG-057",
+      "title": "Fabricated dashboard appointment",
+      "severity": "High",
+      "status": "FIXED_PHASE01",
+      "phase01Alias": "P01-23"
+    },
+    {
+      "id": "BUG-058",
+      "title": "Patient payment details and reference",
+      "severity": "Medium",
+      "status": "FIXED_DEVICE_VERIFIED",
+      "phase01Alias": null
+    },
+    {
+      "id": "BUG-059",
+      "title": "Doctor fee display",
+      "severity": "Medium",
+      "status": "FIXED_DEVICE_VERIFIED",
+      "phase01Alias": null
+    },
+    {
+      "id": "BUG-060",
+      "title": "Notification link Appointment not found",
+      "severity": "High",
+      "status": "FIXED_DEVICE_VERIFIED",
+      "phase01Alias": null
+    },
+    {
+      "id": "BUG-061",
+      "title": "Same-doctor nearby times",
+      "severity": "High",
+      "status": "FIXED",
+      "phase01Alias": null
+    },
+    {
+      "id": "BUG-062",
+      "title": "Named-doctor name asked again",
+      "severity": "Medium",
+      "status": "FIXED_PHASE01_REGRESSION_PASS",
+      "phase01Alias": "P01-13"
+    },
+    {
+      "id": "BUG-063",
+      "title": "Manual reservation release",
+      "severity": "High",
+      "status": "FIXED_DEVICE_VERIFIED",
+      "phase01Alias": null
+    }
+  ],
+  "newBugs": [
+    {
+      "id": "P02-N01",
+      "title": "Wrong-date proposal after choosing a doctor",
+      "severity": "High",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N02",
+      "title": "Unverified legacy payment settlement",
+      "severity": "High",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N03",
+      "title": "Charge used current profile fee",
+      "severity": "Medium",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N04",
+      "title": "Doctor could confirm unpaid appointment",
+      "severity": "High",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N05",
+      "title": "Refund integrity (fake success, caps, duplicates, double count)",
+      "severity": "High",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N06",
+      "title": "Booking chat reused as draft",
+      "severity": "Low",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N07",
+      "title": "Manual booking retry re-reserved own slot",
+      "severity": "Medium",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N08",
+      "title": "Reschedule to arbitrary time; 500 on conflict",
+      "severity": "High",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N09",
+      "title": "Care Agenda measurements without safety alert",
+      "severity": "Medium",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N10",
+      "title": "Cancelled booking granted record access (privacy)",
+      "severity": "High",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N11",
+      "title": "Fabricated doctor dashboard KPIs and ECG alert",
+      "severity": "High",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N12",
+      "title": "Renewal notification, prescriber-only, atomic review",
+      "severity": "Medium",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N13",
+      "title": "Live API test on port 8000 and silently skipped",
+      "severity": "Medium",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N14",
+      "title": "Mobile models invented LKR 2500",
+      "severity": "Medium",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N15",
+      "title": "Non-conditional cancellation",
+      "severity": "Low",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N16",
+      "title": "Latent datetime NameError in appointment response",
+      "severity": "Low",
+      "status": "FIXED"
+    },
+    {
+      "id": "P02-N17",
+      "title": "Released hold shown as payment pending",
+      "severity": "Low",
+      "status": "FIXED"
+    }
+  ],
+  "testResults": {
+    "backendFull": {
+      "passed": 545,
+      "failed": 0,
+      "baselinePassed": 512,
+      "newTests": 33,
+      "existingFixturesUpdated": 6
+    },
+    "flutterFull": {
+      "passed": 298,
+      "failed": 0,
+      "baselinePassed": 284,
+      "newTests": 14,
+      "existingExpectationsUpdated": 4
+    },
+    "flutterAnalyze": "no issues",
+    "flutterLiveApiIntegration": {
+      "target": "http://127.0.0.1:8001/api",
+      "passed": 13,
+      "failed": 0,
+      "port8000Refused": true,
+      "note": "separate run; not added to flutterFull"
+    },
+    "stripeTestModeUat": {
+      "steps": 36,
+      "allAsExpected": true
+    },
+    "concurrencyTwoProcesses": {
+      "rounds": 5,
+      "winnersPerRound": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "aiAcceptRace": [
+        200,
+        409
+      ],
+      "doubleTapPaymentIntents": 1
+    },
+    "backendRestartDuringPayment": "PASS",
+    "patientCareLiveUat": {
+      "steps": 71,
+      "allAsExpectedAfterFixes": true
+    },
+    "patientCareMatrix": {
+      "rows": 49,
+      "pass": 46,
+      "partial": 1,
+      "blocked": 2
+    },
+    "phase01AiProbeRegression": {
+      "scenarios": 35,
+      "turns": 45,
+      "differences": 0
+    },
+    "emulator": {
+      "checks": 14,
+      "passed": 14,
+      "frameworkExceptions": 0,
+      "deviceRerunAfterLastFix": false
+    },
+    "adminWeb": "NOT_RUN (unchanged)",
+    "androidDebugApk": "built"
+  },
+  "stripe": {
+    "realWebhookDelivery": "BLOCKED (Stripe CLI not installed)",
+    "webhookProcessing": "verified with locally signed real test-mode objects",
+    "successfulTestPayments": "yes",
+    "declinedTestPayment": "yes",
+    "testRefunds": "succeeded (2)",
+    "paymentIntentsPerPaidBooking": 1
+  },
+  "components": {
+    "01_booking": "TESTED (live LLM blocked)",
+    "02_health_assistant": "TESTED_PHASE01_REGRESSION_PASS_CLINICAL_PENDING",
+    "03_recommendation": "TESTED",
+    "04_medicine_image": "MOCKED_ONLY_LIVE_BLOCKED",
+    "05_medication_reminder": "TESTED_REAL_WORKER_PUSH_BLOCKED",
+    "06_care_plan": "TESTED",
+    "07_appointment_reminder": "TESTED_REAL_WORKER_PUSH_EMAIL_BLOCKED",
+    "08_follow_up": "TESTED",
+    "09_medical_test_reminder": "TESTED_REAL_WORKER",
+    "10_health_tracking": "TESTED_THRESHOLDS_CLINICAL_PENDING",
+    "11_prescription_renewal": "TESTED",
+    "12_medical_records": "PARTIAL (no encryption at rest)",
+    "13_notifications": "TESTED_IN_APP_CHANNELS_BLOCKED"
+  },
+  "remainingBlockers": [
+    "B1 clinical approval",
+    "B2 pharmacist approval",
+    "B3 Stripe webhook delivery",
+    "B4 FCM",
+    "B5 email/SMS",
+    "B6 policy decisions",
+    "B7 measurement stores",
+    "B8 encryption at rest",
+    "B9 migration approval",
+    "B10 physical phone",
+    "B11 device re-run after last fix",
+    "B12 native-speaker review",
+    "B13 live LLM/Vision",
+    "B14 Phase 03 doctor dashboard",
+    "B15 Phase 04 admin refund page",
+    "B16 dose-question wording",
+    "B17 Sinhala follow-up language"
+  ],
+  "readiness": {
+    "academicDemonstration": "READY",
+    "localUat": "READY_FOR_OWNER_RETEST",
+    "staging": "NOT_READY",
+    "clinicalPilot": "NOT_READY",
+    "production": "NOT_READY",
+    "phase03": "CAN_START"
+  },
+  "ci": {
+    "commit": "56d6bc8",
+    "backendCI": {
+      "conclusion": "success",
+      "url": "https://github.com/rusiru-242/MediConnect/actions/runs/45600419462"
+    },
+    "mobileCI": {
+      "conclusion": "success",
+      "url": "https://github.com/rusiru-242/MediConnect/actions/runs/45600419628"
+    }
+  }
+}

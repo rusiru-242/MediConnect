@@ -62,7 +62,7 @@ class ClinicalSafetyService:
         """Verify that an authorized clinical care relationship exists between doctor and patient.
 
         Access is permitted if the doctor has:
-        1. An appointment (HOLD, PENDING, CONFIRMED, COMPLETED) with the patient.
+        1. A CONFIRMED or COMPLETED appointment with the patient (not a hold or cancelled booking).
         2. A consultation session with the patient.
         3. A care plan assigned to the patient.
         Otherwise, access is rejected with HTTP 403 Forbidden.
@@ -73,9 +73,13 @@ class ClinicalSafetyService:
                 detail="Doctor and patient identities must both be specified.",
             )
 
-        # 1. Check appointments
+        # 1. Check appointments. Only a confirmed (paid) or completed visit creates a care relationship
+        # (P02-N10): a released hold, an expired reservation or a cancelled booking never grants a doctor
+        # access to the patient's clinical records.
+        care_statuses = {"$in": ["CONFIRMED", "COMPLETED"]}
         appt_query = {
             "patientUserId": patient_user_id,
+            "status": care_statuses,
             "$or": [
                 {"doctorUserId": doctor_user_id},
                 {"doctorUserId": str(doctor_user_id)},
@@ -88,7 +92,8 @@ class ClinicalSafetyService:
         profile = db["doctor_profiles"].find_one({"userId": doctor_user_id}, {"_id": 1})
         if profile:
             profile_id_str = str(profile["_id"])
-            if db["appointments"].find_one({"patientUserId": patient_user_id, "doctorProfileId": profile_id_str}, {"_id": 1}):
+            if db["appointments"].find_one({"patientUserId": patient_user_id, "doctorProfileId": profile_id_str,
+                                            "status": care_statuses}, {"_id": 1}):
                 return True
 
         # 2. Check consultation sessions

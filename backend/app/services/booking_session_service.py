@@ -329,6 +329,18 @@ class BookingSessionService:
         if updated_dict.get("persistent"):
             try:
                 await prepare_proposal(db, patient_user, updated_dict, automatic=True)
+                last_meta = updated_dict["messages"][-1].get("metadata") or {}
+                summary = updated_dict.get("bookingSummary") or {}
+                if last_meta.get("type") == "booking_summary" and not summary.get("proposalId"):
+                    # A time typed for the selected doctor becomes a server-owned proposal, exactly like a
+                    # slot picked from the cards (re-verified price and slot; patient acceptance required).
+                    await prepare_proposal(db, patient_user, updated_dict)
+                    updated_dict["messages"][-1]["content"] = (
+                        "Review the proposed appointment below. Your booking requires your acceptance."
+                    )
+                    updated_dict["messages"][-1]["metadata"] = {
+                        "type": "booking_proposal", "proposalId": updated_dict["bookingSummary"]["proposalId"],
+                    }
             except HTTPException as exc:
                 if exc.status_code not in {400, 404, 409}:
                     raise
@@ -685,15 +697,29 @@ class BookingSessionService:
             if e.status_code in [status.HTTP_409_CONFLICT, status.HTTP_400_BAD_REQUEST]:
                 doc["state"] = BookingAgentState.BOOKING_FAILED.value
                 doc["updatedAt"] = now
+                # P-05n: the losing patient gets real nearby times for the same doctor (nothing about who
+                # holds the slot is revealed).
+                try:
+                    alternatives = [s for s in await BookingAgent._fetch_available_slots(
+                        db, selected_doctor["doctorId"], selected_slot["date"],
+                        preferred_time=selected_slot["startTime"],
+                    ) if s.get("date") == selected_slot["date"]][:4]
+                except Exception:
+                    alternatives = []
+                if alternatives:
+                    doc["candidateSlots"] = alternatives
+                times = ", ".join(s["startTime"] for s in alternatives)
                 doc["messages"].append({
                     "id": str(ObjectId()),
                     "sender": "assistant",
                     "content": (
                         "Unfortunately, this appointment slot is no longer available. "
-                        "Please select another available slot or another doctor."
+                        + (f"Open times with {selected_doctor.get('fullName', 'the doctor')} that day: {times}. "
+                           "Choose one, or select another doctor." if alternatives else
+                           "Please select another available slot or another doctor.")
                     ),
                     "timestamp": now,
-                    "metadata": {"type": "booking_conflict", "error": e.detail},
+                    "metadata": {"type": "booking_conflict", "error": e.detail, "alternatives": alternatives},
                 })
                 cls._save(db, doc, confirmation_token=confirmation_token)
             raise e
@@ -759,23 +785,25 @@ class BookingSessionService:
             if not appointment:
                 raise HTTPException(404, "The linked appointment could not be found.")
             if appointment["status"] in {AppointmentStatus.HOLD.value, AppointmentStatus.PENDING.value}:
+                # Same race-safe path as the Release Reservation action (BUG-063): open PaymentIntents are
+                # cancelled before the slot is released, and a paid hold is never cancelled here.
                 await AppointmentService.cancel_patient_appointment(
-                    db=db,
-                    patient_user=patient_user,
-                    appointment_id=appointment_id,
-                    reason="Patient cancelled AI booking session",
-                    only_hold=appointment.get("bookingSource") == "ai_agent",
+                    db=db, patient_user=patient_user, appointment_id=appointment_id,
+                    reason="Patient cancelled AI booking session", only_hold=True,
                 )
             elif appointment["status"] != AppointmentStatus.CANCELLED.value:
                 raise HTTPException(409, "Manage this appointment from My Appointments.")
 
         now = utc_now()
+        released = bool(doc.get("appointmentId"))
         doc["state"] = BookingAgentState.CANCELLED.value
         doc["updatedAt"] = now
+        doc["holdExpiresAt"] = None
         doc["messages"].append({
             "id": str(ObjectId()),
             "sender": "system",
-            "content": "Booking session has been cancelled.",
+            "content": ("Your reservation was released and the time slot is available again. No payment was taken."
+                        if released else "Booking session has been cancelled."),
             "timestamp": now,
             "metadata": {"type": "session_cancelled"},
         })
@@ -811,6 +839,11 @@ class BookingSessionService:
     def _save(db: Database, doc: Dict[str, Any], *, confirmation_token: str | None = None) -> None:
         collection = get_booking_session_collection(db)
         query = {"_id": doc["_id"], "patientUserId": doc["patientUserId"]}
+        if doc.get("draft") and (doc.get("selectedDoctor") or doc.get("appointmentId") or doc.get("bookingSummary")):
+            # P02-N06: a chat that holds booking state is no longer an empty draft, so "New Chat" never reopens it.
+            doc["draft"] = False
+            if doc.get("title") in (None, "", "New Chat"):
+                doc["title"] = "Appointment booking"
         if doc.get("persistent"):
             revision = doc.get("revision")
             query["revision"] = revision if revision is not None else {"$exists": False}

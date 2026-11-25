@@ -368,6 +368,9 @@ class ApiConstants {
   static String appointmentDetailEndpoint(String id) => '/appointments/$id';
   static String cancelAppointmentEndpoint(String id) =>
       '/appointments/$id/cancel';
+  static String releaseHoldEndpoint(String id) => '/appointments/$id/release-hold';
+  static String cancellationPreviewEndpoint(String id) =>
+      '/appointments/$id/cancellation-preview';
 
   // Doctor Appointment endpoints
   static const String doctorMyAppointmentsEndpoint = '/doctors/me/appointments';

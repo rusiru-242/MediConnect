@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,30 +8,41 @@ import 'package:mediconnect/core/network/api_exceptions.dart';
 import 'package:mediconnect/core/storage/secure_storage_service.dart';
 import 'package:mediconnect/services/auth_api_service.dart';
 
+import 'live_target.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final originalOverrides = HttpOverrides.current;
 
   bool isServerAvailable = false;
+  // Explicit target only (see live_target.dart): no default, no fallback to port 8000.
+  final liveBaseUrl = (Platform.environment['LIVE_API_BASE_URL'] ?? '').trim();
+  // An account that already exists in the target database (the UAT seed uses uat.mediconnect.lk addresses).
+  final existingEmail = (Platform.environment['LIVE_API_EXISTING_EMAIL'] ?? 'patient@example.com').trim();
+  // A verified account and its password for the login tests (UAT: a synthetic uat.mediconnect.lk patient).
+  final loginEmail = (Platform.environment['LIVE_API_LOGIN_EMAIL'] ?? existingEmail).trim();
+  final loginPassword = Platform.environment['LIVE_API_LOGIN_PASSWORD'] ?? 'Password@123';
 
   setUpAll(() async {
     final runLive = Platform.environment['RUN_LIVE_TESTS'] == 'true';
-    if (runLive) {
-      try {
-        final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 500);
-        final request = await client.getUrl(Uri.parse('http://127.0.0.1:8000/api/health'));
-        final response = await request.close();
-        isServerAvailable = (response.statusCode == 200);
-      } catch (_) {
-        isServerAvailable = false;
-      }
-    } else {
-      isServerAvailable = false;
+    if (!runLive) return;
+    final refusal = refuseLiveTarget(liveBaseUrl);
+    if (refusal != null) {
+      throw StateError('Live API tests refused: $refusal');
     }
-
-    if (isServerAvailable) {
-      HttpOverrides.global = null; // Enable live HTTP connections only when server is available
+    // The test binding replaces HttpClient with a mock that answers 400; real connections are enabled only
+    // after the target passed the guard above. (Before Phase 02 the health probe itself was mocked, so the
+    // live suite silently skipped every test.)
+    HttpOverrides.global = null;
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+    final request = await client.getUrl(Uri.parse('$liveBaseUrl/health'));
+    final response = await request.close();
+    final body = jsonDecode(await response.transform(utf8.decoder).join()) as Map<String, dynamic>;
+    final healthRefusal = response.statusCode == 200 ? refuseHealth(body) : 'Health check returned ${response.statusCode}.';
+    if (healthRefusal != null) {
+      throw StateError('Live API tests refused: $healthRefusal');
     }
+    isServerAvailable = true;
   });
 
   tearDownAll(() {
@@ -38,7 +50,7 @@ void main() {
   });
 
   setUp(() {
-    ApiConstants.baseUrl = 'http://127.0.0.1:8000/api';
+    if (liveBaseUrl.isNotEmpty) ApiConstants.baseUrl = liveBaseUrl;
     FlutterSecureStorage.setMockInitialValues({});
   });
 
@@ -58,7 +70,7 @@ void main() {
       try {
         await authService.registerPatient(
           fullName: 'Test Patient',
-          email: 'patient@example.com',
+          email: existingEmail,
           phone: '0771234567',
           password: 'Password@123',
         );
@@ -142,7 +154,7 @@ void main() {
       if (!isServerAvailable) return;
       try {
         await authService.login(
-          email: 'patient@example.com',
+          email: existingEmail,
           password: 'IncorrectPassword@999',
         );
         fail('Expected AuthException to be thrown');
@@ -155,13 +167,13 @@ void main() {
     test('C & D. Valid verified patient logs in and accesses GET /api/auth/me', () async {
       if (!isServerAvailable) return;
       final session = await authService.login(
-        email: 'patient@example.com',
-        password: 'Password@123',
+        email: loginEmail,
+        password: loginPassword,
       );
 
       expect(session.accessToken, isNotEmpty);
       expect(session.refreshToken, isNotEmpty);
-      expect(session.user.email, 'patient@example.com');
+      expect(session.user.email, loginEmail);
       expect(session.user.role, 'PATIENT');
       expect(session.user.emailVerified, isTrue);
 
@@ -172,16 +184,16 @@ void main() {
 
       final profile = await authService.getCurrentUser();
       expect(profile.id, session.user.id);
-      expect(profile.email, 'patient@example.com');
-      expect(profile.fullName, 'Test Patient');
+      expect(profile.email, loginEmail);
+      expect(profile.fullName, isNotEmpty); // the name belongs to whichever verified account is configured
       expect(profile.role, 'PATIENT');
     });
 
     test('F & G. Token refresh and rotation', () async {
       if (!isServerAvailable) return;
       final session = await authService.login(
-        email: 'patient@example.com',
-        password: 'Password@123',
+        email: loginEmail,
+        password: loginPassword,
       );
       await storage.saveTokens(
         accessToken: session.accessToken,
@@ -207,14 +219,14 @@ void main() {
       );
 
       final profile = await authService.getCurrentUser();
-      expect(profile.email, 'patient@example.com');
+      expect(profile.email, loginEmail);
     });
 
     test('H. Logout revokes refresh token and clears storage', () async {
       if (!isServerAvailable) return;
       final session = await authService.login(
-        email: 'patient@example.com',
-        password: 'Password@123',
+        email: loginEmail,
+        password: loginPassword,
       );
       await storage.saveTokens(
         accessToken: session.accessToken,
@@ -252,13 +264,14 @@ void main() {
       if (!isServerAvailable) return;
       try {
         await authService.verifyResetOtp(
-          email: 'patient@example.com',
+          email: existingEmail,
           otp: '000000',
         );
         fail('Expected 400 bad request');
       } on ApiException catch (e) {
         expect(e.statusCode, 400);
-        expect(e.message, anyOf(contains('Invalid password reset code'), contains('verification code is incorrect')));
+        expect(e.message, anyOf(contains('Invalid password reset code'), contains('verification code is incorrect'),
+            contains('Invalid or expired password reset request')));
       }
     });
 
@@ -283,7 +296,7 @@ void main() {
 
       try {
         await authService.login(
-          email: 'patient@example.com',
+          email: existingEmail,
           password: 'Password@123',
         );
         fail('Expected NetworkException');
@@ -293,7 +306,7 @@ void main() {
           'Unable to connect to MediConnect. Please check your internet connection and try again.',
         );
       } finally {
-        ApiConstants.baseUrl = 'http://127.0.0.1:8000/api';
+        ApiConstants.baseUrl = liveBaseUrl;
       }
     });
   });

@@ -164,7 +164,7 @@ class VisitDetail {
   final String endTime;
   final String bookingStatus;
   final String consultationStatus;
-  final double consultationFee;
+  final double? consultationFee; // null when not recorded (never a default amount)
 
   final String doctorUserId;
   final String doctorName;
@@ -189,7 +189,7 @@ class VisitDetail {
     required this.endTime,
     required this.bookingStatus,
     required this.consultationStatus,
-    this.consultationFee = 2500.0,
+    this.consultationFee,
     required this.doctorUserId,
     required this.doctorName,
     this.doctorSpecialty,
@@ -223,7 +223,7 @@ class VisitDetail {
       endTime: json['endTime']?.toString() ?? '',
       bookingStatus: json['bookingStatus']?.toString() ?? 'PENDING',
       consultationStatus: json['consultationStatus']?.toString() ?? 'NOT_STARTED',
-      consultationFee: (json['consultationFee'] is num) ? (json['consultationFee'] as num).toDouble() : 2500.0,
+      consultationFee: (json['consultationFee'] is num) ? (json['consultationFee'] as num).toDouble() : null,
       doctorUserId: json['doctorUserId']?.toString() ?? '',
       doctorName: json['doctorName']?.toString() ?? 'Doctor',
       doctorSpecialty: json['doctorSpecialty']?.toString(),

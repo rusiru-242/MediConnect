@@ -140,8 +140,11 @@ async def prepare_proposal(db, patient, doc, *, automatic=False):
         proposalId=str(ObjectId()), proposalExpiresAt=utc_now() + timedelta(minutes=10),
         timezone="Asia/Colombo", currency=(settings.STRIPE_CURRENCY or "lkr").lower(), city=profile.city,
         patientName=patient.fullName, requestedTime=requested,
-        selectionReason=("Closest available time on the requested date." if requested and requested != slot["startTime"]
-                         else "Matching slot. Ties are ranked by fee and doctor ID." if automatic else "Selected by you."),
+        # BUG-055: only an automatic proposal can be "closest"; a slot the patient picked is described as such.
+        selectionReason=("Selected by you." if not automatic
+                         else "Closest available time on the requested date." if requested and requested != slot["startTime"]
+                         else "Exact match for your requested time." if requested
+                         else "Matching slot. Ties are ranked by fee and doctor ID."),
         smsDestinationHash=phone_fingerprint(user.get("phone")), **masked_contacts(user),
     )
     doc["phase2Proposal"] = True

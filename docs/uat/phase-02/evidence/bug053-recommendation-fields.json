@@ -1,0 +1,41 @@
+{
+ "http": 200,
+ "shown": 2,
+ "reply": "From 3 verified doctors that meet your requirements, my top 2 are **Dr. UAT Derm Senior** and **Dr. UAT Derm Junior**, ranked by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee. Say \"show all\" to see every match. This is based on listed profile information, not a judgement of clinical quality. Nothing has been booked.",
+ "cards": [
+  {
+   "fullName": "Dr. UAT Derm Senior",
+   "rating": 4.7,
+   "ratingCount": 3,
+   "experienceYears": 22,
+   "qualifications": "MBBS (synthetic UAT profile)",
+   "matchReasons": [
+    "Specialty: Dermatology",
+    "Location: Colombo",
+    "Consultation fee LKR 3,000",
+    "Patient rating 4.7/5 from 3 published reviews",
+    "22 years of experience (as listed on the profile)"
+   ],
+   "rankingExplanation": "Ranked #1 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee.",
+   "consultationFee": 3000.0,
+   "hospitalOrClinic": "UAT Colombo Medical Centre"
+  },
+  {
+   "fullName": "Dr. UAT Derm Junior",
+   "rating": 4.7,
+   "ratingCount": 3,
+   "experienceYears": 6,
+   "qualifications": "MBBS (synthetic UAT profile)",
+   "matchReasons": [
+    "Specialty: Dermatology",
+    "Location: Colombo",
+    "Consultation fee LKR 2,500",
+    "Patient rating 4.7/5 from 3 published reviews",
+    "6 years of experience (as listed on the profile)"
+   ],
+   "rankingExplanation": "Ranked #2 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee.",
+   "consultationFee": 2500.0,
+   "hospitalOrClinic": "UAT Colombo Medical Centre"
+  }
+ ]
+}

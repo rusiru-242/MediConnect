@@ -356,10 +356,16 @@ class _CreateCarePlanScreenState extends State<CreateCarePlanScreen> {
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'IN_PERSON', child: Text('In-Person Visit')),
-                          DropdownMenuItem(value: 'VIDEO', child: Text('Video Consultation')),
-                          DropdownMenuItem(value: 'AUDIO', child: Text('Audio / Phone Consultation')),
+                        items: [
+                          // MediConnect supports in-person visits only (Phase 02: video/audio options removed).
+                          const DropdownMenuItem(value: 'IN_PERSON', child: Text('In-Person Visit')),
+                          // A historical plan keeps its stored value visible (read-only) instead of failing.
+                          if (_consultationType != 'IN_PERSON')
+                            DropdownMenuItem(
+                              value: _consultationType,
+                              enabled: false,
+                              child: Text('${_consultationType[0]}${_consultationType.substring(1).toLowerCase()} (no longer offered)'),
+                            ),
                         ],
                         onChanged: (v) {
                           if (v != null) setState(() => _consultationType = v);

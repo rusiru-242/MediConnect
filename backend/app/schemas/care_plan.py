@@ -62,7 +62,7 @@ class CreateCarePlanRequest(BaseModel):
     followUpDateEnd: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Optional range end YYYY-MM-DD")
     reason: str = Field(..., min_length=3, max_length=300, description="Follow-up clinical reason")
     instructions: str = Field(..., min_length=5, max_length=2000, description="Specific care instructions")
-    recommendedConsultationType: Optional[str] = Field(default="IN_PERSON", description="IN_PERSON, VIDEO, AUDIO")
+    recommendedConsultationType: Optional[str] = Field(default="IN_PERSON", description="IN_PERSON only (in-person visits)")
     tasks: List[CreateCareTaskRequest] = Field(default_factory=list, description="Non-medication actionable tasks")
     linkedPrescriptionIds: List[str] = Field(default_factory=list, description="Related prescription IDs")
     linkedMedicalRecordIds: List[str] = Field(default_factory=list, description="Related medical record IDs")
