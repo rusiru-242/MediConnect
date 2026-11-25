@@ -321,3 +321,18 @@ The owner's BUG-049 to BUG-063 descriptions are now recorded and mapped to the P
   - New defects: P02-N01 to P02-N17, including the privacy defect P02-N10 and the payment and refund integrity defects P02-N02, N04 and N05.
 - **Already fixed in Phase 01 (re-verified):** BUG-049 to 054, 057, 062.
 - **Live verification:** Stripe test-mode refunds and payments were verified live. Real webhook delivery, FCM, email and SMS remain **BLOCKED**. See [docs/uat/phase-02/PHASE_02_FINAL_COMPLETION_REPORT.md](uat/phase-02/PHASE_02_FINAL_COMPLETION_REPORT.md).
+
+## Phase 03 (2026-11-25, branch `fix/phase-03-doctor-system-stabilization`)
+
+- **New defects fixed and verified:** P03-N01 to N17 and N21 to N24 (21 defects). The most serious:
+  - P03-N01: consultation start confirmed unpaid bookings.
+  - P03-N02, N11, N17: record access through released reservations, unsigned colleague drafts, and care plans on unpaid bookings.
+  - P03-N06: invented 08:00/20:00 medication reminders.
+  - P03-N09: AI note drafts with invented findings.
+  - P03-N03, N04: doctor cancellation without a refund request, or with a payable Stripe intent.
+  - P03-N16, N24: invented dashboard and doctor-card content.
+  - P03-N22: the test suite could use the database in `backend/.env`.
+- **Improvements (not defects):** P03-N18 (server-side care-plan progress), N19 (refund-aware doctor analytics), N20 (assistant date phrases).
+- **Phase 02 blockers:** B11 (device re-run of E8 to E10) and B14 (doctor dashboard review) are closed.
+- **Owner check needed:** a test run may have written test records to the remote database configured in `backend/.env` (P3-B1).
+- **Details:** [docs/uat/phase-03/PHASE_03_BUG_FIX_REPORT.md](uat/phase-03/PHASE_03_BUG_FIX_REPORT.md) and [PHASE_03_FINAL_COMPLETION_REPORT.md](uat/phase-03/PHASE_03_FINAL_COMPLETION_REPORT.md).

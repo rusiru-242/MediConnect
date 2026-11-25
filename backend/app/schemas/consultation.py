@@ -52,7 +52,7 @@ class ScheduleAppointmentItem(BaseModel):
     endTime: str
     bookingStatus: str = Field(..., description="PENDING | CONFIRMED | COMPLETED | CANCELLED")
     consultationStatus: str = Field(default="NOT_STARTED", description="NOT_STARTED | IN_PROGRESS | COMPLETED")
-    consultationFee: float = 2500.0
+    consultationFee: Optional[float] = None  # booked fee; None when unknown (P03-N15)
 
     patientUserId: str
     patientName: str

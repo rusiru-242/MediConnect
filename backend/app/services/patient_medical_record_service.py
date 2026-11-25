@@ -416,7 +416,11 @@ class PatientMedicalRecordService:
 
         for n in consultation_notes:
             content = n.get("content", {})
-            findings.append(f"Consultation with Dr. {n.get('signedDoctorName', 'Clinician')} ({n.get('createdAt', '')[:10]}): {content.get('assessment', '')}")
+            created = n.get("createdAt")
+            # createdAt is a datetime; slicing it raised TypeError and the summary returned 500 (P03-N14).
+            created_text = created.strftime("%Y-%m-%d") if hasattr(created, "strftime") else str(created or "")[:10]
+            author = n.get("signedDoctorName") or "the signing clinician"
+            findings.append(f"Signed consultation note by {author} ({created_text}): {content.get('assessment', '')}")
 
         for p in prescriptions:
             for item in p.get("medicationItems", []):
@@ -439,10 +443,13 @@ class PatientMedicalRecordService:
         if allergies:
             summary_paragraphs.append(f"Documented Allergies: {', '.join(allergies)}.")
         else:
-            summary_paragraphs.append("No documented drug or environmental allergies on record.")
+            # Absence of a record is not evidence of no allergy (P03-N14).
+            summary_paragraphs.append("No allergies are recorded in MediConnect. This does not confirm that the patient "
+                                      "has no allergies; ask the patient and check other records.")
 
         if active_meds:
-            summary_paragraphs.append(f"Active Pharmacotherapy: {', '.join(active_meds)}.")
+            summary_paragraphs.append(f"Medicines prescribed on record (confirm current use with the patient): "
+                                      f"{', '.join(active_meds)}.")
 
         summary_text = "\n\n".join(summary_paragraphs)
 

@@ -1,0 +1,58 @@
+{
+  "steps": [
+    {
+      "id": "D-09c",
+      "scenario": "Worker delivers the doctor-assigned test-task reminder",
+      "expected": "event processed; one in-app notification without the test name (privacy); push not claimed as delivered",
+      "actual": {
+        "events": [
+          {
+            "state": "processed",
+            "kind": "test",
+            "channels": {
+              "inApp": {
+                "status": "stored",
+                "providerId": null,
+                "attemptedAt": "2026-11-25 16:22:50.621000"
+              },
+              "push": {
+                "status": "unavailable",
+                "providerId": null,
+                "attemptedAt": "2026-11-25 16:22:50.621000"
+              },
+              "email": {
+                "status": "skipped",
+                "providerId": null,
+                "attemptedAt": "2026-11-25 16:22:50.621000"
+              },
+              "sms": {
+                "status": "skipped",
+                "providerId": null,
+                "attemptedAt": "2026-11-25 16:22:50.621000"
+              }
+            },
+            "dueAt": "2026-11-25 16:22:32.916000"
+          }
+        ],
+        "inAppNotifications": 1,
+        "bodyMentionsTestName": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-10b/d",
+      "scenario": "Approved reminder batch delivered in-app to consented patients only",
+      "expected": "stored_in_app; recipients consented; one notification each; no external delivery claimed",
+      "actual": {
+        "statuses": [
+          "stored_in_app"
+        ],
+        "deliveredInApp": 3,
+        "allConsented": true,
+        "notifications": 3,
+        "externalChannels": "not attempted (in-app only; push/email/SMS not configured)"
+      },
+      "status": "PASS"
+    }
+  ]
+}

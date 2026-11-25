@@ -1,0 +1,132 @@
+{
+  "device": "Android 17 emulator (Pixel_7_Pro AVD), cold boot",
+  "build": "Final: app-debug.apk built from ab94ffc (dart-define API_BASE_URL=http://10.0.2.2:8001), installed 22:04 +05:30. EM-01..EM-11 ran on the 26c08b7 build (same doctor/patient code paths); EM-12/13 on the final build",
+  "backend": "UAT backend 127.0.0.1:8001 (mediconnect_uat), Phase 03 code",
+  "inputSafety": "Every injected input first checked that MediConnect owned window focus and aborted otherwise. The guard aborted once (focus held by com.google.android.dialer, call state IDLE); no input was sent to it, no call was placed. The Emergency SOS tile was never tapped.",
+  "environmentIncident": "adb file transfer (push/install/exec-in) hung on the snapshot-restored emulator while shell commands worked; flutter run stalled after building. Fixed by a cold boot (-no-snapshot-load). User data was kept.",
+  "checks": [
+    {
+      "id": "EM-01",
+      "test": "D-15a / P03-N16",
+      "result": "PASS",
+      "detail": "Doctor home shows no On Duty toggle, presence dot, Phase 57/21 badges or fallback specialty; labels 'Visits today' and 'Paid for today's visits'",
+      "evidence": [
+        "p03n16-doctor-home-before.png",
+        "p03n16-doctor-home-after.png"
+      ]
+    },
+    {
+      "id": "EM-02",
+      "test": "D-02a / D-02c",
+      "result": "PASS",
+      "detail": "Dr. P03 Alpha: 2 visits today, LKR 4,000; database: 2 COMPLETED + 2 CANCELLED today, paid 4,000 for the 2 visits",
+      "evidence": [
+        "d02a-doctor-home-real-data.png",
+        "d02c-dashboard-reconciliation.json"
+      ]
+    },
+    {
+      "id": "EM-03",
+      "test": "D-08d / P03-N18",
+      "result": "PASS",
+      "detail": "Clinic workflow > Follow-ups shows 'ACTIVE · 1/2 tasks completed' from the server",
+      "evidence": [
+        "p03n18-doctor-followups-progress.png"
+      ]
+    },
+    {
+      "id": "EM-04",
+      "test": "D-12 / P03-N19",
+      "result": "PASS (UX limitation)",
+      "detail": "Analytics shows booked fees, paid, refunded, net, open refund requests and the no-earnings note; the generic renderer shows raw field names (bookedFees, netCollected)",
+      "evidence": [
+        "p03n19-doctor-analytics.png"
+      ]
+    },
+    {
+      "id": "EM-05",
+      "test": "D-15d / B11 E6-E7",
+      "result": "PASS",
+      "detail": "AI proposal Dr. P03 Beta 2026-11-30 09:30 LKR 1,800; Accept & Continue opens the Stripe TEST PaymentSheet inside the MediConnect package",
+      "evidence": [
+        "b11-e6-proposal.png",
+        "b11-e7-paymentsheet.png"
+      ]
+    },
+    {
+      "id": "EM-06",
+      "test": "D-15d / B11 E8",
+      "result": "PASS",
+      "detail": "Sheet closed without a card: 'Payment was cancelled. You have not been charged'; hold card with countdown and Release Reservation; database PENDING/PENDING, no charge",
+      "evidence": [
+        "b11-e8-sheet-closed.png"
+      ]
+    },
+    {
+      "id": "EM-07",
+      "test": "D-15d / B11 E9",
+      "result": "PASS",
+      "detail": "Release confirmation dialog ('You have not been charged')",
+      "evidence": [
+        "b11-e9-release-dialog.png"
+      ]
+    },
+    {
+      "id": "EM-08",
+      "test": "D-15d / B11 E10",
+      "result": "PASS",
+      "detail": "'Your reservation was released ... No payment was taken.'; the earlier 'slot stays held' note is gone; database CANCELLED/UNPAID; payment record CANCELLED; Stripe intent canceled; 1 HOLD_RELEASED event; slot offered to another patient; 0 active bookings for the slot",
+      "evidence": [
+        "b11-e10-released.png",
+        "b11-e8-e10-database-and-stripe.json"
+      ]
+    },
+    {
+      "id": "EM-09",
+      "test": "D-15d / B11",
+      "result": "PASS",
+      "detail": "My Appointments > Cancelled > detail shows 'Payment status: Not paid' (not 'Payment pending')",
+      "evidence": [
+        "b11-released-detail-unpaid.png"
+      ]
+    },
+    {
+      "id": "EM-10",
+      "test": "D-15b",
+      "result": "PASS",
+      "detail": "Logout/login (doctor and patient), chat composer, keyboard and Back navigation worked; one Back press after sending left the chat and the session was restored on return",
+      "evidence": []
+    },
+    {
+      "id": "EM-11",
+      "test": "Framework errors",
+      "result": "PASS",
+      "detail": "Flutter logcat for the whole session (134 lines): 0 EXCEPTION CAUGHT, 0 Another exception, 0 overflow, 0 setState() after dispose; no request to port 8000",
+      "evidence": []
+    },
+    {
+      "id": "EM-12",
+      "test": "P03-N24",
+      "result": "PASS",
+      "detail": "Find a Doctor cards: 'In-person visit' and 'Availability: See available times'; no '4.9 (120+)', 'Nearby' or 'Today, 2:00 PM'; patient home 'Browse specialists'",
+      "evidence": [
+        "p03n24-find-doctor-after.png"
+      ]
+    },
+    {
+      "id": "EM-13",
+      "test": "P03-N23 / D-07e",
+      "result": "PASS",
+      "detail": "Doctor home 'Prescription renewals' card opens the renewal queue; APPROVED tab lists the three UAT renewals for P03 Patient A",
+      "evidence": [
+        "p03n23-renewal-queue-reachable.png",
+        "p03n23-renewal-queue-approved.png"
+      ]
+    }
+  ],
+  "notRunOnDevice": [
+    "Start Consultation gating for unpaid requests (no unpaid request was on today's schedule) - covered by phase03_doctor_ui_test.dart",
+    "Doctor notification deep links on device (BUG-060 passed on device in Phase 02; live API checks D-13 in this phase)",
+    "Physical phone and small-screen device (B10)"
+  ]
+}

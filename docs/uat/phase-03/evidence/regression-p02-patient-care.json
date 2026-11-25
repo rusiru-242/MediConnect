@@ -1,0 +1,438 @@
+{
+ "backend": "127.0.0.1:8001",
+ "database": "mediconnect_uat",
+ "components": {
+  "setup": [
+   {
+    "step": "synthetic_completed_visit",
+    "appointmentId": "6b06b536c9320433b0ed3adc",
+    "note": "fixture inserted directly (care relationship)"
+   }
+  ],
+  "05_medication": [
+   {
+    "step": "doctor_signs_prescription",
+    "http": 201,
+    "status": "ISSUED"
+   },
+   {
+    "step": "patient_cannot_approve_schedule",
+    "http": 403
+   },
+   {
+    "step": "other_doctor_cannot_approve",
+    "http": 404
+   },
+   {
+    "step": "doctor_approves_schedule",
+    "http": 200,
+    "scheduleTimes": [
+     "21:54"
+    ],
+    "timezone": "Asia/Colombo",
+    "repeat_same_schedule": true
+   },
+   {
+    "step": "worker_executed_reminder",
+    "found": true,
+    "state": "processed",
+    "channels": {
+     "inApp": "stored",
+     "push": "unavailable",
+     "email": "skipped",
+     "sms": "skipped"
+    },
+    "due_colombo": "2026-11-25T21:54:00+05:30"
+   },
+   {
+    "step": "in_app_notification_private",
+    "exists": true,
+    "body_has_medicine_name": false
+   },
+   {
+    "step": "patient_reads_instructions",
+    "http": 200,
+    "instructions": "1 tablet \u00b7 Oral \u00b7 Once daily"
+   },
+   {
+    "step": "other_patient_denied",
+    "http": 404
+   },
+   {
+    "step": "action_snooze_idempotent",
+    "http": [
+     200,
+     200
+    ]
+   },
+   {
+    "step": "action_taken_idempotent",
+    "http": [
+     200,
+     200
+    ]
+   },
+   {
+    "step": "audit_entries",
+    "count": 2
+   },
+   {
+    "step": "other_patient_cannot_act",
+    "http": 404
+   },
+   {
+    "step": "doctor_sees_patient_reported_activity",
+    "http": 200,
+    "sources": [
+     "patient_reported"
+    ]
+   },
+   {
+    "step": "ai_cannot_change_dose",
+    "http": 200,
+    "prescription_unchanged": true,
+    "reply": "I could not locate verified pharmacological information for that specific medication name in our database. For your safety, I never guess or invent medicine details. Please verify the exact generic or brand spelling on your prescription or "
+   },
+   {
+    "step": "doctor_cancels_schedule",
+    "http": 200
+   }
+  ],
+  "06_care_plan": [
+   {
+    "step": "patient_cannot_create",
+    "http": 403
+   },
+   {
+    "step": "video_type_rejected",
+    "http": 422
+   },
+   {
+    "step": "doctor_creates",
+    "http": 201,
+    "status": "ACTIVE",
+    "tasks": 1
+   },
+   {
+    "step": "patient_receives",
+    "http": 200,
+    "visible": true
+   },
+   {
+    "step": "other_patient_denied",
+    "http": 403
+   },
+   {
+    "step": "unrelated_doctor_denied",
+    "http": 403
+   },
+   {
+    "step": "ai_reads_real_tasks_before_completion",
+    "http": 200,
+    "reply": "25 Nov 21:55 \u00b7 UAT fasting blood test\nTimes are in Asia/Colombo. Open My Care Plan for details."
+   },
+   {
+    "step": "patient_completes_task",
+    "http": 200,
+    "task_completed": [
+     true
+    ],
+    "progress": {
+     "completedTasks": 1,
+     "progressPercentage": 100
+    }
+   },
+   {
+    "step": "other_patient_cannot_complete",
+    "http": 403
+   },
+   {
+    "step": "doctor_updates",
+    "http": 200,
+    "version": 2
+   },
+   {
+    "step": "patient_cannot_update",
+    "http": 403
+   },
+   {
+    "step": "ai_reads_real_tasks",
+    "http": 200,
+    "reply": "There are no matching scheduled records for 2026-11-25."
+   }
+  ],
+  "09_medical_test": [
+   {
+    "step": "worker_executed_test_reminder",
+    "found": true,
+    "state": "processed",
+    "channels": {
+     "inApp": "stored",
+     "push": "unavailable",
+     "email": "skipped",
+     "sms": "skipped"
+    }
+   },
+   {
+    "step": "agenda_shows_test",
+    "http": 200,
+    "titles": [
+     "UAT fasting blood test"
+    ]
+   }
+  ],
+  "08_follow_up": [
+   {
+    "step": "doctor_follow_up_list",
+    "http": 200,
+    "contains_plan": true
+   },
+   {
+    "step": "doctor_cancels_plan",
+    "http": 200,
+    "status": "CANCELLED"
+   }
+  ],
+  "07_appointment_reminder": [
+   {
+    "step": "fixture_confirmed_appointment",
+    "starts_colombo": "2026-11-25T23:57:59.495947+05:30",
+    "note": "2h reminder due ~1 min later"
+   },
+   {
+    "step": "worker_executed",
+    "found": true,
+    "state": "processed",
+    "recipient_is_patient": true,
+    "channels": {
+     "inApp": "stored",
+     "push": "unavailable",
+     "email": "skipped",
+     "sms": "skipped"
+    },
+    "in_app": true
+   },
+   {
+    "step": "cancel_appointment",
+    "http": 200,
+    "future_reminders": 0
+   }
+  ],
+  "10_health_tracking": [
+   {
+    "step": "clinical_invalid_bp",
+    "http": 422,
+    "alert": null,
+    "unit": null,
+    "source": null
+   },
+   {
+    "step": "clinical_crisis_bp",
+    "http": 201,
+    "alert": "CRITICAL HYPERTENSIVE CRISIS ALERT: Blood pressure reading is severely elevated (\u2265180/120 mmHg). Seek immediate emergency medical care (Call 1990 Suwa Seriya).",
+    "unit": "mmHg",
+    "source": "patient_reported"
+   },
+   {
+    "step": "clinical_normal_glucose",
+    "http": 201,
+    "alert": null,
+    "unit": "mg/dL",
+    "source": "patient_reported"
+   },
+   {
+    "step": "agenda_invalid_unit",
+    "http": 422,
+    "alert": null,
+    "unit": null,
+    "source": null
+   },
+   {
+    "step": "agenda_crisis_bp",
+    "http": 201,
+    "alert": "CRITICAL HYPERTENSIVE CRISIS ALERT: Blood pressure reading is severely elevated (\u2265180/120 mmHg). Seek immediate emergency medical care (Call 1990 Suwa Seriya).",
+    "unit": "mmHg",
+    "source": "patient_reported"
+   },
+   {
+    "step": "agenda_weight",
+    "http": 201,
+    "alert": null,
+    "unit": "kg",
+    "source": "patient_reported"
+   },
+   {
+    "step": "trends",
+    "http": 200,
+    "metrics": [
+     "blood_pressure",
+     "blood_glucose",
+     "weight",
+     "temperature",
+     "heart_rate",
+     "oxygen_saturation"
+    ]
+   },
+   {
+    "step": "patient_b_sees_only_own",
+    "http": 200,
+    "count": 0
+   },
+   {
+    "step": "related_doctor_trends",
+    "http": 200
+   },
+   {
+    "step": "unrelated_doctor_trends",
+    "http": 403
+   }
+  ],
+  "11_renewal": [
+   {
+    "step": "patient_requests",
+    "http": 201,
+    "status": "requested"
+   },
+   {
+    "step": "duplicate_rejected",
+    "http": 409
+   },
+   {
+    "step": "other_patient_cannot_request",
+    "http": 404
+   },
+   {
+    "step": "doctor_notified",
+    "exists": true
+   },
+   {
+    "step": "unrelated_doctor_cannot_review",
+    "http": 403
+   },
+   {
+    "step": "ai_cannot_approve",
+    "http": 200,
+    "status_after": "requested"
+   },
+   {
+    "step": "doctor_approves",
+    "http": 200,
+    "status": "approved",
+    "new_prescription": true
+   },
+   {
+    "step": "second_review_rejected",
+    "http": 400
+   },
+   {
+    "step": "patient_sees_status",
+    "http": 200,
+    "statuses": [
+     "approved",
+     "approved",
+     "approved"
+    ],
+    "patient_notified": true
+   }
+  ],
+  "12_records": [
+   {
+    "step": "upload_pdf",
+    "http": 201,
+    "hasAttachment": true
+   },
+   {
+    "step": "reject_text_file",
+    "http": 400
+   },
+   {
+    "step": "reject_fake_pdf",
+    "http": 400
+   },
+   {
+    "step": "reject_oversize",
+    "http": 400
+   },
+   {
+    "step": "download_patient",
+    "http": 200
+   },
+   {
+    "step": "download_related_doctor",
+    "http": 200
+   },
+   {
+    "step": "download_unrelated_doctor",
+    "http": 403
+   },
+   {
+    "step": "download_other_patient",
+    "http": 403
+   },
+   {
+    "step": "invalid_token",
+    "http": 401
+   },
+   {
+    "step": "storage_metadata",
+    "keys": [
+     "amendmentHistory",
+     "auditLog",
+     "authorId",
+     "authorName",
+     "authorRole",
+     "clinicalData",
+     "clinicalDate",
+     "createdAt",
+     "description",
+     "documentMetadata",
+     "isAiGenerated",
+     "patientUserId",
+     "recordId",
+     "recordType"
+    ]
+   },
+   {
+    "step": "summary_is_source_grounded",
+    "http": 200,
+    "disclaimer": true
+   }
+  ],
+  "13_notifications": [
+   {
+    "step": "list_and_unread",
+    "http": [
+     200,
+     200
+    ],
+    "unread": {
+     "unreadCount": 8
+    },
+    "listed": 20
+   },
+   {
+    "step": "mark_read",
+    "http": 200
+   },
+   {
+    "step": "other_user_cannot_mark",
+    "http": 403
+   },
+   {
+    "step": "mark_all_read",
+    "http": 200,
+    "unread_after": {
+     "unreadCount": 0
+    }
+   },
+   {
+    "step": "doctor_deep_link_resolves",
+    "http": 200
+   },
+   {
+    "step": "deleted_appointment_link",
+    "http": 404
+   }
+  ]
+ }
+}

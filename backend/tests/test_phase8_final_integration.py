@@ -392,10 +392,9 @@ def test_prescription_allergy_screening_and_care_sync(e2e_env):
     assert rx_data["status"] == "ISSUED"
     assert rx_data["prescriptionId"].startswith("RX-")
 
-    # 3. Verify automatic creation of medication reminder
-    reminder = db["medication_reminders"].find_one({"prescriptionId": rx_data["prescriptionId"]})
-    assert reminder is not None
-    assert reminder["medicationName"] == "Atorvastatin"
+    # 3. Phase 03 (P03-N06): no reminder schedule with invented times is created at signing; the doctor approves
+    # reminder times explicitly. (This assertion used to require the automatically created 08:00/20:00 schedule.)
+    assert db["medication_reminders"].find_one({"prescriptionId": rx_data["prescriptionId"]}) is None
 
 
 def test_prescription_renewal_request_and_doctor_approval(e2e_env):

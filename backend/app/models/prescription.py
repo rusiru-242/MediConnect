@@ -46,8 +46,10 @@ class PrescriptionDocument(BaseModel):
 
     id: Optional[str] = Field(default=None, alias="_id")
     prescriptionId: str = Field(..., description="Unique human-readable reference ID e.g. RX-20261018-XXXX")
-    medicalRecordId: str = Field(..., description="References medical_records._id")
-    appointmentId: str = Field(..., description="References appointments._id")
+    # Optional: a prescription signed outside a documented consultation has no record or visit to reference.
+    # Never fill these with generated ids (P03-N07): a reference must point at a real record.
+    medicalRecordId: Optional[str] = Field(default=None, description="References medical_records._id")
+    appointmentId: Optional[str] = Field(default=None, description="References appointments._id")
     patientUserId: str = Field(..., description="References users._id of the patient")
     doctorUserId: str = Field(..., description="References users._id of the doctor")
     doctorProfileId: str = Field(..., description="References doctor_profiles._id")

@@ -1,0 +1,679 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "stripe": "test_mode",
+  "steps": [
+    {
+      "id": "D-01a",
+      "scenario": "Approved doctor login, /auth/me",
+      "expected": "200, role DOCTOR",
+      "actual": {
+        "login": 200,
+        "role": "DOCTOR"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-01a2",
+      "scenario": "Refresh rotation and logout",
+      "expected": "refresh 200; logout 200; refresh after logout rejected",
+      "actual": {
+        "refresh": 200,
+        "logout": 200,
+        "refreshAfterLogout": 401
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-01b",
+      "scenario": "Pending doctor: status page allowed, clinical/schedule refused, not discoverable",
+      "expected": "application-status 200, others 403, not in patient search",
+      "actual": {
+        "codes": {
+          "/doctors/me/application-status": 200,
+          "/doctors/me/appointments": 403,
+          "/doctor/schedule/today": 403,
+          "/doctor/workflow/queue": 403
+        },
+        "pendingInSearch": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-01b2",
+      "scenario": "Suspended and rejected doctor login",
+      "expected": "refused (403)",
+      "actual": {
+        "suspended": 403,
+        "rejected": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-01d",
+      "scenario": "Expired and forged access tokens",
+      "expected": "401 for both",
+      "actual": {
+        "expired": 401,
+        "forged": 401
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-03d",
+      "scenario": "Invalid availability inputs (end<start, past, 7-min slots, overlap, format)",
+      "expected": "4xx for each",
+      "actual": {
+        "end_before_start": 400,
+        "past_date": 400,
+        "invalid_duration": 400,
+        "overlap_existing": 400,
+        "bad_time_format": 422
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-03g",
+      "scenario": "Another doctor's availability cannot be changed",
+      "expected": "403",
+      "actual": {
+        "update": 403,
+        "delete": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-03c",
+      "scenario": "Slot generation: 30-minute slots, 12:00-13:00 break excluded, Asia/Colombo dates",
+      "expected": "no slot between 12:00 and 12:59; 06:00 and 13:00 present",
+      "actual": {
+        "count": 33,
+        "first": [
+          "06:00",
+          "06:30"
+        ],
+        "breakSlots": []
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-03a",
+      "scenario": "Weekly schedule and calendar overview readable",
+      "expected": "200 / 200",
+      "actual": {
+        "weekly": 200,
+        "calendar": 200
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-03b/f",
+      "scenario": "Date-specific 12:15-12:45 window (15-min slots) appears for patients",
+      "expected": "201; patient sees 12:15 and 12:30",
+      "actual": {
+        "create": 201,
+        "patientSees": [
+          "12:15",
+          "12:30"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-03e",
+      "scenario": "Booked (paid) 12:15 visit protects its window; leave needs explicit resolution",
+      "expected": "delete 409, shrink 409, leave 409; booking still CONFIRMED",
+      "actual": {
+        "delete": 409,
+        "shrink": 409,
+        "leave": 409,
+        "booking": "CONFIRMED"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-03f2",
+      "scenario": "Booked slot disappears for other patients",
+      "expected": "12:15 not offered",
+      "actual": {
+        "offered": [
+          "06:00",
+          "06:30",
+          "07:00",
+          "07:30",
+          "08:00",
+          "08:30",
+          "09:00",
+          "09:30",
+          "10:00",
+          "10:30",
+          "11:00",
+          "11:30",
+          "12:30",
+          "13:00",
+          "13:30",
+          "14:00",
+          "14:30",
+          "15:00",
+          "15:30",
+          "16:00",
+          "16:30",
+          "17:00",
+          "17:30",
+          "18:00",
+          "18:30",
+          "19:00",
+          "19:30",
+          "20:00",
+          "20:30",
+          "21:00",
+          "21:30",
+          "22:00",
+          "22:30",
+          "23:00"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-04a",
+      "scenario": "Doctor lists today's appointments",
+      "expected": "3 confirmed paid visits listed",
+      "actual": {
+        "listed": 3,
+        "statuses": [
+          "CONFIRMED"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-04b/c",
+      "scenario": "Detail: booking reference, in-person, historical fee and paid amount match the database",
+      "expected": "reference = id; IN_PERSON; fee 2000 = amountPaid = payment amount",
+      "actual": {
+        "ref": true,
+        "visit": "IN_PERSON",
+        "fee": 2000.0,
+        "paid": 2000.0,
+        "db": 2000.0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-01c",
+      "scenario": "Doctor isolation: another doctor's appointment",
+      "expected": "403/403/404",
+      "actual": {
+        "otherDoctorDetail": 403,
+        "otherDoctorCancel": 403,
+        "otherDoctorPrep": 404
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-04e",
+      "scenario": "Unpaid request cannot be confirmed or started through any route",
+      "expected": "409 each; still PENDING/UNPAID",
+      "actual": {
+        "confirm": 409,
+        "start": 409,
+        "statusRoute": 409,
+        "after": {
+          "status": "PENDING",
+          "paymentStatus": "UNPAID"
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-04d",
+      "scenario": "Completion before the visit time is refused",
+      "expected": "400",
+      "actual": {
+        "complete": 400
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-04g",
+      "scenario": "Doctor reschedules; patient sees the new time; version bumped; no second charge",
+      "expected": "200; patient date/time updated; version+1; patient notified; 1 payment",
+      "actual": {
+        "http": 200,
+        "patientSees": [
+          "2026-11-27",
+          "07:30"
+        ],
+        "version": [
+          1,
+          2
+        ],
+        "notified": true,
+        "payments": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-11a",
+      "scenario": "Queue lists confirmed visits in scheduled order; no invented wait time or check-in",
+      "expected": "scheduled order; queueStatus scheduled; no estimatedWaitMinutes",
+      "actual": {
+        "order_ok": true,
+        "states": [
+          "scheduled",
+          "scheduled"
+        ],
+        "waitShown": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-11d",
+      "scenario": "Invalid queue transitions",
+      "expected": "409 each",
+      "actual": {
+        "complete_from_scheduled": 409,
+        "no_show_before_start": 409,
+        "unpaid_request": 404
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-11c",
+      "scenario": "Concurrent queue updates",
+      "expected": "same requestId -> applied once (idempotent); different ids -> one 200",
+      "actual": {
+        "sameRequest": [
+          200,
+          409,
+          409,
+          409
+        ],
+        "auditEntries": 1,
+        "differentRequests": [
+          409,
+          409,
+          200,
+          409
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-11b",
+      "scenario": "Check-in -> consultation -> completed syncs to the patient; payment untouched",
+      "expected": "COMPLETED for doctor and patient; PAID; no refund",
+      "actual": {
+        "transitions": [
+          200,
+          200
+        ],
+        "status": "COMPLETED",
+        "patientSees": "COMPLETED",
+        "payment": "PAID",
+        "refunds": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-11e",
+      "scenario": "Queue-managed visit cannot also be driven from the consultation screen",
+      "expected": "409",
+      "actual": {
+        "startAfterQueue": 409
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-05a/b/c",
+      "scenario": "Preparation draft from source records only; labelled; missing info stated",
+      "expected": "label says verify; patient-reported reason separate; summary says allergies need verification",
+      "actual": {
+        "label": "Assistant-generated preparation draft. Verify against source records.",
+        "reason": null,
+        "summary": "Found 0 clinician records, 0 prescription records and 0 follow-up plans. Current medication use, allergies and test results require source verification.",
+        "sources": {
+          "priorRecords": 0,
+          "prescriptions": 0,
+          "followUps": 0
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-05d",
+      "scenario": "Related doctor reads records; a doctor with no care relationship is refused everywhere",
+      "expected": "Beta on B 200; unrelated doctor 403 x4",
+      "actual": {
+        "betaOnB": 200,
+        "unrelatedOnA": {
+          "records": 403,
+          "summary": 403,
+          "notes": 403,
+          "trends": 403
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-06a/d",
+      "scenario": "AI-structured draft keeps only the doctor text; unsigned; duplicate refused",
+      "expected": "201 draft; exam/assessment/plan \"Not documented\"; sign 409; duplicate 409",
+      "actual": {
+        "draft": 201,
+        "exam": "Not documented. To be completed by the clinician.",
+        "signEarly": 409,
+        "duplicate": 409
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-06b/c",
+      "scenario": "Doctor edits, signs (real SLMC number), amends with audit; patient sees signed note",
+      "expected": "edit 200, sign 200, amend 200; audit DRAFT_CREATED..AMENDED; patient sees it",
+      "actual": {
+        "edit": 200,
+        "sign": 200,
+        "amend": 200,
+        "slmc": "SLMC-UAT-P03-ALPHA",
+        "audit": [
+          "DRAFT_CREATED",
+          "DRAFT_EDITED",
+          "SIGNED",
+          "AMENDED"
+        ],
+        "patientSees": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-06e",
+      "scenario": "Another doctor cannot edit, amend or sign the note; patient B never sees it",
+      "expected": "403 x3; not in B list",
+      "actual": {
+        "betaEdit": 403,
+        "betaAmend": 403,
+        "betaSign": 403,
+        "inPatientBList": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-07a/b",
+      "scenario": "Doctor issues prescription for own visit; patient sees it; no automatic reminder",
+      "expected": "201; linked to the visit; visible to patient; 0 reminders",
+      "actual": {
+        "http": 201,
+        "appointment": true,
+        "patientSees": true,
+        "reminders": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-07c",
+      "scenario": "Doctor approves reminder times explicitly (twice daily -> 2 times); a mismatched schedule is refused",
+      "expected": "200 ACTIVE, 2 times; 1-time schedule 422; patient list contains it",
+      "actual": {
+        "approve": 200,
+        "mismatch": 422,
+        "times": [
+          "08:00",
+          "20:00"
+        ],
+        "patientList": 200
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-07d",
+      "scenario": "Unauthorized and invalid prescriptions",
+      "expected": "patient 403, unrelated doctor 403, pending 403, missing fields 422, duplicate 409, cross reads 403",
+      "actual": {
+        "patientSign": 403,
+        "unrelatedForA": 403,
+        "pendingDoctor": 403,
+        "missingStrength": 422,
+        "blankName": 422,
+        "duplicate": 409,
+        "unrelatedReadsRx": 403,
+        "patientBReadsRx": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-07e",
+      "scenario": "Renewal: doctor notified; 3 concurrent approvals -> one prescription copying the original exactly",
+      "expected": "one 200; new item identical; linked to original visit; no reminder",
+      "actual": {
+        "codes": [
+          200,
+          400,
+          409
+        ],
+        "doctorNotified": true,
+        "sameItem": true,
+        "linkedVisit": true,
+        "reminders": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-07f",
+      "scenario": "Renewal rejection notifies the patient; nothing issued",
+      "expected": "200; status rejected; patient notified",
+      "actual": {
+        "http": 200,
+        "status": "rejected",
+        "patientNotified": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-08a/D-09b",
+      "scenario": "Care plan with a test task on the completed visit; unpaid request refused; real doctor name",
+      "expected": "201; unpaid 409; doctorName Dr. P03 Alpha; progress 0/2",
+      "actual": {
+        "unpaid": 409,
+        "create": 201,
+        "doctor": "Dr. P03 Alpha",
+        "progress": [
+          0,
+          2
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-08b/c/d",
+      "scenario": "Patient sees plan, completes a task; doctor sees the same server progress; other patient refused",
+      "expected": "patient 200; B 403; task 200; doctor 1/2 = 50%",
+      "actual": {
+        "otherPatient": 403,
+        "task": 200,
+        "doctorProgress": [
+          1,
+          2,
+          50
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-08e",
+      "scenario": "Doctor updates plan (version+1); unrelated doctor refused",
+      "expected": "200, version 2; Beta 403",
+      "actual": {
+        "update": 200,
+        "version": 2,
+        "beta": 403
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-10a/b/c",
+      "scenario": "Reminder batch: preview draft (fixed non-clinical text), approval required, only consented own patients",
+      "expected": "preview lists only Alpha CONFIRMED visits with consent; no confirm 422; wrong token 409; approve 200",
+      "actual": {
+        "count": 3,
+        "body": "You have an upcoming MediConnect appointment. Open the app to review the details.",
+        "noConfirm": 422,
+        "badToken": 409,
+        "approve": 200,
+        "statuses": {
+          "stored_in_app": 2,
+          "pending": 1
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-12a/b/c",
+      "scenario": "Analytics counts and money reconcile with direct database queries",
+      "expected": "confirmed/completed match; paid and refunded match; earnings not invented",
+      "actual": {
+        "api": [
+          4,
+          3,
+          18000.0,
+          0.0
+        ],
+        "db": [
+          4,
+          3,
+          18000.0,
+          0
+        ],
+        "earnings": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-12d",
+      "scenario": "Date boundaries by Asia/Colombo appointment date; range limit",
+      "expected": "yesterday's count matches DB; 41-day range 422",
+      "actual": {
+        "api": 1,
+        "db": 1,
+        "tooLong": 422
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-13a/b/c",
+      "scenario": "Doctor receives booking notifications for own visits; read state; another doctor can't mark it; deep link id resolves",
+      "expected": "notifications for the paid visits; unread count; mark read 200; Beta 403/404; linked appointment 200",
+      "actual": {
+        "bookingNotifications": 7,
+        "unread": 55,
+        "markRead": 200,
+        "betaMark": 403,
+        "link": 200
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-13d",
+      "scenario": "Beta's notifications contain nothing about Alpha's patients",
+      "expected": "0",
+      "actual": {
+        "count": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-14a",
+      "scenario": "Natural-language doctor questions map to read-only tools; numbers come from the service",
+      "expected": "tool named for each",
+      "actual": {
+        "Show my schedule for tomorrow": [
+          "get_my_doctor_schedule",
+          "0 appointments in the selected date range."
+        ],
+        "Show my available time slots next Monday": [
+          "get_my_available_slots",
+          "20 open slots for 2026-11-30 in Asia/Colombo."
+        ],
+        "Find gaps in my schedule this week": [
+          "get_my_available_slots",
+          "1 open slots for 2026-11-25 in Asia/Colombo. Ask about one day at a time for other days."
+        ],
+        "Show appointments requiring my attention": [
+          "get_my_doctor_analytics",
+          "2026-11-25 to 2026-11-25 (Asia/Colombo): 1 confirmed, 3 completed and 2 cancelled appointm"
+        ],
+        "How many appointments do I have today?": [
+          "get_my_doctor_analytics",
+          "2026-11-25 to 2026-11-25 (Asia/Colombo): 1 confirmed, 3 completed and 2 cancelled appointm"
+        ],
+        "How many consultations did I complete this month?": [
+          "get_my_doctor_analytics",
+          "2026-11-01 to 2026-11-30 (Asia/Colombo): 4 confirmed, 4 completed and 4 cancelled appointm"
+        ],
+        "Show my upcoming follow-up appointments": [
+          "get_my_follow_up_tasks",
+          "3 recent follow-up plans."
+        ],
+        "Show my appointment statistics for this week": [
+          "get_my_doctor_analytics",
+          "2026-11-25 to 2026-12-01 (Asia/Colombo): 4 confirmed, 3 completed and 4 cancelled appointm"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-14b/c",
+      "scenario": "Cross-patient AI request and prompt injection",
+      "expected": "Beta gets no data for Alpha's patient; injection changes nothing",
+      "actual": {
+        "crossPatient": "I could not retrieve that information. Check the selection and try again.",
+        "injectionTool": "get_my_doctor_schedule",
+        "appointmentAfter": "CONFIRMED"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-14c2",
+      "scenario": "AI follow-up proposal is a draft that needs doctor review; nothing saved",
+      "expected": "followUpDate proposed; no care plan created",
+      "actual": {
+        "reply": "Review the proposed date and enter your instructions before saving.",
+        "date": "2026-12-09",
+        "plansForVisit": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "D-04f",
+      "scenario": "Doctor cancels a paid visit: patient sees CANCELLED, full refund request, no pending reminders",
+      "expected": "200; CANCELLED; refund requested 100%; 0 pending reminders",
+      "actual": {
+        "http": 200,
+        "patientSees": "CANCELLED",
+        "refund": "requested",
+        "eligible": 2000.0,
+        "pendingReminders": 0
+      },
+      "status": "PASS"
+    }
+  ],
+  "run": "bb890d",
+  "pendingReminderCheck": {
+    "carePlanId": "6b070aa132b355d4d86060d8",
+    "taskTitle": "UAT chest X-ray bb890d",
+    "patient": "6b06f0c299ca8cacaa0a878a"
+  },
+  "communicationCheck": {
+    "date": "2026-11-27",
+    "appointment": "6b070a9e32b355d4d86060c0"
+  },
+  "ids": {
+    "queueVisits": [
+      "6060b4",
+      "6060ba",
+      "6060c0"
+    ],
+    "unpaid": "6060c6"
+  }
+}

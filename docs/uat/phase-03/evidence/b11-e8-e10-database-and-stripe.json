@@ -1,0 +1,14 @@
+{
+  "appointmentRef": "606088",
+  "status": "CANCELLED",
+  "paymentStatus": "UNPAID",
+  "paymentRecords": [
+    "CANCELLED"
+  ],
+  "stripeIntentStatus": [
+    "canceled"
+  ],
+  "holdReleasedEvents": 1,
+  "slotFreeForOtherPatient": true,
+  "activeBookingsForSlot": 0
+}

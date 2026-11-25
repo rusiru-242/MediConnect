@@ -267,7 +267,8 @@ class ConsultationService:
                     endTime=end_t,
                     bookingStatus=booking_status,
                     consultationStatus=consultation_status,
-                    consultationFee=float(appt.get("consultationFee", 2500.0)),
+                    # The booked fee only; no invented default (P03-N15, as BUG-059).
+                    consultationFee=float(appt["consultationFee"]) if appt.get("consultationFee") is not None else None,
                     patientUserId=pat_id,
                     patientName=patient_name,
                     patientEmail=patient_email,
@@ -299,7 +300,7 @@ class ConsultationService:
                 if (
                     item.bookingStatus != "CANCELLED"
                     and item.consultationStatus == ConsultationStatus.NOT_STARTED.value
-                    and item.bookingStatus in ["CONFIRMED", "PENDING"]
+                    and item.bookingStatus == "CONFIRMED"  # an unpaid request is not a patient to see (P03-N15)
                 ):
                     next_patient = item
                     break
@@ -396,7 +397,8 @@ class ConsultationService:
             endTime=appt.get("endTime", "00:00"),
             bookingStatus=booking_status,
             consultationStatus=consultation_status,
-            consultationFee=float(appt.get("consultationFee", 2500.0)),
+            # The booked fee only; no invented default (P03-N15, as BUG-059).
+                    consultationFee=float(appt["consultationFee"]) if appt.get("consultationFee") is not None else None,
             patientUserId=pat_id,
             patientName=appt.get("patientName") or (pat_user.get("fullName") if pat_user else "Patient"),
             patientEmail=appt.get("patientEmail") or (pat_user.get("email") if pat_user else None),
@@ -455,6 +457,15 @@ class ConsultationService:
 
         coll = get_consultation_collection(db)
         existing = coll.find_one({"appointmentId": appt_id})
+        if booking_status != AppointmentStatus.CONFIRMED.value and not (
+                existing and existing.get("status") == ConsultationStatus.IN_PROGRESS.value):
+            # Only a confirmed (payment-verified) visit can be started (P03-N01). Starting used to turn an unpaid
+            # PENDING request into CONFIRMED, bypassing payment verification, and its session then granted the
+            # doctor access to the patient's records even after the reservation was released.
+            if booking_status == AppointmentStatus.COMPLETED.value:
+                raise HTTPException(status_code=400, detail="Consultation has already been completed.")
+            raise HTTPException(status_code=409, detail="This visit is not confirmed. A consultation can start only "
+                                                        "after the patient's booking and payment are confirmed.")
 
         now = utc_now()
 
@@ -510,13 +521,6 @@ class ConsultationService:
                 # Concurrency safety: Another worker inserted concurrently
                 concurrent_doc = coll.find_one({"appointmentId": appt_id})
                 session_result = _doc_to_session_response(concurrent_doc)
-
-        # Synchronize booking status to CONFIRMED if it was PENDING
-        if booking_status == AppointmentStatus.PENDING.value:
-            db["appointments"].update_one(
-                {"_id": ObjectId(appt_id)},
-                {"$set": {"status": AppointmentStatus.CONFIRMED.value, "updatedAt": now}},
-            )
 
         return session_result
 
@@ -576,10 +580,26 @@ class ConsultationService:
 
         updated = coll.find_one({"_id": existing["_id"]})
 
-        # Synchronize appointment status to COMPLETED
-        db["appointments"].update_one(
-            {"_id": ObjectId(appt_id)},
+        # Synchronize appointment status to COMPLETED, only from CONFIRMED (P03-N01/N05)
+        moved = db["appointments"].update_one(
+            {"_id": ObjectId(appt_id), "status": AppointmentStatus.CONFIRMED.value},
             {"$set": {"status": AppointmentStatus.COMPLETED.value, "updatedAt": now}},
         )
+        if moved.modified_count:
+            from app.services.appointment_events import record_appointment_event
+            record_appointment_event(db, appt_id, "APPOINTMENT_COMPLETED", actor_role="DOCTOR", actor_id=str(doctor_user.id),
+                                     from_status="CONFIRMED", to_status="COMPLETED", details={"via": "consultation"},
+                                     idempotency_key=f"completed_{appt_id}")
+            try:  # same notification (and idempotency key) as "Mark completed", so the patient is told once
+                from app.models.notification import NotificationType
+                from app.services.notification_service import NotificationService
+                NotificationService.create_notification(
+                    db=db, recipient_user_id=str(appt.get("patientUserId")), type=NotificationType.APPOINTMENT_COMPLETED,
+                    title="Appointment Completed",
+                    body=f"Your consultation on {appt.get('appointmentDate')} has been marked as completed.",
+                    related_appointment_id=appt_id, idempotency_key=f"doctor_completed_{appt_id}",
+                )
+            except Exception as notif_err:
+                logger.warning("Completion notification failed (%s).", type(notif_err).__name__)
 
         return _doc_to_session_response(updated)

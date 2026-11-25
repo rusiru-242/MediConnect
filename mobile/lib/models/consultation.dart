@@ -224,6 +224,8 @@ class ScheduleAppointmentItem {
   bool get isCompleted => consultationStatus.toUpperCase() == 'COMPLETED';
   bool get isNotStarted => consultationStatus.toUpperCase() == 'NOT_STARTED';
   bool get isCancelled => bookingStatus.toUpperCase() == 'CANCELLED';
+  /// Only a confirmed (payment-verified) booking can be started (Phase 03, P03-N01).
+  bool get isConfirmedBooking => bookingStatus.toUpperCase() == 'CONFIRMED';
 
   ScheduleAppointmentItem copyWith({
     String? appointmentId,

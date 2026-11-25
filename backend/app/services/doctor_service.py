@@ -512,6 +512,13 @@ class DoctorService:
         if new_duration not in ALLOWED_SLOT_DURATIONS:
             raise HTTPException(status_code=400, detail=f"slotDurationMinutes must be one of {sorted(ALLOWED_SLOT_DURATIONS)}.")
 
+        affected = DoctorService._bookings_outside(db, existing, new_date, new_start, new_end, new_active)
+        if affected:
+            times = ", ".join(sorted(a["startTime"] for a in affected))
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail=f"{len(affected)} booked appointment(s) ({times}) would fall outside this availability. "
+                                       "Cancel or reschedule them first; availability changes never cancel bookings.")
+
         # Overlap check against other active schedules on that date
         if new_active:
             other_schedules = list(
@@ -558,6 +565,35 @@ class DoctorService:
         )
 
     @staticmethod
+    def _bookings_outside(db: Database, existing: Dict[str, Any], new_date: Optional[str] = None,
+                          new_start: Optional[str] = None, new_end: Optional[str] = None,
+                          new_active: bool = False) -> List[Dict[str, Any]]:
+        """Active bookings in an availability window that the change would leave outside any window (P03-N21).
+
+        Active = confirmed, paid, or an unexpired unpaid hold. Changing availability never cancels them; the doctor
+        must cancel or reschedule those appointments explicitly first.
+        """
+        now = utc_now()
+        rows = db["appointments"].find({
+            "doctorUserId": str(existing["doctorUserId"]), "appointmentDate": existing["date"],
+            "startTime": {"$gte": existing["startTime"], "$lt": existing["endTime"]},
+            "status": {"$in": ["HOLD", "PENDING", "CONFIRMED"]},
+        }, {"startTime": 1, "endTime": 1, "status": 1, "paymentStatus": 1, "holdExpiresAt": 1})
+        affected = []
+        for row in rows:
+            hold = row.get("holdExpiresAt")
+            if row["status"] != "CONFIRMED" and row.get("paymentStatus") != "PAID" and hold is not None:
+                if hold.tzinfo is None:
+                    hold = hold.replace(tzinfo=timezone.utc)
+                if hold <= now:
+                    continue  # an expired hold is not a booking
+            still_inside = (new_active and new_date == existing["date"] and new_start is not None and new_end is not None
+                            and new_start <= row["startTime"] and (row.get("endTime") or row["startTime"]) <= new_end)
+            if not still_inside:
+                affected.append({"appointmentId": str(row["_id"]), "startTime": row["startTime"], "status": row["status"]})
+        return affected
+
+    @staticmethod
     async def delete_availability(
         db: Database,
         doctor_user: UserResponseSchema,
@@ -581,6 +617,13 @@ class DoctorService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to delete this availability record.",
             )
+
+        affected = DoctorService._bookings_outside(db, existing)
+        if affected:
+            times = ", ".join(sorted(a["startTime"] for a in affected))
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail=f"{len(affected)} booked appointment(s) ({times}) are in this availability. "
+                                       "Cancel or reschedule them first; removing availability never cancels bookings.")
 
         # Soft disable using isActive = False to maintain compatibility with future appointment records
         collection.update_one(
@@ -898,20 +941,18 @@ class DoctorService:
             if not dr_name.startswith("Dr.") and not dr_name.startswith("Dr "):
                 dr_name = f"Dr. {dr_name}"
 
+            from app.services.appointment_service import doctor_cancel_appointment_record
+
             for c in conflicts:
-                db["appointments"].update_one(
-                    {"_id": ObjectId(c.appointmentId)},
-                    {
-                        "$set": {
-                            "status": AppointmentStatus.CANCELLED.value,
-                            "cancelledBy": "DOCTOR",
-                            "cancellationReason": f"Doctor on Leave: {req.reason or 'Scheduled leave'}",
-                            "updatedAt": now,
-                        }
-                    },
-                )
-                # Fetch appt doc to get patientUserId
-                appt_doc = db["appointments"].find_one({"_id": ObjectId(c.appointmentId)})
+                # Explicitly requested by the doctor (resolveConflicts) and handled like a doctor cancellation:
+                # open payment intents stopped, conditional update, refund request for paid bookings (P03-N03/N04).
+                current = db["appointments"].find_one({"_id": ObjectId(c.appointmentId)})
+                try:
+                    outcome = doctor_cancel_appointment_record(
+                        db, current, str(doctor_user.id), f"Doctor on Leave: {req.reason or 'Scheduled leave'}", source="leave")
+                except HTTPException:
+                    raise HTTPException(status_code=409, detail="An appointment changed while applying leave. Review the conflicts again.")
+                appt_doc = outcome["appointment"]
                 if appt_doc and appt_doc.get("patientUserId"):
                     try:
                         NotificationService.create_notification(
@@ -919,7 +960,8 @@ class DoctorService:
                             recipient_user_id=str(appt_doc["patientUserId"]),
                             type=NotificationType.APPOINTMENT_CANCELLED,
                             title="Appointment Cancelled Due to Doctor Leave",
-                            body=f"Your appointment with {dr_name} on {c.appointmentDate} at {c.startTime} has been cancelled because the doctor is on leave.",
+                            body=(f"Your appointment with {dr_name} on {c.appointmentDate} at {c.startTime} has been cancelled because the doctor is on leave."
+                                  + (" A full refund request was opened and is reviewed by MediConnect." if outcome["refundRequest"] else "")),
                             related_appointment_id=c.appointmentId,
                             idempotency_key=f"leave_cancel_{c.appointmentId}",
                         )

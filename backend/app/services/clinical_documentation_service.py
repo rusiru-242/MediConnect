@@ -39,7 +39,11 @@ from app.schemas.clinical_workflow import (
 from app.schemas.user import UserResponseSchema
 from app.services.clinical_safety_service import ClinicalSafetyService
 
-
+# A section the clinician has not written yet (P03-N09). The assistant never invents examination findings, an
+# assessment, a plan or follow-up advice; signing is refused while any required section still holds this text.
+NOT_DOCUMENTED = "Not documented. To be completed by the clinician."
+REQUIRED_SECTIONS = ("chiefComplaint", "historyOfPresentIllness", "examinationFindings", "assessment", "plan")
+OPEN_STATUSES = (NoteStatus.DRAFT.value, NoteStatus.UNDER_REVIEW.value)
 class ClinicalDocumentationService:
     """Core service for doctor clinical documentation and note approval lifecycle."""
 
@@ -75,6 +79,18 @@ class ClinicalDocumentationService:
         profile = cls._assert_approved_doctor(db, doctor_user)
         doc_user_id = str(doctor_user.id)
         ClinicalSafetyService.verify_doctor_patient_care_relationship(db, doc_user_id, req.patientUserId)
+        coll = get_clinical_note_collection(db)
+        if req.appointmentId:
+            # The note must belong to this doctor's own visit with this patient (P03-N07).
+            appt = db["appointments"].find_one({"_id": ObjectId(req.appointmentId)}) if ObjectId.is_valid(req.appointmentId) else None
+            if (not appt or str(appt.get("doctorUserId")) != doc_user_id or str(appt.get("patientUserId")) != req.patientUserId
+                    or appt.get("status") not in {"CONFIRMED", "COMPLETED"}):
+                raise HTTPException(status_code=400, detail="The appointment is not a confirmed visit of yours with this patient.")
+            open_draft = coll.find_one({"appointmentId": req.appointmentId, "doctorUserId": doc_user_id,
+                                        "status": {"$in": list(OPEN_STATUSES)}}, {"noteId": 1})
+            if open_draft:
+                # A repeated submission must not create a second draft for the same visit.
+                raise HTTPException(status_code=409, detail=f"A draft note for this appointment already exists ({open_draft['noteId']}).")
 
         # Parse or assign structured SOAP content
         is_ai_draft = False
@@ -114,9 +130,7 @@ class ClinicalDocumentationService:
             updatedAt=now,
         )
 
-        coll = get_clinical_note_collection(db)
         inserted = coll.insert_one(doc.model_dump(by_alias=True, exclude_none=True))
-
         return cls._to_response_schema(doc, str(inserted.inserted_id), profile, doctor_user.fullName)
 
     # -----------------------------------------------------------------------
@@ -150,8 +164,8 @@ class ClinicalDocumentationService:
 
         now = utc_now()
         new_content = req.content.model_dump()
-        coll.update_one(
-            {"_id": existing["_id"]},
+        edited = coll.update_one(
+            {"_id": existing["_id"], "status": {"$in": list(OPEN_STATUSES)}},
             {
                 "$set": {
                     "content": new_content,
@@ -161,7 +175,8 @@ class ClinicalDocumentationService:
                 "$push": {"auditLog": {"action": "DRAFT_EDITED", "userId": str(doctor_user.id), "timestamp": now}},
             },
         )
-
+        if not edited.matched_count:
+            raise HTTPException(status_code=409, detail="This note was signed meanwhile. Use the amendment workflow.")
         updated = coll.find_one({"_id": existing["_id"]})
         profile = db["doctor_profiles"].find_one({"userId": str(doctor_user.id)}) or {}
         return cls._to_response_schema(
@@ -194,14 +209,22 @@ class ClinicalDocumentationService:
         if existing["doctorUserId"] != doc_user_id:
             raise HTTPException(status_code=403, detail="Only the authoring clinician can sign this note.")
 
-        if existing["status"] == NoteStatus.SIGNED.value:
+        if existing["status"] in {NoteStatus.SIGNED.value, NoteStatus.AMENDED.value}:
             raise HTTPException(status_code=400, detail="This clinical note is already signed.")
+        if existing["status"] not in OPEN_STATUSES:
+            raise HTTPException(status_code=409, detail="Only a draft note can be signed.")
+        unfinished = [section for section in REQUIRED_SECTIONS
+                      if ((existing.get("content") or {}).get(section) or "").strip() in {"", NOT_DOCUMENTED}]
+        if unfinished:
+            raise HTTPException(status_code=409, detail="Complete these sections before signing: " + ", ".join(unfinished) + ".")
 
         now = utc_now()
-        slmc_num = profile.get("medicalRegistrationNumber", "SLMC-VERIFIED")
-
-        coll.update_one(
-            {"_id": existing["_id"]},
+        # The real registration number from the doctor's verified profile; never a placeholder (P03-N10).
+        slmc_num = profile.get("medicalRegistrationNumber")
+        if not slmc_num:
+            raise HTTPException(status_code=409, detail="Your profile has no medical registration number, so the note cannot be signed.")
+        signed = coll.update_one(
+            {"_id": existing["_id"], "status": {"$in": list(OPEN_STATUSES)}},
             {
                 "$set": {
                     "status": NoteStatus.SIGNED.value,
@@ -214,7 +237,8 @@ class ClinicalDocumentationService:
                 "$push": {"auditLog": {"action": "SIGNED", "userId": doc_user_id, "timestamp": now}},
             },
         )
-
+        if not signed.matched_count:
+            raise HTTPException(status_code=409, detail="This note was changed or signed meanwhile. Refresh it.")
         updated = coll.find_one({"_id": existing["_id"]})
         return cls._to_response_schema(
             ClinicalNoteDocument.model_validate(updated),
@@ -267,8 +291,8 @@ class ClinicalDocumentationService:
             f"{current_content.get('followUpInstructions') or ''}\n\n[AMENDMENT - {now.strftime('%Y-%m-%d %H:%M UTC')} by {doctor_user.fullName}]: {req.addendum.strip()}"
         ).strip()
 
-        coll.update_one(
-            {"_id": existing["_id"]},
+        amended = coll.update_one(
+            {"_id": existing["_id"], "version": existing.get("version", 1)},
             {
                 "$set": {
                     "content": current_content,
@@ -282,7 +306,8 @@ class ClinicalDocumentationService:
                 },
             },
         )
-
+        if not amended.matched_count:
+            raise HTTPException(status_code=409, detail="Another amendment was saved meanwhile. Refresh the note.")
         updated = coll.find_one({"_id": existing["_id"]})
         return cls._to_response_schema(
             ClinicalNoteDocument.model_validate(updated),
@@ -308,7 +333,12 @@ class ClinicalDocumentationService:
         if current_user.role == UserRole.DOCTOR.value:
             if patient_id:
                 ClinicalSafetyService.verify_doctor_patient_care_relationship(db, user_id_str, patient_id)
-                query = {"patientUserId": patient_id}
+                # Another clinician's unsigned draft is not part of the record (P03-N11): related doctors see
+                # signed or amended notes, plus their own drafts.
+                query = {"patientUserId": patient_id, "$or": [
+                    {"doctorUserId": user_id_str},
+                    {"status": {"$in": [NoteStatus.SIGNED.value, NoteStatus.AMENDED.value]}},
+                ]}
             else:
                 query = {"doctorUserId": user_id_str}
         else:
@@ -318,7 +348,9 @@ class ClinicalDocumentationService:
         notes: List[ClinicalNoteResponse] = []
         for doc in cursor:
             prof = db["doctor_profiles"].find_one({"_id": ObjectId(doc["doctorProfileId"])}) if ObjectId.is_valid(doc.get("doctorProfileId")) else {}
-            notes.append(cls._to_response_schema(ClinicalNoteDocument.model_validate(doc), str(doc["_id"]), prof or {}, doc.get("signedDoctorName")))
+            author = db["users"].find_one({"_id": ObjectId(doc["doctorUserId"])}, {"fullName": 1}) if ObjectId.is_valid(doc.get("doctorUserId")) else None
+            notes.append(cls._to_response_schema(ClinicalNoteDocument.model_validate(doc), str(doc["_id"]), prof or {},
+                                                 doc.get("signedDoctorName") or (author or {}).get("fullName")))
 
         return ClinicalNoteListResponse(notes=notes, total=len(notes))
 
@@ -332,14 +364,15 @@ class ClinicalDocumentationService:
         lines = [line.strip() for line in clean.split("\n") if line.strip()]
 
         # Provide a structured baseline draft
+        # Only the doctor's own words are placed; everything else is marked as not documented (P03-N09).
         return SoapContent(
-            chiefComplaint=lines[0][:200] if lines else "Patient clinical presentation",
-            historyOfPresentIllness="\n".join(lines[:3]) if lines else "Reported symptoms reviewed during consultation.",
+            chiefComplaint=lines[0][:200] if lines else NOT_DOCUMENTED,
+            historyOfPresentIllness="\n".join(lines[:3]) if lines else NOT_DOCUMENTED,
             pastMedicalHistory=None,
-            examinationFindings="Physical observations: General condition satisfactory, vitals documented.",
-            assessment="Clinical diagnostic assessment pending laboratory and clinical correlation.",
-            plan="Management plan: Follow documented medical advice and prescribed pharmacological therapy.",
-            followUpInstructions="Follow up in clinic as required or if symptoms persist.",
+            examinationFindings=NOT_DOCUMENTED,
+            assessment=NOT_DOCUMENTED,
+            plan=NOT_DOCUMENTED,
+            followUpInstructions=None,
         )
 
     @classmethod
@@ -355,8 +388,8 @@ class ClinicalDocumentationService:
             noteId=doc.noteId,
             patientUserId=doc.patientUserId,
             doctorUserId=doc.doctorUserId,
-            doctorName=doctor_name or doc.signedDoctorName or f"Dr. {profile.get('fullName', 'Doctor')}",
-            doctorSpecialty=profile.get("specialty", "General Practitioner"),
+            doctorName=doctor_name or doc.signedDoctorName,
+            doctorSpecialty=profile.get("specialty"),
             slmcRegistrationNumber=doc.slmcRegistrationNumber or profile.get("medicalRegistrationNumber"),
             appointmentId=doc.appointmentId,
             consultationSessionId=doc.consultationSessionId,

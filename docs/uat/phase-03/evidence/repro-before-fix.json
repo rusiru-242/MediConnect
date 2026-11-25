@@ -1,0 +1,103 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "stripe": "test_mode",
+  "steps": [
+    {
+      "step": "fixture_slots",
+      "date": "2026-12-04",
+      "count": 33
+    },
+    {
+      "step": "R1_start_consultation_on_unpaid_reservation",
+      "book_http": 201,
+      "before": "PENDING",
+      "payment": "UNPAID",
+      "start_http": 200,
+      "after": "CONFIRMED",
+      "payment_after": "UNPAID"
+    },
+    {
+      "step": "R1b_record_access_after_released_reservation",
+      "release_http": 409,
+      "status_after_release": "CONFIRMED",
+      "records_http": 200,
+      "trends_http": 200,
+      "expected": "403 / 403"
+    },
+    {
+      "step": "R2_doctor_cancels_paid_booking",
+      "before": {
+        "_id": "6b06f10e10993f4410e9baa6",
+        "status": "CONFIRMED",
+        "paymentStatus": "PAID"
+      },
+      "cancel_http": 200,
+      "refund_request_opened": false,
+      "refund_amount": null,
+      "payment_after": "PAID"
+    },
+    {
+      "step": "R3_doctor_cancels_unpaid_reservation_with_open_intent",
+      "cancel_http": 200,
+      "appointment": "CANCELLED",
+      "stripe_intent_status": "requires_payment_method",
+      "intent": "pi_\u2026t1fdzM",
+      "expected_intent": "canceled"
+    },
+    {
+      "step": "fixture_confirmed_paid_visit",
+      "status": "CONFIRMED"
+    },
+    {
+      "step": "R4_sign_prescription_auto_reminders",
+      "sign_http": 201,
+      "prescribed_frequency": "Once at bedtime",
+      "prescribed_duration": "30 days",
+      "reminder_status": "ACTIVE",
+      "reminder_times": [
+        "08:00",
+        "20:00"
+      ],
+      "reminder_days": 14,
+      "patient_list_http": 404,
+      "medical_record_link_exists": false
+    },
+    {
+      "step": "R5_ai_note_draft_fabrication",
+      "draft_http": 201,
+      "raw": "Patient reports mild headache for two days.",
+      "examinationFindings": "Physical observations: General condition satisfactory, vitals documented.",
+      "assessment": "Clinical diagnostic assessment pending laboratory and clinical correlation.",
+      "plan": "Management plan: Follow documented medical advice and prescribed pharmacological therapy.",
+      "sign_unedited_http": 200,
+      "status_after": "signed",
+      "slmc": "SLMC-UAT-P03-ALPHA"
+    },
+    {
+      "step": "R6_other_doctor_sees_unsigned_drafts",
+      "http": 200,
+      "other_doctor_drafts_visible": 0
+    },
+    {
+      "step": "R7_record_on_future_visit",
+      "http": 201,
+      "visit_date": "2026-12-04",
+      "status_after": "COMPLETED"
+    },
+    {
+      "step": "R8_prescription_linked_to_unrelated_appointment",
+      "http": 201,
+      "stored_appointment_is_other_doctors": true
+    },
+    {
+      "step": "R9_duplicate_prescription_submission",
+      "codes": [
+        201,
+        201
+      ],
+      "stored": 2
+    }
+  ],
+  "runId": "01d817d3"
+}

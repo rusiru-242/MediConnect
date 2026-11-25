@@ -8,7 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class MedicationItemSchema(BaseModel):
     """Schema for individual medication item."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    # Whitespace-only values ("   ") are not a medicine name, strength or frequency (P03-N13).
+    model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
 
     medicationName: str = Field(..., min_length=1, max_length=200)
     strength: str = Field(..., min_length=1, max_length=100)
@@ -44,8 +45,8 @@ class PrescriptionResponseSchema(BaseModel):
 
     id: str
     prescriptionId: str
-    medicalRecordId: str
-    appointmentId: str
+    medicalRecordId: Optional[str] = None
+    appointmentId: Optional[str] = None
     patientUserId: str
     patientName: Optional[str] = None
     doctorUserId: str

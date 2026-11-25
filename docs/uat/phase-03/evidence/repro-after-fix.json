@@ -1,0 +1,109 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "stripe": "test_mode",
+  "steps": [
+    {
+      "step": "fixture_slots",
+      "date": "2026-12-04",
+      "count": 30
+    },
+    {
+      "step": "R1_doctor",
+      "doctor": "UAT-P03-BETA"
+    },
+    {
+      "step": "R1_start_consultation_on_unpaid_reservation",
+      "book_http": 201,
+      "before": "PENDING",
+      "payment": "UNPAID",
+      "start_http": 409,
+      "after": "PENDING",
+      "payment_after": "UNPAID"
+    },
+    {
+      "step": "R1b_record_access_after_released_reservation",
+      "release_http": 200,
+      "status_after_release": "CANCELLED",
+      "records_http": 403,
+      "trends_http": 403,
+      "expected": "403 / 403"
+    },
+    {
+      "step": "R2_doctor_cancels_paid_booking",
+      "before": {
+        "_id": "6b06f89232b355d4d8605fcb",
+        "status": "CONFIRMED",
+        "paymentStatus": "PAID"
+      },
+      "cancel_http": 200,
+      "refund_request_opened": true,
+      "refund_amount": 2000.0,
+      "payment_after": "PAID"
+    },
+    {
+      "step": "R3_doctor_cancels_unpaid_reservation_with_open_intent",
+      "cancel_http": 200,
+      "appointment": "CANCELLED",
+      "stripe_intent_status": "canceled",
+      "intent": "pi_\u2026NGaS54",
+      "expected_intent": "canceled"
+    },
+    {
+      "step": "fixture_confirmed_paid_visit",
+      "status": "CONFIRMED"
+    },
+    {
+      "step": "R4_sign_prescription_auto_reminders",
+      "sign_http": 201,
+      "prescribed_frequency": "Once at bedtime",
+      "prescribed_duration": "30 days",
+      "reminder_status": null,
+      "reminder_times": null,
+      "reminder_days": null,
+      "patient_list_http": 200,
+      "medical_record_link_exists": false
+    },
+    {
+      "step": "R5_ai_note_draft_fabrication",
+      "draft_http": 201,
+      "raw": "Patient reports mild headache for two days.",
+      "examinationFindings": "Not documented. To be completed by the clinician.",
+      "assessment": "Not documented. To be completed by the clinician.",
+      "plan": "Not documented. To be completed by the clinician.",
+      "sign_unedited_http": 409,
+      "status_after": "draft",
+      "slmc": null
+    },
+    {
+      "step": "R6_other_doctor_sees_unsigned_drafts",
+      "http": 200,
+      "other_doctor_drafts_visible": 0
+    },
+    {
+      "step": "R7_record_on_future_visit",
+      "http": 409,
+      "visit_date": "2026-12-04",
+      "status_after": "CONFIRMED"
+    },
+    {
+      "step": "R7b_record_on_started_visit",
+      "http": 201,
+      "status_after": "COMPLETED"
+    },
+    {
+      "step": "R8_prescription_linked_to_unrelated_appointment",
+      "http": 400,
+      "stored_appointment_is_other_doctors": false
+    },
+    {
+      "step": "R9_duplicate_prescription_submission",
+      "codes": [
+        201,
+        409
+      ],
+      "stored": 1
+    }
+  ],
+  "runId": "3e30e74e"
+}

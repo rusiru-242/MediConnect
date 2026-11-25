@@ -1,0 +1,1203 @@
+{
+  "phase": "Phase 03 - Doctor system, clinical workflows and doctor AI components",
+  "date": "2026-11-25",
+  "branch": "fix/phase-03-doctor-system-stabilization",
+  "environment": {
+    "uatBackend": "127.0.0.1:8001",
+    "uatDatabase": "mediconnect_uat",
+    "testDatabase": "mediconnect_test",
+    "isolatedTestDataHealthFlag": true,
+    "port8000Used": false,
+    "stripe": "test mode only",
+    "aiProviders": "disabled (deterministic)",
+    "emulator": "Android 17 Pixel_7_Pro AVD, API_BASE_URL http://10.0.2.2:8001",
+    "fixtures": "backend/scripts/seed_phase03_fixtures.py (insert-only, 70 records)"
+  },
+  "commits": {
+    "baseline": "00a47a0",
+    "implementation": [
+      "136c8c9",
+      "a70507e",
+      "db8b88d",
+      "6caf75d",
+      "26c08b7",
+      "0e636c0",
+      "ab94ffc"
+    ],
+    "latestTestedImplementation": "ab94ffc",
+    "documentation": "the commit adding docs/uat/phase-03 (see git log)",
+    "merged": false,
+    "deployed": false,
+    "pushed": true
+  },
+  "bugStatistics": {
+    "historicalDistinctReviewed": 32,
+    "newDefects": 21,
+    "improvements": 3,
+    "reproducedLiveBeforeFix": [
+      "P03-N01",
+      "P03-N02",
+      "P03-N03",
+      "P03-N04",
+      "P03-N06",
+      "P03-N07",
+      "P03-N09",
+      "P03-N11",
+      "P03-N12",
+      "P03-N13",
+      "P03-N14"
+    ],
+    "fixed": 21,
+    "verified": 21,
+    "remainingOpenDefects": 0,
+    "blockedVerification": [
+      "B1",
+      "B2",
+      "B3",
+      "B4",
+      "B5",
+      "B10",
+      "B13"
+    ]
+  },
+  "bugs": [
+    {
+      "id": "P03-N01",
+      "component": "Appointments / consultation",
+      "severity": "Critical",
+      "description": "Consultation start confirmed unpaid bookings",
+      "rootCause": "PENDING→CONFIRMED \"sync\" without a payment check",
+      "fix": "Start only on CONFIRMED; conditional completion",
+      "evidence": "R1 before/after; D-04e; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N02",
+      "component": "Records access",
+      "severity": "High",
+      "description": "Session on a released reservation and unapproved doctors gave record access",
+      "rootCause": "Relationship check too broad",
+      "fix": "Approved and active doctor; sessions only with a real visit",
+      "evidence": "R1b 200→403; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N03",
+      "component": "Cancellation / refunds",
+      "severity": "High",
+      "description": "Doctor cancellation of a paid booking opened no refund (also leave)",
+      "rootCause": "Status-only cancel",
+      "fix": "Shared path opens a refund request (100%, admin approval)",
+      "evidence": "R2; D-04f; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N04",
+      "component": "Cancellation / Stripe",
+      "severity": "High",
+      "description": "Doctor cancellation left the intent payable",
+      "rootCause": "BUG-063 logic not reused",
+      "fix": "Shared intent stopping; paid-race handled",
+      "evidence": "R3; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N05",
+      "component": "Appointments",
+      "severity": "Medium",
+      "description": "Unconditional cancel/complete; no events",
+      "rootCause": "Missing conditions",
+      "fix": "Conditional updates plus events",
+      "evidence": "Concurrency tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N06",
+      "component": "Prescriptions / reminders",
+      "severity": "High",
+      "description": "Invented 08:00/20:00 14-day reminders at signing or renewal",
+      "rootCause": "Hard-coded sync",
+      "fix": "Removed; explicit doctor approval only",
+      "evidence": "R4; D-07c; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N07",
+      "component": "Prescriptions / notes",
+      "severity": "Medium",
+      "description": "Generated or unvalidated record and visit references",
+      "rootCause": "Placeholder IDs; no checks",
+      "fix": "Real references only; visit validated",
+      "evidence": "R4, R8; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N08",
+      "component": "Renewal",
+      "severity": "Medium",
+      "description": "Invented strength, dose, frequency and duration defaults",
+      "rootCause": "Defaults",
+      "fix": "Copy the original exactly or 409",
+      "evidence": "D-07e; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N09",
+      "component": "Clinical notes",
+      "severity": "High",
+      "description": "AI drafts invented findings, assessment and plan; signable unedited",
+      "rootCause": "Placeholder SOAP text",
+      "fix": "\"Not documented\"; signing blocked until complete",
+      "evidence": "R5; D-06a/b; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N10",
+      "component": "Notes / prescriptions",
+      "severity": "Medium",
+      "description": "\"SLMC-VERIFIED\", \"Dr. Doctor\", \"Dr. Dr.\"",
+      "rootCause": "Fallback strings",
+      "fix": "Real values; registration number required",
+      "evidence": "Tests; D-06b/c",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N11",
+      "component": "Clinical notes",
+      "severity": "High",
+      "description": "Colleagues saw unsigned drafts",
+      "rootCause": "Unfiltered list",
+      "fix": "Signed only for others",
+      "evidence": "R6 check; D-06e; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N12",
+      "component": "Consultation records",
+      "severity": "Medium",
+      "description": "Record on a future visit completed it",
+      "rootCause": "Status change before checks",
+      "fix": "Duplicate check first; only after the start time",
+      "evidence": "R7/R7b",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N13",
+      "component": "Prescriptions",
+      "severity": "Medium",
+      "description": "Duplicates issued; blank fields accepted",
+      "rootCause": "No duplicate check",
+      "fix": "409 repeat; whitespace stripped",
+      "evidence": "R9; D-07d",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N14",
+      "component": "Record summary",
+      "severity": "Medium",
+      "description": "500 with a signed note; \"no allergies\" wording",
+      "rootCause": "Datetime slice; wording",
+      "fix": "Fixed format and wording",
+      "evidence": "Sweep 500→200; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N15",
+      "component": "Schedule",
+      "severity": "Low",
+      "description": "Invented LKR 2,500 fee; unpaid next patient",
+      "rootCause": "Default; filter",
+      "fix": "Null fee; CONFIRMED only",
+      "evidence": "Tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N16",
+      "component": "Doctor dashboard",
+      "severity": "Medium",
+      "description": "Invented specialty and status, On Duty toggle, Phase badges; misleading Today figures",
+      "rootCause": "Static UI",
+      "fix": "Removed; truthful counts and labels",
+      "evidence": "Emulator before/after; D-02c",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N17",
+      "component": "Care plans",
+      "severity": "High",
+      "description": "Plans on unpaid or cancelled bookings gave access; name \"Doctor\"",
+      "rootCause": "No status check; wrong name source",
+      "fix": "Real visit required; real name",
+      "evidence": "D-08a; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N21",
+      "component": "Availability",
+      "severity": "Medium",
+      "description": "Edits or removal orphaned booked patients",
+      "rootCause": "No check",
+      "fix": "409 listing affected bookings",
+      "evidence": "D-03e; tests",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N22",
+      "component": "Test infrastructure",
+      "severity": "High",
+      "description": "Tests could use the remote database in `.env`",
+      "rootCause": "Settings load `.env`; no guard",
+      "fix": "`conftest.py` guard",
+      "evidence": "Guard verified; test",
+      "status": "Fixed, verified (remote impact unknown)"
+    },
+    {
+      "id": "P03-N23",
+      "component": "Doctor UI",
+      "severity": "Medium",
+      "description": "Renewal queue and SOAP notes unreachable",
+      "rootCause": "Routes never navigated",
+      "fix": "Home card; details link",
+      "evidence": "Widget tests; EM-13",
+      "status": "Fixed, verified"
+    },
+    {
+      "id": "P03-N24",
+      "component": "Patient UI",
+      "severity": "Medium",
+      "description": "Invented rating, \"Nearby\", next slot, \"120+ Specialists\", HIPAA claim",
+      "rootCause": "Static UI",
+      "fix": "Removed or replaced with truthful text",
+      "evidence": "Widget test; EM-12",
+      "status": "Fixed, verified"
+    }
+  ],
+  "improvements": [
+    {
+      "id": "P03-N18",
+      "title": "Server-side care plan progress, shown to doctors"
+    },
+    {
+      "id": "P03-N19",
+      "title": "Refund-aware doctor analytics"
+    },
+    {
+      "id": "P03-N20",
+      "title": "Doctor assistant date phrases and question routing"
+    }
+  ],
+  "testMatrix": [
+    {
+      "id": "D-01a",
+      "area": "Auth",
+      "scenario": "Approved doctor login, refresh, logout",
+      "expected": "200; refresh 200; refresh after logout rejected",
+      "actual": "200; 200; 401",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-01a, D-01a2"
+    },
+    {
+      "id": "D-01b",
+      "area": "Auth",
+      "scenario": "Pending doctor restrictions",
+      "expected": "Status page 200; others 403; not bookable or searchable",
+      "actual": "200; 403 ×3; not in search; clinical writes 403",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-01b, D-07d, sweep"
+    },
+    {
+      "id": "D-01c",
+      "area": "Auth",
+      "scenario": "Doctor account isolation",
+      "expected": "Other doctor 403/404",
+      "actual": "403 / 403 / 404",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-01c"
+    },
+    {
+      "id": "D-01d",
+      "area": "Auth",
+      "scenario": "Expired authentication",
+      "expected": "401",
+      "actual": "Expired 401, forged 401",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-01d"
+    },
+    {
+      "id": "D-02a",
+      "area": "21 / dashboard",
+      "scenario": "Real dashboard data",
+      "expected": "Screen matches the database",
+      "actual": "2 visits, LKR 4,000 = database",
+      "method": "Emulator + database",
+      "status": "PASS",
+      "evidence": "EM-02"
+    },
+    {
+      "id": "D-02b",
+      "area": "Dashboard",
+      "scenario": "Empty dashboard",
+      "expected": "0 / LKR 0, no invented figures",
+      "actual": "0 / LKR 0 (Dr. P02 Ortho on device; widget)",
+      "method": "Emulator + widget",
+      "status": "PASS",
+      "evidence": "EM-01; widget"
+    },
+    {
+      "id": "D-02c",
+      "area": "Dashboard",
+      "scenario": "Statistics reconciliation",
+      "expected": "Equal to database queries",
+      "actual": "Equal",
+      "method": "Emulator + database",
+      "status": "PASS",
+      "evidence": "`d02c-…json`"
+    },
+    {
+      "id": "D-02d",
+      "area": "Dashboard",
+      "scenario": "API failure, loading, expired auth",
+      "expected": "Truthful error state",
+      "actual": "\"Today's figures are unavailable right now.\"",
+      "method": "Widget",
+      "status": "PASS",
+      "evidence": "widget test"
+    },
+    {
+      "id": "D-03a",
+      "area": "14",
+      "scenario": "Weekly availability and calendar",
+      "expected": "Readable",
+      "actual": "200 / 200",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-03a"
+    },
+    {
+      "id": "D-03b",
+      "area": "14",
+      "scenario": "Date-specific availability",
+      "expected": "Window appears for patients",
+      "actual": "12:15 and 12:30 offered",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-03b/f"
+    },
+    {
+      "id": "D-03c",
+      "area": "14",
+      "scenario": "Break periods and slot generation",
+      "expected": "No slots 12:00–12:59",
+      "actual": "None",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-03c"
+    },
+    {
+      "id": "D-03d",
+      "area": "14",
+      "scenario": "Overlapping and invalid inputs",
+      "expected": "4xx",
+      "actual": "400 ×4, 422",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-03d"
+    },
+    {
+      "id": "D-03e",
+      "area": "14",
+      "scenario": "Existing booking protection",
+      "expected": "409; booking kept",
+      "actual": "409 ×3; CONFIRMED",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-03e"
+    },
+    {
+      "id": "D-03f",
+      "area": "14",
+      "scenario": "Patient-side synchronization",
+      "expected": "New window shown; booked slot hidden",
+      "actual": "Yes / yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-03b/f, D-03f2"
+    },
+    {
+      "id": "D-04a",
+      "area": "Appointments",
+      "scenario": "Appointment list",
+      "expected": "3 paid visits",
+      "actual": "3 CONFIRMED",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-04a"
+    },
+    {
+      "id": "D-04b",
+      "area": "Appointments",
+      "scenario": "Appointment details",
+      "expected": "Reference, in-person",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-04b/c"
+    },
+    {
+      "id": "D-04c",
+      "area": "Appointments",
+      "scenario": "Historical fee and paid amount",
+      "expected": "Equal to the payment record",
+      "actual": "2,000 = 2,000 = 2,000",
+      "method": "UAT API + database",
+      "status": "PASS",
+      "evidence": "D-04b/c"
+    },
+    {
+      "id": "D-04d",
+      "area": "Appointments",
+      "scenario": "Authorized status transition",
+      "expected": "Complete before time refused; queue completion works",
+      "actual": "400; queue COMPLETED",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-04d, D-11b"
+    },
+    {
+      "id": "D-04e",
+      "area": "Appointments",
+      "scenario": "Unpaid restrictions",
+      "expected": "409 on every route",
+      "actual": "409 ×3; PENDING/UNPAID",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-04e"
+    },
+    {
+      "id": "D-04f",
+      "area": "Appointments",
+      "scenario": "Cancellation",
+      "expected": "Patient sees it; refund request; reminders dropped",
+      "actual": "Yes; 100%; 0 pending",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-04f"
+    },
+    {
+      "id": "D-04g",
+      "area": "Appointments",
+      "scenario": "Rescheduling synchronization",
+      "expected": "Patient sees new time; version+1; 1 payment",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-04g"
+    },
+    {
+      "id": "D-05a",
+      "area": "15",
+      "scenario": "Consultation preparation",
+      "expected": "Labelled draft from sources",
+      "actual": "Label and summary present",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-05a/b/c"
+    },
+    {
+      "id": "D-05b",
+      "area": "15",
+      "scenario": "Source-grounded summary",
+      "expected": "Counts of real records only",
+      "actual": "Counts; no narrative",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-05a/b/c"
+    },
+    {
+      "id": "D-05c",
+      "area": "15",
+      "scenario": "Missing medical information",
+      "expected": "Stated as needing verification",
+      "actual": "\"…require source verification\"",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-05a/b/c"
+    },
+    {
+      "id": "D-05d",
+      "area": "15",
+      "scenario": "Unauthorized record access",
+      "expected": "Unrelated doctor 403",
+      "actual": "403 ×4",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-05d"
+    },
+    {
+      "id": "D-06a",
+      "area": "16",
+      "scenario": "Clinical note draft",
+      "expected": "Nothing invented",
+      "actual": "\"Not documented\" ×3",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-06a/d"
+    },
+    {
+      "id": "D-06b",
+      "area": "16",
+      "scenario": "Note review",
+      "expected": "Edit → UNDER_REVIEW",
+      "actual": "200",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-06b/c"
+    },
+    {
+      "id": "D-06c",
+      "area": "16",
+      "scenario": "Finalization and audit",
+      "expected": "Sign with real SLMC; audit trail",
+      "actual": "Yes; 4 audit actions",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-06b/c"
+    },
+    {
+      "id": "D-06d",
+      "area": "16",
+      "scenario": "Duplicate note submission",
+      "expected": "409",
+      "actual": "409",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-06a/d"
+    },
+    {
+      "id": "D-07a",
+      "area": "17",
+      "scenario": "Doctor-approved prescription",
+      "expected": "201, linked to the visit",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-07a/b"
+    },
+    {
+      "id": "D-07b",
+      "area": "17",
+      "scenario": "Patient visibility",
+      "expected": "Listed for the patient",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-07a/b"
+    },
+    {
+      "id": "D-07c",
+      "area": "17",
+      "scenario": "Reminder synchronization",
+      "expected": "None automatic; explicit approval matches frequency",
+      "actual": "0 auto; 200; mismatch 422",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-07c"
+    },
+    {
+      "id": "D-07d",
+      "area": "17",
+      "scenario": "Unauthorized and invalid prescriptions",
+      "expected": "403 / 422 / 409",
+      "actual": "As expected",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-07d"
+    },
+    {
+      "id": "D-07e",
+      "area": "17",
+      "scenario": "Renewal approval (concurrent)",
+      "expected": "One prescription, copied exactly",
+      "actual": "One 200",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-07e"
+    },
+    {
+      "id": "D-07f",
+      "area": "17",
+      "scenario": "Renewal rejection",
+      "expected": "Rejected; patient notified",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-07f"
+    },
+    {
+      "id": "D-08a",
+      "area": "18",
+      "scenario": "Care plan creation",
+      "expected": "201 on a real visit; unpaid 409",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-08a"
+    },
+    {
+      "id": "D-08b",
+      "area": "18",
+      "scenario": "Patient visibility",
+      "expected": "Visible; other patient 403",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-08b/c/d"
+    },
+    {
+      "id": "D-08c",
+      "area": "18",
+      "scenario": "Patient task completion",
+      "expected": "200",
+      "actual": "200",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-08b/c/d"
+    },
+    {
+      "id": "D-08d",
+      "area": "18",
+      "scenario": "Doctor progress visibility",
+      "expected": "Same server figure",
+      "actual": "1/2 = 50% (API and device)",
+      "method": "UAT API + emulator",
+      "status": "PASS",
+      "evidence": "D-08b/c/d, EM-03"
+    },
+    {
+      "id": "D-08e",
+      "area": "18",
+      "scenario": "Update and cancellation",
+      "expected": "Version 2; unrelated doctor 403; cancel drops reminders",
+      "actual": "Yes; cancel (regression)",
+      "method": "UAT API + regression",
+      "status": "PASS",
+      "evidence": "D-08e; care regression"
+    },
+    {
+      "id": "D-09a",
+      "area": "18",
+      "scenario": "Follow-up creation",
+      "expected": "Listed",
+      "actual": "Listed",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-08a, follow-ups"
+    },
+    {
+      "id": "D-09b",
+      "area": "18",
+      "scenario": "Medical test assignment",
+      "expected": "Test task stored",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-08a"
+    },
+    {
+      "id": "D-09c",
+      "area": "18",
+      "scenario": "Follow-up and test reminders",
+      "expected": "Delivered in-app by the worker",
+      "actual": "Processed; in-app; push `unavailable`",
+      "method": "Worker",
+      "status": "PASS",
+      "evidence": "`doctor-worker-delivery.json`"
+    },
+    {
+      "id": "D-09d",
+      "area": "18",
+      "scenario": "Follow-up cancellation",
+      "expected": "CANCELLED; reminders dropped",
+      "actual": "Yes",
+      "method": "Regression (patient care C08)",
+      "status": "PASS",
+      "evidence": "care regression"
+    },
+    {
+      "id": "D-10a",
+      "area": "19",
+      "scenario": "Communication draft",
+      "expected": "Preview, fixed non-clinical text",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-10a/b/c"
+    },
+    {
+      "id": "D-10b",
+      "area": "19",
+      "scenario": "Authorized delivery",
+      "expected": "Confirm and token required; delivered in-app",
+      "actual": "422 without confirm; 409 bad token; 3 delivered",
+      "method": "UAT API + worker",
+      "status": "PASS",
+      "evidence": "D-10, worker"
+    },
+    {
+      "id": "D-10c",
+      "area": "19",
+      "scenario": "Correct recipient",
+      "expected": "Consented own patients only",
+      "actual": "All consented",
+      "method": "Worker",
+      "status": "PASS",
+      "evidence": "worker check"
+    },
+    {
+      "id": "D-10d",
+      "area": "19",
+      "scenario": "External provider failure",
+      "expected": "Truthfully not sent",
+      "actual": "Push `unavailable`, email/SMS `skipped`",
+      "method": "Worker",
+      "status": "PASS (external delivery itself BLOCKED)",
+      "evidence": "worker check"
+    },
+    {
+      "id": "D-11a",
+      "area": "20",
+      "scenario": "Queue ordering",
+      "expected": "Scheduled order; no invented waits",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-11a"
+    },
+    {
+      "id": "D-11b",
+      "area": "20",
+      "scenario": "Status synchronization",
+      "expected": "Patient sees COMPLETED; payment unchanged",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-11b"
+    },
+    {
+      "id": "D-11c",
+      "area": "20",
+      "scenario": "Concurrent queue update",
+      "expected": "Idempotent; one winner",
+      "actual": "1 audit entry; one 200",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-11c"
+    },
+    {
+      "id": "D-11d",
+      "area": "20",
+      "scenario": "Invalid transition",
+      "expected": "409",
+      "actual": "409 / 409 / 404",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-11d"
+    },
+    {
+      "id": "D-12a",
+      "area": "21",
+      "scenario": "Analytics counts",
+      "expected": "Equal to the database",
+      "actual": "Equal",
+      "method": "UAT API + database",
+      "status": "PASS",
+      "evidence": "D-12a/b/c"
+    },
+    {
+      "id": "D-12b",
+      "area": "21",
+      "scenario": "Revenue reconciliation",
+      "expected": "Paid equal to the database",
+      "actual": "Equal",
+      "method": "UAT API + database",
+      "status": "PASS",
+      "evidence": "D-12a/b/c"
+    },
+    {
+      "id": "D-12c",
+      "area": "21",
+      "scenario": "Refund-aware data",
+      "expected": "Refunded and net shown; earnings null",
+      "actual": "Yes",
+      "method": "UAT API + local",
+      "status": "PASS",
+      "evidence": "D-12, `test_n19`"
+    },
+    {
+      "id": "D-12d",
+      "area": "21",
+      "scenario": "Date boundaries",
+      "expected": "Colombo date; range limit",
+      "actual": "Equal; 422",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-12d"
+    },
+    {
+      "id": "D-13a",
+      "area": "Notifications",
+      "scenario": "Doctor notification delivery",
+      "expected": "Booking notifications for own visits",
+      "actual": "7",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-13a/b/c"
+    },
+    {
+      "id": "D-13b",
+      "area": "Notifications",
+      "scenario": "Deep link",
+      "expected": "Linked appointment opens (200)",
+      "actual": "200 (API); device in Phase 02",
+      "method": "UAT API",
+      "status": "PASS (device re-run NOT RUN)",
+      "evidence": "D-13"
+    },
+    {
+      "id": "D-13c",
+      "area": "Notifications",
+      "scenario": "Read state",
+      "expected": "Mark read 200; other doctor 403",
+      "actual": "Yes",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-13"
+    },
+    {
+      "id": "D-14a",
+      "area": "AI tools",
+      "scenario": "Tool authorization",
+      "expected": "Read-only tools only",
+      "actual": "8 questions → read-only tools",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-14a"
+    },
+    {
+      "id": "D-14b",
+      "area": "AI tools",
+      "scenario": "Cross-patient request",
+      "expected": "No data",
+      "actual": "\"Could not retrieve…\"",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-14b/c"
+    },
+    {
+      "id": "D-14c",
+      "area": "AI tools",
+      "scenario": "Clinical mutation confirmation",
+      "expected": "Nothing changed; proposal only",
+      "actual": "Unchanged; 0 plans",
+      "method": "UAT API",
+      "status": "PASS",
+      "evidence": "D-14b/c, D-14c2"
+    },
+    {
+      "id": "D-14d",
+      "area": "AI tools",
+      "scenario": "Provider failure",
+      "expected": "Deterministic path",
+      "actual": "Deterministic only; live provider not tested",
+      "method": "UAT API",
+      "status": "PARTIAL (live provider BLOCKED, B13)",
+      "evidence": "—"
+    },
+    {
+      "id": "D-15a",
+      "area": "UI",
+      "scenario": "No unsupported video UI",
+      "expected": "None",
+      "actual": "0 hits in doctor screens; IN_PERSON",
+      "method": "Code + emulator",
+      "status": "PASS",
+      "evidence": "inventory §2"
+    },
+    {
+      "id": "D-15b",
+      "area": "UI",
+      "scenario": "Stable navigation and keyboard",
+      "expected": "No errors",
+      "actual": "0 framework errors",
+      "method": "Emulator",
+      "status": "PASS",
+      "evidence": "EM-10/11"
+    },
+    {
+      "id": "D-15c",
+      "area": "UI",
+      "scenario": "Restart persistence",
+      "expected": "Session and chat restored",
+      "actual": "Yes",
+      "method": "Emulator",
+      "status": "PASS",
+      "evidence": "EM-10"
+    },
+    {
+      "id": "D-15d",
+      "area": "UI",
+      "scenario": "Phase 02 E8–E10 regression (B11)",
+      "expected": "As Phase 02 after the final fixes",
+      "actual": "All PASS",
+      "method": "Emulator + database + Stripe",
+      "status": "PASS",
+      "evidence": "EM-05–09"
+    }
+  ],
+  "testMatrixTotals": {
+    "PASS": 66,
+    "PARTIAL": 1,
+    "FAIL": 0,
+    "BLOCKED": 0,
+    "NOT RUN": 0
+  },
+  "tests": {
+    "backendPytest": {
+      "executed": 565,
+      "passed": 565,
+      "failed": 0,
+      "new": 20,
+      "baseline": 545
+    },
+    "flutter": {
+      "executed": 304,
+      "passed": 304,
+      "failed": 0,
+      "new": 6,
+      "baseline": 298
+    },
+    "flutterAnalyze": "no issues",
+    "adminWeb": {
+      "typecheck": "clean",
+      "tests": 32,
+      "passed": 32,
+      "lint": "clean"
+    },
+    "androidDebugApk": "built from ab94ffc and installed on the emulator",
+    "flutterLiveApiIntegration": {
+      "executed": 13,
+      "passed": 13,
+      "target": "http://127.0.0.1:8001/api",
+      "guardUnitTests": 4
+    },
+    "liveDefectReproduction": {
+      "defectsReproduced": 9,
+      "fixedAfter": 9,
+      "evidence": [
+        "repro-before-fix.json",
+        "repro-after-fix.json"
+      ]
+    },
+    "authorizationSweep": {
+      "endpoints": 29,
+      "callers": 7,
+      "blockedLogins": [
+        "rejected",
+        "suspended"
+      ],
+      "unauthorizedAccessAfterFix": 0,
+      "summary500BeforeFix": true
+    },
+    "crossRoleDoctorUat": {
+      "steps": 45,
+      "passed": 45,
+      "failed": 0
+    },
+    "workerDelivery": {
+      "steps": 2,
+      "passed": 2
+    },
+    "emulator": {
+      "checks": 13,
+      "passed": 13,
+      "frameworkErrors": 0
+    },
+    "concurrency": {
+      "backendTests": "6 concurrent cancels and 6 completes -> one winner each",
+      "live": "4 same-request queue updates idempotent; 4 different -> one 200; 3 concurrent renewal approvals -> one prescription"
+    }
+  },
+  "patientRegression": {
+    "phase02StripeTestMode": {
+      "steps": 36,
+      "behaviouralDifferences": 0,
+      "note": "admin payment list total grew 7 -> 29 (more data)"
+    },
+    "phase02PatientCare": {
+      "steps": 71,
+      "behaviouralDifferences": 0,
+      "note": "times, a count and the new server progress field differ"
+    },
+    "phase01AiProbe": {
+      "scenarios": 35,
+      "turns": 45,
+      "safetyFieldDifferences": 0
+    },
+    "phase02BookingPaymentTests": "included in the 565 backend tests (33 Phase 02 tests pass)"
+  },
+  "doctorAgents": {
+    "14_schedule_assistant": {
+      "status": "PASS",
+      "type": "deterministic",
+      "tools": [
+        "get_my_doctor_schedule",
+        "get_my_available_slots"
+      ]
+    },
+    "15_consultation_preparation": {
+      "status": "PASS with limitations",
+      "type": "deterministic",
+      "tools": [
+        "get_consultation_preparation"
+      ],
+      "limitation": "only this doctor's own records"
+    },
+    "16_clinical_notes": {
+      "status": "PASS",
+      "type": "deterministic structuring of doctor text; nothing invented"
+    },
+    "17_prescription_assistant": {
+      "status": "PASS with limitations",
+      "type": "deterministic",
+      "limitation": "no drug-interaction source; pharmacist approval pending"
+    },
+    "18_follow_up_care": {
+      "status": "PASS",
+      "type": "deterministic; date proposal only",
+      "tools": [
+        "get_my_follow_up_tasks"
+      ]
+    },
+    "19_patient_communication": {
+      "status": "PASS",
+      "type": "deterministic fixed reminder text; no AI drafting"
+    },
+    "20_queue_manager": {
+      "status": "PASS",
+      "type": "deterministic; no urgency reordering",
+      "tools": [
+        "get_my_patient_queue",
+        "get_next_queue_patient"
+      ]
+    },
+    "21_analytics": {
+      "status": "PASS",
+      "type": "deterministic",
+      "tools": [
+        "get_my_doctor_analytics"
+      ]
+    },
+    "llmDriven": false,
+    "liveProviderTest": "BLOCKED (B13)"
+  },
+  "crossRoleWorkflows": {
+    "appointmentManagement": "PASS",
+    "reschedule": "PASS",
+    "queue": "PASS",
+    "doctorCancellationRefund": "PASS",
+    "prescriptions": "PASS",
+    "medicationReminderApproval": "PASS",
+    "renewalApproveReject": "PASS",
+    "clinicalNotes": "PASS",
+    "carePlans": "PASS",
+    "followUps": "PASS",
+    "medicalTestReminders": "PASS",
+    "communicationBatch": "PASS",
+    "notifications": "PASS",
+    "recordAuthorization": "PASS"
+  },
+  "clinicalSafetyLimitations": [
+    "No clinician or pharmacist approval (B1, B2)",
+    "No drug-interaction or contraindication source (P3-B9)",
+    "Preparation covers only the doctor's own records (P3-B8)",
+    "Live LLM/Vision not tested (B13)"
+  ],
+  "phase02Blockers": {
+    "closed": [
+      "B11",
+      "B14"
+    ],
+    "carried": [
+      "B1",
+      "B2",
+      "B3",
+      "B4",
+      "B5",
+      "B6",
+      "B7",
+      "B8",
+      "B9",
+      "B10",
+      "B12",
+      "B13",
+      "B15",
+      "B16",
+      "B17"
+    ]
+  },
+  "newBlockers": [
+    "P3-B1",
+    "P3-B2",
+    "P3-B3",
+    "P3-B4",
+    "P3-B5",
+    "P3-B6",
+    "P3-B7",
+    "P3-B8",
+    "P3-B9",
+    "P3-B10",
+    "P3-B11",
+    "P3-B12"
+  ],
+  "urgentOwnerActions": [
+    "P3-B1: check the remote mediconnect database (backend/.env) for test records created 20:05-20:35 +05:30 on 2026-11-25",
+    "Rotate the SMTP password and Gemini key (Phase 02 disclosure)"
+  ],
+  "ownerDecisions": [
+    "B6 refund/reschedule policy",
+    "B7 measurement stores",
+    "B9 in-person migration",
+    "P3-B4 admin access to clinical content",
+    "P3-B5 cleanup of old auto-created reminders",
+    "P3-B6 rejected-doctor support flow"
+  ],
+  "incidents": [
+    {
+      "id": "P03-N22",
+      "summary": "first pytest run used backend/.env (remote Atlas, database mediconnect) for ~20 minutes; whether it connected is unknown; read-only check blocked by the permission system; guard added"
+    }
+  ],
+  "ci": {
+    "testedCommit": "ab94ffc",
+    "backendCi": {
+      "run": 45656319100,
+      "conclusion": "success"
+    },
+    "mobileCi": {
+      "run": 45656319066,
+      "conclusion": "success"
+    }
+  },
+  "readiness": {
+    "academicDemonstration": "ready",
+    "localUat": "ready",
+    "staging": "not ready",
+    "clinicalPilot": "not ready",
+    "production": "not ready",
+    "phase04": "can start"
+  }
+}

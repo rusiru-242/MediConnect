@@ -1,6 +1,6 @@
 """Service layer for Medical Records, Digital Prescriptions, and Audit Governance (Phase 21)."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Any, Dict, List, Optional
 import uuid
@@ -141,11 +141,7 @@ class MedicalRecordService:
                 detail=f"Cannot document consultation for appointment in {appt_status} status. Appointment must be confirmed or completed.",
             )
 
-        # Transition appointment to COMPLETED if it was CONFIRMED
-        if appt_status == AppointmentStatus.CONFIRMED.value:
-            db["appointments"].update_one(appt_query, {"$set": {"status": AppointmentStatus.COMPLETED.value, "updatedAt": utc_now()}})
-
-        # Uniqueness check: 1 consultation record per appointment
+        # Uniqueness check first: a rejected duplicate must not change the appointment (P03-N12).
         rec_coll = get_medical_record_collection(db)
         existing = rec_coll.find_one({"appointmentId": req.appointmentId})
         if existing:
@@ -153,6 +149,22 @@ class MedicalRecordService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="A medical consultation record already exists for this appointment.",
             )
+
+        # Documenting a CONFIRMED visit completes it, but only once the visit has started (the same rule as
+        # "Mark completed"); a future visit cannot be completed by writing its record early (P03-N12).
+        if appt_status == AppointmentStatus.CONFIRMED.value:
+            starts = datetime.strptime(f"{appointment['appointmentDate']} {appointment['startTime']}", "%Y-%m-%d %H:%M"
+                                       ).replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+            if starts > datetime.now(timezone.utc):
+                raise HTTPException(status_code=409, detail="The consultation record can be written once the visit has started.")
+            moved = db["appointments"].update_one({"_id": appointment["_id"], "status": AppointmentStatus.CONFIRMED.value},
+                                                  {"$set": {"status": AppointmentStatus.COMPLETED.value, "updatedAt": utc_now()}})
+            if moved.modified_count:
+                from app.services.appointment_events import record_appointment_event
+                record_appointment_event(db, str(appointment["_id"]), "APPOINTMENT_COMPLETED", actor_role="DOCTOR",
+                                         actor_id=str(doctor_user.id), from_status="CONFIRMED", to_status="COMPLETED",
+                                         details={"via": "consultation_record"},
+                                         idempotency_key=f"completed_{appointment['_id']}")
 
         # Generate unique record ID
         date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
@@ -275,7 +287,7 @@ class MedicalRecordService:
                 id=str(presc_doc["_id"]),
                 prescriptionId=presc_doc["prescriptionId"],
                 medicalRecordId=str(record["_id"]),
-                appointmentId=presc_doc["appointmentId"],
+                appointmentId=presc_doc.get("appointmentId"),
                 patientUserId=presc_doc["patientUserId"],
                 patientName=meta["patientName"],
                 doctorUserId=presc_doc["doctorUserId"],
@@ -416,7 +428,7 @@ class MedicalRecordService:
                     doctorSpecialty=meta["doctorSpecialty"],
                     slmcRegistrationNumber=meta["slmcRegistrationNumber"],
                     hospitalOrClinic=meta["hospitalOrClinic"],
-                    appointmentId=doc["appointmentId"],
+                    appointmentId=doc.get("appointmentId"),
                     consultationDate=doc["consultationDate"],
                     clinicalNotes=doc["clinicalNotes"],
                     assessment=doc["assessment"],
@@ -473,7 +485,7 @@ class MedicalRecordService:
                     doctorSpecialty=meta["doctorSpecialty"],
                     slmcRegistrationNumber=meta["slmcRegistrationNumber"],
                     hospitalOrClinic=meta["hospitalOrClinic"],
-                    appointmentId=doc["appointmentId"],
+                    appointmentId=doc.get("appointmentId"),
                     consultationDate=doc["consultationDate"],
                     clinicalNotes=doc["clinicalNotes"],
                     assessment=doc["assessment"],
@@ -523,6 +535,19 @@ class MedicalRecordService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to issue prescriptions for another doctor's consultation record.",
             )
+        if str(record.get("appointmentId")) != str(req.appointmentId):
+            # The prescription belongs to the consultation it was written in (P03-N07).
+            raise HTTPException(status_code=400, detail="The appointment does not match this consultation record.")
+
+        med_items_dicts = [item.model_dump() for item in req.medicationItems]
+        duplicate = get_prescription_collection(db).find_one({
+            "medicalRecordId": str(record["_id"]), "doctorUserId": str(doctor_user.id),
+            "status": {"$in": [PrescriptionStatus.ISSUED.value, PrescriptionStatus.AMENDED.value]},
+            "medicationItems": med_items_dicts,
+        }, {"prescriptionId": 1})
+        if duplicate:
+            # A repeated submission of the same prescription (double tap, retry) must not issue it twice (P03-N13).
+            raise HTTPException(status_code=409, detail=f"This prescription was already issued ({duplicate['prescriptionId']}).")
 
         # Generate prescription ID
         date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
@@ -531,12 +556,11 @@ class MedicalRecordService:
 
         now = utc_now()
         patient_user_id = record["patientUserId"]
-        med_items_dicts = [item.model_dump() for item in req.medicationItems]
 
         presc_doc = {
             "prescriptionId": presc_id,
             "medicalRecordId": str(record["_id"]),
-            "appointmentId": req.appointmentId,
+            "appointmentId": str(record.get("appointmentId")),
             "patientUserId": patient_user_id,
             "doctorUserId": str(doctor_user.id),
             "doctorProfileId": str(doc_prof.get("_id", "")),
@@ -563,15 +587,15 @@ class MedicalRecordService:
 
         # Patient notification
         try:
-            doc_name = doctor_user.fullName
-            if not doc_name.startswith("Dr."):
+            doc_name = doctor_user.fullName or "Your doctor"
+            if not doc_name.startswith("Dr"):
                 doc_name = f"Dr. {doc_name}"
             NotificationService.create_and_send_notification(
                 db=db,
                 recipient_user_id=patient_user_id,
                 notification_type=NotificationType.PRESCRIPTION_ISSUED,
                 title="Digital Prescription Issued",
-                body=f"Dr. {doc_name} has issued an official digital prescription ({presc_id}) for your recent consultation.",
+                body=f"{doc_name} has issued an official digital prescription ({presc_id}) for your recent consultation.",
                 data={"prescriptionId": presc_id, "recordId": str(record["_id"])},
             )
         except Exception as exc:
@@ -634,8 +658,8 @@ class MedicalRecordService:
         return PrescriptionResponseSchema(
             id=str(doc["_id"]),
             prescriptionId=doc["prescriptionId"],
-            medicalRecordId=doc["medicalRecordId"],
-            appointmentId=doc["appointmentId"],
+            medicalRecordId=doc.get("medicalRecordId"),
+            appointmentId=doc.get("appointmentId"),
             patientUserId=doc["patientUserId"],
             patientName=meta["patientName"],
             doctorUserId=doc["doctorUserId"],
@@ -740,8 +764,8 @@ class MedicalRecordService:
                 PrescriptionResponseSchema(
                     id=str(doc["_id"]),
                     prescriptionId=doc["prescriptionId"],
-                    medicalRecordId=doc["medicalRecordId"],
-                    appointmentId=doc["appointmentId"],
+                    medicalRecordId=doc.get("medicalRecordId"),
+                    appointmentId=doc.get("appointmentId"),
                     patientUserId=doc["patientUserId"],
                     patientName=meta["patientName"],
                     doctorUserId=doc["doctorUserId"],
@@ -796,8 +820,8 @@ class MedicalRecordService:
                 PrescriptionResponseSchema(
                     id=str(doc["_id"]),
                     prescriptionId=doc["prescriptionId"],
-                    medicalRecordId=doc["medicalRecordId"],
-                    appointmentId=doc["appointmentId"],
+                    medicalRecordId=doc.get("medicalRecordId"),
+                    appointmentId=doc.get("appointmentId"),
                     patientUserId=doc["patientUserId"],
                     patientName=meta["patientName"],
                     doctorUserId=doc["doctorUserId"],
@@ -860,7 +884,9 @@ class MedicalRecordService:
 
         meta = cls._enrich_metadata(db, presc["doctorUserId"], presc["patientUserId"])
         rec_coll = get_medical_record_collection(db)
-        medical_record = rec_coll.find_one({"_id": ObjectId(presc["medicalRecordId"])}) if ObjectId.is_valid(presc["medicalRecordId"]) else rec_coll.find_one({"recordId": presc["medicalRecordId"]})
+        record_ref = presc.get("medicalRecordId")
+        medical_record = (rec_coll.find_one({"_id": ObjectId(record_ref)}) if ObjectId.is_valid(record_ref or "")
+                          else rec_coll.find_one({"recordId": record_ref}) if record_ref else None)
 
         return PrescriptionPdfService.generate_prescription_pdf(
             prescription=presc,

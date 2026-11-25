@@ -1,0 +1,22 @@
+{
+  "/clinical/records": {
+    "http": 200,
+    "mentions_patientA": false,
+    "mentions_patientB": false
+  },
+  "/clinical/records/summary": {
+    "http": 200,
+    "mentions_patientA": false,
+    "mentions_patientB": true
+  },
+  "/clinical/notes": {
+    "http": 200,
+    "mentions_patientA": false,
+    "mentions_patientB": false
+  },
+  "/clinical/measurements/trends": {
+    "http": 200,
+    "mentions_patientA": false,
+    "mentions_patientB": true
+  }
+}

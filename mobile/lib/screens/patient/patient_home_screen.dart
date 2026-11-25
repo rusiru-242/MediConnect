@@ -357,7 +357,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
             const SizedBox(height: 16),
             Center(
               child: Text(
-                'MediConnect Clinical Clarity v2.4 (HIPAA Compliant)',
+                // Phase 03 (P03-N24): no unverified compliance claim; version from pubspec.yaml.
+                'MediConnect v1.0.0',
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
@@ -1065,7 +1066,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isSi ? 'විශේෂඥයින් 120+' : (isTa ? '120+ நிபுணர்கள்' : '120+ Specialists'),
+                    // Phase 03 (P03-N24): was an invented '120+ Specialists' count.
+                    isSi ? 'විශේෂඥයින් සොයන්න' : (isTa ? 'நிபுணர்களைத் தேடுங்கள்' : 'Browse specialists'),
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,

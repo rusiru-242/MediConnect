@@ -35,6 +35,96 @@ from app.schemas.user import UserResponseSchema
 # Sri Lanka Standard Time (Asia/Colombo = UTC+05:30)
 SL_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
 
+
+def stop_open_payment_intents(db: Database, appointment_id: str, now) -> str:
+    """Make every open Stripe PaymentIntent of an unpaid reservation unpayable before the slot is released.
+
+    Returns "stopped" when no intent can be paid any more, or "paid" when an intent had already succeeded (it is
+    then settled through the exactly-once path and the caller must treat the booking as paid). Raises 409 while a
+    payment is still processing, 503 without a configured gateway and 502 when Stripe cannot be reached.
+    Shared by the patient's Release Reservation (BUG-063) and doctor cancellation (P03-N04).
+    """
+    import stripe
+    from app.config.settings import settings
+    from app.models.payment import PaymentStatus as RecordStatus
+    from app.services.payment_service import settle_succeeded_intent
+
+    open_payments = list(db["payments"].find({
+        "appointmentId": appointment_id, "status": {"$in": [RecordStatus.PENDING.value, RecordStatus.FAILED.value]},
+    }))
+    for payment in open_payments:
+        intent_id = payment.get("stripePaymentIntentId")
+        if not intent_id:
+            continue
+        if not settings.STRIPE_SECRET_KEY:
+            raise HTTPException(503, "The payment gateway is unavailable, so the reservation cannot be released safely yet.")
+        try:
+            intent = stripe.PaymentIntent.retrieve(intent_id, api_key=settings.STRIPE_SECRET_KEY)
+            if intent.status not in {"succeeded", "processing", "canceled"}:
+                intent = stripe.PaymentIntent.cancel(intent_id, api_key=settings.STRIPE_SECRET_KEY,
+                                                     cancellation_reason="abandoned")
+        except stripe.error.StripeError:
+            try:  # the cancel can fail because the payment completed in the meantime
+                intent = stripe.PaymentIntent.retrieve(intent_id, api_key=settings.STRIPE_SECRET_KEY)
+            except stripe.error.StripeError as exc:
+                raise HTTPException(502, "Could not verify the payment. Please retry.") from exc
+        if intent.status == "succeeded":
+            settle_succeeded_intent(db, payment, intent, now)
+            return "paid"
+        if intent.status != "canceled":
+            raise HTTPException(409, "A payment is still being processed. Wait a moment and refresh.")
+        db["payments"].update_one(
+            {"_id": payment["_id"], "status": {"$ne": RecordStatus.SUCCEEDED.value}},
+            {"$set": {"status": RecordStatus.CANCELLED.value, "updatedAt": now, "cancelledAt": now}},
+        )
+    return "stopped"
+
+
+def doctor_cancel_appointment_record(db: Database, appt: Dict[str, Any], doctor_user_id: str, reason: Optional[str],
+                                     *, source: str = "doctor") -> Dict[str, Any]:
+    """Cancel one of the doctor's appointments safely (doctor cancellation and leave conflicts, P03-N03/N04/N05).
+
+    - An unpaid reservation first has its Stripe PaymentIntent stopped, so the patient cannot pay for a slot that
+      no longer exists; if the payment had already succeeded, the booking is handled as paid.
+    - The status change is conditional on the state that was read, so a concurrent change is reported (409).
+    - A paid booking gets a refund request under the existing policy (doctor cancellation: 100%); money moves only
+      after an administrator approves it, as for patient cancellations.
+    Returns {"appointment": updated document, "refundRequest": request or None}.
+    """
+    from app.services.appointment_events import record_appointment_event
+
+    appointment_id = str(appt["_id"])
+    current_status = appt["status"]
+    if "CANCELLED" not in _ALLOWED_TRANSITIONS.get(current_status, set()):
+        raise HTTPException(status_code=400, detail=f"Cannot cancel an appointment with status: {current_status}.")
+    now = utc_now()
+    unpaid = current_status in {"HOLD", "PENDING"} and appt.get("paymentStatus") != PaymentStatus.PAID.value
+    if unpaid and stop_open_payment_intents(db, appointment_id, now) == "paid":
+        appt = _get_appointment_or_404(db, appointment_id)
+        current_status = appt["status"]
+        unpaid = False
+    changes = {"status": AppointmentStatus.CANCELLED.value, "cancelledBy": "DOCTOR",
+               "cancellationReason": reason, "updatedAt": now}
+    condition = {"_id": appt["_id"], "doctorUserId": str(doctor_user_id), "status": current_status}
+    if unpaid:
+        condition["paymentStatus"] = {"$ne": PaymentStatus.PAID.value}
+        changes["paymentStatus"] = PaymentStatus.UNPAID.value  # nothing was taken
+    if not get_appointment_collection(db).update_one(condition, {"$set": changes}).matched_count:
+        raise HTTPException(409, "This appointment changed. Refresh it before cancelling.")
+    refund_request = None
+    if appt.get("paymentStatus") == PaymentStatus.PAID.value:
+        try:
+            from app.services.refund_service import RefundService
+            refund_request = RefundService.create_refund_request(
+                db, str(appt["patientUserId"]), appointment_id, reason or "Doctor cancelled the appointment")
+        except HTTPException as refund_exc:
+            logger.warning("Refund request was not opened automatically (%s).", refund_exc.status_code)
+    record_appointment_event(db, appointment_id, "APPOINTMENT_CANCELLED", actor_role="DOCTOR", actor_id=str(doctor_user_id),
+                             from_status=current_status, to_status="CANCELLED",
+                             details={"source": source, "refundRequestId": (refund_request or {}).get("refundId")},
+                             idempotency_key=f"cancelled_{appointment_id}")
+    return {"appointment": _get_appointment_or_404(db, appointment_id), "refundRequest": refund_request}
+
 # ---------------------------------------------------------------------------
 # VALID STATE TRANSITIONS
 # ---------------------------------------------------------------------------
@@ -761,11 +851,7 @@ class AppointmentService:
         3. The appointment is then cancelled with a conditional update (still HOLD/PENDING, not PAID).
         A paid appointment can never be cancelled through this path.
         """
-        import stripe
-        from app.config.settings import settings
-        from app.models.payment import PaymentStatus as RecordStatus
         from app.services.appointment_events import record_appointment_event
-        from app.services.payment_service import settle_succeeded_intent
 
         if patient_user.role != UserRole.PATIENT.value:
             raise HTTPException(status_code=403, detail="Only patients can release a reservation.")
@@ -779,35 +865,11 @@ class AppointmentService:
             raise HTTPException(409, "This appointment is already paid or confirmed. Use Cancel Appointment instead.")
 
         now = utc_now()
-        open_payments = list(db["payments"].find({
-            "appointmentId": appointment_id, "status": {"$in": [RecordStatus.PENDING.value, RecordStatus.FAILED.value]},
-        }))
-        for payment in open_payments:
-            intent_id = payment.get("stripePaymentIntentId")
-            if not intent_id:
-                continue
-            if not settings.STRIPE_SECRET_KEY:
-                raise HTTPException(503, "The payment gateway is unavailable, so the reservation cannot be released safely yet.")
-            try:
-                intent = stripe.PaymentIntent.retrieve(intent_id, api_key=settings.STRIPE_SECRET_KEY)
-                if intent.status not in {"succeeded", "processing", "canceled"}:
-                    intent = stripe.PaymentIntent.cancel(intent_id, api_key=settings.STRIPE_SECRET_KEY,
-                                                         cancellation_reason="abandoned")
-            except stripe.error.StripeError:
-                try:  # the cancel can fail because the payment completed in the meantime
-                    intent = stripe.PaymentIntent.retrieve(intent_id, api_key=settings.STRIPE_SECRET_KEY)
-                except stripe.error.StripeError as exc:
-                    raise HTTPException(502, "Could not verify the payment. Please retry.") from exc
-            if intent.status == "succeeded":
-                settle_succeeded_intent(db, payment, intent, now)
-                raise HTTPException(409, "Your payment was already received, so the reservation was not released. "
-                                         "Refresh the booking status.")
-            if intent.status != "canceled":
-                raise HTTPException(409, "A payment is still being processed. Wait a moment and refresh.")
-            db["payments"].update_one(
-                {"_id": payment["_id"], "status": {"$ne": RecordStatus.SUCCEEDED.value}},
-                {"$set": {"status": RecordStatus.CANCELLED.value, "updatedAt": now, "cancelledAt": now}},
-            )
+        open_payments = db["payments"].count_documents({"appointmentId": appointment_id,
+                                                         "stripePaymentIntentId": {"$exists": True}})
+        if stop_open_payment_intents(db, appointment_id, now) == "paid":
+            raise HTTPException(409, "Your payment was already received, so the reservation was not released. "
+                                     "Refresh the booking status.")
 
         released = get_appointment_collection(db).find_one_and_update(
             {"_id": ObjectId(appointment_id), "patientUserId": str(patient_user.id),
@@ -823,7 +885,7 @@ class AppointmentService:
             raise HTTPException(409, "The reservation changed. Refresh the booking status.")
         record_appointment_event(db, appointment_id, "HOLD_RELEASED", actor_role="PATIENT", actor_id=str(patient_user.id),
                                  from_status=appt["status"], to_status="CANCELLED",
-                                 details={"cancelledPaymentIntents": len(open_payments)},
+                                 details={"paymentIntentsChecked": open_payments},
                                  idempotency_key=f"hold_released_{appointment_id}")
         if appt.get("bookingSource") != "ai_agent":
             # The doctor saw a "New Booking Request" for manual holds; tell them it was withdrawn.
@@ -1028,10 +1090,15 @@ class AppointmentService:
             )
 
         now = utc_now()
-        get_appointment_collection(db).update_one(
-            {"_id": ObjectId(appointment_id)},
+        moved = get_appointment_collection(db).update_one(
+            {"_id": ObjectId(appointment_id), "doctorUserId": str(doctor_user.id), "status": AppointmentStatus.CONFIRMED.value},
             {"$set": {"status": AppointmentStatus.COMPLETED.value, "updatedAt": now}},
         )
+        if not moved.matched_count:  # a concurrent cancellation or completion won (P03-N05)
+            raise HTTPException(409, "This appointment changed. Refresh it.")
+        from app.services.appointment_events import record_appointment_event
+        record_appointment_event(db, appointment_id, "APPOINTMENT_COMPLETED", actor_role="DOCTOR", actor_id=str(doctor_user.id),
+                                 from_status="CONFIRMED", to_status="COMPLETED", idempotency_key=f"completed_{appointment_id}")
 
         # Notify patient of appointment completion
         try:
@@ -1084,25 +1151,8 @@ class AppointmentService:
                 detail="You do not have permission to modify this appointment.",
             )
 
-        current_status = appt["status"]
-        if "CANCELLED" not in _ALLOWED_TRANSITIONS.get(current_status, set()):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot cancel an appointment with status: {current_status}.",
-            )
-
-        now = utc_now()
-        get_appointment_collection(db).update_one(
-            {"_id": ObjectId(appointment_id)},
-            {
-                "$set": {
-                    "status": AppointmentStatus.CANCELLED.value,
-                    "cancelledBy": "DOCTOR",
-                    "cancellationReason": reason,
-                    "updatedAt": now,
-                }
-            },
-        )
+        outcome = doctor_cancel_appointment_record(db, appt, str(doctor_user.id), reason)
+        refund_request = outcome["refundRequest"]
 
         # Notify patient and doctor of cancellation
         try:
@@ -1122,7 +1172,8 @@ class AppointmentService:
                 recipient_user_id=str(appt["patientUserId"]),
                 type=NotificationType.APPOINTMENT_CANCELLED,
                 title="Appointment Cancelled",
-                body=f"Your appointment with {dr_name} on {appt.get('appointmentDate')} at {appt.get('startTime')} has been cancelled.",
+                body=(f"Your appointment with {dr_name} on {appt.get('appointmentDate')} at {appt.get('startTime')} has been cancelled."
+                      + (" A full refund request was opened and is reviewed by MediConnect." if refund_request else "")),
                 related_appointment_id=str(appt["_id"]),
                 idempotency_key=f"doctor_cancelled_{appt['_id']}",
             )
