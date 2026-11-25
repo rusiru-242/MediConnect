@@ -13,7 +13,7 @@ Tests:
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 from bson import ObjectId
 from fastapi.testclient import TestClient
@@ -220,7 +220,9 @@ def test_04_doctor_leave_conflict_detection_and_resolution(test_setup):
     pat_id = test_setup["pat_id"]
     headers = {"Authorization": f"Bearer {doc_token}"}
 
-    conflict_date = "2026-11-25"
+    # Was the fixed date "2026-11-25", which became a past date (leave in the past is refused with 400) on
+    # 2026-11-26 Asia/Colombo. A date two weeks ahead keeps the test about conflicts (found in Phase 04).
+    conflict_date = (datetime.now(timezone(timedelta(hours=5, minutes=30))) + timedelta(days=14)).strftime("%Y-%m-%d")
 
     # Seed an existing confirmed appointment on that date
     apt_id = str(ObjectId())
