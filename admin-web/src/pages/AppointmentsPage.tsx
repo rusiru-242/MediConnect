@@ -13,6 +13,7 @@ import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { getErrorMessage } from '../api/client';
+import { formatMoney } from '../utils/format';
 
 export const AppointmentsPage: React.FC = () => {
   const [page, setPage] = useState(1);
@@ -60,7 +61,7 @@ export const AppointmentsPage: React.FC = () => {
             Appointment Monitoring
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Operational booking schedule, slot holds, consultation status, and patient notes.
+            In-person bookings: reservations, confirmed and completed visits, cancellations and refunds.
           </p>
         </div>
       </div>
@@ -172,16 +173,19 @@ export const AppointmentsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-800">{a.doctorName}</div>
-                      <div className="text-[11px] text-brand-600 font-medium">{a.doctorSpecialty}</div>
+                      <div className="text-[11px] text-brand-600 font-medium">{a.doctorSpecialty || 'Specialty not recorded'}</div>
                     </td>
-                    <td className="px-6 py-4 font-mono font-medium text-slate-700">
-                      LKR {a.consultationFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    <td className="px-6 py-4 font-mono font-medium text-slate-700" data-testid="appointment-fee">
+                      {formatMoney(a.consultationFee, a.currency)}
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={a.status} />
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={a.paymentStatus} />
+                      {a.refundStatus && (
+                        <div className="mt-1 text-[10px] text-slate-500">Refund: {a.refundStatus.replace('_', ' ')}</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Button
@@ -230,10 +234,11 @@ export const AppointmentsPage: React.FC = () => {
                   </p>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Locked Fee</span>
-                  <p className="font-semibold text-slate-900 mt-0.5">
-                    LKR {selectedAppt.consultationFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Fee at booking</span>
+                  <p className="font-semibold text-slate-900 mt-0.5" data-testid="appointment-detail-fee">
+                    {formatMoney(selectedAppt.consultationFee, selectedAppt.currency)}
                   </p>
+                  <p className="text-[10px] text-slate-400">In-person visit</p>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400">Patient</span>
@@ -243,7 +248,7 @@ export const AppointmentsPage: React.FC = () => {
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400">Practitioner</span>
                   <p className="font-semibold text-slate-900 mt-0.5">{selectedAppt.doctorName}</p>
-                  <p className="text-[10px] text-brand-600 font-medium">{selectedAppt.doctorSpecialty}</p>
+                  <p className="text-[10px] text-brand-600 font-medium">{selectedAppt.doctorSpecialty || 'Specialty not recorded'}</p>
                 </div>
               </div>
 
@@ -274,10 +279,21 @@ export const AppointmentsPage: React.FC = () => {
 
             {selectedAppt.cancellationReason && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-800">
-                <p className="font-bold">Cancelled by: {selectedAppt.cancelledBy || 'User'}</p>
+                <p className="font-bold">Cancelled by: {selectedAppt.cancelledBy || 'Not recorded'}</p>
                 <p className="mt-0.5">Reason: {selectedAppt.cancellationReason}</p>
               </div>
             )}
+
+            {selectedAppt.refundStatus && (
+              <div className="rounded-xl border border-slate-200 bg-white p-3 text-slate-700">
+                Refund request {selectedAppt.refundId}: <span className="font-semibold">{selectedAppt.refundStatus.replace('_', ' ')}</span>.
+                Refunds are decided on the Refunds page.
+              </div>
+            )}
+
+            <p className="text-[10px] text-slate-400">
+              This view is read-only. Booking status changes go through the booking and payment workflow, never from here.
+            </p>
 
             <div className="flex justify-end pt-3 border-t border-slate-100">
               <Button variant="outline" onClick={() => setSelectedAppt(null)}>

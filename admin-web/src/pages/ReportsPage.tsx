@@ -10,11 +10,21 @@ import { adminWorkflowApi } from '../api/adminWorkflowApi';
 import { Button } from '../components/common/Button';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { useToast } from '../context/ToastContext';
+import { NOT_AVAILABLE, formatMoney, formatPercent } from '../utils/format';
+
+/** Money metrics carry their currency in the key (capturedAmountLKR); null means "not available". */
+function formatReportMetric(key: string, val: unknown): string {
+  if (val === null || val === undefined) return key === 'platformRevenue' ? 'Not calculated' : NOT_AVAILABLE;
+  if (typeof val !== 'number') return String(val);
+  const currency = key.match(/(LKR|USD|EUR|GBP)$/)?.[1];
+  if (currency) return formatMoney(val, currency);
+  if (key.toLowerCase().includes('rate')) return formatPercent(val);
+  return val.toLocaleString();
+}
 
 const REPORT_OPTIONS = [
   { value: 'daily_appointment', label: 'Daily Appointment Operations' },
-  { value: 'weekly_booking', label: 'Weekly Booking & Conversion' },
-  { value: 'monthly_payment', label: 'Monthly Payment & Revenue Breakdown' },
+  { value: 'monthly_payment', label: 'Payments & Collections (gross, refunded, net)' },
   { value: 'doctor_verification_backlog', label: 'Doctor Verification & Credentialing Backlog' },
   { value: 'support_ticket_resolution', label: 'Customer Support Ticket Resolution' },
   { value: 'refund_status', label: 'Refund Status & Cancellation Settlements' },
@@ -151,7 +161,7 @@ export const ReportsPage: React.FC = () => {
             <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-5 shadow-xs">
               <div className="flex items-center gap-2 mb-2 text-xs font-bold text-brand-900">
                 <Sparkles className="h-4 w-4 text-brand-600" />
-                Grounded Executive Summary
+                Summary built from the report figures below (rule-based)
               </div>
               <p className="text-sm text-brand-950 leading-relaxed font-medium">
                 {report.aiSummary}
@@ -171,13 +181,7 @@ export const ReportsPage: React.FC = () => {
                   {key.replace(/([A-Z])/g, ' $1').trim()}
                 </span>
                 <span className="mt-1 block text-xl font-bold text-slate-900">
-                  {typeof val === 'number'
-                    ? key.toLowerCase().includes('lkr') || key.toLowerCase().includes('revenue') || key.toLowerCase().includes('fee')
-                      ? `LKR ${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                      : key.toLowerCase().includes('rate')
-                      ? `${val}%`
-                      : val.toLocaleString()
-                    : String(val)}
+                  {formatReportMetric(key, val)}
                 </span>
               </div>
             ))}

@@ -23,6 +23,19 @@ import { SearchBar } from '../components/common/SearchBar';
 import { getErrorMessage } from '../api/client';
 import { useToast } from '../context/ToastContext';
 
+/** Email status from the account record. It was a hard-coded "Verified" badge before Phase 04 (P04-N21). */
+const EmailStatus: React.FC<{ verified?: boolean }> = ({ verified }) =>
+  verified ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+      <Check className="w-3 h-3 text-emerald-600" />
+      Email verified
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200">
+      Email not verified
+    </span>
+  );
+
 export const DoctorVerificationPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -252,10 +265,7 @@ export const DoctorVerificationPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-slate-600">{app.hospitalOrClinic}</td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                        <Check className="w-3 h-3 text-emerald-600" />
-                        Verified
-                      </span>
+                      <EmailStatus verified={app.emailVerified} />
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={app.verificationStatus} />
@@ -351,10 +361,7 @@ export const DoctorVerificationPage: React.FC = () => {
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Email Status</span>
                 <p className="mt-0.5">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                    <Check className="w-3 h-3 text-emerald-600" />
-                    Verified
-                  </span>
+                  <EmailStatus verified={appDetail.emailVerified} />
                 </p>
               </div>
               <div>
@@ -371,7 +378,7 @@ export const DoctorVerificationPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-brand-600" />
-                    <span className="text-xs font-bold text-brand-900">AI Verification Assistant Review</span>
+                    <span className="text-xs font-bold text-brand-900">Verification checklist (rule-based; the decision is yours)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-semibold text-slate-500">Completeness:</span>
@@ -385,7 +392,7 @@ export const DoctorVerificationPage: React.FC = () => {
                           : 'bg-rose-100 text-rose-800'
                       }`}
                     >
-                      {aiReview.recommendedAction}
+                      {aiReview.recommendedAction === 'APPROVE' ? 'READY FOR YOUR DECISION' : aiReview.recommendedAction.replace('_', ' ')}
                     </span>
                   </div>
                 </div>

@@ -30,6 +30,7 @@ import { StatCard } from '../components/common/StatCard';
 import { Button } from '../components/common/Button';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { ErrorState } from '../components/common/ErrorState';
+import { colomboDate, formatMoney, formatPercent } from '../utils/format';
 
 export const DashboardPage: React.FC = () => {
   const {
@@ -46,8 +47,10 @@ export const DashboardPage: React.FC = () => {
     data: apptAnalytics,
     isLoading: isApptLoading,
   } = useQuery({
-    queryKey: ['admin-appt-analytics'],
-    queryFn: () => analyticsApi.getAppointments(),
+    // The chart is labelled "last 30 days", so it asks for exactly that range (Asia/Colombo dates). Before
+    // Phase 04 it requested all time and the backend returned the oldest 31 dates.
+    queryKey: ['admin-appt-analytics', colomboDate(29), colomboDate(0)],
+    queryFn: () => analyticsApi.getAppointments(colomboDate(29), colomboDate(0)),
   });
 
   const [aiQuery, setAiQuery] = useState('');
@@ -84,6 +87,8 @@ export const DashboardPage: React.FC = () => {
   const totals = overview?.totals;
   const payments = overview?.payments;
   const recentActivities = overview?.recentActivity || [];
+  // Net collections per currency; older payloads only carry totalRevenueByCurrency, which holds the same net value.
+  const netByCurrency = payments?.netCollectedByCurrency ?? payments?.totalRevenueByCurrency;
 
   // Chart data from daily appointment trends
   const chartData =
@@ -104,7 +109,7 @@ export const DashboardPage: React.FC = () => {
             Platform Command Center
           </h1>
           <p className="mt-1 text-xs text-slate-300 max-w-xl">
-            Real-time monitoring of patient engagement, verified medical practitioners, bookings, and financial settlements.
+            Counts and money figures from MediConnect records when this page loaded (Asia/Colombo dates).
           </p>
         </div>
 
@@ -130,7 +135,7 @@ export const DashboardPage: React.FC = () => {
             <div>
               <h2 className="text-sm font-bold text-slate-900">Admin AI Operations Assistant</h2>
               <span className="text-[11px] text-slate-500">
-                Natural Language Operations in English & Romanized Sinhala
+                Rule-based answers from read-only admin tools (English and Romanized Sinhala)
               </span>
             </div>
           </div>
@@ -163,7 +168,7 @@ export const DashboardPage: React.FC = () => {
             isLoading={askAiMutation.isPending}
             leftIcon={<Send className="h-3.5 w-3.5" />}
           >
-            Ask AI
+            Ask
           </Button>
         </form>
 
@@ -192,7 +197,7 @@ export const DashboardPage: React.FC = () => {
           <div className="mt-3 rounded-xl border border-brand-200 bg-white p-4 text-xs space-y-2 shadow-xs">
             <div className="flex items-center justify-between text-[11px]">
               <span className="font-bold text-brand-900 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-brand-600" /> Grounded Assistant Answer
+                <Sparkles className="h-3.5 w-3.5 text-brand-600" /> Answer from MediConnect records
               </span>
               {aiResponse.toolCalled && (
                 <span className="font-mono text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 border border-slate-200">
@@ -234,25 +239,25 @@ export const DashboardPage: React.FC = () => {
           subtitle={`${totals?.totalUsers ?? 0} total platform accounts`}
         />
         <StatCard
-          title="Verified Practitioners"
+          title="Approved Doctors"
           value={totals?.verifiedDoctors?.toLocaleString() ?? 0}
           icon={<Stethoscope className="w-5 h-5" />}
           iconBgColor="bg-brand-50 text-brand-600"
-          subtitle={`${totals?.totalDoctors ?? 0} total registered doctors`}
+          subtitle={`${totals?.activeApprovedDoctors ?? 0} bookable (account active) • ${totals?.suspendedDoctors ?? 0} suspended • ${totals?.totalDoctors ?? 0} registered`}
         />
         <StatCard
           title="Pending Verifications"
           value={totals?.pendingDoctorApprovals ?? 0}
           icon={<UserCheck className="w-5 h-5" />}
           iconBgColor="bg-amber-50 text-amber-600"
-          subtitle="Awaiting credentials review"
+          subtitle={`Awaiting administrator review • ${totals?.rejectedDoctorApplications ?? 0} rejected`}
         />
         <StatCard
           title="Total Appointments"
           value={totals?.totalAppointments?.toLocaleString() ?? 0}
           icon={<CalendarCheck className="w-5 h-5" />}
           iconBgColor="bg-emerald-50 text-emerald-600"
-          subtitle={`${totals?.completedAppointments ?? 0} completed successfully`}
+          subtitle={`${totals?.confirmedAppointments ?? 0} confirmed • ${totals?.completedAppointments ?? 0} completed • ${totals?.cancelledAppointments ?? 0} cancelled`}
         />
       </div>
 
@@ -263,7 +268,7 @@ export const DashboardPage: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-bold text-slate-900">Appointment Trends (Last 30 Days)</h2>
-              <p className="text-xs text-slate-500">Daily appointment booking volume</p>
+              <p className="text-xs text-slate-500">Appointments per appointment date, {colomboDate(29)} to {colomboDate(0)}</p>
             </div>
             <Link
               to="/appointments"
@@ -319,33 +324,41 @@ export const DashboardPage: React.FC = () => {
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-slate-900">Revenue by Currency</h2>
+              <h2 className="text-sm font-bold text-slate-900">Patient Payments (all time)</h2>
               <div className="p-2 rounded-xl bg-brand-50 text-brand-600">
                 <CreditCard className="w-4 h-4" />
               </div>
             </div>
 
             <div className="space-y-4">
-              {payments?.totalRevenueByCurrency &&
-              Object.keys(payments.totalRevenueByCurrency).length > 0 ? (
-                Object.entries(payments.totalRevenueByCurrency).map(([curr, amt]) => (
-                  <div key={curr} className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+              {netByCurrency && Object.keys(netByCurrency).length > 0 ? (
+                Object.entries(netByCurrency).map(([curr, net]) => (
+                  <div key={curr} className="rounded-xl border border-slate-100 bg-slate-50/70 p-4" data-testid={`collections-${curr}`}>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {curr} Balance
+                      Net collections ({curr})
                     </span>
-                    <p className="text-xl font-extrabold text-slate-900 mt-0.5">
-                      {curr.toUpperCase()} {amt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </p>
+                    <p className="text-xl font-extrabold text-slate-900 mt-0.5">{formatMoney(net, curr)}</p>
+                    {payments?.capturedByCurrency && (
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Gross {formatMoney(payments.capturedByCurrency[curr], curr)} − refunded{' '}
+                        {formatMoney(payments.refundedByCurrency?.[curr], curr)}
+                      </p>
+                    )}
+                    {!!payments?.pendingRefundsByCurrency?.[curr] && (
+                      <p className="text-[11px] text-amber-700">
+                        Open refund requests: {formatMoney(payments.pendingRefundsByCurrency[curr], curr)}
+                      </p>
+                    )}
                   </div>
                 ))
               ) : (
                 <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    LKR Balance
-                  </span>
-                  <p className="text-xl font-extrabold text-slate-900 mt-0.5">LKR 0.00</p>
+                  <p className="text-xs text-slate-500">No captured payments recorded.</p>
                 </div>
               )}
+              <p className="text-[10px] text-slate-400">
+                {payments?.note || 'Gross collections are patient payments, not platform profit.'}
+              </p>
 
               <div className="pt-2 text-xs text-slate-500 space-y-1.5 border-t border-slate-100">
                 <div className="flex justify-between">
@@ -353,6 +366,14 @@ export const DashboardPage: React.FC = () => {
                   <span className="font-semibold text-emerald-600">
                     {payments?.succeededTransactions ?? 0}
                   </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Refunded Payments:</span>
+                  <span className="font-semibold text-slate-700">{payments?.refundedTransactions ?? 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Success rate:</span>
+                  <span className="font-semibold text-slate-700">{formatPercent(payments?.paymentSuccessRate)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Failed Payments:</span>
@@ -380,7 +401,7 @@ export const DashboardPage: React.FC = () => {
             <Clock className="w-4 h-4 text-slate-400" />
             <h2 className="text-sm font-bold text-slate-900">Recent Platform Operations</h2>
           </div>
-          <span className="text-[11px] text-slate-400">Audit Trail Enabled</span>
+          <span className="text-[11px] text-slate-400">Latest records (not the audit log)</span>
         </div>
 
         {recentActivities.length > 0 ? (

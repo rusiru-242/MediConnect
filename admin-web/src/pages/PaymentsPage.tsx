@@ -12,6 +12,7 @@ import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { getErrorMessage } from '../api/client';
+import { formatMoney } from '../utils/format';
 
 export const PaymentsPage: React.FC = () => {
   const [page, setPage] = useState(1);
@@ -153,8 +154,11 @@ export const PaymentsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span className="font-mono font-bold text-slate-900">
-                        {p.currency} {p.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {formatMoney(p.amount, p.currency)}
                       </span>
+                      {!!p.refundedAmount && p.refundedAmount > 0 && (
+                        <div className="text-[10px] text-rose-600">Refunded {formatMoney(p.refundedAmount, p.currency)}</div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       {p.isTestMode ? (
@@ -211,9 +215,13 @@ export const PaymentsPage: React.FC = () => {
             <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Total Settlement</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Amount captured</span>
                   <p className="text-base font-extrabold text-slate-900 mt-0.5">
-                    {selectedPayment.currency} {selectedPayment.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    {formatMoney(selectedPayment.amount, selectedPayment.currency)}
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    Refunded: {formatMoney(selectedPayment.refundedAmount ?? 0, selectedPayment.currency)}
+                    {selectedPayment.reconciliationState ? ` • Reconciliation: ${selectedPayment.reconciliationState}` : ''}
                   </p>
                 </div>
                 <div>
@@ -258,7 +266,7 @@ export const PaymentsPage: React.FC = () => {
               {selectedPayment.paidAt && (
                 <div className="text-[11px] text-emerald-700 flex items-center gap-1.5 pt-1">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Settled via Stripe Webhook at {new Date(selectedPayment.paidAt).toLocaleString()}</span>
+                  <span>Payment verified at {new Date(selectedPayment.paidAt).toLocaleString()}</span>
                 </div>
               )}
             </div>

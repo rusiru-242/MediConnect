@@ -77,7 +77,9 @@ describe('Dashboard Component & Analytics Loading', () => {
       expect(screen.getByText('Platform Command Center')).toBeInTheDocument();
       expect(screen.getByText('Total Registered Patients')).toBeInTheDocument();
       expect(screen.getByText('120')).toBeInTheDocument();
-      expect(screen.getByText('Verified Practitioners')).toBeInTheDocument();
+      // Phase 04 (P04-N21): the card was "Verified Practitioners"; MediConnect does not verify registrations with
+      // SLMC, so it now says "Approved Doctors" (an administrator approved the application).
+      expect(screen.getByText('Approved Doctors')).toBeInTheDocument();
       expect(screen.getByText('25')).toBeInTheDocument();
       expect(screen.getByText('5 Approvals Pending')).toBeInTheDocument();
       expect(screen.getByText('LKR 450,000.00')).toBeInTheDocument();
