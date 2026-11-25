@@ -94,6 +94,7 @@ No backend code was changed, and emergency detection is unchanged.
 | `flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8001` | Built `build/app/outputs/flutter-apk/app-debug.apk` |
 | `test/integration/live_api_test.dart` | **Not run on purpose:** it is hard-wired to `http://127.0.0.1:8000`, the production-like Atlas backend that UAT must not touch |
 | Backend tests | Not needed: no backend code changed |
+| GitHub Actions on `6c2be8f` | **Mobile CI: success** ([run 45545156194](https://github.com/rusiru-242/MediConnect/actions/runs/45545156194)). It was the only workflow triggered: backend and admin-web CI did not run because their files did not change. |
 
 What the new tests cover:
 - **Layout:** an existing emergency conversation lays out without an exception. The 1990 button has a finite width. The composer is laid out after an emergency reply.
