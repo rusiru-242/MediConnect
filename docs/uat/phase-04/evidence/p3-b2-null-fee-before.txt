@@ -1,0 +1,8 @@
+Error: Uncaught [TypeError: Cannot read properties of null (reading 'toLocaleString')]
+    at performUnitOfWork (c:\Users\REDTECH\Downloads\MediConnect\admin-web\node_modules\react-dom\cjs\react-dom.development.js:26599:12) TypeError: Cannot read properties of null (reading 'toLocaleString')
+Error: Uncaught [TypeError: Cannot read properties of null (reading 'toLocaleString')]
+    at performUnitOfWork (c:\Users\REDTECH\Downloads\MediConnect\admin-web\node_modules\react-dom\cjs\react-dom.development.js:26599:12) TypeError: Cannot read properties of null (reading 'toLocaleString')
+   × Appointments page (P3-B2) > renders an appointment whose fee is null without crashing and without inventing 0.00 1032ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of null (reading 'toLocaleString')
+    178|                       LKR {a.consultationFee.toLocaleString(undefined,…

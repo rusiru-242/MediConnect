@@ -1,0 +1,92 @@
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+PASS A-17a Local UAT backend and isolated database | {"ready": "ready", "dbName": "mediconnect_uat", "mongoHost": "127.0.0.1"}
+PASS A-17c Stripe test mode only | {"keyMode": "test", "sampleLivemode": [false]}
+PASS A-01a Admin login | {"http": 200, "access": true, "refresh": true}
+PASS A-01b Invalid credentials | {"http": 401}
+PASS A-01c Expired, forged and missing admin tokens | {"expired": 401, "forged": 401, "none": 401}
+PASS A-01d Patient access to admin endpoints | {"/admin/users": 403, "/admin/doctors/applications": 403, "/admin/appointments": 403, "/admin/payments": 403, "/admin/analytics/overview": 403, "/admin/workflow/refunds": 403, "/admin/workflow/audit-logs": 403, "/security/monitoring/platfor
+PASS A-01e Doctor access to admin endpoints | {"/admin/users": 403, "/admin/doctors/applications": 403, "/admin/appointments": 403, "/admin/payments": 403, "/admin/analytics/overview": 403, "/admin/workflow/refunds": 403, "/admin/workflow/audit-logs": 403, "/security/monitoring/platfor
+PASS A-01g Admin access to the same endpoints | {"/admin/users": 200, "/admin/doctors/applications": 200, "/admin/appointments": 200, "/admin/payments": 200, "/admin/analytics/overview": 200, "/admin/workflow/refunds": 200, "/admin/workflow/audit-logs": 200, "/security/monitoring/platfor
+PASS A-01h Role claim manipulation: validly signed patient token claiming role ADMIN | {"http": 403}
+PASS A-01f Logout invalidates the refresh token | {"logout": 200, "refreshAfterLogout": 401}
+PASS A-02a Dashboard counts equal MongoDB counts | {"api": {"totalPatients": 27, "totalDoctors": 19, "verifiedDoctors": 13, "pendingDoctorApprovals": 5, "rejectedDoctorApplications": 1, "totalAppointments": 79, "confirmedAppointments": 17, "completedAppointments": 7, "cancelledAppointments"
+PASS A-02c Dashboard money equals an independent recomputation (gross, refunded incl. partial, net) | {"api": {"LKR": {"gross": 89500.0, "refunded": 20800.0, "net": 68700.0}}, "db": {"LKR": {"gross": 89500.0, "refunded": 20800.0, "net": 68700.0}}, "platformRevenue": null}
+PASS A-02b Empty range shows no invented figures | {"succeeded": 0, "paymentSuccessRate": null, "revenue": [{"currency": "lkr", "grossAmount": 0.0, "refundedAmount": 0.0, "netAmount": 0.0, "paymentCount": 0, "partiallyRefundedCount": 0, "fullyRefundedCount": 0, "pendingRefundAmount": 15500.
+PASS A-02d API error handling for invalid input | {"http": 400, "detail": "Invalid startDate value. Expected a valid YYYY-MM-DD calendar date."}
+PASS A-03a Pending applications listed | ["Dr. P04 Applicant", "Dr. P04 No Registration", "Dr. P04 Reject"]
+PASS A-03b Application details | {"medicalRegistrationNumber": "UAT-P04-APPLICANT", "specialty": "Dermatology", "qualifications": "MBBS (synthetic UAT profile)", "hospitalOrClinic": "UAT P04 Clinic", "experienceYears": 6, "emailVerified": true}
+PASS A-03c Verification documents | {"bytes": 186, "type": "application/pdf", "synthetic": true, "patient": 403, "traversal": 404}
+PASS A-03d Registration number required; checklist is not a registry check | {"applicantRecommended": "APPROVE", "officiallyVerified": false, "humanDecisionRequired": true, "noRegFlags": ["Missing medical registration number."], "noRegApprove": 400, "detail": "Cannot approve an application without a medical registra
+PASS A-03i Pending doctor restrictions | {"inSearch": false, "bookHttp": 404}
+PASS A-03e Doctor approval by an administrator | {"approve": 200, "again": 400, "audit": {"actorId": "6b05c3fc88a1403facad0202", "previousState": "PENDING_ADMIN_APPROVAL", "newState": "APPROVED"}, "notified": true, "account": "ACTIVE"}
+PASS A-03h Approved doctor visible in patient search | ["Dr. P04 Applicant"]
+PASS A-03f Doctor rejection | {"reject": 200, "audited": 4, "login": 403, "detail": "Your doctor registration application was not approved. Please contact MediConnect support for further information."}
+PASS A-03g Suspension revokes clinical access immediately | {"before": 200, "suspend": 200, "recordsAfter": 401, "appointmentsAfter": 401, "login": 403, "reinstate": 200, "recordsAfterReinstate": 200}
+PASS A-04a Patient list with search | {"total": 2, "emails": ["uat.p04.patienta@uat.mediconnect.lk", "uat.p04.patientb@uat.mediconnect.lk"]}
+PASS A-04b Doctor directory | [["Dr. P04 Applicant", "APPROVED", "ACTIVE"], ["Dr. P04 No Registration", "PENDING_ADMIN_APPROVAL", "PENDING"], ["Dr. P04 Reject", "REJECTED", "PENDING"], ["Dr. P04 Revoke", "APPROVED", "ACTIVE"]]
+PASS A-04c Pagination and status filter | {"page2": 5, "suspended": ["SUSPENDED"]}
+PASS A-04d Account status management | {"pendingToActive": 409, "self": 400, "byPatient": 403, "audits": 8}
+PASS A-04e Sensitive data not exposed | {"passwordHash": false, "tokenHash": false, "refreshToken": false, "allergies": false, "diagnosis": false}
+PASS A-05c Null-fee historical appointment (P3-B2) | {"fee": null, "type": "IN_PERSON"}
+PASS A-05a Appointment list | {"api": 79, "db": 79}
+PASS A-05e Status and date filtering | {"api": 3, "db": 3}
+PASS A-05d In-person semantics | {"types": ["IN_PERSON"], "videoFields": []}
+PASS X-03 Patient books and pays -> doctor sees it -> admin sees the payment | {"appointment": ["CONFIRMED", "PAID"], "admin": {"status": "SUCCEEDED", "amount": 2000.0, "currency": "LKR", "isTestMode": true}, "pi": "pi_3Uf\u2026VXrT", "doctorSees": true}
+PASS A-10b Doctor cancellation opens a refund request in the admin queue (P3-B3) | {"cancel": 200, "source": "doctor", "eligible": 2000.0, "paid": 2000.0, "inQueue": true}
+PASS A-10j0 Refund cannot exceed the captured amount | {"http": 400, "detail": "The refund cannot exceed the captured amount still refundable.", "stripeRefunds": 0}
+PASS A-10h Concurrent admin approvals (4 at once) | {"codes": [200, 400, 400, 400], "stripeRefunds": 1, "status": "succeeded"}
+PASS A-10f Stripe test-mode refund | {"stripeStatus": "succeeded", "piLivemode": false, "amountMinor": 200000, "captured": 2000.0}
+PASS A-10j Cross-role financial reconciliation after refund | {"payment": ["REFUNDED", 2000.0], "appointmentPayment": "REFUNDED", "patientView": {"paymentStatus": "REFUNDED", "refundStatus": "succeeded", "refundedAmount": 2000.0}, "notified": true}
+PASS A-10g Duplicate refund prevention | {"reapprove": 400, "secondRequest": 400, "stripeRefunds": 1}
+PASS A-10d Admin approval | {"audit": 1}
+PASS A-10a Patient cancellation refund request | {"cancel": 200, "source": "patient", "rule": "Cancelled with more than 24 hours notice; 100% full refund eligible.", "eligible": 2000.0}
+PASS A-10e Admin rejection | {"reject": 200, "again": 409, "approveAfter": 409, "stripeRefunds": 0, "notified": 1}
+PASS A-10c Leave-related refund request | {"leave": 201, "appointment": "CANCELLED", "source": "leave", "eligible": 1800.0, "paid": 1800.0}
+PASS A-10i External refund failure (Stripe rejects the request) | {"approve": 502, "detail": "Stripe refund processing failed. The request can be retried.", "status": "failed", "failureReason": "InvalidRequestError", "payment": ["SUCCEEDED", null], "retry": 502}
+PASS A-07c Stripe test-mode reconciliation of every real test PaymentIntent | {"checked": 54, "mismatches": [], "mismatchCount": 0}
+PASS A-07a Successful payment retrieval | {"row": {"appointmentId": "6b074f365fccdb84c84c32a5", "status": "SUCCEEDED", "isTestMode": true}}
+PASS A-07b Declined payment (Stripe test card) is not recorded as paid | {"stripe": "requires_payment_method", "local": "FAILED", "appointment": ["PENDING", "PENDING"]}
+PASS A-07e Reconciliation: amount/currency checks and no confirm-the-booking advice | {"byType": {"CANCELLED_AWAITING_REFUND_DECISION": 11, "CANCELLED_PAID_WITHOUT_REFUND_REQUEST": 1, "MISSING_PAYMENT_EVIDENCE": 1, "DELAYED_PENDING": 3}, "unsafeAdvice": 0}
+PASS A-07d Duplicate PaymentIntent reference | {"insert": "DuplicateKeyError"}
+PASS A-07f Unauthorized payment and booking mutation | {"patientReconcile": 403, "doctorReconcile": 403, "patientApproveRefund": 403, "doctorApproveRefund": 403, "adminStatusChange": 403}
+PASS A-05f Payment bypass prevention | {"adminPut": 403}
+PASS A-06c Financial analytics for the last 30 days | {"api": {"succeeded": 36, "failed": 3, "refunded": 9, "successRate": 93.8, "platformRevenue": null}, "db": {"succeeded": 36, "failed": 3, "refunded": 9}}
+PASS A-06b Appointment analytics | {"api": 16, "db": 16}
+PASS A-06a User/doctor analytics | {"api": {"approvedDoctors": 14, "pendingDoctors": 3, "rejectedDoctors": 2}, "db": {"approvedDoctors": 13}}
+PASS A-06d Date boundaries use Asia/Colombo days | {"api": 9, "db": 9, "day": "2026-11-26"}
+PASS A-06e Refund-aware totals | {"LKR": [97200.0, 22800.0, 74400.0]}
+PASS A-08c Repeated failed payments signal | {"http": 200, "rules": ["MULTIPLE_FAILED_PAYMENTS", "EXCESSIVE_BOOKING_RATE", "RAPID_CANCELLATION_PATTERN", "EXCESSIVE_REFUND_REQUESTS"], "explanation": "Rule weight total 100.0/100 (CRITICAL). Triggered 4 deterministic rule(s): MULTIPLE_FA
+PASS A-08b Duplicate payment reference signal | {"uniqueIndex": "idx_payments_stripe_pi_unique"}
+PASS A-08a Supported risk signals fire only on real evidence | {"fired": ["EXCESSIVE_BOOKING_RATE", "EXCESSIVE_REFUND_REQUESTS", "RAPID_CANCELLATION_PATTERN"], "evidenceMet": ["EXCESSIVE_BOOKING_RATE", "EXCESSIVE_REFUND_REQUESTS", "RAPID_CANCELLATION_PATTERN"], "account": "ACTIVE"}
+PASS A-08d False-positive handling | {"http": 200, "reviewStatus": "DISMISSED", "audited": 1}
+PASS A-09a Support ticket creation and retrieval | {"create": 201, "adminSees": true, "otherLink": 403}
+PASS A-09d User isolation | {"otherPatient": 403, "otherList": false}
+PASS A-09e Draft review (template, not sent) | {"draftType": "template", "messages": 1, "promisesRefund": false, "excerpt": "Dear P04 Patient A,\n\nThank you for reaching out regarding your refund request for ticket #TCK-40016048.\n\nOur administrative team has receive"}
+PASS A-09b Ticket response | {"reply": 200, "notified": 5}
+PASS A-09c Ticket resolution | {"status": "resolved", "audit": 2}
+PASS A-11a Backend health | {"ready": "ready", "uptimeSeconds": 370.9}
+PASS A-11b Database health | {"MongoDB": "healthy"}
+PASS A-11c Worker status from real heartbeats | {"reminder_care_worker": ["active", "2026-11-25T21:12:56.678000Z"]}
+PASS A-11d Disabled/unconfigured providers reported truthfully | {"MongoDB": "healthy", "Stripe Payments": "configured_not_verified", "Email (SMTP)": "not_configured", "SMS (Twilio)": "not_configured", "Push (FCM)": "not_configured", "AI Providers": "disabled"}
+PASS A-11e Heartbeat spoofing / failed-job monitoring | {"anonymous": 401}
+PASS A-12a In-app delivery counted from stored records | {"inApp": {"delivered": 15, "pending": 0, "providerStatus": "in_app_store"}, "inAppStored": 289}
+PASS A-12c Disabled channels reported, nothing claimed as sent | {"push": ["not_configured", 0, 0, 12], "email": ["not_configured", 0, 3, 12], "sms": ["not_configured", 0, 0, 15]}
+PASS A-12b Failed delivery visible | {"emailFailed": 3, "notes": ["email: provider not configured; 3 failed and 12 skipped. Nothing was sent on this channel.", "sms: provider not configured; 0 failed and 15 skipped. Nothing was sent on this channel.", "push: provider not confi
+PASS A-12d Retry handling | {"first": {"retriedCount": 0, "deadLetteredCount": 0, "cancelledObsoleteCount": 0, "notRetryableCount": 3}, "second": {"retriedCount": 0, "deadLetteredCount": 0, "cancelledObsoleteCount": 0, "notRetryableCount": 3}}
+PASS A-12e Duplicate prevention | {"duplicates": 0}
+PASS A-13a Appointment report | {"report": 16, "db": 16}
+PASS A-13b Financial report reconciles with analytics | {"report": {"capturedAmountLKR": 97200.0, "refundedAmountLKR": 22800.0, "netCollectedLKR": 74400.0, "platformRevenue": null}, "analytics": [97200.0, 22800.0, 74400.0]}
+PASS A-13c Doctor verification report | {"report": {"approvedCount": 14, "rejectedCount": 2}, "db": [14, 2]}
+PASS A-13e Formula injection prevention | {"dangerousCells": [], "quoted": ["'=HYPERLINK(\"http://example.invalid\",\"x\")", "'=HYPERLINK(\"http://example.invalid\",\"x\")"]}
+PASS A-13d Export accuracy | {"header": ["ticketId", "category", "priority", "status", "subject", "createdAt"], "audit": 3}
+PASS A-14a Clinical data access inventory (P3-B4) | {"/clinical/records?patientId=6b074bbf2dc2c96d9c6ec87e": {"http": 200, "containsPatientRecord": false}, "/clinical/records/summary?patientId=6b074bbf2dc2c96d9c6ec87e": {"http": 200, "containsPatientRecord": false}, "/clinical/notes?patientI
+PASS A-14b Object-level authorization | {"admin": 200, "otherPatient": 403, "unrelatedDoctor": 403}
+PASS A-14c Sensitive-data redaction | {"cardFields": []}
+PASS A-14d Admin action audit | {"actionTypes": ["DOCTOR_VERIFICATION_DECISION", "FRAUD_REVIEW_DECISION", "REFUND_APPROVAL", "REFUND_EXECUTION", "REFUND_REJECTION", "REPORT_EXPORTED", "REPORT_GENERATED", "SUPPORT_RESPONSE_SENT", "SUPPORT_TICKET_RESOLVED", "USER_STATUS_CHA
+PASS A-14e Unauthorized audit modification | {"PUT": 404, "PATCH": 404, "DELETE": 404, "patientRead": 403}
+PASS A-15c Prompt injection resistance | {"tool": "get_pending_doctor_verifications", "refundsBefore": {"requested": 9, "succeeded": 7, "rejected": 3, "failed": 2}, "refundsAfter": {"requested": 9, "succeeded": 7, "rejected": 3, "failed": 2}, "pendingDoctorsUnchanged": true}
+PASS A-15a Admin AI role validation | {"patient": 403, "doctor": 403, "monitorPatient": 403}
+PASS A-15b Answers use authorized tools only; no invented revenue | {"tool": "get_admin_dashboard_metrics", "reply": "LKR: gross collections 25,100.00, refunded 8,000.00, net collections 17,100.00 for 2026-11-26 to 2026-11-26 (Asia/Colombo). Gross collections are patient payments, not platform profit. No pl
+PASS A-15d Human confirmation requirement | {"assistantTools": "read-only registry (ADMIN_ROLES)", "refundsChangedByAssistant": false}
+PASS A-15e AI provider failure / disabled handling | {"reply": "AI Provider Status: NOT_CONFIGURED (Circuit Breaker: CLOSED).\n\u2022 Total Requests: 0\n\u2022 Average Latency: 0.0 ms\n\u2022 Fallback Activations: 0\nWhen no provider answers, "}
+SUMMARY {'total': 90, 'passed': 90, 'failed': []}

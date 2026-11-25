@@ -1,0 +1,11 @@
+Browser UAT run 1 (2026-11-25 ~21:25 UTC), console lines transcribed from the session (the log file was
+overwritten by the final run; the final run is browser-admin-uat.json / .log):
+
+FAIL A-16a1 Dashboard in a real browser against the UAT backend | {"hasNet":false,"hasGross":true,"revenueWord":false,"realtime":false}
+   -> script check was case-sensitive; the label is CSS-uppercased ("NET COLLECTIONS"). Script fixed.
+FAIL A-16f Refund approval from the browser: validation, single submission, Stripe result shown | {"leaveRows":3,"source":true,"overLimitDisabled":true,"alert":"The refund cannot exceed the captured payment (LKR 1,800.00).","approvePosts":2}
+   -> real defect P04-N23: a double click sent two approve requests. Backend check afterwards (same session):
+      refund REF-2B6D28A8F7 succeeded, Stripe refunds for its PaymentIntent: 1 ['succeeded'], payment REFUNDED 1800.0,
+      audit [('REFUND_APPROVAL', 'SUCCESS', 'succeeded')]  -> the atomic claim prevented a second Stripe refund.
+PASS A-13-ui ... {"options":[]}  -> vacuous pass (options not yet rendered); check rewritten.
+SUMMARY {"total":13,"passed":11,"failed":["A-16a1","A-16f"]}

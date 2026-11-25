@@ -1,0 +1,224 @@
+{
+  "app": "http://127.0.0.1:5174",
+  "api": "http://127.0.0.1:8001/api",
+  "browser": "Google Chrome (installed), headless",
+  "steps": [
+    {
+      "id": "A-16a1",
+      "scenario": "Dashboard in a real browser against the UAT backend",
+      "expected": "net collections, gross/refunded line, no \"Revenue\" or \"Real-time\" claims",
+      "actual": {
+        "hasNet": true,
+        "hasGross": true,
+        "revenueWord": false,
+        "realtime": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-16a",
+      "scenario": "Navigate all 16 admin pages",
+      "expected": "no uncaught page error and no error boundary on any page",
+      "actual": {
+        "dashboard": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "doctor-approvals": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "reconciliation": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "refunds": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "support-tickets": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "reports": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "audit-logs": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "monitoring": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "doctors": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "users": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "appointments": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "payments": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "reviews": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "content": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "analytics": {
+          "errors": 0,
+          "errorBoundary": 0
+        },
+        "settings": {
+          "errors": 0,
+          "errorBoundary": 0
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-05c-ui",
+      "scenario": "Appointments page with the null-fee historical record (P3-B2)",
+      "expected": "page renders; fee cell \"Not available\"; no LKR 0.00",
+      "actual": {
+        "feeCells": [
+          "Not available"
+        ],
+        "pageErrors": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-16b",
+      "scenario": "Table search and filters (users)",
+      "expected": "only the two P04 patients",
+      "actual": {
+        "rows": 2,
+        "sample": [
+          "P04 Patient A",
+          "P04 Patient B"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-16d",
+      "scenario": "Confirmation before suspending an account",
+      "expected": "dialog shown; cancelled without change",
+      "actual": {
+        "dialog": "Suspend User Account\nAre you sure you want to change the status of P04 Patient A (uat.p04.patienta@uat.mediconnect.lk) t"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-16f",
+      "scenario": "Refund approval from the browser: validation, single submission, Stripe result shown",
+      "expected": "over-limit amount disabled; one approve request for repeated clicks; toast states Stripe result",
+      "actual": {
+        "leaveRows": 2,
+        "source": true,
+        "overLimitDisabled": true,
+        "alert": "The refund cannot exceed the captured payment (LKR 1,800.00).",
+        "approvePosts": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-16e",
+      "scenario": "Error state instead of a misleading empty list",
+      "expected": "\"Failed to load refund requests\" with retry; no \"No refund requests\"",
+      "actual": {
+        "emptyShown": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-11-ui",
+      "scenario": "Monitoring page states",
+      "expected": "Stripe \"configured, not verified\"; providers \"not configured\"; AI \"disabled\"; no availability %",
+      "actual": {
+        "configuredNotVerified": true,
+        "notConfigured": true,
+        "disabled": true,
+        "uptimePct": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-13-ui",
+      "scenario": "Report types offered",
+      "expected": "implemented reports listed; no \"Weekly Booking\" (not implemented)",
+      "actual": {
+        "offered": [
+          "Daily Appointment Operations",
+          "Payments & Collections (gross, refunded, net)",
+          "Doctor Verification & Credentialing Backlog",
+          "Customer Support Ticket Resolution",
+          "Refund Status & Cancellation Settlements"
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-16c",
+      "scenario": "Responsive layout at 390 px",
+      "expected": "no page-level horizontal scroll (tables scroll inside their container)",
+      "actual": {
+        "dashboard": 0,
+        "refunds": 0,
+        "appointments": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01c-ui",
+      "scenario": "Invalid/expired session in the browser",
+      "expected": "redirected to /login (expired=1)",
+      "actual": {
+        "url": "/login?expired=1"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-01d-ui",
+      "scenario": "Patient login to the admin app",
+      "expected": "not admitted to the dashboard",
+      "actual": {
+        "url": "/login",
+        "message": "MediConnect Admin\n\nSecure clinical administration and operations console\n\nAccess denied: You must hold the ADMIN role to access this portal."
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "A-17b-ui",
+      "scenario": "Browser network stayed local",
+      "expected": "no request left 127.0.0.1:5174/8001",
+      "actual": {
+        "blockedHosts": [
+          "fonts.googleapis.com"
+        ]
+      },
+      "status": "PASS"
+    }
+  ],
+  "pageErrors": [],
+  "blockedExternalHosts": [
+    "fonts.googleapis.com"
+  ],
+  "summary": {
+    "total": 13,
+    "passed": 13,
+    "failed": []
+  }
+}
