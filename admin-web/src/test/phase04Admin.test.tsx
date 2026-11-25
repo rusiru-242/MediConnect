@@ -128,6 +128,8 @@ describe('Refunds page (B15 / P3-B3)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/cannot exceed/);
     fireEvent.change(input, { target: { value: '2000' } });
     expect(send).not.toBeDisabled();
+    // P04-N23: two clicks before React re-renders (a double click) must send one request.
+    fireEvent.click(send);
     fireEvent.click(send);
     await waitFor(() => expect(adminWorkflowApi.approveRefund).toHaveBeenCalledTimes(1));
     expect(vi.mocked(adminWorkflowApi.approveRefund).mock.calls[0].slice(0, 2)).toEqual(['REF-P04DOCTOR', 2000]);

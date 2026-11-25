@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
 import { adminWorkflowApi } from '../api/adminWorkflowApi';
@@ -106,6 +106,16 @@ export const RefundsPage: React.FC = () => {
 
   const refunds = refundsData?.items || [];
   const busy = approveMutation.isPending || rejectMutation.isPending;
+  // Synchronous guard: a double click sends two clicks before the button re-renders as disabled (P04-N23). The
+  // backend also allows only one approval to claim a request; this keeps the UI from sending the second one.
+  const inFlight = useRef(false);
+  const once = (fire: (done: () => void) => void) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    fire(() => {
+      inFlight.current = false;
+    });
+  };
   const amountError = selectedRefund ? validateRefundAmount(customAmount, selectedRefund) : null;
 
   const openReview = (r: RefundRequest) => {
@@ -370,11 +380,16 @@ export const RefundsPage: React.FC = () => {
                 isLoading={approveMutation.isPending}
                 disabled={!!amountError || busy}
                 onClick={() =>
-                  approveMutation.mutate({
-                    refundId: selectedRefund.refundId,
-                    amount: typeof customAmount === 'number' ? customAmount : undefined,
-                    notes: actionNotes.trim() || undefined,
-                  })
+                  once((done) =>
+                    approveMutation.mutate(
+                      {
+                        refundId: selectedRefund.refundId,
+                        amount: typeof customAmount === 'number' ? customAmount : undefined,
+                        notes: actionNotes.trim() || undefined,
+                      },
+                      { onSettled: done }
+                    )
+                  )
                 }
               >
                 Send refund to Stripe
@@ -411,7 +426,11 @@ export const RefundsPage: React.FC = () => {
                 variant="danger"
                 disabled={actionNotes.trim().length < 3 || busy}
                 isLoading={rejectMutation.isPending}
-                onClick={() => rejectMutation.mutate({ refundId: selectedRefund.refundId, reason: actionNotes.trim() })}
+                onClick={() =>
+                  once((done) =>
+                    rejectMutation.mutate({ refundId: selectedRefund.refundId, reason: actionNotes.trim() }, { onSettled: done })
+                  )
+                }
               >
                 Confirm rejection
               </Button>
