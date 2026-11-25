@@ -201,14 +201,14 @@ See [PHASE_01_CLINICAL_SAFETY_REPORT.md](PHASE_01_CLINICAL_SAFETY_REPORT.md). In
 - `3839bfe`: mobile crisis UI, keyboard UX, truthful dashboard, video UI removed.
 - `23a196c`: image pipeline gap tests.
 - `8b33d8d`: Home SOS dialer (BUG-046) and composer tap group.
-- Documentation commit: the commit that adds this file (see `git log`).
+- `1edd748`: documentation (this report, evidence, tracker, UAT plan).
 
 **Changed files:**
 - **Backend:** `booking_agent.py`, `clinical_intent.py`, `doctor_ranking.py`, `emergency_detector.py`, `health_assistant_agent.py`, `intent_proposal.py` (new), `medicine_knowledge.py`, `nlp_parser.py`, `tests/test_phase01_patient_ai.py` (new).
 - **Mobile:** `ai_care_assistant_screen.dart`, `patient_home_screen.dart`, `booking_confirmation_screen.dart`, `find_doctor_screen.dart`, `my_appointments_screen.dart`, `widgets/upcoming_appointment_card.dart` (new), `test/screens/phase01_patient_ui_test.dart` (new), `test/localization/localization_test.dart`.
 - **Docs:** `docs/uat/phase-01/*`, `MASTER_BUG_TRACKER.md`, `MANUAL_UAT_TEST_PLAN.md`.
 
-**Push and CI:** the branch is pushed and the GitHub Actions results are recorded in `PHASE_01_RESULTS.json` after this commit. The working tree was clean after commit. Not merged to main; not deployed.
+**Push and CI:** pushed to `origin/fix/phase-01-patient-ai-ui-stabilization`. GitHub Actions on `1edd748`: **Backend CI success** ([run 45582627088](https://github.com/rusiru-242/MediConnect/actions/runs/45582627088)), **Mobile CI success** ([run 45582627128](https://github.com/rusiru-242/MediConnect/actions/runs/45582627128)). The working tree is clean. Not merged to main; not deployed.
 
 ## 11. Remaining blockers
 

@@ -17,6 +17,6 @@
 | B11 | Backend reply language after a Sinhala emergency follow-up (English reply), and the English-only `urgencyReason` | OPEN (recorded, BUG-004 scope) | Backend language memory; not changed in this phase | Language-aware follow-up texts | No | No |
 | B12 | Exact descriptions of the owner's working bug IDs 49–63 | NOT RECONCILED | Not present in the repository | The owner's list, to map onto P01-nn IDs | No | Yes |
 | B13 | `test/integration/live_api_test.dart` | NOT RUN | Hard-wired to port 8000 (the production-like database) | Make the port configurable (8001) | No | No |
-| B14 | GitHub Actions for the final commits | See the final report §10 | — | — | — | — |
+| B14 | GitHub Actions for the final commits | DONE: Backend CI and Mobile CI succeeded on `1edd748` | — | — | — | — |
 
 Phase 02 can start: none of these block the booking, payment or patient-care work. B1, B2, B4, B5 and B8 block a clinical pilot and any production release.

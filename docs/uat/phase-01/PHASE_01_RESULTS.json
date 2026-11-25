@@ -10,7 +10,7 @@
     "23a196c",
     "8b33d8d"
   ],
-  "documentationCommit": "see git log: commit adding docs/uat/phase-01",
+  "documentationCommit": "1edd748",
   "mergedToMain": false,
   "deployed": false,
   "clinicallyApproved": false,
@@ -340,5 +340,15 @@
     "clinicalPilot": "NOT_READY",
     "production": "NOT_READY"
   },
-  "ci": "pending: recorded after push"
+  "ci": {
+    "commit": "1edd748",
+    "backendCI": {
+      "conclusion": "success",
+      "url": "https://github.com/rusiru-242/MediConnect/actions/runs/45582627088"
+    },
+    "mobileCI": {
+      "conclusion": "success",
+      "url": "https://github.com/rusiru-242/MediConnect/actions/runs/45582627128"
+    }
+  }
 }
