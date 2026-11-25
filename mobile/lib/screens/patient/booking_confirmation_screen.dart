@@ -42,7 +42,6 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
 
   bool _isSubmitting = false;
   String? _errorMessage;
-  String _selectedMode = 'video'; // 'video' or 'inperson'
 
   @override
   void initState() {
@@ -411,125 +410,25 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
               ),
               const SizedBox(height: 10),
 
-              // 3. Consultation Mode Selection (Video vs In-Person)
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => setState(() => _selectedMode = 'video'),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _selectedMode == 'video'
-                              ? AppTheme.primaryContainer.withValues(
-                                  alpha: 0.15,
-                                )
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _selectedMode == 'video'
-                                ? AppTheme.primaryBlue
-                                : AppTheme.border,
-                            width: _selectedMode == 'video' ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.videocam_rounded,
-                              size: 16,
-                              color: _selectedMode == 'video'
-                                  ? AppTheme.primaryBlue
-                                  : AppTheme.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
-                            const Expanded(
-                              child: Text(
-                                'Video Visit',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              _selectedMode == 'video'
-                                  ? Icons.check_circle_rounded
-                                  : Icons.radio_button_unchecked,
-                              size: 14,
-                              color: _selectedMode == 'video'
-                                  ? AppTheme.primaryBlue
-                                  : AppTheme.border,
-                            ),
-                          ],
-                        ),
-                      ),
+              // 3. Consultation mode: MediConnect appointments are in-person clinic visits (Phase 01 removed a
+              //    cosmetic video/in-person picker that defaulted to "Video Visit" and was never sent to the server).
+              Container(
+                key: const Key('booking_mode_in_person'),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.local_hospital_rounded, color: AppTheme.primaryBlue),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text('In-person consultation at the doctor\'s clinic or hospital',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => setState(() => _selectedMode = 'inperson'),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _selectedMode == 'inperson'
-                              ? AppTheme.primaryContainer.withValues(
-                                  alpha: 0.15,
-                                )
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _selectedMode == 'inperson'
-                                ? AppTheme.primaryBlue
-                                : AppTheme.border,
-                            width: _selectedMode == 'inperson' ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.business_rounded,
-                              size: 16,
-                              color: _selectedMode == 'inperson'
-                                  ? AppTheme.primaryBlue
-                                  : AppTheme.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
-                            const Expanded(
-                              child: Text(
-                                'In-Clinic',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              _selectedMode == 'inperson'
-                                  ? Icons.check_circle_rounded
-                                  : Icons.radio_button_unchecked,
-                              size: 14,
-                              color: _selectedMode == 'inperson'
-                                  ? AppTheme.primaryBlue
-                                  : AppTheme.border,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 10),
 

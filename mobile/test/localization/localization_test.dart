@@ -138,9 +138,11 @@ void main() {
       // Verify English initial state
       expect(find.text('Patient Dashboard'), findsOneWidget);
       expect(find.text('Upcoming Appointments'), findsOneWidget);
-      expect(find.text('Reschedule'), findsOneWidget);
-      expect(find.text("Today's Vitals"), findsOneWidget);
-      expect(find.text('Heart Rate'), findsOneWidget);
+      // Phase 01: the fabricated appointment ("Reschedule") and invented vitals ("Today's Vitals", "Heart Rate")
+      // were removed; the truthful replacements are checked instead.
+      expect(find.text('Health Tracking'), findsOneWidget);
+      expect(find.text('Medicine Reminders'), findsOneWidget);
+      expect(find.text('Heart Rate'), findsNothing);
       expect(find.text('Home'), findsOneWidget);
 
       // Switch to Sinhala
@@ -149,9 +151,8 @@ void main() {
 
       expect(find.text('රෝගී පුවරුව'), findsOneWidget);
       expect(find.text('ඉදිරි හමුවීම්'), findsOneWidget);
-      expect(find.text('නැවත සැලසුම් කරන්න'), findsOneWidget);
-      expect(find.text('අද දින වැදගත් සලකුණු'), findsOneWidget);
-      expect(find.text('හෘද ස්පන්දනය'), findsOneWidget);
+      expect(find.text('සෞඛ්‍ය සටහන්'), findsOneWidget);
+      expect(find.text('බෙහෙත් සිහිකැඳවීම්'), findsOneWidget);
       expect(find.text('මුල් පිටුව'), findsOneWidget);
 
       // Switch to Tamil
@@ -160,9 +161,8 @@ void main() {
 
       expect(find.text('நோயாளி கட்டுப்பாட்டகம்'), findsOneWidget);
       expect(find.text('வரவிருக்கும் சந்திப்புகள்'), findsOneWidget);
-      expect(find.text('தேதி மாற்றுக'), findsOneWidget);
-      expect(find.text('இன்றைய முக்கிய அறிகுறிகள்'), findsOneWidget);
-      expect(find.text('இதய துடிப்பு'), findsOneWidget);
+      expect(find.text('சுகாதார கண்காணிப்பு'), findsOneWidget);
+      expect(find.text('மருந்து நினைவூட்டல்கள்'), findsOneWidget);
       expect(find.text('முகப்பு'), findsOneWidget);
     });
 
