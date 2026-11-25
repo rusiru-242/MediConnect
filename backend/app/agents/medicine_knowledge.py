@@ -379,10 +379,23 @@ class MedicineKnowledge:
             consult_pharmacist = med["consultPharmacistWhen"]
 
         formulations = list(med.get("formulations") or [])
-        if formulations:
-            strengths = "; ".join(f"{row['form']}: {row['strength']}" for row in formulations)
-            lead_in += (f"\n\nAvailable strengths (not a dose recommendation): {strengths}." if not is_si
-                        else f"\n\nලබාගත හැකි ප්‍රබලතා (මාත්‍රා නිර්දේශයක් නොවේ): {strengths}.")
+        # Phase 01: the reply used to repeat the uses and strengths that the structured card shows directly
+        # below it. The text is now a short introduction; the card carries the details.
+        ingredient = med.get("activeIngredient") or ""
+        same_name = name.lower() in ingredient.lower()
+        if is_si:
+            lead_in = (f"💊 **{name}** පිළිබඳ සාමාන්‍ය තොරතුරු පහත කාඩ්පතේ ඇත (භාවිතයන්, ලබාගත හැකි ප්‍රබලතා, අතුරු ආබාධ සහ "
+                       "පූර්වාරක්ෂාවන්).")
+        else:
+            alias = re.search(r"\(([^)]+)\)", ingredient) if same_name else None
+            lead_in = (f"💊 Here is general information about **{name}**"
+                       + (f" (also known as {alias.group(1)})" if alias else
+                          "" if same_name or not ingredient else f" (active ingredient: {ingredient})")
+                       + (f" — commonly used for {uses_summary[0].lower() + uses_summary[1:]}" if uses_summary else "")
+                       + ". The card below lists its uses, available strengths, side effects and precautions.")
+        situation = _situation_notes(query, is_si)
+        if situation:
+            lead_in += "\n\n" + situation
         lead_in += ("\n\nThis is general information, not a prescription. Your dose depends on your age, weight and health — "
                     "ask a pharmacist or doctor." if not is_si else
                     "\n\nමෙය සාමාන්‍ය තොරතුරු පමණයි, ඖෂධ නියමයක් නොවෙයි. ඔබට ගැළපෙන මාත්‍රාව ඔබේ වයස, බර සහ සෞඛ්‍යය අනුව වෙනස් වන නිසා ඖෂධවේදියෙකුගෙන් හෝ වෛද්‍යවරයෙකුගෙන් විමසන්න.")
@@ -405,3 +418,38 @@ class MedicineKnowledge:
             "disclaimer": "This information is for general educational purposes only and is not a prescription or clinical diagnosis.",
         }
 
+
+
+
+# Situation-specific safety notes for medicine questions (Phase 01). Deliberately general: no doses, no
+# drug-specific clinical claims. CONTENT STATUS: PENDING PHARMACIST REVIEW.
+_SITUATIONS = (
+    (r"\b(?:child|children|kid|kids|baby|babies|infant|toddler|son|daughter|\d{1,2}[- ]?(?:year|month)s?[- ]?old|lamay\w*|babal\w*|duwa|putha)\b|ළමයා|දරුවා|බබා",
+     "**For a child:** children's doses depend on weight and age. Use only a product made for children, measure it with the "
+     "syringe or spoon supplied, and ask a pharmacist or doctor first. A baby under 3 months with fever should see a doctor.",
+     "**ළමයෙකු සඳහා:** ළමා මාත්‍රාව බර සහ වයස අනුව වෙනස් වේ. ළමුන් සඳහාම වූ නිෂ්පාදනයක් පමණක් භාවිතා කර, ඖෂධවේදියෙකුගෙන් හෝ "
+     "වෛද්‍යවරයෙකුගෙන් පළමුව විමසන්න. මාස 3ට අඩු ළදරුවෙකුට උණ ඇත්නම් වෛද්‍යවරයෙකු හමුවන්න."),
+    (r"\b(?:pregnan\w*|breast ?feeding|nursing|expecting a baby|garbhan\w*)\b|ගර්භනී|කිරි දෙන",
+     "**During pregnancy or breastfeeding:** some medicines are not suitable at certain stages. Ask your doctor, midwife or "
+     "pharmacist before taking any medicine.",
+     "**ගර්භනී හෝ මව්කිරි දෙන කාලයේ:** සමහර ඖෂධ ඇතැම් අවධිවලදී සුදුසු නොවේ. ඕනෑම ඖෂධයක් ගැනීමට පෙර වෛද්‍යවරයාගෙන්, "
+     "පවුල් සෞඛ්‍ය සේවිකාවගෙන් හෝ ඖෂධවේදියාගෙන් විමසන්න."),
+    (r"\b(?:liver|hepat\w*|kidney|renal|alcohol|drink(?:ing)? heavily)\b|අක්මා|වකුගඩු|මත්පැන්",
+     "**Liver or kidney disease, or regular alcohol use:** these can change which medicines are safe and how much. Ask a "
+     "doctor before taking this medicine.",
+     "**අක්මා හෝ වකුගඩු රෝග, හෝ නිතිපතා මත්පැන් භාවිතය:** මේවා ආරක්ෂිත ඖෂධ සහ ප්‍රමාණය වෙනස් කළ හැකියි. මෙම ඖෂධය ගැනීමට පෙර "
+     "වෛද්‍යවරයෙකුගෙන් විමසන්න."),
+    (r"\b(?:with|together|interact\w*|combine\w*|mix\w*|at the same time|along with|and also take)\b.*\b(?:medicine|tablet|pill|drug|warfarin|aspirin|ibuprofen|paracetamol|metformin|antibiotic)\w*",
+     "**Taking more than one medicine:** some combinations interact or contain the same ingredient. Show all your medicines "
+     "to a pharmacist before combining them.",
+     "**ඖෂධ කිහිපයක් එකට ගැනීම:** සමහර ඖෂධ එකිනෙකට බලපායි, නැත්නම් එකම අමුද්‍රව්‍යය අඩංගු විය හැකියි. ඒවා එකට ගැනීමට පෙර "
+     "ඔබේ සියලු ඖෂධ ඖෂධවේදියෙකුට පෙන්වන්න."),
+)
+
+
+def _situation_notes(query: str, is_si: bool) -> str:
+    import re as _re
+
+    text = (query or "").lower()
+    notes = [si if is_si else en for pattern, en, si in _SITUATIONS if _re.search(pattern, text)]
+    return "\n\n".join(notes)

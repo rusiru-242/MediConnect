@@ -42,7 +42,6 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
   // Quick filter toggles
   bool _filterAvailableToday = false;
   bool _filterTopRated = false;
-  bool _filterVideoVisit = false;
 
   final Set<String> _bookmarkedDoctorIds = {};
 
@@ -352,15 +351,6 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                     iconColor: Colors.amber,
                     onTap: () {
                       setState(() => _filterTopRated = !_filterTopRated);
-                    },
-                  ),
-                  _buildQuickToggle(
-                    label: 'Video Visit',
-                    isActive: _filterVideoVisit,
-                    icon: Icons.videocam_rounded,
-                    iconColor: AppTheme.secondaryBlue,
-                    onTap: () {
-                      setState(() => _filterVideoVisit = !_filterVideoVisit);
                     },
                   ),
                 ],
@@ -902,12 +892,13 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: IconButton(
+                  // Phase 01: video channelling is not supported; this button only opens the profile.
                   icon: const Icon(
-                    Icons.videocam_rounded,
+                    Icons.person_search_rounded,
                     size: 20,
                     color: AppTheme.primaryBlue,
                   ),
-                  tooltip: 'Video Consultation',
+                  tooltip: 'View profile',
                   onPressed: () {
                     Navigator.of(context)
                         .pushNamed('/patient/doctor-detail', arguments: doctor);

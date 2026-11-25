@@ -1,0 +1,354 @@
+{
+  "phase": "01",
+  "title": "Patient AI Intelligence, Clinical Safety and Flutter UI/UX Stabilization",
+  "date": "2026-11-25",
+  "branch": "fix/phase-01-patient-ai-ui-stabilization",
+  "baselineCommit": "cd3e5ee",
+  "implementationCommits": [
+    "5fe3877",
+    "3839bfe",
+    "23a196c",
+    "8b33d8d"
+  ],
+  "documentationCommit": "1edd748",
+  "mergedToMain": false,
+  "deployed": false,
+  "clinicallyApproved": false,
+  "bugStatistics": {
+    "historicalDocumented": 48,
+    "ownerWorkingCount": 63,
+    "historicalUndocumented": 15,
+    "phase01Items": 28,
+    "confirmedDefects": 23,
+    "requirementsOrImprovements": 5,
+    "reproducedBeforeFix": 23,
+    "reproducedViaUatApi": 15,
+    "reproducedViaCodeInspectionAndEmulator": 6,
+    "reproducedViaFailingTestOrReview": 2,
+    "newlyDiscovered": 7,
+    "fixedOrImplemented": 28,
+    "verifiedByAutomatedRegressionTests": 27,
+    "remainingOpenInScope": 1,
+    "remainingBlocked": 5
+  },
+  "bugs": [
+    {
+      "id": "P01-01",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Educational emergency questions raised alarm"
+    },
+    {
+      "id": "P01-02",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Hypothetical question raised alarm"
+    },
+    {
+      "id": "P01-03",
+      "severity": "Critical",
+      "status": "FIXED",
+      "title": "Overdose not escalated"
+    },
+    {
+      "id": "P01-04",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Self-harm shown with cardiac-style alarm"
+    },
+    {
+      "id": "P01-05",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Unverified crisis hotline number"
+    },
+    {
+      "id": "P01-06",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Romanized crisis phrases answered in English"
+    },
+    {
+      "id": "BUG-044",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Category-specific emergency guidance"
+    },
+    {
+      "id": "P01-07",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Cough tiering"
+    },
+    {
+      "id": "P01-08",
+      "severity": "Low",
+      "status": "FIXED",
+      "title": "Prevention question unanswered"
+    },
+    {
+      "id": "BUG-046",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Home SOS did not dial; listed 911"
+    },
+    {
+      "id": "P01-09",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Scenario A context lost"
+    },
+    {
+      "id": "P01-10",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Scenario B budget change not parsed"
+    },
+    {
+      "id": "P01-11",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Scenario C selection not exactly one"
+    },
+    {
+      "id": "P01-12",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Plural specialty not recognised"
+    },
+    {
+      "id": "P01-13",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Named-doctor slots asked name again"
+    },
+    {
+      "id": "P01-14",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Explicit year ignored"
+    },
+    {
+      "id": "P01-15",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Date follow-up created booking proposal"
+    },
+    {
+      "id": "P01-16",
+      "severity": "Requirement",
+      "status": "IMPLEMENTED",
+      "title": "Top 1-2 recommendations"
+    },
+    {
+      "id": "P01-17",
+      "severity": "Improvement",
+      "status": "IMPLEMENTED",
+      "title": "Few-review rating handling"
+    },
+    {
+      "id": "P01-18",
+      "severity": "Finding",
+      "status": "IMPLEMENTED_LIVE_BLOCKED",
+      "title": "Bounded LLM intent layer"
+    },
+    {
+      "id": "P01-19",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Duplicated medicine information"
+    },
+    {
+      "id": "P01-20",
+      "severity": "Improvement",
+      "status": "IMPLEMENTED",
+      "title": "Medicine situation notes"
+    },
+    {
+      "id": "P01-21",
+      "severity": "Requirement",
+      "status": "IMPLEMENTED",
+      "title": "Keyboard UX"
+    },
+    {
+      "id": "P01-22",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Long replies jumped to end"
+    },
+    {
+      "id": "P01-23",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Fabricated dashboard appointment"
+    },
+    {
+      "id": "P01-24",
+      "severity": "High",
+      "status": "FIXED",
+      "title": "Fabricated vitals"
+    },
+    {
+      "id": "P01-25",
+      "severity": "Low",
+      "status": "FIXED",
+      "title": "Medicine Reminders label"
+    },
+    {
+      "id": "P01-26",
+      "severity": "Medium",
+      "status": "FIXED",
+      "title": "Unsupported video UI"
+    }
+  ],
+  "testResults": {
+    "backendFull": {
+      "passed": 512,
+      "failed": 0,
+      "skipped": 0,
+      "baselinePassed": 425
+    },
+    "backendPhase01New": {
+      "passed": 87,
+      "failed": 0
+    },
+    "flutterAnalyze": "no issues",
+    "flutterFull": {
+      "passed": 284,
+      "failed": 0,
+      "baselinePassed": 269
+    },
+    "flutterPhase01New": {
+      "passed": 15,
+      "failed": 0
+    },
+    "newRegressionTests": 102,
+    "uatApiProbe": {
+      "scenariosAfter": 35,
+      "scenariosBefore": 32,
+      "matchingExpectedAfter": 35,
+      "routingOrOutcomeMismatchesBefore": 12,
+      "replyTextOnlyChanges": 13,
+      "healthChatProbeNote": "single-session probe; heart-attack question escalated by context before and after (correct); fresh-session fix evidenced by API-local test"
+    },
+    "emulatorChecks": {
+      "executed": 11,
+      "passed": 11,
+      "frameworkExceptions": 0,
+      "overflows": 0
+    },
+    "androidDebugApk": "built",
+    "flutterIntegrationLiveApiTest": "NOT_RUN (hard-wired to port 8000)",
+    "adminWeb": "NOT_RUN (unchanged)",
+    "liveLlmProvider": "BLOCKED",
+    "liveVision": "BLOCKED"
+  },
+  "agentStatus": {
+    "symptomTriageEmergencyDetector": "VERIFIED_LOCAL_AND_EMULATOR_PENDING_CLINICAL_REVIEW",
+    "mentalHealthCrisisResponse": "VERIFIED_LOCAL_AND_EMULATOR_PENDING_CLINICAL_REVIEW",
+    "doctorBookingAgentSearchMemorySelection": "VERIFIED_LOCAL_AND_EMULATOR",
+    "doctorRanking": "VERIFIED_UNIT_AND_API",
+    "boundedIntentProposal": "VERIFIED_MOCKED_LIVE_BLOCKED",
+    "medicineInformation": "VERIFIED_LOCAL_PENDING_PHARMACIST_REVIEW",
+    "medicineImageAnalysis": "VERIFIED_MOCKED_LIVE_BLOCKED",
+    "healthChat": "VERIFIED_LOCAL_PENDING_CLINICAL_REVIEW"
+  },
+  "remainingBlockers": [
+    {
+      "id": "B1",
+      "item": "Clinical approval",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B2",
+      "item": "Pharmacist approval",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B3",
+      "item": "Native-speaker review (si/ta)",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B4",
+      "item": "Live LLM provider verification",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B5",
+      "item": "Live Vision verification",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B6",
+      "item": "Upload cancel on device",
+      "blocksPhase02": false,
+      "manual": false
+    },
+    {
+      "id": "B7",
+      "item": "Sinhala-script typing on device",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B8",
+      "item": "Physical phone / small screen",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B9",
+      "item": "DevTools frame profile",
+      "blocksPhase02": false,
+      "manual": false
+    },
+    {
+      "id": "B10",
+      "item": "Crisis follow-up safety flow (proposed)",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B11",
+      "item": "Backend reply language after Sinhala emergency follow-up",
+      "blocksPhase02": false,
+      "manual": false
+    },
+    {
+      "id": "B12",
+      "item": "Owner bug IDs 49-63 reconciliation",
+      "blocksPhase02": false,
+      "manual": true
+    },
+    {
+      "id": "B13",
+      "item": "Configurable live_api_test port",
+      "blocksPhase02": false,
+      "manual": false
+    }
+  ],
+  "readiness": {
+    "academicDemonstration": "READY",
+    "localUat": "READY_FOR_MANUAL_RETEST",
+    "staging": "NOT_READY",
+    "clinicalPilot": "NOT_READY",
+    "production": "NOT_READY"
+  },
+  "ci": {
+    "commit": "1edd748",
+    "backendCI": {
+      "conclusion": "success",
+      "url": "https://github.com/rusiru-242/MediConnect/actions/runs/45582627088"
+    },
+    "mobileCI": {
+      "conclusion": "success",
+      "url": "https://github.com/rusiru-242/MediConnect/actions/runs/45582627128"
+    }
+  }
+}

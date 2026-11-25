@@ -1,6 +1,6 @@
 # MediConnect — Master Bug Tracker
 
-Branch: `fix/comprehensive-system-ai-stabilization` · Baseline commit: `c3e0aac` · Last updated: 2026-11-25 (UAT UI blockers added on `fix/uat-ai-assistant-ui-stabilization`)
+Branch: `fix/comprehensive-system-ai-stabilization` · Baseline commit: `c3e0aac` · Last updated: 2026-11-25 (Phase 01 section added on `fix/phase-01-patient-ai-ui-stabilization`)
 
 ## How to read this tracker
 
@@ -266,6 +266,46 @@ Full analysis: [UAT_UI_STABILIZATION_REPORT.md](UAT_UI_STABILIZATION_REPORT.md).
 | BUG-047 | Composer pushed off-screen in landscape with the keyboard open (part of the "composer disappears" report) | High | Fixed-height disclaimer and emergency banner overflowed the about 64 px body by 106 px (`RenderFlex overflowed`) | `ai_care_assistant_screen.dart` (height-aware body) | `ai-ui2` landscape tests (fail without the fix: overflow by 141 px) | FIXED; emulator verified |
 | BUG-048 | Emergency banner in English while the reply was Sinhala (Romanized Sinhala input) | Medium | Backend keeps `preferences.language = en` and an English `urgencyReason` | `ai_care_assistant_screen.dart` (language follows the reply's script) | `ai-ui2` Romanized Sinhala test | FIXED in app; emulator verified. Backend language memory recorded for BUG-004 / P-01f |
 | BUG-046 | Home-screen **Emergency SOS** shows "Calling National Ambulance Service (1990)…" but never opens the dialer or places a call | High (patient safety: misleading) | `patient_home_screen.dart` only shows a SnackBar | `patient_home_screen.dart` | — | OPEN (found during this work; not changed because it is outside the AI Assistant scope. `EmergencyDialer` can be reused for the fix.) |
+
+## Phase 01 — Patient AI, clinical safety and UI/UX (2026-11-25, branch `fix/phase-01-patient-ai-ui-stabilization`)
+
+Details, reproduction steps and evidence: [uat/phase-01/PHASE_01_BUG_FIX_REPORT.md](uat/phase-01/PHASE_01_BUG_FIX_REPORT.md).
+
+**ID reconciliation:**
+- The owner reports a working count of 63. This tracker documents BUG-001 to BUG-048; descriptions for the remaining 15 are not in the repository and were **not invented**.
+- Phase 01 items without an established ID use **provisional `P01-nn` IDs** (re-map if the owner's list differs).
+- Status updates to existing IDs are added below; the history above is kept.
+
+| ID | Title | Severity | Root cause (short) | Status |
+|---|---|---|---|---|
+| BUG-044 | Category-specific emergency guidance | Medium | One cardiac-style text for all categories | FIXED in Phase 01 (11 categories, en/si). Clinical review pending |
+| BUG-046 | Home Emergency SOS did not dial; listed "911" | High | Snackbar only; wrong number | FIXED in Phase 01 (dialer with 1990, police 119); emulator-verified |
+| P01-01 | Educational heart-attack/stroke questions raised an alarm (Assistant and Health Chat) | High | Narrow informational pattern; pronoun veto | FIXED; UAT-API + emulator verified |
+| P01-02 | Hypothetical "if someone has chest pain" raised an alarm | Medium | No hypothetical handling | FIXED; clinical review of design pending |
+| P01-03 | Overdose ("took 10 paracetamol tablets") not escalated | **Critical** | Poisoning patterns too narrow | FIXED; UAT-API + emulator verified |
+| P01-04 | Self-harm shown with the generic cardiac-style alarm | High | Single emergency UI; no crisis type | FIXED (dedicated UI + crisisType); emulator verified |
+| P01-05 | Unverified Sumithrayo number shown in crisis guidance | High | Hard-coded, no source | FIXED (removed; 1926/1333 verified) |
+| P01-06 | Romanized Sinhala crisis phrases answered in English | Medium | Missing Singlish keywords | FIXED |
+| P01-07 | 3-week cough listed under "Call 1990 now" | Medium | Single red-flag tier | FIXED (3 tiers); clinical review pending |
+| P01-08 | Prevention question got "share your symptoms" | Low | No information handler | FIXED |
+| P01-09 | Scenario A: context lost after an unsupported location | High | Preferences restored/reset | FIXED |
+| P01-10 | Scenario B: "Increase my budget to LKR 3000" not parsed | High | Fee patterns | FIXED |
+| P01-11 | Scenario C: selection returned 2 doctors / clarification | High | Exact-phrase cues; selection only in search turns | FIXED |
+| P01-12 | Plural specialty ("cardiologists") not recognised | Medium | `(?:ist|y)\b` patterns | FIXED |
+| P01-13 | Named-doctor slot request asked for the name again | Medium | Follow-up handler ran first; name regex | FIXED |
+| P01-14 | Explicit year in a date ignored | Medium | Month-day pattern | FIXED |
+| P01-15 | Date follow-up created a booking proposal | Medium | Any date + time became a booking | FIXED (Phase 02 should review booking semantics) |
+| P01-16 | Recommendations showed a list instead of the top 1–2 | Requirement | — | IMPLEMENTED |
+| P01-17 | Few-review ratings outranked established ratings | Improvement | Raw average ordering | IMPLEMENTED |
+| P01-18 | LLM understanding never used for logged-in patients | Finding | Provider only called without a patient | IMPLEMENTED (bounded layer); live provider BLOCKED |
+| P01-19 | Medicine information duplicated text and card | Medium | Text repeated card fields | FIXED |
+| P01-20 | No child/pregnancy/liver/combination medicine notes | Improvement | — | IMPLEMENTED; pharmacist review pending |
+| P01-21 | Keyboard UX requirements | Requirement | — | IMPLEMENTED; emulator verified |
+| P01-22 | Long replies jumped to their end | Medium | Scroll to max extent | FIXED |
+| P01-23 | Fabricated "Dr. Alexander Wright" video appointment | High | Hard-coded UI | FIXED; emulator verified |
+| P01-24 | Fabricated vitals, "VITALS: NORMAL", "Synced 12m ago" | High | Hard-coded UI | FIXED; emulator verified |
+| P01-25 | "Prescriptions" quick action opened medication reminders | Low | Label | FIXED |
+| P01-26 | Unsupported video UI (default-video picker, fake filter, badges, Join Call) | Medium | Cosmetic UI | FIXED; emulator verified |
 
 ## Suspected or unconfirmed issues
 

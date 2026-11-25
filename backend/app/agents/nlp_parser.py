@@ -69,7 +69,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.CARDIOLOGIST.value,
         [
-            r"\bcardiolog(?:ist|y)\b",
+            r"\bcardiolog(?:ists?|y)\b",
             r"\bheart\b",
             r"\bhrud\w*",
             r"\bhadawat\w*",
@@ -88,7 +88,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.DERMATOLOGIST.value,
         [
-            r"\bdermatolog(?:ist|y)\b",
+            r"\bdermatolog(?:ists?|y)\b",
             r"\bskin\b",
             r"\brash(?:es)?\b",
             r"\bacne\b",
@@ -130,7 +130,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.NEUROLOGIST.value,
         [
-            r"\bneurolog(?:ist|y)\b",
+            r"\bneurolog(?:ists?|y)\b",
             r"\bsnayu\w*",
             r"\bmigraine(?:s)?\b",
             r"\bchronic\s+headache\b",
@@ -149,7 +149,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.PSYCHIATRIST.value,
         [
-            r"\bpsychiatr(?:ist|y)\b",
+            r"\bpsychiatr(?:ists?|y)\b",
             r"\bmental\s+health\b",
             r"\bdepression\b",
             r"\banxiety\b",
@@ -166,8 +166,8 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.GYNECOLOGIST.value,
         [
-            r"\bgynecolog(?:ist|y)\b",
-            r"\bgynaecolog(?:ist|y)\b",
+            r"\bgynecolog(?:ists?|y)\b",
+            r"\bgynaecolog(?:ists?|y)\b",
             r"\bobstetric(?:ian)?\b",
             r"\bpregnancy\b",
             r"\bpregnant\b",
@@ -206,7 +206,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.OPHTHALMOLOGIST.value,
         [
-            r"\bophthalmolog(?:ist|y)\b",
+            r"\bophthalmolog(?:ists?|y)\b",
             r"\beye(?:s)?\b",
             r"\bvision\b",
             r"\bcataract\b",
@@ -241,7 +241,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.GASTROENTEROLOGIST.value,
         [
-            r"\bgastroenterolog(?:ist|y)\b",
+            r"\bgastroenterolog(?:ists?|y)\b",
             r"\bgastro\b",
             r"\bstomach\s+pain\b",
             r"\bgastritis\b",
@@ -261,7 +261,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.ENDOCRINOLOGIST.value,
         [
-            r"\bendocrinolog(?:ist|y)\b",
+            r"\bendocrinolog(?:ists?|y)\b",
             r"\bdiabetes\b",
             r"\bdiabetic\b",
             r"\bthyroid\b",
@@ -276,7 +276,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.PULMONOLOGIST.value,
         [
-            r"\bpulmonolog(?:ist|y)\b",
+            r"\bpulmonolog(?:ists?|y)\b",
             r"\blung(?:s)?\b",
             r"\basthma\b",
             r"\bwheezing\b",
@@ -294,7 +294,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.NEPHROLOGIST.value,
         [
-            r"\bnephrolog(?:ist|y)\b",
+            r"\bnephrolog(?:ists?|y)\b",
             r"\bkidney(?:s)?\b",
             r"\brenal\b",
             r"\bdialysis\b",
@@ -306,7 +306,7 @@ SPECIALTY_RULES: List[Tuple[str, List[str]]] = [
     (
         DoctorSpecialty.UROLOGIST.value,
         [
-            r"\burolog(?:ist|y)\b",
+            r"\burolog(?:ists?|y)\b",
             r"\burinary\b",
             r"\bbladder\b",
             r"\bprostate\b",
@@ -432,6 +432,10 @@ def get_sl_now() -> datetime:
 
 
 SINGLISH_HEALTH_KEYWORDS = {
+    # Phase 01: crisis and emergency phrasings ("mata marenna hithenawa", "thaththa sihiya nathi wuna") were
+    # answered in English because none of their words were listed. Only distinctly Sinhala words are added.
+    "mata", "mage", "marenna", "hithenawa", "hithenwa", "thaththa", "thaththata", "amma", "ammata", "sihiya",
+    "nathi", "wuna", "una", "jeewath", "jiwath", "wenna", "ridenawa", "amarui", "godak", "karanna", "oni", "ona",
     "kanna", "kama", "keema", "udeta", "ude", "reeta", "dawalata", "dawal",
     "hoda", "monawada", "mowada", "kohomada", "sinhalen", "sinhala",
     "beheth", "bonne", "mokatada", "mktda", "pethi", "gena", "kiyanna", "danna",
@@ -549,10 +553,14 @@ def extract_date(text: str) -> Optional[str]:
             pass
 
     months = ("january february march april may june july august september october november december").split()
-    month_day = re.search(r"\b(" + "|".join(months) + r")\s+(\d{1,2})(?:st|nd|rd|th)?\b", text_lower)
+    # "November 26" or "November 26, 2030" — an explicit year is honoured (Phase 01: it was ignored).
+    month_day = re.search(r"\b(" + "|".join(months) + r")\s+(\d{1,2})(?:st|nd|rd|th)?\b(?:,?\s+(20\d{2})\b)?", text_lower)
     if month_day:
         month = months.index(month_day[1]) + 1
         try:
+            if month_day[3]:
+                target = sl_today.replace(year=int(month_day[3]), month=month, day=int(month_day[2]))
+                return target.isoformat() if target >= sl_today else None
             target = sl_today.replace(month=month, day=int(month_day[2]))
             if target < sl_today:
                 target = target.replace(year=target.year + 1)
@@ -622,7 +630,12 @@ def extract_max_fee(text: str) -> Optional[float]:
     patterns = [
         r"(?:under|below|less\s+than|max|maximum|up\s+to|within)\s*(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
         r"(?:lkr|rs\.?|රු\.?)\s*(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:or\s+less|max|below|under)",
-        r"(?:my\s+)?budget\s+(?:is\s+)?(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
+        r"(?:my\s+)?budget\s+(?:is\s+|to\s+|of\s+|at\s+|=\s*|:\s*)?(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
+        # Budget changes in a follow-up (Phase 01 scenario B): "Increase my budget to LKR 3000",
+        # "raise the limit to 5000", "change the maximum fee to Rs. 2500".
+        r"(?:increase|raise|change|set|update|make|extend|lower|reduce|adjust)\s+(?:my\s+|the\s+)?"
+        r"(?:budget|limit|price\s+limit|max(?:imum)?(?:\s+(?:fee|price))?|fee|price)\s+(?:to|at|up\s+to|as)\s*"
+        r"(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
         r"(?:cost|fee)\s+(?:around|up\s+to|below|under|max|is)\s*(?:lkr|rs\.?|රු\.?)?\s*(\d+(?:,\d+)?(?:\.\d+)?)",
         r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:ට\s*අඩු|නොවැඩි|ක්\s*වත්\s*නැති|දක්වා)",
         r"(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:lkr|rs\.?)\s*(?:budget|limit)",

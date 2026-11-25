@@ -56,6 +56,13 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   final TextEditingController _patientNoteController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  /// The reply that should scroll into view top-first once laid out (Phase 01). Cleared after it has scrolled.
+  String? _revealReplyId;
+
+  /// Focus of the single composer (Phase 01 keyboard UX). Sending or tapping outside dismisses the keyboard,
+  /// and a reply never requests focus, so the keyboard is not reopened by the assistant.
+  final FocusNode _composerFocus = FocusNode(debugLabel: 'ai_composer');
+
   BookingSession? _session;
   bool _isLoading = false;
   bool _isPaymentProcessing = false;
@@ -119,6 +126,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     _textController.dispose();
     _patientNoteController.dispose();
     _scrollController.dispose();
+    _composerFocus.dispose();
     super.dispose();
   }
 
@@ -297,6 +305,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     if (text.isEmpty && !hasImage) return;
     if (_session == null || _isLoading || _isPaymentProcessing) return;
 
+    _composerFocus.unfocus();
     _textController.clear();
     final imageBytesToSend = _selectedImageBytes;
     final imageNameToSend = _selectedImage?.name ?? _retryImageName ?? 'label.jpg';
@@ -379,15 +388,19 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         );
         _attachmentPreviews[serverMessage.id] = imageBytesToSend;
       }
+      // Show a new reply from its beginning (Phase 01) unless the user has scrolled up to read history.
+      final nearBottom = !_scrollController.hasClients || _scrollController.position.extentAfter <= 230;
+      final reply = updated.messages.isNotEmpty && !updated.messages.last.isUser ? updated.messages.last : null;
       setState(() {
         _session = updated;
         _isLoading = false;
         _isUploadingImage = false;
+        _revealReplyId = nearBottom ? reply?.id : null;
       });
       if (updated.holdExpiresAt != null) {
         _startHoldTimer(updated.holdExpiresAt!);
       }
-      _scrollToBottom();
+      if (reply == null && nearBottom) _scrollToBottom();
     } catch (error) {
       if (!mounted || generation != _uploadGeneration) return;
       setState(() {
@@ -741,6 +754,62 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     return app == 'si' || app == 'ta' ? app! : 'en';
   }
 
+  /// The latest emergency reply's structured metadata (category, crisisType, supportLines).
+  Map<String, dynamic>? get _latestEmergencyMeta {
+    final messages = _session?.messages ?? const <ChatMessage>[];
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final m = messages[i];
+      if (!m.isUser && m.metadata?['type'] == 'emergency') return m.metadata;
+    }
+    return null;
+  }
+
+  /// Self-harm gets a dedicated supportive experience, not the cardiac-style alarm (Phase 01).
+  bool get _isMentalHealthCrisis {
+    final meta = _latestEmergencyMeta;
+    return meta != null && (meta['crisisType'] == 'mental_health' || meta['category'] == 'self_harm');
+  }
+
+  String _mentalHealthText(String key) {
+    return _mentalHealthStrings[_emergencyLanguage]?[key] ?? _mentalHealthStrings['en']![key]!;
+  }
+
+  /// Verified numbers only (checked 2026-11-25): 1926 National Mental Health Helpline (NIMH, 24 hours),
+  /// 1333 CCCline (24 hours), 1990 Suwa Seriya ambulance.
+  static const Map<String, Map<String, String>> _mentalHealthStrings = {
+    'en': {
+      'title': "You don't have to face this alone",
+      'body': 'Free, confidential support is available 24 hours. If you are in danger right now, call 1990.',
+      'call1926': 'Call 1926 helpline',
+      'call1333': 'Call 1333',
+      'danger': 'In danger now? Call 1990',
+      'dialog1926': 'Call the National Mental Health Helpline (1926)?',
+      'dialog1333': 'Call CCCline crisis support (1333)?',
+      'dialogBody': 'This opens your phone dialer with the number entered. The call starts only when you press '
+          'the call button in the dialer.',
+    },
+    'si': {
+      'title': 'ඔබ මෙයට තනියම මුහුණ දිය යුතු නැහැ',
+      'body': 'නොමිලේ, රහසිගත සහාය පැය 24 පුරා ලබාගත හැකියි. ඔබ දැන් අනතුරේ නම් 1990 අමතන්න.',
+      'call1926': '1926 අමතන්න',
+      'call1333': '1333 අමතන්න',
+      'danger': 'දැන් අනතුරේද? 1990 අමතන්න',
+      'dialog1926': 'ජාතික මානසික සෞඛ්‍ය උපකාරක අංකය (1926) අමතන්නද?',
+      'dialog1333': 'CCCline අර්බුද සහාය (1333) අමතන්නද?',
+      'dialogBody': 'මෙය අංකය ඇතුළත් කළ ඔබගේ දුරකථන ඩයලරය විවෘත කරයි. ඇමතුම ආරම්භ වන්නේ ඔබ ඇමතුම් බොත්තම එබූ විට පමණි.',
+    },
+    'ta': {
+      'title': 'இதை நீங்கள் தனியாக எதிர்கொள்ள வேண்டியதில்லை',
+      'body': 'இலவச, இரகசிய ஆதரவு 24 மணி நேரமும் கிடைக்கும். நீங்கள் இப்போது ஆபத்தில் இருந்தால் 1990 ஐ அழைக்கவும்.',
+      'call1926': '1926 ஐ அழைக்கவும்',
+      'call1333': '1333 ஐ அழைக்கவும்',
+      'danger': 'இப்போது ஆபத்தா? 1990 ஐ அழைக்கவும்',
+      'dialog1926': 'தேசிய மனநல உதவி எண்ணை (1926) அழைக்கவா?',
+      'dialog1333': 'CCCline நெருக்கடி ஆதரவை (1333) அழைக்கவா?',
+      'dialogBody': 'இது எண் உள்ளிடப்பட்ட உங்கள் தொலைபேசி டயலரைத் திறக்கும். அழைப்பு பொத்தானை அழுத்தும்போது மட்டுமே அழைப்பு தொடங்கும்.',
+    },
+  };
+
   String _emergencyText(String key) {
     return _emergencyStrings[_emergencyLanguage]?[key] ?? _emergencyStrings['en']![key]!;
   }
@@ -785,14 +854,19 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   };
 
   /// Asks for confirmation, then opens the dialer with 1990. Never places a call by itself.
-  Future<void> _callAmbulance() async {
+  Future<void> _callAmbulance() => _callNumber('1990');
+
+  /// Confirmation, then the dialer pre-filled with [number] (1990, 1926 or 1333). Never places a call.
+  Future<void> _callNumber(String number) async {
+    final isAmbulance = number == '1990';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         key: const Key('ai_emergency_call_dialog'),
-        icon: const Icon(Icons.emergency_rounded, color: Colors.red),
-        title: Text(_emergencyText('dialogTitle')),
-        content: Text(_emergencyText('dialogBody')),
+        icon: Icon(isAmbulance ? Icons.emergency_rounded : Icons.support_agent_rounded,
+            color: isAmbulance ? Colors.red : const Color(0xFF5B4B8A)),
+        title: Text(isAmbulance ? _emergencyText('dialogTitle') : _mentalHealthText('dialog$number')),
+        content: Text(isAmbulance ? _emergencyText('dialogBody') : _mentalHealthText('dialogBody')),
         actions: [
           TextButton(
             key: const Key('ai_emergency_call_cancel'),
@@ -810,10 +884,14 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    final opened = await (widget.emergencyDialer ?? EmergencyDialer.open)('1990');
+    final opened = await (widget.emergencyDialer ?? EmergencyDialer.open)(number);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_emergencyText('dialerFailed')), backgroundColor: AppTheme.error),
+        SnackBar(
+          content: Text(isAmbulance ? _emergencyText('dialerFailed')
+              : _emergencyText('dialerFailed').replaceAll('1990', number)),
+          backgroundColor: AppTheme.error,
+        ),
       );
     }
   }
@@ -1138,6 +1216,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   Widget _buildEmergencyBanner() {
+    if (_isMentalHealthCrisis) return _buildMentalHealthBanner();
     // The backend's urgencyReason is English only, so it is shown only in the English banner.
     final reason = _emergencyLanguage == 'en' ? _session?.urgencyReason?.trim() : null;
     return Container(
@@ -1188,8 +1267,96 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
+  static const Color _supportColor = Color(0xFF5B4B8A);
+
+  /// Calm, supportive banner for a mental-health crisis (Phase 01). 1926 is primary; 1990 stays available for
+  /// immediate danger, as the clinical requirement says escalation must not be removed.
+  Widget _buildMentalHealthBanner() {
+    return Container(
+      key: const Key('ai_mental_health_banner'),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: const Color(0xFFEDE9F6),
+      child: Row(
+        children: [
+          const Icon(Icons.favorite_rounded, color: _supportColor, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_mentalHealthText('title'),
+                    style: const TextStyle(color: _supportColor, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(_mentalHealthText('body'), style: const TextStyle(color: Color(0xFF3F3558), fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('ai_mental_health_call_1926'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _supportColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(72, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: () => _callNumber('1926'),
+            icon: const Icon(Icons.phone, size: 16),
+            label: const Text('1926', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Supportive actions under the latest self-harm reply (Phase 01).
+  Widget _buildMentalHealthMessageAction() {
+    return Padding(
+      key: const Key('ai_mental_health_actions'),
+      padding: const EdgeInsets.only(left: 40, bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ElevatedButton.icon(
+            key: const Key('ai_mental_health_message_call_1926'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _supportColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 46),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => _callNumber('1926'),
+            icon: const Icon(Icons.support_agent_rounded, size: 18),
+            label: Text(_mentalHealthText('call1926'), style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 6),
+          OutlinedButton.icon(
+            key: const Key('ai_mental_health_call_1333'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _supportColor,
+              minimumSize: const Size(double.infinity, 42),
+              side: const BorderSide(color: _supportColor),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => _callNumber('1333'),
+            icon: const Icon(Icons.phone_rounded, size: 16),
+            label: Text(_mentalHealthText('call1333')),
+          ),
+          TextButton.icon(
+            key: const Key('ai_mental_health_call_1990'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+            onPressed: () => _callNumber('1990'),
+            icon: const Icon(Icons.emergency_rounded, size: 16),
+            label: Text(_mentalHealthText('danger')),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Dedicated 1990 action shown under the latest emergency reply (BUG-042).
   Widget _buildEmergencyMessageAction() {
+    if (_isMentalHealthCrisis) return _buildMentalHealthMessageAction();
     return Padding(
       padding: const EdgeInsets.only(left: 40, bottom: 12),
       child: ElevatedButton.icon(
@@ -1243,6 +1410,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
 
     return ListView.builder(
       controller: _scrollController,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       itemCount: messages.length + 1, // +1 for conversational action widgets (cards/slots)
       itemBuilder: (context, index) {
@@ -1256,7 +1424,14 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             key: ValueKey(msg.id),
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildChatBubble(msg),
+              if (msg.id == _revealReplyId)
+                _RevealOnce(
+                  key: ValueKey('reveal_${msg.id}'),
+                  onRevealed: () => _revealReplyId = null,
+                  child: _buildChatBubble(msg),
+                )
+              else
+                _buildChatBubble(msg),
               if (!msg.isUser && msg.metadata?['type'] == 'emergency' && index == messages.length - 1)
                 _buildEmergencyMessageAction(),
               if (msg.metadata?['type'] == 'booking_confirmed' &&
@@ -2721,7 +2896,19 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
+  /// The composer row (attach, text field, send) is one tap group: a tap on Send must not count as "outside"
+  /// the text field. Otherwise the keyboard starts closing on pointer-down, the button moves away with the layout,
+  /// and the tap is lost (found on the emulator in Phase 01). Send dismisses the keyboard itself.
+  static const Object _composerTapGroup = #ai_composer_tap_group;
+
   Widget _buildInputArea({int maxLines = 4}) {
+    return TapRegion(
+      groupId: _composerTapGroup,
+      child: _buildInputAreaContent(maxLines: maxLines),
+    );
+  }
+
+  Widget _buildInputAreaContent({int maxLines = 4}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -2746,6 +2933,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             child: TextField(
               key: const Key('ai_care_assistant_input'),
               controller: _textController,
+              focusNode: _composerFocus,
+              groupId: _composerTapGroup,
+              onTapOutside: (_) => _composerFocus.unfocus(),
               minLines: 1,
               maxLines: maxLines,
               maxLength: 2000,
@@ -2790,4 +2980,38 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
       ),
     );
   }
+}
+
+
+/// Scrolls its child into view with the child's top at the top of the viewport, once, after the first layout
+/// (Phase 01: long replies are read from the start). It uses its own BuildContext, never a GlobalKey, and checks
+/// `mounted` because the route can be popped before the post-frame callback runs (BUG-015).
+class _RevealOnce extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onRevealed;
+
+  const _RevealOnce({super.key, required this.child, required this.onRevealed});
+
+  @override
+  State<_RevealOnce> createState() => _RevealOnceState();
+}
+
+class _RevealOnceState extends State<_RevealOnce> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onRevealed();
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

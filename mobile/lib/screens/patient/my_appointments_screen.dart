@@ -230,10 +230,10 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.videocam_rounded, size: 13, color: AppTheme.primaryBlue),
+                    const Icon(Icons.local_hospital_rounded, size: 13, color: AppTheme.primaryBlue),
                     const SizedBox(width: 4),
                     Text(
-                      isSi ? 'වීඩියෝ හමුව' : (isTa ? 'வீடியோ சந்திப்பு' : 'Video Visit'),
+                      isSi ? 'රෝහලේදී හමුව' : (isTa ? 'நேரில் சந்திப்பு' : 'In-person visit'),
                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.primaryBlue),
                     ),
                   ],
@@ -348,34 +348,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                   child: Text(isSi ? 'විස්තර බලන්න' : (isTa ? 'விவரங்களை பார்' : 'View Details'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
               ),
-              if (appt.isConfirmed) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryBlue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      minimumSize: const Size(0, 40),
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isSi
-                                ? 'වීඩියෝ කාමරය සැසියට මිනිත්තු 10කට පෙර විවෘත වේ.'
-                                : (isTa
-                                    ? 'ஆலோசனை அறை 10 நிமிடங்களுக்கு முன் திறக்கப்படும்.'
-                                    : 'Video session room opens 10 minutes prior to consultation.'),
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.videocam_rounded, size: 16),
-                    label: Text(isSi ? 'සම්බන්ධ වන්න' : (isTa ? 'இணையுங்கள்' : 'Join Call'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ],
+              // Phase 01: a "Join Call" video button was removed here; video channelling is not supported.
             ],
           ),
         ],

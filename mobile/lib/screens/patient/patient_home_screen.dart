@@ -13,12 +13,21 @@ import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
 import '../../widgets/server_settings_sheet.dart';
+import '../../models/appointment.dart';
 import '../../utils/assistant_navigation.dart';
+import '../../utils/emergency_dialer.dart';
+import '../../widgets/upcoming_appointment_card.dart';
 
 /// Patient Home Dashboard redesigned with Google Stitch Clinical Clarity design system.
 /// Single visible AI Entry Point: "MediConnect AI Assistant" (Phase 40 & Phase 41).
 class PatientHomeScreen extends StatefulWidget {
-  const PatientHomeScreen({super.key});
+  /// Loads the patient's appointments for the upcoming-appointment card; injected in tests.
+  final Future<List<Appointment>> Function()? appointmentsLoader;
+
+  /// Opens the dialer with an emergency number; injected in tests (never places a call).
+  final Future<bool> Function(String number)? emergencyDialer;
+
+  const PatientHomeScreen({super.key, this.appointmentsLoader, this.emergencyDialer});
 
   @override
   State<PatientHomeScreen> createState() => _PatientHomeScreenState();
@@ -398,17 +407,17 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           isSi
               ? 'හදිසි ජීවිතාරක්ෂක වෛද්‍ය ආධාර සඳහා සෘජු ඇමතුම් පහසුකම:\n\n'
                   '• ජාතික ගිලන්රථ සේවය: 1990\n'
-                  '• සාමාන්‍ය හදිසි ඇමතුම්: 119\n\n'
-                  'ඔබට දැන් හදිසි ඇමතුමක් ලබා ගැනීමට අවශ්‍යද?'
+                  '• පොලිස් හදිසි ඇමතුම්: 119\n\n'
+                  '1990 ඇතුළත් කළ දුරකථන ඩයලරය විවෘත කරන්නද? ඇමතුම ආරම්භ වන්නේ ඔබ ඇමතුම් බොත්තම එබූ විට පමණි.'
               : (isTa
                   ? 'உயிருக்கு ஆபத்தான அவசரநிலைகளுக்கு உடனடி உதவி:\n\n'
                       '• தேசிய ஆம்புலன்ஸ் சேவை: 1990\n'
-                      '• அவசர உதவி: 119\n\n'
-                      'இப்போது அவசர அழைப்பை மேற்கொள்ள விரும்புகிறீர்களா?'
+                      '• காவல்துறை அவசரம்: 119\n\n'
+                      '1990 உள்ளிடப்பட்ட டயலரைத் திறக்கவா? அழைப்பு பொத்தானை அழுத்தும்போது மட்டுமே அழைப்பு தொடங்கும்.'
                   : 'For acute, life-threatening medical emergencies, immediate dispatched assistance is available:\n\n'
                       '• National Ambulance Service: 1990\n'
-                      '• General Emergency: 911 / 119\n\n'
-                      'Would you like to initiate an emergency phone call now?'),
+                      '• Police emergency: 119\n\n'
+                      'Open your phone dialer with 1990 entered? The call starts only when you press call in the dialer.'),
           style: const TextStyle(fontSize: 14, height: 1.5),
         ),
         actions: [
@@ -422,18 +431,23 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () {
+            key: const Key('home_sos_open_dialer'),
+            // BUG-046 (Phase 01): this used to show "Calling National Ambulance Service (1990)..." without
+            // dialling. It now opens the dialer with 1990 (ACTION_DIAL never places a call by itself).
+            onPressed: () async {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    isSi
-                        ? 'ජාතික ගිලන්රථ සේවය අමතමින් (1990)...'
-                        : (isTa ? 'தேசிய ஆம்புலன்ஸ் சேவையை அழைக்கிறது (1990)...' : 'Calling National Ambulance Service (1990)...'),
+              final opened = await (widget.emergencyDialer ?? EmergencyDialer.open)('1990');
+              if (!opened && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isSi
+                        ? 'දුරකථන ඩයලරය විවෘත කළ නොහැකි විය. දැන්ම 1990 අමතන්න.'
+                        : (isTa ? 'டயலரைத் திறக்க முடியவில்லை. இப்போதே 1990 ஐ அழைக்கவும்.'
+                            : 'Could not open the phone dialer. Dial 1990 on your phone now.')),
+                    backgroundColor: AppTheme.error,
                   ),
-                  backgroundColor: AppTheme.error,
-                ),
-              );
+                );
+              }
             },
             icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
             label: Text(isSi ? '1990 අමතන්න' : (isTa ? '1990 ஐ அழைக்கவும்' : 'Call 1990')),
@@ -561,13 +575,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const StitchPulseBadge(
-                    label: 'VITALS: NORMAL',
-                    dotColor: AppTheme.success,
-                    backgroundColor: AppTheme.successContainer,
-                    textColor: AppTheme.stitchTertiary,
                   ),
                 ],
               ),
@@ -1002,192 +1009,16 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
   /// Upcoming Appointment Card
   Widget _buildUpcomingAppointmentCard(BuildContext context, AppLocalizations? l10n, LocaleProvider? localeProvider) {
-    final isDark = AppTheme.isDark(context);
-    final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
-    final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
-
-    return StitchCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                l10n?.upcomingAppointments ?? (isSi ? 'ඉදිරි වෛද්‍ය හමුවීම' : (isTa ? 'வரவிருக்கும் சந்திப்பு' : 'Upcoming Appointment')),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                ),
-              ),
-              InkWell(
-                key: const Key('patient_home_my_appointments_button'),
-                onTap: () {
-                  Navigator.of(context).pushNamed('/patient/my-appointments');
-                },
-                child: Text(
-                  l10n?.viewAll ?? (isSi ? 'සියල්ල බලන්න' : (isTa ? 'அனைத்தையும் பார்' : 'View all')),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryBlue,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.person_rounded, size: 30, color: AppTheme.primaryBlue),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(9999),
-                      ),
-                      child: Text(
-                        isSi ? 'හෙට • පෙ.ව. 10:30' : (isTa ? 'நாளை • மு.ப. 10:30' : 'Tomorrow • 10:30 AM'),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.onSecondaryContainer,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Dr. Alexander Wright',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      isSi ? 'හෘද රෝග විශේෂඥ • ශාන්ත ජූඩ් රෝහල' : (isTa ? 'இதய நிபுணர் • செயிண்ட் ஜூட் மருத்துவமனை' : 'Cardiologist • St. Jude Hospital'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Mode banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkSurfaceContainerLow : AppTheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      const Icon(Icons.videocam_rounded, size: 18, color: AppTheme.primaryBlue),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          isSi ? 'ආරක්ෂිත වීඩියෝ උපදේශනය' : (isTa ? 'பாதுகாப்பான வீடியோ ஆலோசனை' : 'Encrypted Video Consultation'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                StitchPulseBadge(
-                  label: isSi ? 'සූදානම්' : (isTa ? 'தயார்' : 'READY'),
-                  dotColor: AppTheme.success,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Actions
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                    side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.border, width: 1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    minimumSize: const Size(0, 42),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pushNamed('/patient/my-appointments');
-                  },
-                  icon: const Icon(Icons.event_repeat_rounded, size: 16),
-                  label: Text(
-                    l10n?.reschedule ?? (isSi ? 'කාලය වෙනස් කරන්න' : (isTa ? 'மறுதிட்டமிடு' : 'Reschedule')),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    minimumSize: const Size(0, 42),
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          isSi
-                              ? 'වීඩියෝ උපදේශන සබැඳිය සැසියට මිනිත්තු 10කට පෙර සක්‍රිය වේ.'
-                              : (isTa
-                                  ? 'வீடியோ ஆலோசனை இணைப்பு அமர்வுக்கு 10 நிமிடங்களுக்கு முன் தொடங்கும்.'
-                                  : 'Video consultation link will become active 10 minutes prior to session.'),
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.videocam_rounded, size: 18),
-                  label: Text(
-                    isSi ? 'සම්බන්ධ වන්න' : (isTa ? 'இணையுங்கள்' : 'Join Call'),
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+    // Phase 01: real appointments only. The previous card showed a fabricated "Dr. Alexander Wright" video
+    // consultation with a "Join Call" button; video channelling is not supported.
+    return UpcomingAppointmentCard(
+      loader: widget.appointmentsLoader,
+      title: l10n?.upcomingAppointments,
+      isSi: localeProvider?.currentLanguage == AppLanguage.sinhala,
+      isTa: localeProvider?.currentLanguage == AppLanguage.tamil,
     );
   }
 
-  /// Quick Services 2x2 Grid
   Widget _buildQuickServicesGrid(BuildContext context, AppLocalizations? l10n, LocaleProvider? localeProvider) {
     final isDark = AppTheme.isDark(context);
     final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
@@ -1315,7 +1146,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n?.prescriptions ?? (isSi ? 'බෙහෙත් වට්ටෝරු' : (isTa ? 'மருந்துகள்' : 'Prescriptions')),
+                    isSi ? 'බෙහෙත් සිහිකැඳවීම්' : (isTa ? 'மருந்து நினைவூட்டல்கள்' : 'Medicine Reminders'),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -1385,127 +1216,43 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
   /// Today's Vitals Tracking Bar
   Widget _buildVitalsTrackerCard(BuildContext context, LocaleProvider? localeProvider) {
-    final isDark = AppTheme.isDark(context);
+    // Phase 01: this card used to show invented readings and "Synced 12m ago". It now shows no values and
+    // points to Health Tracking, where the patient's real recorded measurements are listed.
     final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;
     final isTa = localeProvider?.currentLanguage == AppLanguage.tamil;
-
+    String t(String en, String si, String ta) => isSi ? si : (isTa ? ta : en);
     return StitchCard(
+      key: const Key('health_tracking_card'),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  isSi ? 'අද දින වැදගත් සලකුණු' : (isTa ? 'இன்றைய முக்கிய அறிகுறிகள்' : 'Today\'s Vitals'),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+      child: InkWell(
+        onTap: () => Navigator.of(context).pushNamed('/patient/health-tracking'),
+        child: Row(
+          children: [
+            const Icon(Icons.monitor_heart_outlined, color: AppTheme.primaryBlue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t('Health Tracking', 'සෞඛ්‍ය සටහන්', 'சுகாதார கண்காணிப்பு'),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text(
+                    t('Record and view your blood pressure, blood sugar and weight. Only readings you record are shown.',
+                      'ඔබේ රුධිර පීඩනය, රුධිර සීනි සහ බර සටහන් කර බලන්න. ඔබ සටහන් කළ දත්ත පමණක් පෙන්වයි.',
+                      'உங்கள் இரத்த அழுத்தம், சர்க்கரை மற்றும் எடையைப் பதிவுசெய்து பாருங்கள். நீங்கள் பதிவுசெய்தவை மட்டுமே காட்டப்படும்.'),
+                    style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                isSi ? 'මිනි. 12කට පෙර' : (isTa ? '12 நிமிடம் முன்' : 'Synced 12m ago'),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              // Heart rate
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.favorite_rounded, size: 14, color: AppTheme.error),
-                        const SizedBox(width: 4),
-                        Text(
-                          isSi ? 'හෘද ස්පන්දනය' : (isTa ? 'இதய துடிப்பு' : 'Heart Rate'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text('72', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
-                    Text('bpm', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
-                  ],
-                ),
-              ),
-              Container(width: 1, height: 40, color: isDark ? AppTheme.darkBorder : AppTheme.border),
-              // Blood pressure
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.speed_rounded, size: 14, color: AppTheme.primaryBlue),
-                        const SizedBox(width: 4),
-                        Text(
-                          isSi ? 'රුධිර පීඩනය' : (isTa ? 'இரத்த அழுத்தம்' : 'Blood Pres.'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text('118/78', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
-                    Text('mmHg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
-                  ],
-                ),
-              ),
-              Container(width: 1, height: 40, color: isDark ? AppTheme.darkBorder : AppTheme.border),
-              // Sleep
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.bedtime_rounded, size: 14, color: AppTheme.secondaryBlue),
-                        const SizedBox(width: 4),
-                        Text(
-                          isSi ? 'නින්ද' : (isTa ? 'தூக்கம்' : 'Sleep'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text('7h 45m', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)),
-                    Text(
-                      isSi ? 'සුවදායක' : (isTa ? 'ஆரோக்கியமானது' : 'Restorative'),
-                      style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
+          ],
+        ),
       ),
     );
   }
 
-  /// Additional Care Management features
   Widget _buildCareManagementCards(BuildContext context, AppLocalizations? l10n, LocaleProvider? localeProvider) {
     final isDark = AppTheme.isDark(context);
     final isSi = localeProvider?.currentLanguage == AppLanguage.sinhala;

@@ -76,13 +76,15 @@ class HealthAssistantAgent:
             clean_text, lang
         )
         # Multilingual, context-aware red-flag detection (BUG-013) supplements the legacy patterns.
-        from app.agents.emergency_detector import detect_emergency, emergency_message, recent_user_texts
+        from app.agents.emergency_detector import (
+            crisis_metadata, detect_emergency, emergency_message, informational_message, recent_user_texts,
+        )
 
         history = recent_user_texts({"messages": session_data["messages"][:-1]})
         emergency = detect_emergency(clean_text, history)
         if emergency.is_emergency:
             triage_level, triage_reason = TriageLevel.EMERGENCY, emergency.reason
-        elif emergency.suppressed in {"negated", "historical", "informational"} and triage_level == TriageLevel.EMERGENCY:
+        elif emergency.suppressed in {"negated", "historical", "informational", "hypothetical"} and triage_level == TriageLevel.EMERGENCY:
             # e.g. "I have no chest pain" or "what are the signs of a heart attack?"
             triage_level = TriageLevel.GENERAL_INFO
         if re.search(r"[a-z]{3,}", clean_text, re.I) and not re.search(r"[඀-෿]", clean_text):
@@ -113,6 +115,32 @@ class HealthAssistantAgent:
                     "emergencyNumber": "1990",
                     "reason": triage_reason,
                     "disclaimer": disclaimer_text,
+                    "clarifyingQuestions": [],
+                    "doctorReferrals": [],
+                    "recommendedSpecialty": None,
+                    "category": emergency.category if emergency.is_emergency else None,
+                    **(crisis_metadata(emergency) if emergency.is_emergency else {"crisisType": "medical"}),
+                },
+            })
+            return session_data
+
+        # Educational / hypothetical questions about an emergency condition: information with conditional
+        # escalation instead of the emergency path (Phase 01 false positive in the Health Chat too).
+        if emergency.suppressed in {"informational", "hypothetical"} and emergency.category:
+            session_data["triageLevel"] = TriageLevel.GENERAL_INFO.value
+            session_data["updatedAt"] = utc_now()
+            session_data["messages"].append({
+                "id": str(ObjectId()),
+                "sender": "assistant",
+                "content": informational_message(emergency, lang),
+                "timestamp": utc_now(),
+                "metadata": {
+                    "triageLevel": TriageLevel.GENERAL_INFO.value,
+                    "isUrgent": False,
+                    "conditionalEmergency": True,
+                    "emergencyNumber": "1990",
+                    "category": emergency.category,
+                    "disclaimer": SymptomTriageEngine.get_disclaimer(lang),
                     "clarifyingQuestions": [],
                     "doctorReferrals": [],
                     "recommendedSpecialty": None,

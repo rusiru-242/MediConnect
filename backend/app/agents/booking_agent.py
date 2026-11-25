@@ -31,8 +31,10 @@ from app.agents.doctor_ranking import (
 from app.agents import clinical_intent
 from app.agents.emergency_detector import (
     AMBULANCE_NUMBER,
+    crisis_metadata,
     detect_emergency,
     emergency_message,
+    informational_message,
     last_assistant_was_emergency,
     recent_user_texts,
 )
@@ -51,6 +53,9 @@ from app.services.doctor_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+# "Recommend a good doctor" shows the most suitable one or two by default (Phase 01 requirement).
+RECOMMENDATION_LIMIT = 2
 
 EMERGENCY_EN_ALERT = (
     "POTENTIAL MEDICAL EMERGENCY DETECTED: Symptoms such as sudden chest pain, breathing difficulty, "
@@ -149,12 +154,14 @@ class BookingAgent:
                     "reason": emergency.reason,
                     "category": emergency.category,
                     "fromContext": emergency.from_context,
+                    **crisis_metadata(emergency),
                 },
             })
             session_data["updatedAt"] = utc_now()
             return session_data
 
-        def reply(content: str, metadata: Dict[str, Any], *, intent_value: str) -> Dict[str, Any]:
+        def reply(content: str, metadata: Dict[str, Any], *, intent_value: str,
+                  preferences: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
             session_data["messages"].append({
                 "id": str(ObjectId()), "sender": "user", "content": clean_text, "timestamp": utc_now(),
                 "metadata": {"imageUrl": image_url} if image_url else None,
@@ -167,13 +174,35 @@ class BookingAgent:
             session_data["candidateSlots"] = []
             for key in ("activeMedicineCard", "activeWellnessCard", "activeImageAnalysis"):
                 session_data[key] = None
-            if turn_lang in ("si", "en"):
+            if preferences is not None:
+                session_data["preferences"] = {**preferences, "language": turn_lang if turn_lang in ("si", "en")
+                                               else preferences.get("language", "en")}
+            elif turn_lang in ("si", "en"):
                 session_data["preferences"] = {**previous_preferences, "language": turn_lang}
             session_data["updatedAt"] = utc_now()
             return session_data
 
         has_real_image = bool(image_bytes) or bool(image_url)
         reply_lang = "si" if turn_lang == "si" else "en"
+
+        # 1b. Educational or hypothetical questions about an emergency condition ("What are the common symptoms of a
+        #     heart attack?") get information plus conditional "if this is happening now, call 1990" guidance,
+        #     not an emergency alarm (Phase 01 false positives). Emergencies are never routed to booking here.
+        if not has_real_image and emergency.suppressed in {"informational", "hypothetical"} and emergency.category:
+            return reply(
+                informational_message(emergency, reply_lang),
+                {"type": "emergency_information", "category": emergency.category, "conditionalEmergency": True,
+                 "ambulanceCall": AMBULANCE_NUMBER, "questionType": emergency.suppressed},
+                intent_value="HEALTH_INFORMATION",
+            )
+
+        # 1c. General prevention / cause questions ("How can I prevent heart disease?") are health information,
+        #     not a doctor search.
+        if not has_real_image:
+            info = clinical_intent.general_health_information(clean_text, reply_lang)
+            if info is not None:
+                return reply(info["text"], {"type": "health_information", "topic": info["topic"]},
+                             intent_value="HEALTH_INFORMATION")
 
         # 2. Unauthorized prescription / exact-dose requests (BUG-018).
         if not has_real_image and clinical_intent.is_prescription_request(clean_text):
@@ -235,7 +264,10 @@ class BookingAgent:
         ):
             return await cls._patient_status_turn(db, patient_user, provider, session_data, clean_text)
         requested_time = extract_appointment_time(clean_text)
-        if (requested_time or parsed_delta.get("timeRange")) and parsed_delta.get("date") and (
+        date_refinement = bool(parsed_delta.get("date")) and bool(re.search(
+            r"\b(?:what|how)\s+about\b|\binstead\b|\bany\s+(?:slots?|doctors?|times?)\b|\bavailable\b",
+            clean_text, re.I)) and not re.search(r"\b(?:book|reserve|channel|confirm)\b", clean_text, re.I)
+        if not date_refinement and (requested_time or parsed_delta.get("timeRange")) and parsed_delta.get("date") and (
             intent == CompanionIntent.FIND_DOCTOR or patient_user and (prefs.get("specialty") or prefs.get("city"))
         ):
             intent = CompanionIntent.BOOK_APPOINTMENT
@@ -259,12 +291,40 @@ class BookingAgent:
                 logger.warning("Booking preference extraction failed (%s).", type(exc).__name__)
 
         for key, pattern in {
-            "doctorName": r"\bdr\.?\s+([\w .'-]+?)(?=\s+(?:in|at|near)\b|[?!,]|$)",
+            # Stops before "on <date>", "for", "tomorrow", month names... so "Dr. UAT Neuro on November 26"
+            # yields "UAT Neuro" (Phase 01 named-doctor slots request).
+            "doctorName": (r"\bdr\.?\s+([\w][\w.'-]*(?:\s+[\w][\w.'-]*){0,3}?)"
+                           r"(?=\s+(?:in|at|near|on|for|tomorrow|today|next|this|from|with|between|during|"
+                           r"jan\w*|feb\w*|mar\w*|apr\w*|may|jun\w*|jul\w*|aug\w*|sep\w*|oct\w*|nov\w*|dec\w*)\b"
+                           r"|\s*'s\b|[?!,]|\.(?:\s|$)|$)"),
             "hospital": r"\bat\s+([\w .'-]+(?:hospital|clinic|centre|center))\b",
         }.items():
             match = re.search(pattern, clean_text, re.IGNORECASE)
             if match:
                 prefs[key] = parsed_delta[key] = match.group(1).strip()[:100]
+
+        # Bounded LLM-assisted understanding (Phase 01): only for a message the deterministic parser could not turn
+        # into any search preference. Emergency, prescription and health-advice messages returned earlier and never
+        # reach the provider. The proposal is schema-validated and can only fill preferences (see intent_proposal).
+        searchable_keys = ("specialty", "city", "maxFee", "minRating", "sortBy", "doctorName", "hospital", "date")
+        if patient_user and not (image_url or image_bytes) and intent == CompanionIntent.FOLLOW_UP and not any(
+            parsed_delta.get(key) not in (None, "") for key in searchable_keys
+        ):
+            from app.agents.intent_proposal import propose_preferences
+
+            try:
+                proposal, proposal_source = await asyncio.wait_for(
+                    asyncio.to_thread(propose_preferences, provider, clean_text),
+                    timeout=settings.AI_TIMEOUT_SECONDS + 1,
+                )
+            except Exception as exc:
+                proposal, proposal_source = {}, "provider_unavailable"
+                logger.warning("Intent proposal timed out or failed (%s).", type(exc).__name__)
+            if proposal:
+                parsed_delta.update(proposal)
+                if proposal.get("specialty") or proposal.get("city"):
+                    intent = CompanionIntent.FIND_DOCTOR
+            session_data["understandingSource"] = proposal_source
 
         selection_text = re.sub(r"^(?:in|near|around)\s+", "", clean_text, flags=re.IGNORECASE)
         selection_text = selection_text.strip(".!? ").casefold()
@@ -282,11 +342,29 @@ class BookingAgent:
             or parsed_delta.get("sortBy") is not None
         )
         search_requested = search_requested or parsed_delta.get("minRating") is not None
+        has_search_context = bool(prefs.get("specialty") or prefs.get("city") or prefs.get("doctorName")
+                                  or session_data.get("candidateDoctors"))
+        selection_request = clinical_intent.wants_auto_selection(clean_text)
+        show_all_request = clinical_intent.wants_all_results(clean_text)
+        # "Show me all cardiologists in Colombo" names what to search for; the intent classifier labelled it FOLLOW_UP.
+        if parsed_delta.get("specialty") and (show_all_request or re.search(
+                r"\b(?:show|find|search|list|need|want|looking|get me|give me)\b", clean_text, re.I)):
+            search_requested = True
+        if has_search_context and (
+            selection_request or show_all_request
+            # "Search in Colombo instead." / "What about Kandy?" — a city alone in an unrelated question
+            # ("What is the weather in Colombo?") is not a search refinement.
+            or (parsed_delta.get("city") and re.search(
+                r"\b(?:search|find|look(?:ing)?|try|instead|show|switch|change|move|what about|how about|hoyanna|hoyala)\b",
+                clean_text, re.I))
+            or date_refinement                     # "What about tomorrow morning?"
+        ):
+            search_requested = True
         # A new search names a specialty, city or doctor; a message that only changes the budget,
         # rating or ordering ("mata 3000ta aduwen kenek hoyala denna") refines the previous search
         # and must keep the earlier specialty and location (BUG-001 conversation memory).
-        fresh_search = bool(parsed_delta.get("specialty") or parsed_delta.get("city")
-                            or parsed_delta.get("doctorName") or parsed_delta.get("hospital"))
+        fresh_search = bool(parsed_delta.get("specialty") or parsed_delta.get("doctorName") or parsed_delta.get("hospital")
+                            or (parsed_delta.get("city") and not has_search_context))
         if search_requested and fresh_search and re.search(
             r"\b(?:find|search(?: for)?|recommend|show me|look(?:ing)? for|hoyala|hoyanna)\b", clean_text, re.IGNORECASE,
         ):
@@ -334,7 +412,8 @@ class BookingAgent:
         # Locations MediConnect does not serve must not fall back to unrelated cities (BUG-011).
         unsupported = parsed_delta.get("unsupportedLocation")
         if unsupported and not parsed_delta.get("city"):
-            session_data["preferences"] = {**previous_preferences, "language": lang}
+            kept = {key: value for key, value in prefs.items() if key != "city"}
+            session_data["preferences"] = {**kept, "language": lang}
             return reply(
                 (f"MediConnect currently lists verified doctors in Sri Lanka only, so I can't search in \"{unsupported}\". "
                  "Supported areas include Colombo, Kandy, Galle, Gampaha, Negombo, Kurunegala, Matara and Jaffna. "
@@ -343,6 +422,7 @@ class BookingAgent:
                  "කොළඹ, මහනුවර, ගාල්ල, ගම්පහ, මීගමුව, කුරුණෑගල, මාතර, යාපනය වැනි නගරවල සෙවිය හැකියි. කුමන නගරයේ සොයන්නද?"),
                 {"type": "unsupported_location", "location": unsupported},
                 intent_value=CompanionIntent.FIND_DOCTOR.value,
+                preferences={**kept, "language": lang},
             )
 
         # Add user message to history
@@ -549,7 +629,11 @@ class BookingAgent:
         ordinal = parsed_delta.get("ordinalDoctorIndex")
         named = [doctor for doctor in candidate_doctors if mentions(doctor)]
         pending_action = session_data.pop("pendingDoctorAction", None)
-        if greeting or follow_up or (pending_action and (ordinal is not None or named)):
+        # A message that names a doctor who is not already a candidate ("Show me all available appointment slots for
+        # Dr. UAT Neuro on November 26, 2026") is a new search, not a follow-up about an earlier result
+        # (Phase 01: it used to ask "Which doctor should I look up?").
+        names_new_doctor = bool(parsed_delta.get("doctorName")) and not named
+        if not names_new_doctor and (greeting or follow_up or (pending_action and (ordinal is not None or named))):
             session_data["preferences"] = {**previous_preferences, "language": lang}
             metadata = {"type": "clarification_needed"}
             if greeting:
@@ -815,13 +899,21 @@ class BookingAgent:
                     symptoms = prefs.get("symptoms") if isinstance(prefs.get("symptoms"), str) else None
                     explanation = clinical_intent.specialty_explanation(prefs["specialty"], symptoms, lang)
                 metadata: Dict[str, Any] = {"type": "doctor_options", "count": len(doctors), "doctors": doctors}
-                if clinical_intent.wants_auto_selection(clean_text):
+                if selection_request:
                     # BUG-010: pick one doctor from the ranked, constraint-satisfying list. No booking or payment.
                     selected = doctors[0]
                     assistant_msg = selection_explanation(selected, doctors, prefs, lang)
                     metadata = {"type": "doctor_auto_selected", "count": 1, "doctors": [selected],
                                 "selectedDoctorId": selected["doctorId"], "consideredCount": len(doctors)}
                     session_data["autoSelectedDoctorId"] = selected["doctorId"]
+                elif (clinical_intent.wants_recommendation(clean_text) and not show_all_request
+                      and len(doctors) > RECOMMENDATION_LIMIT):
+                    # "Recommend a good doctor": the most suitable one or two, not a long list. All matches stay
+                    # in candidateDoctors so "show all" or a selection follow-up can use them.
+                    shown = doctors[:RECOMMENDATION_LIMIT]
+                    metadata = {"type": "doctor_options", "count": len(shown), "doctors": shown,
+                                "totalMatches": len(doctors), "limitedToTop": RECOMMENDATION_LIMIT}
+                    assistant_msg = cls._build_recommendation_message(shown, doctors, prefs, lang)
                 elif grounded_reply and lang == "en":
                     assistant_msg = grounded_reply
                 else:
@@ -1129,6 +1221,20 @@ class BookingAgent:
             f"I found {count} verified {noun}{location} matching your search. "
             "Select a doctor to view their profile or check appointment slots."
         )
+
+    @classmethod
+    def _build_recommendation_message(cls, shown: List[Dict[str, Any]], pool: List[Dict[str, Any]],
+                                      prefs: Dict[str, Any], lang: str) -> str:
+        from app.agents.doctor_ranking import DEFAULT_BASIS, SORT_LABELS
+        basis = SORT_LABELS.get(prefs.get("sortBy"), DEFAULT_BASIS)
+        if lang == "si":
+            return (f"ඔබේ කොන්දේසි සපුරාලන වෛද්‍යවරුන් {len(pool)} දෙනා අතරින් වඩාත් ගැළපෙන {len(shown)} දෙනා මෙන්න "
+                    f"(ශ්‍රේණිගත කිරීමේ පදනම: {basis}). සියල්ල බැලීමට 'show all' ලෙස කියන්න. "
+                    "මෙය පැතිකඩ තොරතුරු මත පදනම් වූවකි; සායනික දක්ෂතාව පිළිබඳ තක්සේරුවක් නොවේ.")
+        names = " and ".join(f"**{doctor['fullName']}**" for doctor in shown)
+        return (f"From {len(pool)} verified doctors that meet your requirements, my top {len(shown)} are {names}, "
+                f"ranked by {basis}. Say \"show all\" to see every match. This is based on listed profile "
+                "information, not a judgement of clinical quality. Nothing has been booked.")
 
     @staticmethod
     def _format_fee(doctor: Dict[str, Any]) -> str:
