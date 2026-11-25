@@ -496,3 +496,116 @@ def test_p02n06_booking_action_in_draft_chat_is_not_reused_as_new_chat(db):
     client.post(f"/api/ai/booking/sessions/{cid}/select-doctor", json={"doctorId": doctor["doctorId"]}, headers=_auth(patient))
     assert db["booking_sessions"].find_one({"_id": ObjectId(cid)})["draft"] is False
     assert _conversation(patient) != cid  # "New Chat" starts clean instead of reopening the booking
+
+
+# ---------------------------------------------------------------------------------------------- video removal (BUG-056)
+def test_bug056_care_plans_accept_in_person_only_and_migration_is_reversible(db):
+    from app.services.care_plan_service import _in_person_only
+    from scripts.migrate_consultation_type_in_person import run
+    assert _in_person_only(None) == "IN_PERSON" and _in_person_only("IN_PERSON") == "IN_PERSON"
+    for value in ("VIDEO", "AUDIO"):
+        with pytest.raises(HTTPException) as exc:
+            _in_person_only(value)
+        assert exc.value.status_code == 422
+    marker = f"p02mig_{uuid.uuid4().hex[:8]}"
+    ids = [db["care_plans"].insert_one({"patientUserId": marker, "recommendedConsultationType": t}).inserted_id
+           for t in ("VIDEO", "AUDIO", "IN_PERSON")]
+    dry = run(db, "dry-run")
+    assert dry["matching"] >= 2
+    assert db["care_plans"].find_one({"_id": ids[0]})["recommendedConsultationType"] == "VIDEO"  # dry run changes nothing
+    run(db, "apply")
+    migrated = db["care_plans"].find_one({"_id": ids[0]})
+    assert migrated["recommendedConsultationType"] == "IN_PERSON" and migrated["legacyConsultationType"] == "VIDEO"
+    run(db, "revert")
+    assert [db["care_plans"].find_one({"_id": i})["recommendedConsultationType"] for i in ids] == ["VIDEO", "AUDIO", "IN_PERSON"]
+    assert "legacyConsultationType" not in db["care_plans"].find_one({"_id": ids[1]})
+    db["care_plans"].delete_many({"patientUserId": marker})
+
+
+def test_bug056_new_appointments_are_in_person(db):
+    patient, doctor = _make_test_patient(db, "P02Vis"), _make_test_doctor(db, "P02VisDoc")
+    appt = _hold(db, patient, doctor, _make_future_availability(db, doctor, 6))
+    assert client.get(f"/api/appointments/{appt.id}", headers=_auth(patient)).json()["visitType"] == "IN_PERSON"
+
+
+# ---------------------------------------------------------------------------------------------- P02-N10 / renewals
+def test_p02n10_released_or_cancelled_booking_grants_no_record_access(db):
+    from app.services.clinical_safety_service import ClinicalSafetyService
+    patient, doctor = _make_test_patient(db, "P02Rel10"), _make_test_doctor(db, "P02Rel10Doc")
+    avail = _make_future_availability(db, doctor, 6)
+    held = _hold(db, patient, doctor, avail)
+    for state in ("PENDING", "CANCELLED"):
+        db["appointments"].update_one({"_id": ObjectId(held.id)}, {"$set": {"status": state}})
+        with pytest.raises(HTTPException) as exc:
+            ClinicalSafetyService.verify_doctor_patient_care_relationship(db, doctor["id"], patient["id"])
+        assert exc.value.status_code == 403
+    res = client.get(f"/api/clinical/measurements/trends?patientId={patient['id']}", headers=_auth(doctor))
+    assert res.status_code == 403
+    db["appointments"].update_one({"_id": ObjectId(held.id)}, {"$set": {"status": "CONFIRMED"}})
+    assert ClinicalSafetyService.verify_doctor_patient_care_relationship(db, doctor["id"], patient["id"]) is True
+
+
+def _renewal_setup(db, suffix):
+    patient, doctor = _make_test_patient(db, suffix), _make_test_doctor(db, suffix + "Doc")
+    db["appointments"].insert_one({"patientUserId": patient["id"], "doctorUserId": doctor["id"],
+                                   "doctorProfileId": doctor["profileId"], "appointmentDate": "2026-01-02",
+                                   "startTime": "09:00", "status": "COMPLETED", "createdAt": utc_now()})
+    rx = client.post("/api/clinical/prescriptions/sign", headers=_auth(doctor), json={
+        "patientUserId": patient["id"], "medicationItems": [{
+            "medicationName": "Synthetic P02", "strength": "5 mg", "dose": "1 tablet", "route": "Oral",
+            "frequency": "Once daily", "duration": "30 days", "quantity": "30 tablets"}]})
+    assert rx.status_code == 201, rx.text
+    req = client.post("/api/clinical/prescriptions/renewals", headers=_auth(patient), json={
+        "originalPrescriptionId": rx.json()["prescriptionId"], "medicationName": "Synthetic P02",
+        "patientReason": "Synthetic renewal request."})
+    assert req.status_code == 201, req.text
+    return patient, doctor, req.json()["renewalId"]
+
+
+def test_renewal_notifies_prescriber_and_only_prescriber_reviews_once(db):
+    patient, doctor, renewal_id = _renewal_setup(db, "P02Ren")
+    assert db["notifications"].find_one({"recipientUserId": doctor["id"], "title": "Prescription renewal request"})
+    other = _make_test_doctor(db, "P02RenOther")
+    body = {"decision": "approve", "reason": "Synthetic approval for testing."}
+    assert client.post(f"/api/clinical/prescriptions/renewals/{renewal_id}/review", headers=_auth(other),
+                       json=body).status_code == 403
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        codes = list(pool.map(lambda _: client.post(f"/api/clinical/prescriptions/renewals/{renewal_id}/review",
+                                                    headers=_auth(doctor), json=body).status_code, range(3)))
+    assert codes.count(200) == 1, codes
+    renewal = db["prescription_renewals"].find_one({"renewalId": renewal_id})
+    assert renewal["status"] == "approved" and "reviewLock" not in renewal
+    issued = db["prescriptions"].count_documents({"patientUserId": patient["id"]})
+    assert issued == 2  # the original plus exactly one renewal prescription
+    assert db["notifications"].find_one({"recipientUserId": patient["id"], "title": "Prescription renewal update"})
+
+
+# ---------------------------------------------------------------------------------------------- durable scheduler
+def test_scheduler_concurrent_workers_deliver_one_reminder_and_survive_restart(db, monkeypatch):
+    from app.services import care_scheduler as scheduler
+    scheduler.create_indexes(db)
+    pushes = []
+    monkeypatch.setattr(scheduler.NotificationService, "_send_fcm_push",
+                        lambda _db, user_id, *a, **k: pushes.append(user_id) or "accepted")
+    monkeypatch.setattr(scheduler, "twilio_config", lambda: ("", "", ""))
+    patient, doctor = _make_test_patient(db, "P02Sched"), _make_test_doctor(db, "P02SchedDoc")
+    now = datetime.now(SL_TIMEZONE).replace(second=0, microsecond=0)
+    starts = now + timedelta(hours=2) - timedelta(minutes=1)  # the 2-hour reminder became due one minute ago
+    appt = db["appointments"].insert_one({
+        "patientUserId": patient["id"], "doctorUserId": doctor["id"], "doctorProfileId": doctor["profileId"],
+        "appointmentDate": starts.date().isoformat(), "startTime": starts.strftime("%H:%M"), "status": "CONFIRMED",
+        "appointmentVersion": 1, "paymentStatus": "PAID", "createdAt": utc_now()}).inserted_id
+    when = now.astimezone(SL_TIMEZONE)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(lambda _: scheduler.run_scheduler(db, when), range(4)))
+    events = list(db["care_reminder_events"].find({"sourceId": str(appt), "kind": "appointment"}))
+    assert len(events) == 1 and events[0]["state"] == "processed"
+    notices = db["notifications"].count_documents({"relatedCareEventId": events[0]["_id"]})
+    assert notices == 1 and pushes.count(patient["id"]) == 1  # other due test data may also be processed
+    # "Restart": a fresh scheduler run later must not deliver it again.
+    scheduler.run_scheduler(db, when + timedelta(minutes=5))
+    assert db["notifications"].count_documents({"relatedCareEventId": events[0]["_id"]}) == 1
+    assert pushes.count(patient["id"]) == 1
+    # Cancelling the appointment cancels a not-yet-sent reminder for it (the 24h one is already past here).
+    db["appointments"].update_one({"_id": appt}, {"$set": {"status": "CANCELLED"}})
+    assert list(scheduler.rows(db, when, when + timedelta(seconds=1), patient["id"])) == []

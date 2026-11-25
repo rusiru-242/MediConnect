@@ -1,11 +1,12 @@
 """Refund service: deterministic policy evaluation, state transitions, and Stripe execution (Phase 5)."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 from bson import ObjectId
 from fastapi import HTTPException, status
+from pymongo import ReturnDocument
 from pymongo.database import Database
 import stripe
 
@@ -324,14 +325,20 @@ class RefundService:
             raise HTTPException(status_code=400, detail="The refund cannot exceed the captured amount still refundable.")
 
         # Atomic claim: only one approval can move this request into PROCESSING (no duplicate Stripe refunds).
+        # A PROCESSING claim can be retaken only when it is stale (a request that crashed mid-way); a live
+        # concurrent approval is rejected. Stripe's idempotency key makes the retaken call return the same refund.
+        stale_before = utc_now() - timedelta(minutes=2)
         claimed = db["refund_requests"].update_one(
-            {"_id": r["_id"], "status": {"$in": [RefundStatus.REQUESTED.value, RefundStatus.UNDER_REVIEW.value,
-                                                 RefundStatus.FAILED.value]}},
+            {"_id": r["_id"], "$or": [
+                {"status": {"$in": [RefundStatus.REQUESTED.value, RefundStatus.UNDER_REVIEW.value,
+                                    RefundStatus.FAILED.value]}},
+                {"status": RefundStatus.PROCESSING.value, "updatedAt": {"$lt": stale_before}},
+            ]},
             {"$set": {"status": RefundStatus.PROCESSING.value, "adminReviewerId": str(admin_user_id),
                       "reviewNotes": notes, "approvedAmount": amount_to_refund, "updatedAt": utc_now()}},
         )
-        if not claimed.matched_count and current_status != RefundStatus.PROCESSING.value:
-            raise HTTPException(status_code=409, detail="This refund request changed. Refresh it.")
+        if not claimed.matched_count:
+            raise HTTPException(status_code=409, detail="This refund request is already being processed or changed.")
 
         amount_minor = int(round(amount_to_refund * 100))
         try:
@@ -366,13 +373,17 @@ class RefundService:
                       **({"completedAt": now} if new_status == RefundStatus.SUCCEEDED.value else {})}},
         )
         if new_status == RefundStatus.SUCCEEDED.value:
-            refunded_total = round(already + amount_to_refund, 2)
+            # Exactly once per refund request: the refund id guards the increment.
+            updated_payment = db["payments"].find_one_and_update(
+                {"_id": payment["_id"], "refundRequestIds": {"$ne": r["refundId"]}},
+                {"$inc": {"refundedAmount": amount_to_refund}, "$push": {"refundRequestIds": r["refundId"]},
+                 "$set": {"updatedAt": now}},
+                return_document=ReturnDocument.AFTER,
+            ) or db["payments"].find_one({"_id": payment["_id"]})
+            refunded_total = round(float(updated_payment.get("refundedAmount") or 0.0), 2)
             full = refunded_total >= captured
-            db["payments"].update_one(
-                {"_id": payment["_id"]},
-                {"$set": {"refundedAmount": refunded_total, "updatedAt": now,
-                          **({"status": PaymentStatus.REFUNDED.value} if full else {})}},
-            )
+            if full:
+                db["payments"].update_one({"_id": payment["_id"]}, {"$set": {"status": PaymentStatus.REFUNDED.value}})
             if full and ObjectId.is_valid(r["appointmentId"]):
                 db["appointments"].update_one(
                     {"_id": ObjectId(r["appointmentId"])},

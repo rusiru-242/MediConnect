@@ -77,7 +77,7 @@ class CarePlanDocument(BaseModel):
     # Clinical details
     reason: str = Field(..., min_length=3, max_length=300, description="Reason for follow-up")
     instructions: str = Field(..., min_length=5, max_length=2000, description="Clinical care instructions")
-    recommendedConsultationType: str = Field(default="IN_PERSON", description="IN_PERSON, VIDEO, or AUDIO")
+    recommendedConsultationType: str = Field(default="IN_PERSON", description="IN_PERSON (in-person visits only; VIDEO/AUDIO kept only on historical records)")
 
     # Actionable items & records
     tasks: List[CareTask] = Field(default_factory=list, description="Non-medication tasks for patient")

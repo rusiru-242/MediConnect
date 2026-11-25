@@ -187,14 +187,22 @@ def root() -> Dict[str, str]:
 def health_check() -> Dict[str, Any]:
     """Report API and database connectivity without exposing sensitive configuration."""
     db_health = check_database_connection()
+    database = {
+        "connected": db_health["connected"],
+        "status": db_health["status"],
+        "message": db_health["message"],
+    }
+    if (settings.ENVIRONMENT or "").lower() != "production":
+        # Lets integration tests refuse to run against anything but an isolated local test database
+        # (Phase 02). A boolean only: no database name, host or URI is exposed.
+        from urllib.parse import urlsplit
+        host = (urlsplit(settings.MONGODB_URI or "").hostname or "").lower()
+        name = (settings.DATABASE_NAME or "").strip()
+        database["isolatedTestData"] = host in {"localhost", "127.0.0.1"} and name.endswith(("_uat", "_test"))
     return {
         "status": "healthy" if db_health["connected"] else "degraded",
         "api": "healthy",
-        "database": {
-            "connected": db_health["connected"],
-            "status": db_health["status"],
-            "message": db_health["message"],
-        },
+        "database": database,
         "environment": settings.ENVIRONMENT,
     }
 

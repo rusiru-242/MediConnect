@@ -11,6 +11,8 @@ Implements:
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 import uuid
+import logging
+
 
 from bson import ObjectId
 from fastapi import HTTPException, status
@@ -40,6 +42,8 @@ from app.schemas.clinical_workflow import (
 )
 from app.schemas.user import UserResponseSchema
 from app.services.clinical_safety_service import ClinicalSafetyService
+
+logger = logging.getLogger(__name__)
 
 
 class PrescriptionWorkflowService:
@@ -237,6 +241,17 @@ class PrescriptionWorkflowService:
         )
 
         inserted = renewal_coll.insert_one(renewal_doc.model_dump(by_alias=True, exclude_none=True))
+        try:  # Phase 02: the prescribing doctor is told a review is waiting (no medicine name in the push text)
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+            NotificationService.create_notification(
+                db=db, recipient_user_id=str(rx["doctorUserId"]), type=NotificationType.SYSTEM,
+                title="Prescription renewal request",
+                body="A patient has requested a prescription renewal. Open the renewal queue to review it.",
+                idempotency_key=f"renewal_requested_{renewal_id}",
+            )
+        except Exception as notif_err:
+            logger.warning("Renewal request notification failed (%s).", type(notif_err).__name__)
 
         return cls._to_renewal_response(renewal_doc, str(inserted.inserted_id), patient_user.fullName)
 
@@ -297,13 +312,24 @@ class PrescriptionWorkflowService:
             raise HTTPException(status_code=404, detail="Prescription renewal request not found.")
 
         if doc["doctorUserId"] != doc_user_id:
-            # Check care relationship if reassigned
-            ClinicalSafetyService.verify_doctor_patient_care_relationship(db, doc_user_id, doc["patientUserId"])
+            # Only the prescribing doctor decides a renewal (Phase 02); there is no reassignment workflow.
+            raise HTTPException(status_code=403, detail="Only the prescribing doctor can review this renewal.")
 
         if doc["status"] not in {RenewalStatus.REQUESTED.value, RenewalStatus.AWAITING_REVIEW.value}:
             raise HTTPException(status_code=400, detail=f"Renewal request is already finalized with status '{doc['status']}'.")
+        if req.decision not in {"approve", "reject", "needs_consultation"}:
+            raise HTTPException(status_code=400, detail="Invalid renewal review decision.")
 
+        # Atomic claim: concurrent reviews cannot both issue a prescription.
         now = utc_now()
+        lock = uuid.uuid4().hex
+        claimed = coll.update_one(
+            {"_id": doc["_id"], "status": {"$in": [RenewalStatus.REQUESTED.value, RenewalStatus.AWAITING_REVIEW.value]},
+             "$or": [{"reviewLock": {"$exists": False}}, {"reviewLockAt": {"$lt": now - timedelta(minutes=2)}}]},
+            {"$set": {"reviewLock": lock, "reviewLockAt": now}},
+        )
+        if not claimed.matched_count:
+            raise HTTPException(status_code=409, detail="This renewal is already being reviewed.")
         resulting_rx_id = None
 
         if req.decision == "approve":
@@ -318,8 +344,9 @@ class PrescriptionWorkflowService:
             raise HTTPException(status_code=400, detail="Invalid renewal review decision.")
 
         coll.update_one(
-            {"_id": doc["_id"]},
+            {"_id": doc["_id"], "reviewLock": lock},
             {
+                "$unset": {"reviewLock": "", "reviewLockAt": ""},
                 "$set": {
                     "status": new_status,
                     "doctorDecisionReason": req.reason.strip(),
@@ -334,6 +361,19 @@ class PrescriptionWorkflowService:
         )
 
         updated = coll.find_one({"_id": doc["_id"]})
+        try:  # the patient learns the decision; the reason is shown in the app, not in the push text
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+            NotificationService.create_notification(
+                db=db, recipient_user_id=str(doc["patientUserId"]), type=NotificationType.SYSTEM,
+                title="Prescription renewal update",
+                body={"approved": "Your prescription renewal was approved by your doctor.",
+                      "rejected": "Your doctor did not approve the renewal. Open MediConnect for the explanation.",
+                      }.get(new_status, "Your doctor asked for a consultation before renewing. Open MediConnect for details."),
+                idempotency_key=f"renewal_decided_{doc['_id']}",
+            )
+        except Exception as notif_err:
+            logger.warning("Renewal decision notification failed (%s).", type(notif_err).__name__)
         return cls._to_renewal_response(
             PrescriptionRenewalDocument.model_validate(updated),
             str(updated["_id"]),

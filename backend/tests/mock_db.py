@@ -221,6 +221,15 @@ class MockCollection:
             return UpdateResult(0, 1)
         return UpdateResult(0, 0)
 
+    def find_one_and_update(self, query: Dict[str, Any], update: Dict[str, Any], return_document=None, **_):
+        """Minimal pymongo-compatible find_one_and_update (BEFORE by default, AFTER when requested)."""
+        for d in self.docs:
+            if match_doc(d, query):
+                before = copy.deepcopy(d)
+                self._apply_update(d, update)
+                return copy.deepcopy(d) if return_document else before
+        return None
+
     def update_many(self, query: Dict[str, Any], update: Dict[str, Any]):
         cnt = 0
         for d in self.docs:

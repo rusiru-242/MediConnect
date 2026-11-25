@@ -124,6 +124,13 @@ def _doc_to_response(db: Database, doc: Dict[str, Any]) -> CarePlanResponse:
     )
 
 
+
+def _in_person_only(value):
+    """MediConnect supports in-person visits only (Phase 02): new care plans cannot recommend video/audio."""
+    if value in (None, "", "IN_PERSON"):
+        return "IN_PERSON"
+    raise HTTPException(status_code=422, detail="MediConnect supports in-person visits only.")
+
 class CarePlanService:
     """Business logic for Smart Follow-up Care Plans."""
 
@@ -240,7 +247,7 @@ class CarePlanService:
             followUpDateEnd=req.followUpDateEnd,
             reason=req.reason.strip(),
             instructions=req.instructions.strip(),
-            recommendedConsultationType=req.recommendedConsultationType or "IN_PERSON",
+            recommendedConsultationType=_in_person_only(req.recommendedConsultationType),
             tasks=task_objs,
             linkedPrescriptionIds=req.linkedPrescriptionIds or [],
             linkedMedicalRecordIds=req.linkedMedicalRecordIds or [],
@@ -410,6 +417,9 @@ class CarePlanService:
             audit_notes.append(f"Follow-up reason updated: {req.reason.strip()}")
 
         if req.recommendedConsultationType:
+            # In-person only (Phase 02). An unchanged historical value is left as it is; nothing new is accepted.
+            if req.recommendedConsultationType != "IN_PERSON" and                     req.recommendedConsultationType != doc.get("recommendedConsultationType"):
+                raise HTTPException(status_code=422, detail="MediConnect supports in-person visits only.")
             update_fields["recommendedConsultationType"] = req.recommendedConsultationType
 
         # Tasks update
