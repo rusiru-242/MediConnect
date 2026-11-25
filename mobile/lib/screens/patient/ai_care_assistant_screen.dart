@@ -720,9 +720,21 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     return session.isUrgent || session.activeIntent == 'EMERGENCY_GUIDANCE';
   }
 
-  /// Language for emergency UI: the conversation language when the patient wrote in Sinhala or
-  /// Tamil, otherwise the app locale.
+  static final RegExp _sinhalaScript = RegExp(r'[඀-෿]');
+  static final RegExp _tamilScript = RegExp(r'[஀-௿]');
+
+  /// Language for emergency UI. The backend answers a Romanized Sinhala emergency in Sinhala but
+  /// keeps `preferences.language = en`, so the script of the latest emergency reply decides first;
+  /// then the conversation language; then the app locale.
   String get _emergencyLanguage {
+    final messages = _session?.messages ?? const <ChatMessage>[];
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final m = messages[i];
+      if (m.isUser || m.metadata?['type'] != 'emergency') continue;
+      if (_sinhalaScript.hasMatch(m.content)) return 'si';
+      if (_tamilScript.hasMatch(m.content)) return 'ta';
+      break;
+    }
     final conversation = _session?.preferences.language;
     if (conversation == 'si' || conversation == 'ta') return conversation!;
     final app = Localizations.maybeLocaleOf(context)?.languageCode;
@@ -1021,41 +1033,78 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Stitch Clinical Clarity Informational Disclaimer Banner
-            _buildStitchDisclaimerBanner(),
-
-            // Emergency Red-Flag Banner
-            if (_isEmergencyActive) _buildEmergencyBanner(),
-
-            // Error banner if any
-            if (_errorMessage != null) _buildErrorBanner(),
-
-            // Main chat conversation list
-            Expanded(
-              child: _isLoading && _session == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildConversationView(),
-            ),
-
-            // Quick suggestion prompt chips: routine booking suggestions are hidden during an
-            // emergency so they do not compete with the 1990 guidance (BUG-042).
-            if (_session != null &&
-                !_isEmergencyActive &&
-                (_session!.isCollectingPreferences || _session!.isSearchingDoctors))
-              _buildQuickPromptsBar(),
-
-            // Selected Image Preview chip if attached
-            if (_selectedImageBytes != null) _buildSelectedImagePreview(),
-
-            // Upload & analysis progress stays visible above the composer (BUG-026)
-            if (_isUploadingImage) _buildUploadProgress(),
-
-            // Bottom Chat Input Bar
-            _buildInputArea(),
-          ],
+        // The composer must always fit (BUG-014 "composer disappears"). On the emulator, landscape
+        // with the keyboard open left about 64 px for the body, and the fixed-height banners
+        // pushed the composer off-screen (RenderFlex overflow). Everything except the conversation
+        // list and the composer therefore gets a capped, scrollable share of the height.
+        child: LayoutBuilder(
+          builder: (context, constraints) => _buildBody(constraints.maxHeight),
         ),
+      ),
+    );
+  }
+
+  /// Body heights below this show only the conversation and the composer (for example landscape
+  /// with the keyboard open). The banners return as soon as there is room again.
+  static const double _tightBodyHeight = 240;
+
+  /// Body heights below this hide the quick-prompt chips (about 86 px).
+  static const double _compactBodyHeight = 420;
+
+  Widget _buildBody(double height) {
+    final tight = height < _tightBodyHeight;
+    final compact = height < _compactBodyHeight;
+
+    final header = <Widget>[
+      // Stitch Clinical Clarity Informational Disclaimer Banner
+      if (!compact || !_isEmergencyActive) _buildStitchDisclaimerBanner(),
+      // Emergency Red-Flag Banner
+      if (_isEmergencyActive) _buildEmergencyBanner(),
+      // Error banner if any
+      if (_errorMessage != null) _buildErrorBanner(),
+    ];
+
+    final attachments = <Widget>[
+      // Selected Image Preview chip if attached
+      if (_selectedImageBytes != null) _buildSelectedImagePreview(),
+      // Upload & analysis progress stays visible above the composer (BUG-026)
+      if (_isUploadingImage) _buildUploadProgress(),
+    ];
+
+    // Quick suggestion prompt chips: routine booking suggestions are hidden during an emergency
+    // so they do not compete with the 1990 guidance (BUG-042).
+    final showQuickPrompts = !compact &&
+        _session != null &&
+        !_isEmergencyActive &&
+        (_session!.isCollectingPreferences || _session!.isSearchingDoctors);
+
+    return Column(
+      children: [
+        if (!tight && header.isNotEmpty) _cappedSection(header, height * 0.35),
+
+        // Main chat conversation list
+        Expanded(
+          child: _isLoading && _session == null
+              ? const Center(child: CircularProgressIndicator())
+              : _buildConversationView(),
+        ),
+
+        if (showQuickPrompts) _buildQuickPromptsBar(),
+
+        if (!tight && attachments.isNotEmpty) _cappedSection(attachments, height * 0.3),
+
+        // Bottom Chat Input Bar: the only fixed-height child, so it always fits.
+        _buildInputArea(maxLines: tight ? 1 : 4),
+      ],
+    );
+  }
+
+  /// A section that takes at most [maxHeight] and scrolls when its content is taller.
+  Widget _cappedSection(List<Widget> children, double maxHeight) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
   }
@@ -1089,7 +1138,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
   }
 
   Widget _buildEmergencyBanner() {
-    final reason = _session?.urgencyReason?.trim();
+    // The backend's urgencyReason is English only, so it is shown only in the English banner.
+    final reason = _emergencyLanguage == 'en' ? _session?.urgencyReason?.trim() : null;
     return Container(
       key: const Key('ai_emergency_banner'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2671,7 +2721,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
-  Widget _buildInputArea() {
+  Widget _buildInputArea({int maxLines = 4}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -2697,7 +2747,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
               key: const Key('ai_care_assistant_input'),
               controller: _textController,
               minLines: 1,
-              maxLines: 4,
+              maxLines: maxLines,
               maxLength: 2000,
               textInputAction: TextInputAction.send,
               decoration: InputDecoration(

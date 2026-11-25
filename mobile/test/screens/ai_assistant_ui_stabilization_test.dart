@@ -24,7 +24,8 @@ const _emergencyReason = 'Possible heart-related emergency (chest pain or pressu
 
 /// Mirrors the UAT backend response captured on 2026-11-25 for
 /// "I have severe chest pain and cannot breathe".
-BookingSession _emergencySession(BookingSession base, String userText, {String language = 'en'}) {
+BookingSession _emergencySession(BookingSession base, String userText,
+    {String language = 'en', String? replyContent}) {
   final json = base.toJson();
   return BookingSession.fromJson({
     ...json,
@@ -45,7 +46,7 @@ BookingSession _emergencySession(BookingSession base, String userText, {String l
       {
         'id': 'a_${base.messages.length}',
         'sender': 'assistant',
-        'content': '**This may be a medical emergency.**\n\n- Call **1990** (Suwa Seriya ambulance) now.',
+        'content': replyContent ?? '**This may be a medical emergency.**\n\n- Call **1990** (Suwa Seriya ambulance) now.',
         'timestamp': DateTime.now().toIso8601String(),
         'metadata': {
           'type': 'emergency',
@@ -71,6 +72,7 @@ class _UiFake extends FakeAiBookingService {
   Completer<BookingSession>? pending;
   bool holdNext = false;
   String language = 'en';
+  String? replyContent;
   int sends = 0;
 
   @override
@@ -82,7 +84,7 @@ class _UiFake extends FakeAiBookingService {
       return pending!.future;
     }
     if (_isEmergencyText(message)) {
-      currentSession = _emergencySession(currentSession, message, language: language);
+      currentSession = _emergencySession(currentSession, message, language: language, replyContent: replyContent);
       return currentSession;
     }
     return super.sendConversationMessage(sessionId, message, requestId);
@@ -238,6 +240,74 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('හදිසි වෛද්‍ය තත්ත්වයක් විය හැක'), findsOneWidget);
       expect(find.text('1990 අමතන්න'), findsOneWidget);
+    });
+    testWidgets('Romanized Sinhala emergency answered in Sinhala gets a Sinhala banner', (tester) async {
+      // Observed on the emulator: the backend replies in Sinhala but keeps preferences.language "en"
+      // and an English urgencyReason.
+      final service = _UiFake()
+        ..replyContent = '**මෙය හදිසි වෛද්‍ය තත්ත්වයක් විය හැකියි.**\n\n- දැන්ම **1990** අමතන්න.';
+      await tester.pumpWidget(_themedApp(service));
+      await tester.pumpAndSettle();
+      await _send(tester, 'mata papuwa godak ridenawa');
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('හදිසි වෛද්‍ය තත්ත්වයක් විය හැක'), findsOneWidget);
+      expect(find.textContaining(_emergencyReason), findsNothing, reason: 'English-only reason hidden');
+      expect(find.text('1990 අමතන්න'), findsOneWidget);
+    });
+  });
+
+  group('BUG-014 composer always fits (found on the emulator 2026-11-25)', () {
+    // Pixel 7 Pro emulator in landscape: about 891 x 411 logical px; the keyboard takes about
+    // 265 px, which leaves about 64 px for the body. Before the fix the disclaimer and emergency
+    // banner overflowed by 106 px and pushed the composer off-screen.
+    Future<void> pumpLandscape(WidgetTester tester, {required double keyboard}) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(891, 411);
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
+      addTearDown(tester.view.reset);
+      await tester.pumpAndSettle();
+    }
+
+    for (final keyboard in [0.0, 265.0]) {
+      testWidgets('landscape emergency chat, keyboard ${keyboard == 0 ? 'closed' : 'open'}: no overflow, composer visible',
+          (tester) async {
+        final service = _UiFake();
+        await tester.pumpWidget(_themedApp(service));
+        await tester.pumpAndSettle();
+        await _send(tester, 'I have severe chest pain');
+
+        await pumpLandscape(tester, keyboard: keyboard);
+        expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
+        _expectSingleComposer(tester);
+        final composer = tester.getRect(find.byKey(const Key('ai_care_assistant_input')));
+        expect(composer.bottom, lessThanOrEqualTo(411 - keyboard), reason: 'composer above the keyboard');
+        expect(composer.height, greaterThan(30));
+        if (keyboard == 0) {
+          expect(find.byKey(const Key('ai_emergency_call_1990')), findsOneWidget);
+        }
+
+        // Close the keyboard again: the emergency banner comes back.
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(const Key('ai_emergency_banner')), findsOneWidget);
+      });
+    }
+
+    testWidgets('portrait with keyboard keeps banner, chips and composer without overflow', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(411, 891);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+      addTearDown(tester.view.reset);
+      final service = _UiFake();
+      await tester.pumpWidget(_themedApp(service));
+      await tester.pumpAndSettle();
+      expect(find.text('Find Doctor'), findsOneWidget);
+      await _send(tester, 'I have severe chest pain');
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('ai_emergency_banner')), findsOneWidget);
+      _expectSingleComposer(tester);
     });
   });
 

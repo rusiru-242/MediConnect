@@ -150,7 +150,7 @@ Install the new build first (uninstall the old app, then install). Keep the phon
 6. Repeat step 4 with P-01b (Romanized Sinhala) and P-01c (Sinhala script) in new chats. The Sinhala-script chat shows the banner in Sinhala. 📸
 7. Tap **New Chat** 10 times, and open/close **Chat History** 10 times. One composer every time.
 8. Type a message, press send, and immediately press Back (keyboard open). Return to Home with **no red screen**. Reopen the assistant. Repeat 10 times.
-9. Rotate the device with the keyboard open and with it closed. One composer.
+9. Rotate the device with the keyboard open and with it closed. One composer, and no yellow-and-black stripes. In landscape with the keyboard open, only the conversation and the input box are shown; the red banner returns when the keyboard closes.
 10. Tap the camera button, pick a photo, then remove it with the ✕; then pick one and send it, and tap **Cancel** on the progress card. No red screen; one composer.
 11. Use the app for 5 minutes in one chat. It must not get slower.
 Record Pass/Fail per step. Any red screen, duplicate composer or missing composer is a **Fail**; copy the first error from the log if you have it.
