@@ -475,3 +475,63 @@ def test_p01_health_chat_entry_point(env):
     assert crisis["metadata"]["isUrgent"] and crisis["metadata"]["crisisType"] == "mental_health"
     cardiac = ask("I have severe chest pain and difficulty breathing")
     assert cardiac["metadata"]["isUrgent"] and cardiac["metadata"]["category"] == "cardiac"
+
+
+# ---------------------------------------------------------------------------
+# P01-IMG: medicine image pipeline gaps (provider stubbed; NOT live Vision verification)
+# ---------------------------------------------------------------------------
+import asyncio  # noqa: E402
+
+from app.agents import medicine_image_agent  # noqa: E402
+from app.agents.medicine_image_agent import MedicineImageAgent, VisionUnavailable  # noqa: E402
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+
+def _analyze(data=PNG, name="label.png"):
+    return asyncio.run(MedicineImageAgent.analyze_medicine_image(data, name, "What medicine is this?"))
+
+
+def test_p01_image_blurry_is_unreadable_not_guessed(monkeypatch):
+    blurry = {"is_medicine_packaging": True, "readable": False, "loose_tablets_only": False, "medicine_names": [],
+              "active_ingredients": [], "strengths": [], "image_quality": "blurry"}
+    monkeypatch.setattr(medicine_image_agent, "_call_vision_provider", lambda data, mime: (blurry, "stub"))
+    result = _analyze()
+    assert result["status"] == "unreadable" and result["analysis"]["identifiedMedicine"] is None
+    assert result["success"] is False
+
+
+def test_p01_image_provider_timeout_reported_truthfully(monkeypatch):
+    def slow(data, mime):
+        import time as _time
+        _time.sleep(0.3)
+        return {"is_medicine_packaging": True, "readable": True, "medicine_names": ["X"]}, "stub"
+
+    monkeypatch.setattr(medicine_image_agent, "VISION_TIMEOUT_SECONDS", -4.9)  # wait_for timeout = 0.1 s
+    monkeypatch.setattr(medicine_image_agent, "_call_vision_provider", slow)
+    result = _analyze()
+    assert result["status"] == "provider_unavailable" and result["analysis"]["identifiedMedicine"] is None
+    assert "could not be analysed" in result["text"]
+
+
+def test_p01_image_external_processing_disabled_by_configuration(monkeypatch):
+    calls = []
+    monkeypatch.setattr(medicine_image_agent.settings, "AI_EXTERNAL_IMAGE_ANALYSIS_ENABLED", False, raising=False)
+    monkeypatch.setattr("requests.post", lambda *a, **k: calls.append(1))
+    with pytest.raises(VisionUnavailable) as raised:
+        medicine_image_agent._call_vision_provider(PNG, "image/png")
+    assert raised.value.reason == "disabled_by_configuration" and not calls  # nothing left the machine
+    assert _analyze()["status"] == "provider_unavailable"
+
+
+@pytest.mark.parametrize("data,name", [
+    (b"GIF89a" + b"\x00" * 32, "label.png"),           # wrong content for the extension
+    (b"\xff\xd8\xff" + b"\x00" * 32, "label.gif"),     # unsupported extension
+    (b"\x89PNG\r\n\x1a\n" + b"\x00" * (5 * 1024 * 1024 + 1), "big.png"),  # over 5 MB
+    (b"", "empty.png"),
+], ids=["png-name-gif-content", "gif-extension", "over-5mb", "empty"])
+def test_p01_image_invalid_inputs_rejected_without_provider_call(monkeypatch, data, name):
+    calls = []
+    monkeypatch.setattr(medicine_image_agent, "_call_vision_provider", lambda d, m: calls.append(1))
+    result = _analyze(data, name)
+    assert result["status"] == "invalid_file" and not calls
