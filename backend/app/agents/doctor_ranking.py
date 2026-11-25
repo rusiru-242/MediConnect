@@ -94,9 +94,23 @@ def dedupe_doctors(doctors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 SORT_LABELS = {
     "experience_desc": "most years of experience",
-    "rating_desc": "highest published patient rating",
+    "rating_desc": "highest published patient rating (few-review ratings weighted toward a neutral 3.5/5)",
     "fee_asc": "lowest consultation fee",
 }
+DEFAULT_BASIS = ("published patient rating (few-review ratings weighted toward a neutral 3.5/5), "
+                 "then years of experience, then lower fee")
+
+# Small review counts are unreliable: a single 5-star review must not outrank 30 reviews averaging 4.7.
+# Bayesian average toward a neutral prior. This is a transparent ordering rule, not a quality score.
+RATING_PRIOR = 3.5
+RATING_PRIOR_WEIGHT = 3
+
+
+def adjusted_rating(doctor: Dict[str, Any]) -> float:
+    count = int(doctor.get("ratingCount") or 0)
+    if not count or doctor.get("rating") is None:
+        return 0.0  # No published reviews: ranked after reviewed doctors, never given an invented rating.
+    return (float(doctor["rating"]) * count + RATING_PRIOR * RATING_PRIOR_WEIGHT) / (count + RATING_PRIOR_WEIGHT)
 
 
 def rank_doctors(doctors: List[Dict[str, Any]], prefs: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -107,7 +121,7 @@ def rank_doctors(doctors: List[Dict[str, Any]], prefs: Dict[str, Any]) -> List[D
         return d["consultationFee"] if d.get("consultationFee") is not None else float("inf")
 
     def rating_key(d):
-        return -(d.get("rating") or 0.0), -(d.get("ratingCount") or 0)
+        return -adjusted_rating(d), -(d.get("ratingCount") or 0)
 
     if sort_by == "experience_desc":
         key = lambda d: (-(d.get("experienceYears") or 0), *rating_key(d), fee_key(d))  # noqa: E731
@@ -120,7 +134,7 @@ def rank_doctors(doctors: List[Dict[str, Any]], prefs: Dict[str, Any]) -> List[D
         # then experience, then lower fee. This is stated in the explanation.
         key = lambda d: (*rating_key(d), -(d.get("experienceYears") or 0), fee_key(d))  # noqa: E731
     ordered = sorted(doctors, key=key)
-    basis = SORT_LABELS.get(sort_by, "published rating, then experience, then lower fee")
+    basis = SORT_LABELS.get(sort_by, DEFAULT_BASIS)
     for position, doctor in enumerate(ordered, 1):
         doctor["rankPosition"] = position
         doctor["rankingExplanation"] = f"Ranked #{position} by {basis}."
@@ -147,13 +161,33 @@ def constraint_reasons(doctor: Dict[str, Any], prefs: Dict[str, Any]) -> List[st
         reasons.append("No published patient reviews yet")
     if doctor.get("experienceYears"):
         reasons.append(f"{doctor['experienceYears']} years of experience (as listed on the profile)")
+    else:
+        reasons.append("Years of experience not listed on the profile")
     return reasons
+
+
+def comparison_lines(selected: Dict[str, Any], pool: List[Dict[str, Any]], prefs: Dict[str, Any]) -> List[str]:
+    """How the selected doctor compares with the other eligible doctors on the ranking criterion."""
+    sort_by = prefs.get("sortBy")
+    lines = []
+    for other in pool:
+        if other is selected or other.get("doctorId") == selected.get("doctorId"):
+            continue
+        if sort_by == "experience_desc":
+            value = f"{other['experienceYears']} years" if other.get("experienceYears") else "experience not listed"
+        elif sort_by == "fee_asc":
+            value = f"LKR {other['consultationFee']:,.0f}" if other.get("consultationFee") is not None else "fee unavailable"
+        else:
+            value = (f"rating {other['rating']:.1f}/5 from {other['ratingCount']} review{'s' if other['ratingCount'] != 1 else ''}"
+                     if other.get("ratingCount") else "no published reviews")
+        lines.append(f"{other.get('fullName')}: {value}")
+    return lines[:4]
 
 
 def selection_explanation(selected: Dict[str, Any], pool: List[Dict[str, Any]], prefs: Dict[str, Any], lang: str) -> str:
     """Explain an automatic selection using only real data (BUG-010)."""
     reasons = constraint_reasons(selected, prefs)
-    basis = SORT_LABELS.get(prefs.get("sortBy"), "published patient rating, then experience, then lower fee")
+    basis = SORT_LABELS.get(prefs.get("sortBy"), DEFAULT_BASIS)
     count = len(pool)
     if lang == "si":
         lines = [f"ඔබේ කොන්දේසි සපුරාලන වෛද්‍යවරුන් {count} දෙනා අතරින් මම **{selected['fullName']}** තෝරා ගත්තා.",
@@ -162,8 +196,10 @@ def selection_explanation(selected: Dict[str, Any], pool: List[Dict[str, Any]], 
                  "මෙම තේරීම පැතිකඩ තොරතුරු මත පදනම් වූවකි; වෛද්‍යවරයාගේ සායනික දක්ෂතාව පිළිබඳ තක්සේරුවක් නොවේ.",
                  "මම තවම වෙන්කිරීමක් හෝ ගෙවීමක් කර නැහැ. ඉදිරියට යාමට 'View Available Slots' ඔබන්න."]
     else:
+        others = comparison_lines(selected, pool, prefs)
         lines = [f"From {count} verified doctor{'s' if count != 1 else ''} that meet all your requirements, I selected **{selected['fullName']}**.",
                  "", "**Why this doctor (from their profile data):**", *[f"- {r}" for r in reasons], "",
+                 *(["**Other eligible doctors:**", *[f"- {line}" for line in others], ""] if others else []),
                  f"Ranking basis: {basis}.",
                  "This choice is based on listed profile information, not a judgement of clinical quality.",
                  "I have not booked or charged anything. Tap View Available Slots when you want to continue."]

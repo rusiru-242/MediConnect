@@ -86,6 +86,27 @@ AUTO_SELECT_CUES = (
     r"\b(?:select|choose|pick) (?:the )?best\b", r"\bselect (?:a|one) doctor for me\b", r"\bchoose for me\b", r"\byou (?:choose|decide|pick)\b",
     r"\bek(?:a)?\s+kenek\s+(?:witharak|withrak|thoranna|thorala)\b", r"\bhondama\s+kenek\b", r"\bthorala\s+denna\b",
     "එක් කෙනෙක් තෝරා", "හොඳම කෙනෙක්", "තෝරලා දෙන්න",
+    # Semantically equivalent selection requests (Phase 01 scenario C): "Select the most experienced doctor from
+    # these two", "Which one should I choose?", "Pick the cheapest", "Give me a single doctor".
+    r"\b(?:select|choose|pick|recommend|suggest|give me|tell me|which is|who is)\s+(?:me\s+)?"
+    r"(?:the\s+|a\s+single\s+|one\s+|only\s+one\s+)?(?:most|least|best|highest|lowest|cheapest|top|single)\b",
+    r"\bwhich\s+(?:one|doctor)\b.*\b(?:should\s+i|best|choose|pick|most|recommend|go\s+(?:to|with))\b",
+    r"\b(?:only|just|exactly)\s+(?:one|1|a\s+single)\b", r"\b(?:one|single)\s+doctor\b",
+    r"\bthe\s+(?:most|least)\s+\w+\s+(?:one|doctor)\b",
+)
+
+# Requests for every match ("show all", "more options").
+ALL_RESULTS_CUES = (
+    r"\bshow\s+(?:me\s+)?(?:all|every|more|other)\b", r"\b(?:all|every)\s+(?:the\s+)?(?:doctors?|matches|results|options|\w+ologists?)\b",
+    r"\bmore\s+(?:options|doctors|results)\b", r"\bother\s+(?:options|doctors)\b", r"\bfull\s+list\b", r"\blist\s+(?:all|every)\b",
+    r"\bokkoma\b", "සියලුම", "ඔක්කොම",
+)
+
+# Requests for a recommendation rather than a list ("recommend a good cardiologist").
+RECOMMEND_CUES = (
+    r"\brecommend\w*\b", r"\bsuggest\w*\b", r"\b(?:a|the)\s+good\b", r"\bgood\s+\w*(?:doctor|ologist|specialist)",
+    r"\bbest\b", r"\bsuitable\b", r"\bright\s+doctor\b", r"\bwhich\s+doctor\s+should\b",
+    r"\bhonda\s+(?:dosthara|doctor|kenek)\b", "හොඳ වෛද්‍ය",
 )
 
 
@@ -138,7 +159,18 @@ def wellness_topics(text: str) -> List[str]:
 
 
 def wants_auto_selection(text: str) -> bool:
-    return bool(_has(normalize(text), AUTO_SELECT_CUES))
+    norm = normalize(text)
+    if _has(norm, ALL_RESULTS_CUES):
+        return False
+    return bool(_has(norm, AUTO_SELECT_CUES))
+
+
+def wants_all_results(text: str) -> bool:
+    return bool(_has(normalize(text), ALL_RESULTS_CUES))
+
+
+def wants_recommendation(text: str) -> bool:
+    return bool(_has(normalize(text), RECOMMEND_CUES))
 
 
 def is_explicit_doctor_search(text: str) -> bool:
@@ -262,11 +294,17 @@ _GUIDE = {
     },
     "cough": {
         "en": dict(care=["Drink warm fluids and rest.", "Avoid smoke and dust."],
-                   red=["breathlessness, chest pain or coughing up blood", "a cough lasting more than 3 weeks", "high fever with a cough"],
+                   red=["severe breathlessness, struggling to speak, or blue or grey lips",
+                        "chest pain, or coughing up more than a small streak of blood"],
+                   urgent=["a cough lasting 3 weeks or more", "fever above 38°C lasting more than 3 days, or night sweats or weight loss",
+                           "wheezing, or blood-streaked phlegm"],
                    see="See a doctor if the cough is not improving after a week or you have fever or breathlessness.",
                    questions=["Is the cough dry or with phlegm?", "Do you have fever or wheezing?"], specialty="General Practitioner"),
         "si": dict(care=["උණුසුම් දියර පානය කර විවේක ගන්න.", "දුම සහ දූවිලිවලින් වළකින්න."],
-                   red=["හුස්ම හිරවීම, පපුවේ වේදනාව හෝ කැස්සත් සමඟ ලේ", "සති 3කට වඩා පවතින කැස්ස", "කැස්ස සමඟ අධික උණ"],
+                   red=["දරුණු හුස්ම හිරවීම, කතා කිරීමට අපහසු වීම, හෝ තොල් නිල්/අළු පැහැ වීම",
+                        "පපුවේ වේදනාව, හෝ කැස්සත් සමඟ ලේ ඉරකට වඩා ලේ පිටවීම"],
+                   urgent=["සති 3ක් හෝ ඊට වැඩි කලක් පවතින කැස්ස", "දින 3කට වඩා පවතින 38°C ට වැඩි උණ, රාත්‍රී දහඩිය හෝ බර අඩුවීම",
+                           "හුස්ම ගැනීමේදී හඬක් (wheezing), හෝ සෙමේ ලේ ඉරි"],
                    see="සතියකින් පසුවත් කැස්ස අඩු නොවේ නම් හෝ උණ, හුස්ම හිරවීම ඇත්නම් වෛද්‍යවරයෙකු හමුවන්න.",
                    questions=["කැස්ස වියළිද, සෙම සහිතද?", "උණ හෝ හුස්ම හිරවීමක් තිබේද?"], specialty="General Practitioner"),
     },
@@ -334,18 +372,28 @@ def build_symptom_advice(text: str, lang: str) -> SymptomAdvice:
     if lang == "si":
         lines = [f"ඔබට{duration} {named} තිබෙන බව තේරුණා. මෙය සාමාන්‍ය සෞඛ්‍ය තොරතුරු පමණයි, රෝග විනිශ්චයක් නොවෙයි.", "",
                  "**දැන් කළ හැකි දේ:**", *[f"- {c}" for c in guide["care"]], "",
+                 *(["**දින එකක් දෙකක් ඇතුළත වෛද්‍යවරයෙකු හමුවන්න, මේවා ඇත්නම්:**", *[f"- {u}" for u in guide["urgent"]], ""]
+                   if guide.get("urgent") else []),
                  "**මේ කිසිවක් ඇත්නම් වහාම 1990 අමතන්න හෝ ETU එකට යන්න:**", *[f"- {r}" for r in guide["red"]], "",
                  f"**වෛද්‍යවරයෙකු හමුවිය යුත්තේ කවදාද:** {guide['see']}"]
-        if days is not None and days >= 3:
+        if primary == "cough" and days is not None and days >= 21:
+            lines.append("සති 3ක් හෝ ඊට වැඩි කලක් පවතින කැස්සක් ඉක්මනින් වෛද්‍යවරයෙකු ලවා පරීක්ෂා කරගත යුතුයි. එය තනිවම ගිලන්රථ "
+                         "හදිසියක් නොවේ — ඉහත අනතුරු ලක්ෂණ ඇත්නම් පමණක් 1990 අමතන්න.")
+        elif days is not None and days >= 3:
             lines.append("ඔබේ රෝග ලක්ෂණ දින කිහිපයක සිට පවතින නිසා වෛද්‍යවරයෙකු ලවා පරීක්ෂා කරගැනීම නිර්දේශ කරනවා.")
         lines += ["", "ඖෂධයක් හෝ මාත්‍රාවක් තීරණය කිරීමට ඖෂධවේදියෙකුගෙන් හෝ වෛද්‍යවරයෙකුගෙන් විමසන්න.",
                   "ඔබට ගැළපෙන වෛද්‍යවරයෙකු සොයා දීමට අවශ්‍ය නම් කියන්න."]
     else:
         lines = [f"I understand you've had {named}{duration}. Here is general guidance — it is not a diagnosis.", "",
                  "**What you can do now:**", *[f"- {c}" for c in guide["care"]], "",
+                 *(["**See a doctor within the next day or two if you have:**", *[f"- {u}" for u in guide["urgent"]], ""]
+                   if guide.get("urgent") else []),
                  "**Call 1990 or go to the nearest ETU now if you have:**", *[f"- {r}" for r in guide["red"]], "",
                  f"**When to see a doctor:** {guide['see']}"]
-        if days is not None and days >= 3:
+        if primary == "cough" and days is not None and days >= 21:
+            lines.append("A cough that has lasted 3 weeks or more should be checked by a doctor soon. On its own it is not "
+                         "an ambulance emergency — call 1990 only if you have the danger signs above.")
+        elif days is not None and days >= 3:
             lines.append("Because this has lasted several days, I recommend booking a doctor's assessment.")
         lines += ["", "Please ask a pharmacist or doctor before taking any medicine, so the right product and dose are chosen for you.",
                   "Would you like me to find a suitable doctor for you?"]
@@ -408,3 +456,54 @@ def combine_wellness(topics: List[str], query: str, lang: str) -> Dict[str, obje
     outro = ("මේවා සාමාන්‍ය සුවතා උපදෙස් පමණයි. නිදන්ගත රෝග ඇත්නම් වෛද්‍යවරයෙකුගෙන් විමසන්න." if lang == "si"
              else "These are general wellness tips. If you have a long-term condition, check with your doctor before changing diet or exercise.")
     return {"text": "\n\n".join([intro, *sections, outro]), "card": cards[0] if cards else None, "topics": topics}
+
+
+# ---------------------------------------------------------------------------
+# General health information: prevention questions (Phase 01: "How can I prevent heart disease?" was answered
+# with "please share your symptoms or city"). CONTENT STATUS: PENDING CLINICAL REVIEW.
+# ---------------------------------------------------------------------------
+_PREVENTION_CUES = (r"\b(?:prevent\w*|avoid(?:ing)?|reduce (?:my |the )?risk|lower (?:my |the )?risk|protect (?:myself|my) from|"
+                    r"keep (?:my )?\w+ healthy)\b", r"\bwalakwanna\b", "වළක්වා", "වළක්වන්න")
+_PREVENTION_TOPICS = {
+    "heart_disease": ((r"\bheart (?:disease|attack|problems?)\b", r"\bcardiovascular\b", r"\bhruda\s+roga\w*", "හෘද රෝග"),
+                      ["Do not smoke, and avoid second-hand smoke.",
+                       "Be active for at least 150 minutes a week (for example 30 minutes of brisk walking on 5 days).",
+                       "Eat plenty of vegetables, fruit, pulses and whole grains; cut down on salt, sugar, fried food and processed meat.",
+                       "Keep a healthy weight and limit alcohol.",
+                       "Have your blood pressure, blood sugar and cholesterol checked regularly, and take prescribed medicines as advised."]),
+    "stroke": ((r"\bstrokes?\b",),
+               ["Keep blood pressure under control — it is the biggest modifiable risk factor.",
+                "Do not smoke; limit alcohol and salt.",
+                "Manage diabetes and cholesterol with your doctor, and stay physically active.",
+                "Ask a doctor about an irregular heartbeat (palpitations), which can raise stroke risk."]),
+    "diabetes": ((r"\bdiabet\w*", r"\bsugar\s+(?:disease|level)\b", r"\bdiyawediya\w*", "දියවැඩියා"),
+                 ["Keep a healthy weight; even modest weight loss lowers risk.",
+                  "Be active most days and limit sugary drinks, sweets and refined white rice or flour.",
+                  "Choose whole grains, vegetables and pulses.",
+                  "Have your blood sugar checked, especially if diabetes runs in your family."]),
+    "high_blood_pressure": ((r"\b(?:high )?blood pressure\b", r"\bhypertension\b", r"\bpressure\s+eka\b", "අධි රුධිර පීඩන"),
+                            ["Reduce salt — avoid adding salt and limit salty and processed foods.",
+                             "Be active regularly and keep a healthy weight.",
+                             "Limit alcohol and do not smoke.",
+                             "Have your blood pressure checked regularly."]),
+}
+_PREVENTION_TITLES = {"heart_disease": "heart disease", "stroke": "stroke", "diabetes": "type 2 diabetes",
+                      "high_blood_pressure": "high blood pressure"}
+
+
+def general_health_information(text: str, lang: str) -> Optional[dict]:
+    """Prevention guidance for common conditions, or None when the message is not a prevention question."""
+    norm = normalize(text)
+    if not _has(norm, _PREVENTION_CUES) or is_explicit_doctor_search(norm):
+        return None
+    for topic, (patterns, tips) in _PREVENTION_TOPICS.items():
+        if _has(norm, patterns):
+            title = _PREVENTION_TITLES[topic]
+            if lang == "si":
+                body = ("මෙය සාමාන්‍ය සෞඛ්‍ය තොරතුරකි (ඉංග්‍රීසියෙන්). ඔබට අදාළ අවදානම ගැන වෛද්‍යවරයෙකු සමඟ කතා කරන්න.\n\n"
+                        + "\n".join(f"- {tip}" for tip in tips))
+            else:
+                body = (f"**Ways to lower your risk of {title}:**\n\n" + "\n".join(f"- {tip}" for tip in tips)
+                        + "\n\nA doctor can check your personal risk and advise you. This is general information, not a diagnosis.")
+            return {"topic": topic, "text": body}
+    return None
