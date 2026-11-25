@@ -170,6 +170,27 @@ void main() {
       expect(_editable(tester).focusNode.hasFocus, isTrue);
     });
 
+    testWidgets('composer buttons are not "outside" the text field (send works with the keyboard open)', (tester) async {
+      // On the emulator, tapping Send with the keyboard open first dismissed the keyboard on pointer-down; the
+      // layout moved and the tap was lost. Attach/Send now share the text field's tap group.
+      final service = _Phase01Fake();
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: AiCareAssistantScreen(bookingService: service, imagePicker: () async => null),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ai_care_assistant_input')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('ai_care_assistant_attach_image')));
+      await tester.pumpAndSettle();
+      expect(_editable(tester).focusNode.hasFocus, isTrue, reason: 'attach is inside the composer tap group');
+      await tester.enterText(find.byKey(const Key('ai_care_assistant_input')), 'I have a headache');
+      await tester.tap(find.byKey(const Key('ai_care_assistant_send')));
+      await tester.pumpAndSettle();
+      expect(service.sends, 1);
+      expect(_editable(tester).focusNode.hasFocus, isFalse, reason: 'send dismisses the keyboard itself');
+    });
+
     testWidgets('a reply arriving while the user types does not steal focus or clear the draft', (tester) async {
       final service = _Phase01Fake()..hold = true;
       await tester.pumpWidget(_app(service));
@@ -267,6 +288,30 @@ void main() {
       expect(find.textContaining('In-person visit'), findsOneWidget);
       expect(find.textContaining(date), findsOneWidget);
       expectNoFabricatedContent();
+    });
+
+    testWidgets('Emergency SOS opens the dialer with 1990 only after confirmation (BUG-046)', (tester) async {
+      final dialed = <String>[];
+      await tester.pumpWidget(createTestApp(
+          child: PatientHomeScreen(
+            appointmentsLoader: () async => <Appointment>[],
+            emergencyDialer: (n) async {
+              dialed.add(n);
+              return true;
+            },
+          ),
+          authProvider: auth()));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Emergency SOS'));
+      await tester.tap(find.text('Emergency SOS'));
+      await tester.pumpAndSettle();
+      expect(dialed, isEmpty);
+      expect(find.textContaining('911'), findsNothing);
+      expect(find.textContaining('Police emergency: 119'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('home_sos_open_dialer')));
+      await tester.pumpAndSettle();
+      expect(dialed, ['1990']);
+      expect(find.textContaining('Calling National Ambulance Service'), findsNothing);
     });
 
     testWidgets('a loading failure is reported, not replaced with placeholder data', (tester) async {

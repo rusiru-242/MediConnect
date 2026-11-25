@@ -15,6 +15,7 @@ import '../../widgets/notification_bell_button.dart';
 import '../../widgets/server_settings_sheet.dart';
 import '../../models/appointment.dart';
 import '../../utils/assistant_navigation.dart';
+import '../../utils/emergency_dialer.dart';
 import '../../widgets/upcoming_appointment_card.dart';
 
 /// Patient Home Dashboard redesigned with Google Stitch Clinical Clarity design system.
@@ -23,7 +24,10 @@ class PatientHomeScreen extends StatefulWidget {
   /// Loads the patient's appointments for the upcoming-appointment card; injected in tests.
   final Future<List<Appointment>> Function()? appointmentsLoader;
 
-  const PatientHomeScreen({super.key, this.appointmentsLoader});
+  /// Opens the dialer with an emergency number; injected in tests (never places a call).
+  final Future<bool> Function(String number)? emergencyDialer;
+
+  const PatientHomeScreen({super.key, this.appointmentsLoader, this.emergencyDialer});
 
   @override
   State<PatientHomeScreen> createState() => _PatientHomeScreenState();
@@ -403,17 +407,17 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           isSi
               ? 'හදිසි ජීවිතාරක්ෂක වෛද්‍ය ආධාර සඳහා සෘජු ඇමතුම් පහසුකම:\n\n'
                   '• ජාතික ගිලන්රථ සේවය: 1990\n'
-                  '• සාමාන්‍ය හදිසි ඇමතුම්: 119\n\n'
-                  'ඔබට දැන් හදිසි ඇමතුමක් ලබා ගැනීමට අවශ්‍යද?'
+                  '• පොලිස් හදිසි ඇමතුම්: 119\n\n'
+                  '1990 ඇතුළත් කළ දුරකථන ඩයලරය විවෘත කරන්නද? ඇමතුම ආරම්භ වන්නේ ඔබ ඇමතුම් බොත්තම එබූ විට පමණි.'
               : (isTa
                   ? 'உயிருக்கு ஆபத்தான அவசரநிலைகளுக்கு உடனடி உதவி:\n\n'
                       '• தேசிய ஆம்புலன்ஸ் சேவை: 1990\n'
-                      '• அவசர உதவி: 119\n\n'
-                      'இப்போது அவசர அழைப்பை மேற்கொள்ள விரும்புகிறீர்களா?'
+                      '• காவல்துறை அவசரம்: 119\n\n'
+                      '1990 உள்ளிடப்பட்ட டயலரைத் திறக்கவா? அழைப்பு பொத்தானை அழுத்தும்போது மட்டுமே அழைப்பு தொடங்கும்.'
                   : 'For acute, life-threatening medical emergencies, immediate dispatched assistance is available:\n\n'
                       '• National Ambulance Service: 1990\n'
-                      '• General Emergency: 911 / 119\n\n'
-                      'Would you like to initiate an emergency phone call now?'),
+                      '• Police emergency: 119\n\n'
+                      'Open your phone dialer with 1990 entered? The call starts only when you press call in the dialer.'),
           style: const TextStyle(fontSize: 14, height: 1.5),
         ),
         actions: [
@@ -427,18 +431,23 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () {
+            key: const Key('home_sos_open_dialer'),
+            // BUG-046 (Phase 01): this used to show "Calling National Ambulance Service (1990)..." without
+            // dialling. It now opens the dialer with 1990 (ACTION_DIAL never places a call by itself).
+            onPressed: () async {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    isSi
-                        ? 'ජාතික ගිලන්රථ සේවය අමතමින් (1990)...'
-                        : (isTa ? 'தேசிய ஆம்புலன்ஸ் சேவையை அழைக்கிறது (1990)...' : 'Calling National Ambulance Service (1990)...'),
+              final opened = await (widget.emergencyDialer ?? EmergencyDialer.open)('1990');
+              if (!opened && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isSi
+                        ? 'දුරකථන ඩයලරය විවෘත කළ නොහැකි විය. දැන්ම 1990 අමතන්න.'
+                        : (isTa ? 'டயலரைத் திறக்க முடியவில்லை. இப்போதே 1990 ஐ அழைக்கவும்.'
+                            : 'Could not open the phone dialer. Dial 1990 on your phone now.')),
+                    backgroundColor: AppTheme.error,
                   ),
-                  backgroundColor: AppTheme.error,
-                ),
-              );
+                );
+              }
             },
             icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
             label: Text(isSi ? '1990 අමතන්න' : (isTa ? '1990 ஐ அழைக்கவும்' : 'Call 1990')),

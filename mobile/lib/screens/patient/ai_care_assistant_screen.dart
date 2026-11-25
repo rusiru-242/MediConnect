@@ -2896,7 +2896,19 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
     );
   }
 
+  /// The composer row (attach, text field, send) is one tap group: a tap on Send must not count as "outside"
+  /// the text field. Otherwise the keyboard starts closing on pointer-down, the button moves away with the layout,
+  /// and the tap is lost (found on the emulator in Phase 01). Send dismisses the keyboard itself.
+  static const Object _composerTapGroup = #ai_composer_tap_group;
+
   Widget _buildInputArea({int maxLines = 4}) {
+    return TapRegion(
+      groupId: _composerTapGroup,
+      child: _buildInputAreaContent(maxLines: maxLines),
+    );
+  }
+
+  Widget _buildInputAreaContent({int maxLines = 4}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -2922,6 +2934,7 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
               key: const Key('ai_care_assistant_input'),
               controller: _textController,
               focusNode: _composerFocus,
+              groupId: _composerTapGroup,
               onTapOutside: (_) => _composerFocus.unfocus(),
               minLines: 1,
               maxLines: maxLines,
