@@ -20,6 +20,9 @@ os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_mock_secret_key")
 os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test_mock_webhook_secret")
 # Phase 05: the test session never inherits the JWT secret, environment or provider keys from backend/.env.
 os.environ.setdefault("ENVIRONMENT", "test")
+if not os.environ.get("DOCUMENT_ENCRYPTION_KEYS"):  # a throwaway per-session test key (never a deployment key)
+    import base64 as _b64
+    os.environ["DOCUMENT_ENCRYPTION_KEYS"] = "test-session:" + _b64.b64encode(os.urandom(32)).decode()
 if not os.environ.get("JWT_SECRET"):
     import secrets as _secrets
     os.environ["JWT_SECRET"] = os.environ["JWT_SECRET_KEY"] = _secrets.token_urlsafe(48)

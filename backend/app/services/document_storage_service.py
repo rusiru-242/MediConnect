@@ -136,12 +136,14 @@ class LocalDocumentStorageService:
                 detail="Security validation failed for file destination.",
             )
 
-        # Write file contents
-        with open(target_path, "wb") as f:
-            f.write(content)
-
         # Relative path from base_dir for storage
         relative_storage_path = f"{user_id}/{safe_name}"
+
+        # Encrypted before the first write (B8); plaintext never touches the disk when keys are configured.
+        from app.services.document_crypto import seal_for_storage
+        stored_bytes, encryption_meta = seal_for_storage(content, f"doctor_verification/{relative_storage_path}")
+        with open(target_path, "wb") as f:
+            f.write(stored_bytes)
 
         return {
             "documentType": document_type,
@@ -150,7 +152,15 @@ class LocalDocumentStorageService:
             "contentType": content_type,
             "fileSize": file_size,
             "storagePath": relative_storage_path,
+            **encryption_meta,
         }
+
+    def read_document(self, relative_path: str) -> bytes:
+        """Plaintext bytes of a stored verification document (decrypted in memory; legacy files returned as is)."""
+        from app.services.document_crypto import open_from_storage
+        path = self.get_document_path(relative_path)
+        cleaned = Path(relative_path).as_posix().lstrip("/\\")
+        return open_from_storage(path.read_bytes(), f"doctor_verification/{cleaned}")
 
     def get_document_path(self, relative_path: str) -> Path:
         """Resolve a stored relative document path, strictly validating against traversal."""

@@ -7,8 +7,10 @@ from app.agents.orchestrator import AIOrchestrator
 from app.services.care_scheduler import COLOMBO
 
 
-async def respond_to_care(db, user, provider, session, text):
+async def respond_to_care(db, user, provider, session, text, category=None):
+    """``category`` is set by the shared intent router (Phase 05) for paraphrases the patterns below miss."""
     query = text.casefold()
+    forced_category = category
     action = re.search(r"\b(?:mama beheth biwwa|mark.*taken|snooze|skip.*reminder|medicine reminder.*one)\b", query)
     category = next((kind for kind, pattern in (
         ("medication", r"beheth|බෙහෙත්|மருந்து|medication schedule|medicine.*(?:time|due|take)"),
@@ -18,6 +20,8 @@ async def respond_to_care(db, user, provider, session, text):
         ("all", r"my care tasks|today.?s tasks|care plan|karanna thiyena dewal|අද.*කාර්ය"),
         ("readings", r"my.*readings|my measurements|my health tracking"),
     ) if re.search(pattern, query)), None)
+    if forced_category:
+        category, action = forced_category, None
     if category is None and re.fullmatch(r"(?:and )?(?:tomorrow|heta|හෙට|நாளை)[?!. ]*", query):
         category = session.get("careCategory")
     if action:
@@ -29,7 +33,7 @@ async def respond_to_care(db, user, provider, session, text):
         day = datetime.now(COLOMBO).date()
         tomorrow = bool(re.search(r"\b(?:tomorrow|heta)\b|හෙට|நாளை", query))
         day += timedelta(days=int(tomorrow))
-        days = 7 if "next" in query and category == "appointment" and not tomorrow else 1
+        days = 7 if re.search(r"\b(?:next|upcoming|coming)\b", query) and category in {"appointment", "test"} and not tomorrow else 1
         tool = "get_my_health_tracking_summary" if category == "readings" else "get_my_care_agenda"
         arguments = {} if category == "readings" else {"day": day.isoformat(), "days": days, "kind": category}
         output = await AIOrchestrator(db, user, provider).execute(tool, arguments, {tool})

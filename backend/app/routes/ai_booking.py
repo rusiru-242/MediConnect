@@ -129,7 +129,8 @@ async def upload_companion_image(
     ext = Path(filename).suffix.lower()
     safe_name = f"{uuid.uuid4().hex}{ext}"
     dest_path = upload_dir / safe_name
-    dest_path.write_bytes(content)
+    from app.services.document_crypto import seal_for_storage  # medicine photos are encrypted at rest too (B8)
+    dest_path.write_bytes(seal_for_storage(content, f"companion_images/{safe_name}")[0])
 
     relative_url = f"/uploads/companion_images/{safe_name}"
     return {

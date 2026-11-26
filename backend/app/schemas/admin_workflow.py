@@ -233,6 +233,9 @@ class AdminAssistantChatRequest(StrictModel):
 
 class AdminAssistantChatResponse(StrictModel):
     reply: str
+    intent: Optional[str] = None          # Phase 05: classified intent (shared intent router)
+    intentSource: Optional[str] = None    # deterministic | llm_proposal | provider_unavailable
+    language: Optional[str] = None        # en | si | si-Latn | ta
     toolCalled: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     dateRange: Optional[Dict[str, str]] = None

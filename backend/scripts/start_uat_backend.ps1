@@ -58,6 +58,16 @@ if (-not $jwt) {
   Add-Content -Path $uatEnv -Value "UAT_JWT_SECRET=$jwt"
 }
 
+# Dedicated UAT document-encryption key (B8, Phase 05): git-ignored uat.env, never a deployment key.
+$docKey = Read-DotEnvValue $uatEnv 'UAT_DOCUMENT_ENCRYPTION_KEYS'
+if (-not $docKey) {
+  $kb = New-Object byte[] 32
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($kb)
+  $docKey = 'uat-1:' + [Convert]::ToBase64String($kb)
+  Add-Content -Path $uatEnv -Value "UAT_DOCUMENT_ENCRYPTION_KEYS=$docKey"
+}
+$env:DOCUMENT_ENCRYPTION_KEYS = $docKey
+
 # Isolated environment (process-scoped; backend/.env is not modified).
 $env:MONGODB_URI = 'mongodb://127.0.0.1:27017/mediconnect_uat'
 $env:DATABASE_NAME = 'mediconnect_uat'
@@ -80,7 +90,7 @@ switch ($AiProvider) {
 }
 
 $python = Join-Path $backend 'venv\Scripts\python.exe'
-Write-Host "UAT backend: database=mediconnect_uat (local), AI=$AiProvider, image analysis=disabled, email=$(if ($EnableEmail) {'enabled'} else {'disabled'}), Stripe=test mode"
+Write-Host "UAT backend: database=mediconnect_uat (local), documents=encrypted, AI=$AiProvider, image analysis=disabled, email=$(if ($EnableEmail) {'enabled'} else {'disabled'}), Stripe=test mode"
 
 if (-not $SkipSeed) {
   & $python -m scripts.seed_uat_data

@@ -287,7 +287,14 @@ class AdminService:
         filename = doc_entry.get("originalFilename") or resolved_path.name
         mime_type = doc_entry.get("contentType") or "application/octet-stream"
 
-        return resolved_path, filename, mime_type
+        from app.services.document_crypto import DocumentEncryptionError
+        try:
+            content = document_storage.read_document(relative_path)
+        except DocumentEncryptionError as exc:
+            logger.error("Verification document could not be decrypted (%s)", exc)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                detail="The document could not be opened (integrity or key check failed).")
+        return content, filename, mime_type
 
     @staticmethod
     async def approve_doctor_application(

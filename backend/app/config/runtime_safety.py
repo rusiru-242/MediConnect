@@ -107,6 +107,14 @@ def startup_errors(settings) -> List[str]:
             errors.append(problem)
     errors.extend(jwt_settings_errors(settings.JWT_ALGORITHM, settings.ACCESS_TOKEN_EXPIRE_MINUTES,
                                       settings.REFRESH_TOKEN_EXPIRE_DAYS))
+    try:
+        from app.services.document_crypto import DocumentEncryptionError, parse_keyring
+        ring = parse_keyring(getattr(settings, "DOCUMENT_ENCRYPTION_KEYS", None))
+        if env == "production" and not ring.configured:
+            errors.append("DOCUMENT_ENCRYPTION_KEYS is required in production (uploaded medical and verification "
+                          "documents are encrypted at rest).")
+    except DocumentEncryptionError as exc:
+        errors.append(str(exc))
     if env != "production" and (settings.STRIPE_SECRET_KEY or "").startswith(("sk_live_", "rk_live_")):
         errors.append("A live Stripe key is only accepted with ENVIRONMENT=production.")
     return errors

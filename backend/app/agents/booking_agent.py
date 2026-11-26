@@ -84,6 +84,21 @@ def validate_state_transition(from_state: str, to_state: str) -> bool:
     return to_state in allowed
 
 
+
+def medication_change_message(lang: str) -> str:
+    """B16 (Phase 05): the assistant never changes a prescribed dose or schedule."""
+    if lang == "si":
+        return ("**ඔබේ බෙහෙත් මාත්‍රාව හෝ වේලාවන් මට වෙනස් කළ නොහැක.** බෙහෙත් වෙනස් කිරීම ඒවා නියම කළ වෛද්‍යවරයා "
+                "විසින් පමණක් තීරණය කළ යුතුය. ඔබේ කාලසටහනේ කිසිවක් වෙනස් කර නැත.\n\n"
+                "- ඔබේ වෛද්‍යවරයා සමඟ කතා කරන්න, නැතහොත් වෛද්‍ය හමුවක් වෙන් කරන්න.\n"
+                "- නියම කළ ප්‍රමාණයට වඩා දැනටමත් ගෙන ඇත්නම් හෝ අසනීප බවක් දැනේ නම්, වහාම 1990 අමතන්න හෝ ළඟම ETU එකට යන්න.")
+    return ("**I can't change your dose or medicine times.** Changes to a prescribed medicine must be decided by the "
+            "doctor who prescribed it, so nothing in your schedule has been changed.\n\n"
+            "- Talk to your doctor, or book an appointment to review your medicine.\n"
+            "- Keep taking it exactly as prescribed until your doctor tells you otherwise.\n"
+            "- If you have already taken more than prescribed or feel unwell, call 1990 or go to the nearest ETU now.")
+
+
 class BookingAgent:
     """Conversational booking agent maintaining session context and state transitions."""
 
@@ -203,6 +218,30 @@ class BookingAgent:
             if info is not None:
                 return reply(info["text"], {"type": "health_information", "topic": info["topic"]},
                              intent_value="HEALTH_INFORMATION")
+
+        # 1d. Phase 05 (component 33). Emergencies were handled above; these run before the prescription refusal.
+        #     B16: a request to change a clinician-approved dose never changes anything and says who decides.
+        #     Questions about the patient's own medicine times or medical tests are answered from their records.
+        if not has_real_image:
+            from app.agents.intent_router import classify as classify_intent_p05
+            patient_intent = classify_intent_p05("PATIENT", clean_text).intent
+            if patient_intent == "medication_change_request":
+                return reply(medication_change_message(reply_lang),
+                             {"type": "medication_change_requires_clinician", "scheduleChanged": False,
+                              "ambulanceCall": AMBULANCE_NUMBER},
+                             intent_value="MEDICATION_CHANGE_REQUEST")
+            if patient_intent in {"medication_schedule", "medical_tests"}:
+                if patient_user:
+                    from app.agents.patient_care import respond_to_care
+                    care = await respond_to_care(db, patient_user, get_ai_provider(), session_data, clean_text,
+                                                 category="medication" if patient_intent == "medication_schedule"
+                                                 else "test")
+                    if care is not None:
+                        return care
+                return reply(
+                    "Your medicine times and scheduled tests are the ones your doctor approved. Sign in and open "
+                    "My Care Plan to see them; I can't set or change medicine times.",
+                    {"type": "care_records_sign_in_required"}, intent_value="CARE_RECORDS")
 
         # 2. Unauthorized prescription / exact-dose requests (BUG-018).
         if not has_real_image and clinical_intent.is_prescription_request(clean_text):

@@ -76,18 +76,32 @@ async def get_doctor_verification_document(
     current_admin: UserResponseSchema = Depends(require_admin),
     db: Database = Depends(get_database),
 ):
-    """Serve a doctor verification document securely without exposing server filesystem paths. Requires ADMIN role."""
-    file_path, filename, media_type = await AdminService.get_doctor_verification_document(
+    """Serve a doctor verification document securely without exposing server filesystem paths. Requires ADMIN role.
+    Every view is written to the admin audit log (Phase 05)."""
+    content, filename, media_type = await AdminService.get_doctor_verification_document(
         db=db,
         doctor_profile_id=doctorProfileId,
         document_id=documentId,
     )
+    from app.services.admin_audit_service import AdminAuditService
+    AdminAuditService.log_action(
+        db=db, actor_id=str(current_admin.id), actor_role="ADMIN", action_type="DOCTOR_DOCUMENT_VIEWED",
+        target_id=doctorProfileId, target_type="doctor_verification_document", metadata={"documentId": documentId},
+    )
+    return _inline_document_response(content, filename, media_type)
 
-    return FileResponse(
-        path=str(file_path),
-        filename=filename,
+
+def _inline_document_response(content: bytes, filename: str, media_type: str):
+    from urllib.parse import quote
+    from fastapi.responses import Response
+    return Response(
+        content=content,
         media_type=media_type,
-        content_disposition_type="inline",
+        headers={
+            "Content-Disposition": f"inline; filename*=UTF-8''{quote(filename or 'document')}",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

@@ -46,6 +46,10 @@ from app.services.clinical_safety_service import ClinicalSafetyService
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 ALLOWED_MIMES = {"application/pdf", "image/jpeg", "image/png"}
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB limit
+import logging
+
+logger = logging.getLogger(__name__)
+
 MAGIC_BYTES = {
     "pdf": b"%PDF-",
     "png": b"\x89PNG\r\n\x1a\n",
@@ -90,6 +94,13 @@ class PatientMedicalRecordService:
         target_patient_id: Optional[str] = None,
     ) -> PatientMedicalRecordResponse:
         """Securely store an uploaded clinical document and create an auditable record."""
+        # 0. Validate the request before anything is written (P05-N11: an unknown recordType raised a pydantic
+        # ValidationError, a 500, after the file had already been stored, leaving an orphan file).
+        allowed_types = {t.value for t in RecordType}
+        if record_type not in allowed_types:
+            raise HTTPException(status_code=422, detail=f"recordType must be one of: {', '.join(sorted(allowed_types))}.")
+        if current_user.role not in (UserRole.PATIENT.value, UserRole.DOCTOR.value):
+            raise HTTPException(status_code=403, detail="Only patients and their treating doctors can upload medical documents.")
         # 1. Determine patient identity
         user_id_str = str(current_user.id)
         if current_user.role == UserRole.DOCTOR.value:
@@ -150,10 +161,12 @@ class PatientMedicalRecordService:
         patient_dir.mkdir(parents=True, exist_ok=True)
         dest_path = patient_dir / random_file_key
 
-        with open(dest_path, "wb") as f:
-            f.write(content)
-
         relative_file_key = f"{patient_id}/{random_file_key}"
+        # Encrypted before the first write (B8). fileHash stays the SHA-256 of the plaintext for integrity checks.
+        from app.services.document_crypto import seal_for_storage
+        stored_bytes, encryption_meta = seal_for_storage(content, f"medical_documents/{relative_file_key}")
+        with open(dest_path, "wb") as f:
+            f.write(stored_bytes)
 
         # 5. Create database record
         record_id = f"MED-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
@@ -348,9 +361,20 @@ class PatientMedicalRecordService:
             raise HTTPException(status_code=403, detail="You are not authorized to download this medical document.")
 
         meta = doc["documentMetadata"]
-        file_path = _get_storage_root() / meta["fileKey"]
+        root = _get_storage_root().resolve()
+        file_path = (root / meta["fileKey"]).resolve()
+        if not str(file_path).startswith(str(root)):
+            raise HTTPException(status_code=404, detail="Document file not found.")
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Physical document file missing from storage.")
+        from app.services.document_crypto import DocumentEncryptionError, open_from_storage
+        try:
+            content = open_from_storage(file_path.read_bytes(), f"medical_documents/{meta['fileKey']}")
+        except DocumentEncryptionError as exc:
+            logger.error("Medical document could not be decrypted (%s)", exc)
+            raise HTTPException(status_code=500, detail="The document could not be opened (integrity or key check failed).")
+        if meta.get("fileHash") and hashlib.sha256(content).hexdigest() != meta["fileHash"]:
+            raise HTTPException(status_code=500, detail="The document failed its integrity check.")
 
         # Log download event
         now = utc_now()
@@ -359,11 +383,12 @@ class PatientMedicalRecordService:
             {"$push": {"auditLog": {"action": "DOWNLOADED", "userId": user_id_str, "timestamp": now}}},
         )
 
-        return FileResponse(
-            path=str(file_path),
-            filename=meta["fileName"],
-            media_type=meta["mimeType"],
-        )
+        from urllib.parse import quote
+        from fastapi.responses import Response
+        return Response(content=content, media_type=meta["mimeType"], headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(meta.get('fileName') or 'document')}",
+            "Cache-Control": "no-store",
+        })
 
     # -----------------------------------------------------------------------
     # Source-Grounded Medical Record Summarization
