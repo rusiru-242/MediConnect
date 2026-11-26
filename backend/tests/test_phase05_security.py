@@ -308,3 +308,13 @@ def test_n10_security_api_only_under_api_and_probes_at_root():
     paths = client.app.openapi()["paths"]
     assert "/api/security/events" in paths and "/security/events" not in paths
     assert "/health/live" in paths and "/api/health/live" in paths
+
+
+def test_s07a_fully_valid_patient_token_claiming_admin_is_still_403(db):
+    """Phase 04 A-01h with the Phase 05 claims: signature, issuer, audience, type and jti are all valid, only the
+    role claim is forged. The role is read from the account, so admin endpoints refuse it (403)."""
+    from app.utils.security import create_access_token
+    patient = _patient(db, "P05S07A")
+    forged = create_access_token(patient["id"], role="ADMIN")
+    for path in ("/api/admin/users", "/api/admin/payments", "/api/security/monitoring/platform"):
+        assert client.get(path, headers={"Authorization": f"Bearer {forged}"}).status_code == 403, path
