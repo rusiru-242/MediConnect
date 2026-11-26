@@ -25,6 +25,13 @@ os.environ.setdefault("ENVIRONMENT", "test")
 # .env (load_dotenv never overrides an existing variable), so every test runs with no provider unless it patches one.
 os.environ["GEMINI_API_KEY"] = ""
 os.environ["OPENAI_API_KEY"] = ""
+# A02-BUG-002: the same applied to e-mail. SMTP_HOST/SMTP_USERNAME/SMTP_PASSWORD came from backend/.env, so five
+# doctor-approval tests submitted real messages through the owner's SMTP account on every local run (13 connection
+# attempts per run, measured on the A02 baseline). Delivery providers are blank unless a test sets them.
+for _name in ("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM_EMAIL", "TWILIO_ACCOUNT_SID",
+              "TWILIO_AUTH_TOKEN", "TWILIO_MESSAGING_SERVICE_SID", "FIREBASE_CREDENTIALS_PATH",
+              "FIREBASE_SERVICE_ACCOUNT_JSON", "GOOGLE_APPLICATION_CREDENTIALS"):
+    os.environ[_name] = ""
 if not os.environ.get("DOCUMENT_ENCRYPTION_KEYS"):  # a throwaway per-session test key (never a deployment key)
     import base64 as _b64
     os.environ["DOCUMENT_ENCRYPTION_KEYS"] = "test-session:" + _b64.b64encode(os.urandom(32)).decode()
@@ -89,3 +96,24 @@ def _no_live_ai_provider_calls(monkeypatch):
         return real_send(self, request, *args, **kwargs)
 
     monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", guarded)
+
+
+# Real delivery providers (A02-BUG-002). Loopback hosts stay reachable for the local SMTP test server.
+_DELIVERY_HOSTS = ("smtp.gmail.com", "api.twilio.com", "fcm.googleapis.com", "oauth2.googleapis.com",
+                   "smtp.sendgrid.net", "email-smtp.")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_delivery_provider_calls(monkeypatch):
+    """No test can open a connection to a real e-mail, SMS or push provider, whatever settings it patches."""
+    import socket
+
+    real_create = socket.create_connection
+
+    def guarded(address, *args, **kwargs):
+        host = str(address[0]).lower()
+        if any(host == h or host.startswith(h) or host.endswith("." + h) for h in _DELIVERY_HOSTS):
+            raise ConnectionRefusedError("real delivery provider blocked in tests")
+        return real_create(address, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "create_connection", guarded)
