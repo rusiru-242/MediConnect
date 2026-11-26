@@ -296,11 +296,21 @@ class PatientMedicalRecordService:
         )
 
         records: List[PatientMedicalRecordResponse] = []
+        unreadable: List[str] = []
         for doc in cursor:
-            records.append(cls._to_response_schema(PatientMedicalRecordDocument.model_validate(doc), str(doc["_id"])))
+            # P4-O1 (Phase 05): one malformed historical record used to make the whole list a 500. It is now
+            # reported by reference instead, so it is neither hidden nor allowed to block the other records.
+            try:
+                records.append(cls._to_response_schema(PatientMedicalRecordDocument.model_validate(doc),
+                                                       str(doc["_id"])))
+            except Exception as exc:
+                logger.warning("Medical record %s could not be displayed (%s).", doc.get("_id"), type(exc).__name__)
+                unreadable.append(str(doc.get("recordId") or doc.get("_id")))
 
         return PatientMedicalRecordListResponse(
             records=records,
+            unreadableRecords=len(unreadable),
+            unreadableRecordRefs=unreadable,
             total=total,
             page=page,
             pageSize=page_size,

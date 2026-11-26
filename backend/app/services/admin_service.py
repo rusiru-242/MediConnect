@@ -851,11 +851,28 @@ class AdminService:
         elif end_date:
             query["appointmentDate"] = {"$lte": end_date}
 
-        cursor = db["appointments"].find(query).sort("createdAt", -1)
-        raw_appointments = list(cursor)
+        # P4-O4 (Phase 05): search, count and paging run in MongoDB; only one page is loaded (the whole
+        # collection used to be read and filtered in Python).
+        if search and search.strip():
+            term = re.escape(search.strip()[:100])
+            people = [str(u["_id"]) for u in db["users"].find(
+                {"$or": [{"fullName": {"$regex": term, "$options": "i"}}, {"email": {"$regex": term, "$options": "i"}}]},
+                {"_id": 1}).limit(500)]
+            profiles = [str(p["_id"]) for p in db["doctor_profiles"].find(
+                {"specialty": {"$regex": term, "$options": "i"}}, {"_id": 1}).limit(500)]
+            ors: List[Dict[str, Any]] = [{"patientUserId": {"$in": people}}, {"doctorUserId": {"$in": people}},
+                                         {"doctorProfileId": {"$in": profiles}},
+                                         {"appointmentDate": {"$regex": term}}]
+            if ObjectId.is_valid(search.strip()):
+                ors.append({"_id": ObjectId(search.strip())})
+            query["$or"] = ors
+        total = db["appointments"].count_documents(query)
+        raw_appointments = list(db["appointments"].find(query).sort([("createdAt", -1), ("_id", -1)])
+                                .skip((page - 1) * page_size).limit(page_size))
 
         if not raw_appointments:
-            return AdminAppointmentListResponse(items=[], total=0, page=page, pageSize=page_size, totalPages=1)
+            return AdminAppointmentListResponse(items=[], total=total, page=page, pageSize=page_size,
+                                                totalPages=max(1, math.ceil(total / page_size)) if total else 1)
 
         # Bulk user lookup
         user_ids_set = set()
@@ -898,12 +915,6 @@ class AdminService:
             d_name = doctor.get("fullName", "Doctor")
             d_spec = profile.get("specialty") or None
 
-            if search and search.strip():
-                term = search.strip().lower()
-                combined = f"{p_name} {p_email} {d_name} {d_spec or ''} {a.get('appointmentDate', '')} {a['_id']}".lower()
-                if term not in combined:
-                    continue
-
             c_at = a.get("createdAt")
             if isinstance(c_at, datetime) and c_at.tzinfo is None:
                 c_at = c_at.replace(tzinfo=timezone.utc)
@@ -936,13 +947,10 @@ class AdminService:
                 )
             )
 
-        total = len(items)
         total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
-        skip = (page - 1) * page_size
-        paginated_items = items[skip : skip + page_size]
 
         return AdminAppointmentListResponse(
-            items=paginated_items,
+            items=items,
             total=total,
             page=page,
             pageSize=page_size,
@@ -978,9 +986,13 @@ class AdminService:
         start_dt, end_dt, _, _ = platform_range(start_date, end_date)
         query.update(payment_time_query(start_dt, end_dt))
 
-        raw_payments = list(db["payments"].find(query).sort("createdAt", -1))
+        # P4-O4 (Phase 05): count and page in MongoDB; only one page of payments is loaded.
+        total = db["payments"].count_documents(query)
+        raw_payments = list(db["payments"].find(query).sort([("createdAt", -1), ("_id", -1)])
+                            .skip((page - 1) * page_size).limit(page_size))
         if not raw_payments:
-            return AdminPaymentListResponse(items=[], total=0, page=page, pageSize=page_size, totalPages=1)
+            return AdminPaymentListResponse(items=[], total=total, page=page, pageSize=page_size,
+                                            totalPages=max(1, math.ceil(total / page_size)) if total else 1)
 
         user_ids_set = set()
         for p in raw_payments:
@@ -1041,13 +1053,10 @@ class AdminService:
                 )
             )
 
-        total = len(items)
         total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
-        skip = (page - 1) * page_size
-        paginated_items = items[skip : skip + page_size]
 
         return AdminPaymentListResponse(
-            items=paginated_items,
+            items=items,
             total=total,
             page=page,
             pageSize=page_size,
