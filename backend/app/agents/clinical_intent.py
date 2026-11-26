@@ -54,13 +54,22 @@ SYMPTOM_TERMS: Dict[str, tuple] = {
 DURATION = re.compile(
     r"(?:\b(\d+|one|two|three|four|five|six|seven|a|few|several)\s*(?:k\s+)?(?:days?|dawas\w*|weeks?|sathi\w*|months?|masa\w*|hours?|paya\w*)\b)"
     r"|(?:(?:dawas|sathi|masa|paya)\w*\s+(\d+)\s*(?:k|ka|kata|ak)?)"
-    r"|(?:(\d+)\s*(?:දින|සති|මාස|පැය))",
+    r"|(?:(\d+)\s*(?:දින|සති|මාස|පැය))"
+    # A01: Romanized and Sinhala number words ("dawas thunak", "දවස් තුනක්", "sathi dekak").
+    r"|(?:(?:dawas|davas|dina|sathi|masa|paya)\w*\s+(ekak|dekak|thunak|tunak|hatharak|pahak|hayak|hathak|kihipayak))\b"
+    r"|(?:(?:දවස්|දින|සති|මාස|පැය)\s*(එකක්|දෙකක්|තුනක්|හතරක්|පහක්|හයක්|හතක්|කිහිපයක්))",
 )
-NUMBER_WORDS = {"one": 1, "a": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "few": 3, "several": 3}
+NUMBER_WORDS = {"one": 1, "a": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "few": 3, "several": 3,
+                "ekak": 1, "dekak": 2, "thunak": 3, "tunak": 3, "hatharak": 4, "pahak": 5, "hayak": 6, "hathak": 7,
+                "kihipayak": 3, "එකක්": 1, "දෙකක්": 2, "තුනක්": 3, "හතරක්": 4, "පහක්": 5, "හයක්": 6, "හතක්": 7,
+                "කිහිපයක්": 3}
 
 PRESCRIPTION_CUES = (
     r"\bprescribe\w*\b", r"\bgive me (?:an? |some )?(?:antibiotic|prescription|medicine|medication|tablets?)\b",
     r"\b(?:exact|correct|right) (?:dose|dosage)\b", r"\bhow (?:many|much) (?:tablets?|mg|pills?) should i\b",
+    # A01-H10: "How many paracetamol tablets can I take at once ... give me an exact number".
+    r"\bhow (?:many|much)\b[^.?!]{0,40}\b(?:tablets?|pills?|capsules?|mg|ml|doses?)\b[^.?!]{0,15}\b(?:can|should|may|do) i\b",
+    r"\bmax(?:imum)? (?:dose|dosage|number of (?:tablets|pills))\b",
     r"\btreatment duration\b", r"\bwhich antibiotic\b", r"\bwhat antibiotic\b", r"\bantibiotic for me\b",
     r"\bwrite (?:me )?a prescription\b", r"\bwithout (?:seeing|consulting) a doctor\b", r"\bdon'?t want to (?:see|consult|visit) a doctor\b",
     r"\bbeheth\s+(?:liyala|liyanna|denna|kiyanna)\b", r"\bmonawada\s+bonna\s+one\b", r"\bmokada\s+bonna\s+one\b",
@@ -131,7 +140,7 @@ def detect_duration_days(text: str) -> Optional[float]:
     match = DURATION.search(norm)
     if not match:
         return None
-    raw = match.group(1) or match.group(2) or match.group(3)
+    raw = match.group(1) or match.group(2) or match.group(3) or match.group(4) or match.group(5)
     amount = NUMBER_WORDS.get(raw, None) if raw and not raw.isdigit() else int(raw) if raw else None
     if amount is None:
         return None

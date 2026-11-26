@@ -113,7 +113,13 @@ POISON_SELF = (r"(?<!food )\bpoison\w*", r"\boverdos\w*", r"\btook too many (?:p
                r"\s+(?:\w+\s+){0,2}?(?:pills?|tablets?|capsules?|beheth|pethi)\b",
                r"\b(?:swallowed|ate|drank)\s+(?:\w+\s+){0,3}?(?:pills?|tablets?|medicine|medication|beheth)\b.*\b(?:accident\w*|by mistake|mistakenly)\b",
                r"\b(?:accident\w*|by mistake|mistakenly)\b.*\b(?:took|swallowed|ate|drank)\s+(?:\w+\s+){0,3}?(?:[1-9]\d+|many|too many|a lot)\b",
-               r"\b(?:child|son|daughter|baby|kid|toddler)\s+(?:\w+\s+){0,2}(?:swallowed|ate|drank)\s+(?:\w+\s+){0,2}(?:pills?|tablets?|medicine|bleach|kerosene|poison|chemicals?|batter(?:y|ies))\b",
+               r"\b(?:child|son|daughter|baby|kid|toddler)\s+(?:\w+\s+){0,2}(?:swallowed|ate|drank)\s+(?:\w+\s+){0,6}(?:pills?|tablets?|capsules?|medicine|bleach|kerosene|poison|chemicals?|batter(?:y|ies))\b",
+               # A01-N01: "My child swallowed a whole strip of my blood pressure tablets" was missed because the
+               # medicine name put more than two words between the quantity and "tablets".
+               r"\b(?:took|taken|swallowed|ate|had|drank|given|gave)\b[^.!?]{0,30}\b(?:whole|full|entire)\s+(?:bottle|strip|pack|packet|box|sheet|card|blister)\b",
+               r"\b(?:took|taken|swallowed|ate)\s+all\s+(?:of\s+)?(?:my|his|her|the|their)\s+(?:\w+\s+){0,3}(?:pills?|tablets?|capsules?|medicines?|medication)\b",
+               r"\bpethi\s+(?:okkoma|ekapaara|ekathuwak|pathakma|pattiyakma|godakma)\s+(?:biw|biv|gil|kaa|kae|ka)\w*",
+               "පෙති ඔක්කොම බිව්", "පෙති පතක්ම", "පෙති ඔක්කොම ගිල",
                r"\bswallowed (?:bleach|poison|chemical\w*|kerosene|pesticide\w*|pills)\b",
                r"\bdrank (?:bleach|poison|chemical\w*|kerosene|pesticide\w*)\b",
                r"\bwasa\s+(?:biw|biv|bow|bon)\w*", r"\bwas\s+(?:biw|biv)\w*",
