@@ -265,7 +265,10 @@ def run_scheduler(db, now=None):
         row = events.find_one_and_update(
             {"state": "pending", "nextAttemptAt": {"$lte": now}, "expiresAt": {"$gt": now},
              "action": {"$nin": ["taken", "skipped", "completed"]}},
-            {"$set": {"state": "sending", "leaseUntil": datetime.now(timezone.utc) + timedelta(minutes=3)},
+            # P05-N16: the lease uses the same clock as the expiry check above (the run's `now`, or the wall clock
+            # if later). It used the wall clock only, so a run with an injected clock judged live leases expired.
+            {"$set": {"state": "sending",
+                      "leaseUntil": max(now, datetime.now(timezone.utc)) + timedelta(minutes=3)},
              "$inc": {"attempts": 1}},
             sort=[("nextAttemptAt", 1)], return_document=ReturnDocument.AFTER,
         )
