@@ -1,5 +1,8 @@
 import logging
+import os
 import smtplib
+import socket
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
@@ -8,50 +11,118 @@ from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+# A02: plaintext SMTP is allowed only for a local test server on a loopback host (A02 integration tests and local
+# UAT). Every other host must use TLS with a verified certificate.
+_LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+
+
+class EmailOutcome:
+    """Result of one SMTP submission (A02-BUG-003).
+
+    ``status`` is one of:
+      * ``accepted``  - the SMTP server accepted the message (this is not proof of mailbox delivery);
+      * ``rejected``  - the server refused the sender or recipient, or authentication failed (permanent);
+      * ``retry``     - the connection or TLS handshake failed before the message was transmitted (safe to retry);
+      * ``uncertain`` - the connection broke while or after the message was transmitted (never retried
+                        automatically, because the server may already have accepted it);
+      * ``disabled``  - no SMTP host is configured.
+
+    The object is truthy only for ``accepted``, so existing ``if EmailService._send_email(...)`` callers keep their
+    meaning.
+    """
+
+    __slots__ = ("status", "reason")
+
+    def __init__(self, status: str, reason: Optional[str] = None):
+        self.status, self.reason = status, reason
+
+    def __bool__(self) -> bool:
+        return self.status == "accepted"
+
+    def __repr__(self) -> str:  # never contains addresses or content
+        return f"EmailOutcome({self.status!r}, {self.reason!r})"
+
+
+def outcome_of(result) -> EmailOutcome:
+    """Normalise a ``_send_email`` result; test doubles may return plain booleans."""
+    if isinstance(result, EmailOutcome):
+        return result
+    return EmailOutcome("accepted") if result else EmailOutcome("uncertain", "smtp_not_acknowledged")
+
+
+def _tls_context() -> ssl.SSLContext:
+    # A02-BUG-001: smtplib's default context for starttls()/SMTP_SSL is ssl._create_unverified_context(), so the
+    # server certificate and host name were never checked and the SMTP password could be sent to an impostor.
+    context = ssl.create_default_context(cafile=os.getenv("SMTP_CA_FILE") or None)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
 
 class EmailService:
     """Service for sending transactional emails."""
 
     @classmethod
-    def _send_email(cls, to_email: str, subject: str, text_content: str, html_content: str) -> bool:
-        """Internal helper to dispatch emails via SMTP."""
+    def _send_email(cls, to_email: str, subject: str, text_content: str, html_content: str) -> EmailOutcome:
+        """Submit one email via SMTP and report what is known about the outcome (see ``EmailOutcome``)."""
         from_email = settings.SMTP_FROM_EMAIL or "noreply@mediconnect.com"
         from_name = settings.SMTP_FROM_NAME or "MediConnect"
 
-        if not settings.SMTP_HOST or not settings.SMTP_HOST.strip():
-            logger.warning(
-                "SMTP_HOST is not configured. Email was skipped.",
-            )
-            return False
+        host = (settings.SMTP_HOST or "").strip()
+        if not host:
+            logger.warning("SMTP_HOST is not configured. Email was skipped.")
+            return EmailOutcome("disabled", "provider_not_configured")
 
         message = MIMEMultipart("alternative")
         message["Subject"] = subject
         message["From"] = f"{from_name} <{from_email}>"
         message["To"] = to_email
 
-        message.attach(MIMEText(text_content, "plain"))
-        message.attach(MIMEText(html_content, "html"))
+        message.attach(MIMEText(text_content, "plain", "utf-8"))
+        message.attach(MIMEText(html_content, "html", "utf-8"))
 
+        port = settings.SMTP_PORT or 587
+        plaintext_ok = host in _LOOPBACK and os.getenv("SMTP_ALLOW_PLAINTEXT_LOOPBACK", "").lower() == "true"
+        transmitting = False
         try:
-            port = settings.SMTP_PORT or 587
             if port == 465:
-                with smtplib.SMTP_SSL(settings.SMTP_HOST, port, timeout=10) as server:
-                    if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
-                        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                    server.sendmail(from_email, [to_email], message.as_string())
+                server = smtplib.SMTP_SSL(host, port, timeout=10, context=_tls_context())
             else:
-                with smtplib.SMTP(settings.SMTP_HOST, port, timeout=10) as server:
-                    server.ehlo()
-                    server.starttls()
-                    server.ehlo()
-                    if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
-                        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                    server.sendmail(from_email, [to_email], message.as_string())
+                server = smtplib.SMTP(host, port, timeout=10)
+            with server:
+                server.ehlo()
+                if port != 465:
+                    if server.has_extn("starttls"):
+                        server.starttls(context=_tls_context())
+                        server.ehlo()
+                    elif not plaintext_ok:
+                        # Never send credentials or patient mail over an unencrypted connection.
+                        return EmailOutcome("rejected", "starttls_unavailable")
+                if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
+                    server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+                transmitting = True
+                refused = server.sendmail(from_email, [to_email], message.as_string())
+                if refused:
+                    return EmailOutcome("rejected", "recipient_refused")
             logger.info("SMTP accepted email submission.")
-            return True
-        except Exception as exc:
+            return EmailOutcome("accepted")
+        except (smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused):
+            logger.warning("SMTP refused the sender or recipient.")
+            return EmailOutcome("rejected", "recipient_refused")
+        except smtplib.SMTPAuthenticationError:
+            logger.error("SMTP authentication failed.")
+            return EmailOutcome("rejected", "auth_failed")
+        except smtplib.SMTPDataError as exc:
+            # The server answered the DATA command with an error: it did not accept the message.
+            permanent = 500 <= getattr(exc, "smtp_code", 0) < 600
+            return EmailOutcome("rejected" if permanent else "retry", "data_refused")
+        except (ssl.SSLError, ssl.CertificateError):
+            logger.error("SMTP TLS handshake or certificate verification failed.")
+            return EmailOutcome("retry" if not transmitting else "uncertain", "tls_failed")
+        except (socket.timeout, TimeoutError, ConnectionError, OSError, smtplib.SMTPException) as exc:
             logger.error("SMTP submission failed (%s).", type(exc).__name__)
-            return False
+            if transmitting:
+                return EmailOutcome("uncertain", "connection_lost_during_submission")
+            return EmailOutcome("retry", "connection_failed")
 
     @classmethod
     def send_verification_otp(cls, to_email: str, otp: str) -> bool:

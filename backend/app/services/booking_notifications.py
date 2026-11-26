@@ -11,7 +11,7 @@ import requests
 from app.config.settings import settings
 from app.models.appointment import utc_now
 from app.models.notification import NotificationType
-from app.services.email_service import EmailService
+from app.services.email_service import EmailService, outcome_of
 from app.services.notification_service import NotificationService
 
 
@@ -59,8 +59,9 @@ def send_confirmation(db, appointment, channel):
     if channel == "email":
         if not user.get("emailVerified") or not user.get("email"):
             return {"status": "skipped", "reason": "verified_email_required"}
-        if not settings.SMTP_HOST:
-            return {"status": "failed", "reason": "provider_not_configured"}
+        if not (settings.SMTP_HOST or "").strip():
+            # A02-BUG-004: a provider that is not configured is "disabled", not a delivery failure.
+            return {"status": "disabled", "reason": "provider_not_configured"}
         message = (
             f"Hello {user.get('fullName') or 'patient'},\n\n"
             f"Your MediConnect appointment with {doctor} is confirmed.\n"
@@ -69,11 +70,18 @@ def send_confirmation(db, appointment, channel):
             f"Payment: {'Paid' if appointment['paymentStatus'] == 'PAID' else 'No payment required'}\n"
             f"Booking reference: {reference}\n\nManage your appointment in My Appointments."
         )
-        acknowledged = EmailService._send_email(
+        outcome = outcome_of(EmailService._send_email(
             user["email"], "MediConnect Appointment Confirmation", message,
             "<h1>MediConnect</h1><p>" + escape(message).replace("\n", "<br>") + "</p>",
-        )
-        return {"status": "sent"} if acknowledged else {"status": "uncertain", "reason": "smtp_not_acknowledged"}
+        ))
+        # "sent" = accepted by the SMTP server (not proof of mailbox delivery). A02-BUG-003: a connection failure
+        # before transmission is retried; a refusal is permanent; only a break during transmission is "uncertain".
+        return {
+            "accepted": {"status": "sent"},
+            "retry": {"status": "pending", "reason": outcome.reason},
+            "rejected": {"status": "failed", "reason": outcome.reason},
+            "disabled": {"status": "disabled", "reason": "provider_not_configured"},
+        }.get(outcome.status, {"status": "uncertain", "reason": outcome.reason or "smtp_not_acknowledged"})
 
     phone = normalize_phone(user.get("phone"))
     if not phone or not appointment.get("smsConsent") or (
@@ -82,7 +90,7 @@ def send_confirmation(db, appointment, channel):
         return {"status": "skipped", "reason": "authorized_mobile_required"}
     account, token, service = twilio_config()
     if not all((account, token, service)):
-        return {"status": "failed", "reason": "provider_not_configured"}
+        return {"status": "disabled", "reason": "provider_not_configured"}
     response = requests.post(
         f"https://api.twilio.com/2010-04-01/Accounts/{account}/Messages.json",
         auth=(account, token), timeout=10,

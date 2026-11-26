@@ -17,19 +17,28 @@ class NotificationMonitoringService:
     # Outbox results that will never succeed by retrying (P04-N15): retrying them only inflated the backlog.
     PERMANENT_REASONS = frozenset({"provider_not_configured", "verified_email_required", "authorized_mobile_required",
                                    "preference_disabled", "invalid_recipient", "gateway_rejected"})
-    _DELIVERED = {"delivered", "stored", "sent", "accepted"}
+    # A02-BUG-004: "delivered" now means delivery evidence only (an in-app record stored for the recipient, or a
+    # provider delivery receipt such as Twilio "delivered"). Provider acceptance (SMTP accepted the message, FCM or
+    # Twilio accepted the request) is reported separately as "accepted", and a provider that is not configured is
+    # "disabled", not "failed" or "skipped".
+    _DELIVERED = {"delivered", "stored", "stored_in_app"}
+    _ACCEPTED = {"sent", "accepted"}
     _PENDING = {"pending", "retry", "retry_scheduled"}
-    _SKIPPED = {"skipped", "unavailable", "cancelled"}
+    _SKIPPED = {"skipped", "cancelled", "no_device", "expired"}
+    _DISABLED = {"disabled", "unavailable"}
+    _NOT_ATTEMPTED = {"not_requested"}
 
     @classmethod
     def _bucket(cls, counts: Dict[str, int]) -> Dict[str, int]:
         return {
             "pending": sum(v for k, v in counts.items() if k in cls._PENDING),
             "processing": counts.get("sending", 0),
+            "accepted": sum(v for k, v in counts.items() if k in cls._ACCEPTED),
             "delivered": sum(v for k, v in counts.items() if k in cls._DELIVERED),
-            "failed": counts.get("failed", 0),
+            "failed": counts.get("failed", 0) + counts.get("dead_lettered", 0),
             "retryScheduled": counts.get("retry_scheduled", 0) + counts.get("retry", 0),
             "skipped": sum(v for k, v in counts.items() if k in cls._SKIPPED),
+            "disabled": sum(v for k, v in counts.items() if k in cls._DISABLED),
             "uncertain": counts.get("uncertain", 0),
         }
 
@@ -70,7 +79,7 @@ class NotificationMonitoringService:
         sources = {
             "email": [("appointments", "confirmationOutbox.email.status"), ("care_reminder_events", "channels.email.status")],
             "sms": [("appointments", "confirmationOutbox.sms.status"), ("care_reminder_events", "channels.sms.status")],
-            "push": [("care_reminder_events", "channels.push.status")],
+            "push": [("care_reminder_events", "channels.push.status"), ("notifications", "channels.push.status")],
             "in_app": [("appointments", "confirmationOutbox.doctor.status"), ("care_reminder_events", "channels.inApp.status")],
         }
         metrics_by_channel = []
@@ -80,17 +89,18 @@ class NotificationMonitoringService:
             counts: Dict[str, int] = {}
             for coll, path in paths:
                 for k, v in cls._status_counts(db, coll, path).items():
-                    counts[k] = counts.get(k, 0) + v
+                    if k not in cls._NOT_ATTEMPTED:
+                        counts[k] = counts.get(k, 0) + v
             dead_lettered = db["notification_dead_letters"].count_documents({"channel": ch, "status": "unresolved"})
             b = cls._bucket(counts)
             provider = "in_app_store" if ch == "in_app" else providers.get(ch, "unknown")
             total = sum(counts.values())
             total_backlog += b["pending"]
-            total_delivered += b["delivered"]
+            total_delivered += b["delivered"] + b["accepted"]
             total_failed += b["failed"] + dead_lettered
-            if provider == "not_configured" and (b["failed"] or b["skipped"]):
-                notes.append(f"{ch}: provider not configured; {b['failed']} failed and {b['skipped']} skipped. "
-                             f"Nothing was sent on this channel.")
+            if provider == "not_configured" and (b["failed"] or b["skipped"] or b["disabled"]):
+                notes.append(f"{ch}: provider not configured; {b['disabled']} disabled, {b['failed']} failed and "
+                             f"{b['skipped']} skipped. Nothing was sent on this channel.")
             metrics_by_channel.append({"channel": ch, **b, "deadLettered": dead_lettered, "total": total,
                                        "providerStatus": provider, "statusCounts": counts})
 
@@ -259,5 +269,7 @@ class NotificationMonitoringService:
         if not tokens:
             return 0
 
-        res = db["device_tokens"].delete_many({"token": {"$in": tokens}})
+        # A02-BUG-010: the stored field is "fcmToken"; the query on "token" never removed anything.
+        from app.models.notification import get_device_token_collection
+        res = get_device_token_collection(db).delete_many({"fcmToken": {"$in": list(tokens)}})
         return res.deleted_count

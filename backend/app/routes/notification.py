@@ -196,7 +196,8 @@ def retry_booking_confirmation(
         raise HTTPException(404, "Failed confirmation job not found.")
     path = f"confirmationOutbox.{channel}"
     result = db["appointments"].update_one(
-        {"_id": ObjectId(appointment_id), "confirmedAt": {"$exists": True}, f"{path}.status": "failed"},
+        # A02: a "disabled" job (provider was not configured) can be retried once the provider is configured.
+        {"_id": ObjectId(appointment_id), "confirmedAt": {"$exists": True}, f"{path}.status": {"$in": ["failed", "disabled"]}},
         {"$set": {f"{path}.status": "pending", f"{path}.nextAttemptAt": utc_now(),
                   f"{path}.attempts": 0, f"{path}.retriedBy": str(admin.id)},
          "$unset": {f"{path}.providerId": "", f"{path}.reason": ""}},
