@@ -59,6 +59,10 @@ async def _run_reminder_worker():
                 await asyncio.to_thread(AppointmentService.release_expired_holds, db)
                 await asyncio.to_thread(run_confirmation_outbox, db)
                 await asyncio.to_thread(run_communications, db)
+                # B3 fallback (Phase 05): refunds that stayed pending are re-read from Stripe until webhooks are
+                # delivered to this backend.
+                from app.services.stripe_webhook_service import sync_pending_refunds
+                await asyncio.to_thread(sync_pending_refunds, db)
                 duration = asyncio.get_event_loop().time() - t0
                 # job_count was a constant 3 (the number of job types), shown as "pending jobs"; it is not recorded
                 # now because the worker does not measure a backlog (P04-N14).

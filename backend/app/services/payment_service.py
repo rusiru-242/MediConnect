@@ -426,6 +426,25 @@ class PaymentService:
             logger.warning("Ignored a Stripe event whose livemode does not match the configured key.")
             return {"status": "ignored", "reason": "livemode_mismatch"}
 
+        # Phase 05 (B3): persist and de-duplicate by Stripe event id before any record changes.
+        from app.services import stripe_webhook_service as hooks
+        skip = hooks.begin_event(db, event)
+        if skip:
+            # Same response the per-record idempotency checks have always given for a redelivery.
+            return {"status": "already_processed", "reason": "duplicate_event"}
+        # An exception leaves the event "processing"; a Stripe redelivery after five minutes retries it.
+        result = await PaymentService._dispatch_event(db, event, event_type, data_object, now, payment_col)
+        hooks.finish_event(db, event, str(result.get("status")))
+        return result
+
+    @staticmethod
+    async def _dispatch_event(db, event, event_type, data_object, now, payment_col) -> Dict[str, Any]:
+        from app.services import stripe_webhook_service as hooks
+        if event_type == "payment_intent.canceled":
+            return {"status": hooks.handle_payment_intent_canceled(db, data_object)}
+        if event_type in hooks.REFUND_EVENT_TYPES:
+            return {"status": hooks.handle_refund_event(db, event_type, data_object)}
+
         # Handle payment_intent.succeeded
         if event_type == "payment_intent.succeeded":
             intent_id = data_object["id"]

@@ -638,3 +638,13 @@ async def list_audit_logs(
         page_size=pageSize,
     )
     return AdminAuditLogListResponse(**res)
+
+
+@router.post("/refunds/sync-pending", summary="Re-read pending Stripe refunds and apply final states (Phase 05)")
+async def sync_pending_refunds_now(
+    current_admin: UserResponseSchema = Depends(require_admin),
+    db: Database = Depends(get_database),
+):
+    """Admin-triggered version of the worker's pending-refund check. It never creates a refund."""
+    from app.services.stripe_webhook_service import sync_pending_refunds
+    return sync_pending_refunds(db, older_than_minutes=0)
