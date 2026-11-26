@@ -369,3 +369,14 @@ The owner's BUG-049 to BUG-063 descriptions are now recorded and mapped to the P
 - **Critical owner item:** P5-C1. The live MongoDB credentials are in public git history (commit `a41b659`); rotate them.
 - **Reconciled tracker for all phases:** [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md). It lists 160 unique confirmed defects (159 fixed, 1 open: BUG-039).
 - **Details:** [uat/phase-05/PHASE_05_BUG_FIX_REPORT.md](uat/phase-05/PHASE_05_BUG_FIX_REPORT.md).
+
+## Agent Completion A01 (2026-11-26, branch `fix/agents-a01-ai-intelligence-vision`)
+
+17 new defects (A01-N01 to N17), all fixed with automated tests. The most serious:
+- **A01-N01:** a child swallowing a whole strip of tablets was not detected as an emergency.
+- **A01-N09:** text a live model reconstructed from a blurry photo was presented as read.
+- **A01-N06:** the test suite inherited the real provider keys and made live calls.
+- **A01-N05:** the Health Assistant answered medicine, sleep, dose-change and injection messages with one generic paragraph.
+- **A01-N10 / N11:** no secondary provider; retired or shutting-down model ids.
+
+Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (177 confirmed defects: 176 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a01/A01_BUG_FIX_REPORT.md](uat/agent-completion/a01/A01_BUG_FIX_REPORT.md).

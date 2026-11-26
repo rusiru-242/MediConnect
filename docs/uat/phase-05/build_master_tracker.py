@@ -107,6 +107,22 @@ add('P5-C1', '', 'Critical', 'Repository / credentials',
     'Live MongoDB URI with credentials in public git history (a41b659)', 'security incident',
     'OPEN — owner rotation required', 'phase-05/PHASE_05_SECURITY_AND_PRIVACY_REPORT.md')
 
+# ---- Agent Completion A01 (2026-11-26, branch fix/agents-a01-ai-intelligence-vision)
+a01 = U / 'agent-completion' / 'a01' / 'A01_BUG_FIX_REPORT.md'
+if a01.exists():
+    import re as _re
+    a01_text = a01.read_text(encoding='utf-8')
+    for line in a01_text.split('## Defects')[1].split('### Found during')[0].splitlines():
+        if line.startswith('| A01-N'):
+            c = [x.strip() for x in line.strip('|').split('|')]
+            title = _re.sub(r'\*\*|`', '', c[3])
+            title = _re.split(r'(?<=[.)])\s', title)[0][:140]
+            add(c[0], '', _re.sub(r'\*', '', c[1]), c[2], title, 'defect', 'FIXED (A01)',
+                'agent-completion/a01/A01_BUG_FIX_REPORT.md')
+    for m in _re.finditer(r'^- \*\*O(\d)\:\*\* (.+)$', a01_text.split('## Observations')[1], _re.M):
+        add(f'A01-O{m.group(1)}', '', 'Low', 'A01', m.group(2).split('. ')[0][:140], 'observation', 'OPEN',
+            'agent-completion/a01/A01_BUG_FIX_REPORT.md')
+
 # ---- counts
 def is_open(r):
     return r['status'].upper().startswith('OPEN')
@@ -126,7 +142,8 @@ counts = {
     'byPhase': {},
 }
 for prefix, label in (('BUG-0', 'historical BUG-001..063 (unaliased)'), ('P01-', 'Phase 01'), ('P02-', 'Phase 02'),
-                      ('P03-', 'Phase 03'), ('P04-', 'Phase 04'), ('P05-', 'Phase 05')):
+                      ('P03-', 'Phase 03'), ('P04-', 'Phase 04'), ('P05-', 'Phase 05'),
+                      ('A01-', 'Agent Completion A01')):
     sel = [r for r in rows if r['id'].startswith(prefix)]
     counts['byPhase'][label] = {'defects': sum(r['kind'] == 'defect' for r in sel),
                                 'improvements': sum(r['kind'] == 'improvement' for r in sel)}
@@ -134,7 +151,7 @@ for prefix, label in (('BUG-0', 'historical BUG-001..063 (unaliased)'), ('P01-',
 (U / 'phase-05' / 'evidence' / 'master-tracker-counts.json').write_text(json.dumps(counts, indent=2), encoding='utf-8')
 
 lines = [
-    '# MediConnect — Master Bug Tracker (reconciled, Phases 00–05)', '',
+    '# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01)', '',
     'For: the project owner, reviewers and future maintainers. Generated 2026-11-26 by '
     '`docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).', '',
     '## How to read it', '',

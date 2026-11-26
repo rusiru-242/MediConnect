@@ -127,3 +127,16 @@ No `NotImplementedError`, `UnimplementedError` or TODO/FIXME was found in produc
 ## Phase 05 update (2026-11-26)
 
 The final matrix covering all 38 components is in [uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md](uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md): 25 VERIFIED (local), 11 PARTIAL and 2 BLOCKED. It supersedes the statuses above, which are kept as history. No component is verified against a live LLM, a clinician or a physical device.
+
+## Agent Completion A01 update (2026-11-26, `fix/agents-a01-ai-intelligence-vision`)
+
+- **02 Health Assistant:** PARTIAL → VERIFIED (local + live Gemini) · clinical review.
+  - Grounded answers replace the three generic templates.
+  - A provider may only rephrase non-authoritative answers, and every rewrite is validated.
+- **04 Medicine Image Analysis:** BLOCKED → PARTIAL.
+  - Live vision verified with 8 synthetic packaging images.
+  - Not yet covered: real photographed packaging, pharmacist review, and a data-processing agreement.
+- **32 Provider Management:** BLOCKED → PARTIAL.
+  - Gemini verified live: success, invalid key, invalid model, daily quota, fallback.
+  - OpenAI live generation is blocked because the account has no credits.
+- **New totals:** 26 VERIFIED (local), 12 PARTIAL, 0 BLOCKED. See [uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md](uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md).

@@ -1,0 +1,247 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "rows": [
+    {
+      "id": "P-1",
+      "role": "PATIENT",
+      "message": "mata Colombo walin hoda cardiologist kenek hoyala denna",
+      "expectedIntent": "doctor_search",
+      "status": 201,
+      "card": "doctor_options",
+      "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 2 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න."
+    },
+    {
+      "id": "P-2",
+      "role": "PATIENT",
+      "message": "mata 3000ta aduwen kenek hoyala denna",
+      "expectedIntent": "doctor_search",
+      "status": 201,
+      "card": "doctor_options",
+      "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 5 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න."
+    },
+    {
+      "id": "P-3",
+      "role": "PATIENT",
+      "message": "Select the most experienced doctor.",
+      "expectedIntent": "doctor_selection",
+      "status": 200,
+      "card": "doctor_auto_selected",
+      "reply": "From 2 verified doctors that meet all your requirements, I selected **Dr. UAT Cardio Two**.\n\n**Why this doctor (from their profile data):**\n- Specialty: Cardiology\n- Location: Colombo\n- Consultation fee LKR 3,500\n- No published patient reviews yet\n- 20 years of experience (as listed on the profile)\n\n**Other eligible doctors:**\n- Dr. UAT Cardio One: 12 years\n\nRanking basis: most years of experience"
+    },
+    {
+      "id": "P-4",
+      "role": "PATIENT",
+      "message": "Show me my next appointment.",
+      "expectedIntent": "appointments",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "26 Nov 10:00 · Confirmed appointment\nTimes are in Asia/Colombo. Open My Care Plan for details."
+    },
+    {
+      "id": "P-5",
+      "role": "PATIENT",
+      "message": "When should I take the medicine prescribed by my doctor?",
+      "expectedIntent": "medication_schedule",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "There are no matching scheduled records for 2026-11-26."
+    },
+    {
+      "id": "P-6",
+      "role": "PATIENT",
+      "message": "Show my upcoming medical tests.",
+      "expectedIntent": "medical_tests",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "There are no matching scheduled records in the next seven days."
+    },
+    {
+      "id": "P-7",
+      "role": "PATIENT",
+      "message": "මට කොළඹ හෘද වෛද්‍යවරයෙක් හොයලා දෙන්න",
+      "expectedIntent": "doctor_search",
+      "status": 201,
+      "card": "doctor_options",
+      "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 2 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න.\n\nහෘද රෝග විශේෂඥ වෛද්‍යවරු හෘද ස්පන්දන ගැටලු, අධි රුධිර පීඩනය වැනි හදවත හා රුධිර නාල ආශ්‍රිත ගැටලු පරීක්ෂා කරනවා. මෙය රෝග විනිශ්චයක් නොවෙයි; නිවැරදි තක්සේරුව වෛද්‍යවරයා කරනු ඇත."
+    },
+    {
+      "id": "P-8",
+      "role": "PATIENT",
+      "message": "I want a skin doctor in Kandy under 2500",
+      "expectedIntent": "doctor_search",
+      "status": 201,
+      "card": "no_results",
+      "reply": "I couldn't find any verified doctors matching Dermatologist in Kandy under LKR 2,500. Would you like to try a different city, another date, or a higher fee limit?"
+    },
+    {
+      "id": "P-9",
+      "role": "PATIENT",
+      "message": "change my dose to two tablets",
+      "expectedIntent": "medication_change_refusal",
+      "status": 201,
+      "card": "medication_change_requires_clinician",
+      "reply": "**I can't change your dose or medicine times.** Changes to a prescribed medicine must be decided by the doctor who prescribed it, so nothing in your schedule has been changed.\n\n- Talk to your doctor, or book an appointment to review your medicine.\n- Keep taking it exactly as prescribed until your doctor tells you otherwise.\n- If you have already taken more than prescribed or feel unwell, call 1990"
+    },
+    {
+      "id": "D-1",
+      "role": "DOCTOR",
+      "message": "Show my appointments for tomorrow.",
+      "expectedIntent": "schedule",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_doctor_schedule",
+      "reply": "0 appointments in the selected date range."
+    },
+    {
+      "id": "D-2",
+      "role": "DOCTOR",
+      "message": "Find the patients requiring follow-up this week.",
+      "expectedIntent": "follow_ups",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_follow_up_tasks",
+      "reply": "0 recent follow-up plans."
+    },
+    {
+      "id": "D-3",
+      "role": "DOCTOR",
+      "message": "Prepare the consultation summary for my next patient.",
+      "expectedIntent": "consultation_preparation",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "Select an appointment. There is no checked-in patient waiting."
+    },
+    {
+      "id": "D-4",
+      "role": "DOCTOR",
+      "message": "Show my pending prescription renewal requests.",
+      "expectedIntent": "renewal_queue",
+      "status": 200,
+      "intent": null,
+      "tool": "get_prescription_renewal_queue",
+      "reply": "0 prescription renewal request(s) are awaiting your review. Renewals are approved or declined only by you on the Renewals screen; the assistant cannot approve them."
+    },
+    {
+      "id": "D-5",
+      "role": "DOCTOR",
+      "message": "How many consultations did I complete this month?",
+      "expectedIntent": "analytics",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_doctor_analytics",
+      "reply": "2026-11-01 to 2026-11-30 (Asia/Colombo): 0 confirmed, 0 completed and 0 cancelled appointments; 0 awaiting payment and 0 open refund requests."
+    },
+    {
+      "id": "D-6",
+      "role": "DOCTOR",
+      "message": "heta mage appointments monawada?",
+      "expectedIntent": "schedule",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_doctor_schedule",
+      "reply": "0 appointments in the selected date range."
+    },
+    {
+      "id": "D-7",
+      "role": "DOCTOR",
+      "message": "Who still needs a follow up from me in the coming days?",
+      "expectedIntent": "follow_ups",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_follow_up_tasks",
+      "reply": "0 recent follow-up plans."
+    },
+    {
+      "id": "A-1",
+      "role": "ADMIN",
+      "message": "Show me pending doctor verification applications.",
+      "expectedIntent": "pending_doctor_verifications",
+      "status": 200,
+      "intent": "pending_doctor_verifications",
+      "tool": "get_pending_doctor_verifications",
+      "reply": "There are currently 3 doctor verification application(s) pending administrative review."
+    },
+    {
+      "id": "A-2",
+      "role": "ADMIN",
+      "message": "Which refunds need attention?",
+      "expectedIntent": "refunds_attention",
+      "status": 200,
+      "intent": "refunds_attention",
+      "tool": "get_admin_report_data",
+      "reply": "Refund Report (2026-10-28 to 2026-11-26, Asia/Colombo): 29 refund request(s) opened. 14 settled in Stripe (LKR 32,000.00 returned), 8 awaiting review, 0 processing, 3 failed and retryable, 4 rejected."
+    },
+    {
+      "id": "A-3",
+      "role": "ADMIN",
+      "message": "How many successful payments were recorded this week?",
+      "expectedIntent": "payment_summary",
+      "status": 200,
+      "intent": "payment_summary",
+      "tool": "get_admin_dashboard_metrics",
+      "reply": "63 payment(s) were captured successfully in 2026-11-20 to 2026-11-26 (Asia/Colombo) (18 of them were later fully refunded); 3 attempt(s) failed."
+    },
+    {
+      "id": "A-4",
+      "role": "ADMIN",
+      "message": "Show notification failures.",
+      "expectedIntent": "notification_failures",
+      "status": 200,
+      "intent": "notification_failures",
+      "tool": "get_notification_queue_status",
+      "reply": "Notification delivery by channel: email: 3 failed (not_configured), sms: 0 failed (not_configured), push: 0 failed (not_configured), in_app: 0 failed (in_app_store). Dead-letter items awaiting review: 0. Channels that are not configured are reported as not configured, never as delivered."
+    },
+    {
+      "id": "A-5",
+      "role": "ADMIN",
+      "message": "Explain why this fraud assessment was generated.",
+      "expectedIntent": "fraud_explanation",
+      "status": 200,
+      "intent": "fraud_explanation",
+      "tool": "get_fraud_alerts",
+      "reply": "1 assessment(s) await review. Each was generated by these rule triggers: FRAUD-3BD5B0D55E: RAPID_CANCELLATION_PATTERN, EXCESSIVE_REFUND_REQUESTS. Open one to see its full explanation; these are signals for human review, not findings."
+    },
+    {
+      "id": "A-6",
+      "role": "ADMIN",
+      "message": "doctorlage applications kiyak approve karanna thiyenawada?",
+      "expectedIntent": "pending_doctor_verifications",
+      "status": 200,
+      "intent": "pending_doctor_verifications",
+      "tool": "get_pending_doctor_verifications",
+      "reply": "There are currently 3 doctor verification application(s) pending administrative review."
+    },
+    {
+      "id": "A-7",
+      "role": "ADMIN",
+      "message": "Are any messages failing to reach users?",
+      "expectedIntent": "notification_failures",
+      "status": 200,
+      "intent": "notification_failures",
+      "tool": "get_notification_queue_status",
+      "reply": "Notification delivery by channel: email: 3 failed (not_configured), sms: 0 failed (not_configured), push: 0 failed (not_configured), in_app: 0 failed (in_app_store). Dead-letter items awaiting review: 0. Channels that are not configured are reported as not configured, never as delivered."
+    },
+    {
+      "id": "A-8",
+      "role": "ADMIN",
+      "message": "මේ සතියේ සාර්ථක ගෙවීම් කීයද?",
+      "expectedIntent": "payment_summary",
+      "status": 200,
+      "intent": "payment_summary",
+      "tool": "get_admin_dashboard_metrics",
+      "reply": "63 payment(s) were captured successfully in 2026-11-20 to 2026-11-26 (Asia/Colombo) (18 of them were later fully refunded); 3 attempt(s) failed."
+    },
+    {
+      "id": "A-9",
+      "role": "ADMIN",
+      "message": "Is the system healthy?",
+      "expectedIntent": "system_health",
+      "status": 200,
+      "intent": "system_health",
+      "tool": "get_platform_health",
+      "reply": "Overall status: healthy. Dependencies: MongoDB: healthy, Stripe Payments: configured_not_verified, Email (SMTP): not_configured, SMS (Twilio): not_configured, Push (FCM): not_configured, AI Providers: disabled. Active incidents: 0."
+    }
+  ]
+}

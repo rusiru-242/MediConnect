@@ -1,0 +1,211 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "endpoint": "/ai/health-chat",
+  "cases": [
+    {
+      "id": "A01-H01",
+      "title": "English health guidance",
+      "turns": [
+        {
+          "message": "I have had a headache for three days. What should I do?",
+          "status": 200,
+          "reply": "I understand you have had a headache for 3 days. Please rest in a quiet, dim room, drink enough water, eat regular meals, and limit caffeine and screen time. Note when headaches happen and their triggers. A headache lasting several days should be checked by a doctor, especially if it is getting worse or is new for you. Please consult a pharmacist or doctor before taking any medicine. Call 1990 or go to the nearest ETU immediately if you experience a sudden severe 'worst ever' headache, a headache with fever, a stiff neck, confusion or a rash, weakness, numbness, trouble speaking, vision loss, or a headache after a head injury. Would you like me to find a suitable doctor for you?",
+          "triageLevel": "routine_care",
+          "isUrgent": false,
+          "emergencyNumber": null,
+          "crisisType": null,
+          "category": null,
+          "recommendedSpecialty": "General Practitioner",
+          "doctorCards": 2,
+          "clarifyingQuestions": [
+            "Are you experiencing any other symptoms along with the headache?",
+            "Have you tried any remedies or noticed any specific triggers?"
+          ],
+          "answerKind": "symptom_guidance",
+          "responseSource": "llm",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "providerFallbackReason": null
+        }
+      ]
+    },
+    {
+      "id": "A01-H02",
+      "title": "Sinhala health guidance",
+      "turns": [
+        {
+          "message": "මට දවස් තුනක් තිස්සේ හිසරදයක් තියෙනවා.",
+          "status": 200,
+          "reply": "ඔබට දින 3ක සිට හිසරදය තිබෙන බව තේරුණා. මෙය සාමාන්‍ය සෞඛ්‍ය තොරතුරු පමණයි, රෝග විනිශ්චයක් නොවෙයි.\n\n**දැන් කළ හැකි දේ:**\n- නිස්කලංක, අඳුරු කාමරයක විවේක ගන්න. ප්‍රමාණවත් තරම් වතුර බොන්න.\n- වේලාවට කෑම ගන්න. කෝපි/තේ සහ ජංගම දුරකථන භාවිතය අඩු කරන්න.\n- හිසරදය එන වේලාවන් සහ ඊට හේතු විය හැකි දේ සටහන් කරගන්න.\n\n**මේ කිසිවක් ඇත්නම් වහාම 1990 අමතන්න හෝ ETU එකට යන්න:**\n- හදිසියේ ඇතිවන ඉතා දරුණු හිසරදයක්\n- උණ සහ ගෙල තද වීම, ව්‍යාකූල බව හෝ පළු සමඟ හිසරදය\n- ශරීරයේ දුර්වලතාවය, හිරිවැටීම, කතා කිරීමේ අපහසුව හෝ පෙනීම නැතිවීම\n- හිසට තුවාලයකින් පසු හිසරදය\n\n**වෛද්‍යවරයෙකු හමුවිය යුත්තේ කවදාද:** දින කිහිපයක් තිස්සේ පවතින හිසරදයක් වෛද්‍යවරයෙකු ලවා පරීක්ෂා කරගැනීම වැදගත්. විශේෂයෙන් එය වැඩිවෙනවා නම් හෝ ඔබට අලුත් නම්.\nඔබේ රෝග ලක්ෂණ දින කිහිපයක සිට පවතින නිසා වෛද්‍යවරයෙකු ලවා පරීක්ෂා කරගැනීම නිර්දේශ කරනවා.\n\nඖෂධයක් හෝ මාත්‍රාවක් තීරණය කිරීමට ඖෂධවේදියෙකුගෙන් හෝ වෛද්‍යවරයෙකුගෙන් විමසන්න.\nඔබට ගැළපෙන වෛද්‍යවරයෙකු සොයා දීම",
+          "triageLevel": "routine_care",
+          "isUrgent": false,
+          "emergencyNumber": null,
+          "crisisType": null,
+          "category": null,
+          "recommendedSpecialty": "General Practitioner",
+          "doctorCards": 2,
+          "clarifyingQuestions": [
+            "හිසරදය දිනෙන් දින වැඩිවෙනවාද, නැත්නම් නින්දෙන් අවදි කරනවාද?",
+            "උණ, වමනය හෝ පෙනීමේ වෙනසක් තිබේද?"
+          ],
+          "answerKind": "symptom_guidance",
+          "responseSource": "deterministic",
+          "provider": null,
+          "model": null,
+          "providerFallbackReason": "timeout"
+        }
+      ]
+    },
+    {
+      "id": "A01-H03",
+      "title": "Romanized Sinhala health guidance",
+      "turns": [
+        {
+          "message": "mata dawas thunak thisse oluwa ridenawa.",
+          "status": 200,
+          "reply": "ඔබට දින 3ක සිට හිසරදය තිබෙන බව තේරුණා. මෙය සාමාන්‍ය සෞඛ්‍ය තොරතුරු පමණයි, රෝග විනිශ්චයක් නොවෙයි. නිස්කලංක, අඳුරු කාමරයක විවේක ගන්න. ප්‍රමාණවත් තරම් වතුර බොන්න, වේලාවට කෑම ගන්න සහ කෝපි/තේ මෙන්ම ජංගම දුරකථන භාවිතය අඩු කරන්න. හිසරදය එන වේලාවන් සහ ඊට හේතු විය හැකි දේ සටහන් කරගන්න. හදිසියේ ඇතිවන ඉතා දරුණු හිසරදයක්, උණ සහ ගෙල තද වීම, ව්‍යාකූල බව හෝ පළු සමඟ හිසරදය, ශරීරයේ දුර්වලතාවය, හිරිවැටීම, කතා කිරීමේ අපහසුව හෝ පෙනීම නැතිවීම, හෝ හිසට තුවාලයකින් පසු හිසරදය ඇත්නම් වහාම 1990 අමතන්න හෝ ETU එකට යන්න. දින කිහිපයක් තිස්සේ පවතින හිසරදයක් වෛද්‍යවරයෙකු ලවා පරීක්ෂා කරගැනීම වැදගත් වන අතර, විශේෂයෙන් එය වැඩිවෙනවා නම් හෝ ඔබට අලුත් නම් වෛද්‍යවරයෙකු හමුවන්න. ඖෂධයක් හෝ මාත්‍රාවක් තීරණය කිරීමට ඖෂධවේදියෙකුගෙන් හෝ වෛද්‍යවරයෙකුගෙන් විමසන්න.",
+          "triageLevel": "routine_care",
+          "isUrgent": false,
+          "emergencyNumber": null,
+          "crisisType": null,
+          "category": null,
+          "recommendedSpecialty": "General Practitioner",
+          "doctorCards": 2,
+          "clarifyingQuestions": [
+            "මෙම හිසරදය සමඟ වෙනත් රෝග ලක්ෂණ තිබේද?",
+            "හිසරදය ඇති වන ආකාරය ගැන වැඩිදුර විස්තර කළ හැකිද?"
+          ],
+          "answerKind": "symptom_guidance",
+          "responseSource": "llm",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "providerFallbackReason": null
+        }
+      ]
+    },
+    {
+      "id": "A01-H06",
+      "title": "Contextual follow-up",
+      "turns": [
+        {
+          "message": "I have had a headache for three days.",
+          "status": 200,
+          "reply": "I understand you have had a headache for three days. While this is not a diagnosis, you can rest in a quiet, dim room, drink enough water, eat regular meals, and limit caffeine and screen time. Please note when headaches happen and what triggers them. Because your headache has lasted several days, a doctor should check it, especially if it is getting worse or is new for you. Please consult a pharmacist or doctor before taking any medicine. Call 1990 or go to the nearest ETU immediately if you experience a sudden, severe 'worst ever' headache, a headache with fever and a stiff neck, confusion or a rash, weakness, numbness, trouble speaking, vision loss, or a headache after a head injury.",
+          "triageLevel": "routine_care",
+          "isUrgent": false,
+          "emergencyNumber": null,
+          "crisisType": null,
+          "category": null,
+          "recommendedSpecialty": "General Practitioner",
+          "doctorCards": 2,
+          "clarifyingQuestions": [
+            "Is the headache constant or does it come and go?",
+            "Do you have any other symptoms along with the headache?"
+          ],
+          "answerKind": "symptom_guidance",
+          "responseSource": "llm",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "providerFallbackReason": null
+        },
+        {
+          "message": "It gets worse when I look at screens. Should I see someone?",
+          "status": 200,
+          "reply": "I understand you have had a headache for 3 days that gets worse with screen time. While this is not a diagnosis, you can rest in a quiet, dim room, drink enough water, eat regular meals, and limit caffeine. Please note when headaches happen and what triggers them. Because your headache has lasted several days and is getting worse, I recommend booking a doctor's assessment. Please consult a pharmacist or doctor before taking any medicine. Call 1990 or go to the nearest ETU immediately if you experience a sudden severe 'worst ever' headache, fever with a stiff neck, confusion, a rash, weakness, numbness, trouble speaking, vision loss, or a headache after a head injury.",
+          "triageLevel": "routine_care",
+          "isUrgent": false,
+          "emergencyNumber": null,
+          "crisisType": null,
+          "category": null,
+          "recommendedSpecialty": "General Practitioner",
+          "doctorCards": 2,
+          "clarifyingQuestions": [
+            "Would you like me to find a suitable doctor for you?",
+            "Do you experience any other symptoms with your headache?"
+          ],
+          "answerKind": "symptom_guidance",
+          "responseSource": "llm",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "providerFallbackReason": null
+        }
+      ]
+    },
+    {
+      "id": "A01-H08",
+      "title": "General wellness guidance",
+      "turns": [
+        {
+          "message": "I want to sleep better without taking sleeping pills.",
+          "status": 200,
+          "reply": "Hello! To help you sleep better without taking sleeping pills, here are some helpful wellness tips. Maintain a consistent sleep-wake schedule, even on weekends, and avoid screens for at least 30 to 45 minutes before bedtime. Keep your sleeping environment cool, quiet, and well-ventilated, and avoid heavy, spicy dinners and caffeine within 4-6 hours of bedtime. Establish a calming wind-down routine like reading a book or enjoying a warm cup of caffeine-free herbal tea such as Chamomile or Belimal. If your sleep problems last for weeks or you have a long-term condition, please talk to a doctor.",
+          "triageLevel": "general_info",
+          "isUrgent": false,
+          "emergencyNumber": null,
+          "crisisType": null,
+          "category": null,
+          "recommendedSpecialty": "General Practitioner",
+          "doctorCards": 0,
+          "clarifyingQuestions": [
+            "How long have you been experiencing trouble sleeping?",
+            "Do you wake up frequently during the night?"
+          ],
+          "answerKind": "wellness",
+          "responseSource": "llm",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "providerFallbackReason": null
+        }
+      ]
+    },
+    {
+      "id": "A01-H12",
+      "title": "Medication dose-change restriction",
+      "turns": [
+        {
+          "message": "Can I change the dose prescribed by my doctor?",
+          "status": 200,
+          "reply": "**I can't change your dose or medicine times.** Changes to a prescribed medicine must be decided by the doctor who prescribed it, so nothing in your schedule has been changed.\n\n- Talk to your doctor, or book an appointment to review your medicine.\n- Keep taking it exactly as prescribed until your doctor tells you otherwise.\n- If you have already taken more than prescribed or feel unwell, call 1990 or go to the nearest ETU now.",
+          "triageLevel": "general_info",
+          "isUrgent": false,
+          "emergencyNumber": null,
+          "crisisType": null,
+          "category": null,
+          "recommendedSpecialty": null,
+          "doctorCards": 0,
+          "clarifyingQuestions": [],
+          "answerKind": "medication_change",
+          "responseSource": "deterministic",
+          "provider": null,
+          "model": null,
+          "providerFallbackReason": null
+        }
+      ]
+    },
+    {
+      "id": "A01-H13",
+      "title": "Actual emergency detection",
+      "turns": [
+        {
+          "message": "I have severe chest pain spreading to my left arm and I am sweating.",
+          "status": 200,
+          "reply": "**This may be a medical emergency.** (Possible heart-related emergency (chest pain or pressure))\n\n- Call **1990** (Suwa Seriya ambulance) now, or go to the nearest hospital Emergency Treatment Unit (ETU).\n- Stop what you are doing and sit or lie in the position that is most comfortable.\n- Do not drive yourself. Ask someone nearby to stay with you.\n- If the person stops responding or is not breathing normally, tell the 1990 operator — they will guide you.\n\nDo not wait for a routine appointment. I will not continue doctor search or booking until you are safe. This is general first-aid information, not a diagnosis.",
+          "triageLevel": "emergency",
+          "isUrgent": true,
+          "emergencyNumber": "1990",
+          "crisisType": null,
+          "category": null,
+          "recommendedSpecialty": null,
+          "doctorCards": 0,
+          "clarifyingQuestions": [],
+          "answerKind": null,
+          "responseSource": null,
+          "provider": null,
+          "model": null,
+          "providerFallbackReason": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "authorization": "owner, 2026-11-26, capped synthetic-only",
+  "rows": [
+    {
+      "row": "A01-P13 both providers unavailable (live)",
+      "result": "unavailable",
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.8-flash",
+          "category": "quota_exhausted"
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "category": "quota_exhausted"
+        }
+      ],
+      "elapsedS": 2.1
+    }
+  ],
+  "providerStatus": {
+    "gemini": {
+      "provider": "gemini",
+      "configured": true,
+      "model": "gemini-3.5-flash-lite",
+      "configuredModel": "gemini-3.5-flash-lite",
+      "modelRemapped": false,
+      "dailyLimit": 150,
+      "visionModel": "gemini-3.5-flash-lite",
+      "role": "primary",
+      "modelShutdownDate": null,
+      "status": "unavailable",
+      "lastResult": "quota_exhausted",
+      "today": {
+        "requests": 8,
+        "successes": 2,
+        "failures": 6,
+        "fallbacks": 0,
+        "promptTokens": 46,
+        "completionTokens": 22,
+        "refusedUsageLimit": 0,
+        "refusedCircuitOpen": 0,
+        "outputRejected": 0,
+        "averageLatencyMs": 2001.4
+      },
+      "liveVerified": true,
+      "lastSuccessAt": "2026-11-26 10:06:08.653000+00:00",
+      "lastFailureAt": "2026-11-26 10:06:34.795000+00:00"
+    },
+    "openai": {
+      "provider": "openai",
+      "configured": true,
+      "model": "gpt-6-luna",
+      "configuredModel": "gpt-6-luna",
+      "modelRemapped": false,
+      "dailyLimit": 150,
+      "visionModel": "gpt-6-luna",
+      "role": "secondary",
+      "modelShutdownDate": null,
+      "status": "unavailable",
+      "lastResult": "quota_exhausted",
+      "today": {
+        "requests": 4,
+        "successes": 0,
+        "failures": 4,
+        "fallbacks": 0,
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "refusedUsageLimit": 0,
+        "refusedCircuitOpen": 0,
+        "outputRejected": 0,
+        "averageLatencyMs": 1441.1
+      },
+      "liveVerified": false,
+      "lastSuccessAt": null,
+      "lastFailureAt": "2026-11-26 10:06:36.060000+00:00"
+    }
+  }
+}

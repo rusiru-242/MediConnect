@@ -1,7 +1,7 @@
 {
-  "uniqueTrackedItems": 184,
-  "confirmedDefects": 160,
-  "defectsFixed": 159,
+  "uniqueTrackedItems": 205,
+  "confirmedDefects": 177,
+  "defectsFixed": 176,
   "defectsOpen": [
     "BUG-039"
   ],
@@ -20,7 +20,11 @@
   "improvementsOrRequirements": 21,
   "regressionGuards": 1,
   "observations": [
-    "P05-O1"
+    "P05-O1",
+    "A01-O1",
+    "A01-O2",
+    "A01-O3",
+    "A01-O4"
   ],
   "securityIncidents": [
     "P5-C1"
@@ -60,6 +64,10 @@
     "Phase 05": {
       "defects": 25,
       "improvements": 13
+    },
+    "Agent Completion A01": {
+      "defects": 17,
+      "improvements": 0
     }
   }
 }

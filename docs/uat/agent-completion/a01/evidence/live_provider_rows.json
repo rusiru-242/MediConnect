@@ -1,0 +1,139 @@
+{
+  "authorization": "owner, 2026-11-26, capped synthetic-only",
+  "rows": [
+    {
+      "row": "A01-P04 OpenAI live text (gpt-6-luna)",
+      "result": "unavailable",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "category": "quota_exhausted"
+        }
+      ],
+      "elapsedS": 2.2
+    },
+    {
+      "row": "A01-P06 invalid API key (Gemini)",
+      "result": "unavailable",
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "category": "auth_failed"
+        }
+      ],
+      "elapsedS": 0.5
+    },
+    {
+      "row": "A01-P07 invalid model id (Gemini)",
+      "result": "unavailable",
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-a01-no-such-model",
+          "category": "invalid_model"
+        }
+      ],
+      "elapsedS": 1.0
+    },
+    {
+      "row": "A01-P11/P12 primary openai fails, secondary gemini answers",
+      "result": "ok",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite",
+      "data": {
+        "answer": "pong",
+        "ok": true
+      },
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "category": "quota_exhausted"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "category": "ok"
+        }
+      ],
+      "latencyMs": 4098.0
+    },
+    {
+      "row": "A01-P13 both providers unavailable (live)",
+      "result": "unavailable",
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.8-flash",
+          "category": "rate_limited"
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "category": "quota_exhausted"
+        }
+      ],
+      "elapsedS": 2.7
+    }
+  ],
+  "providerStatus": {
+    "gemini": {
+      "provider": "gemini",
+      "configured": true,
+      "model": "gemini-3.5-flash-lite",
+      "configuredModel": "gemini-3.5-flash-lite",
+      "modelRemapped": false,
+      "dailyLimit": 150,
+      "visionModel": "gemini-3.5-flash-lite",
+      "role": "primary",
+      "modelShutdownDate": null,
+      "status": "rate_limited",
+      "lastResult": "rate_limited",
+      "today": {
+        "requests": 7,
+        "successes": 2,
+        "failures": 5,
+        "fallbacks": 0,
+        "promptTokens": 46,
+        "completionTokens": 22,
+        "refusedUsageLimit": 0,
+        "refusedCircuitOpen": 0,
+        "outputRejected": 0,
+        "averageLatencyMs": 2209.7
+      },
+      "liveVerified": true,
+      "lastSuccessAt": "2026-11-26 10:06:08.653000+00:00",
+      "lastFailureAt": "2026-11-26 10:06:10.322000+00:00"
+    },
+    "openai": {
+      "provider": "openai",
+      "configured": true,
+      "model": "gpt-6-luna",
+      "configuredModel": "gpt-6-luna",
+      "modelRemapped": false,
+      "dailyLimit": 150,
+      "visionModel": "gpt-6-luna",
+      "role": "secondary",
+      "modelShutdownDate": null,
+      "status": "unavailable",
+      "lastResult": "quota_exhausted",
+      "today": {
+        "requests": 3,
+        "successes": 0,
+        "failures": 3,
+        "fallbacks": 0,
+        "promptTokens": 0,
+        "completionTokens": 0,
+        "refusedUsageLimit": 0,
+        "refusedCircuitOpen": 0,
+        "outputRejected": 0,
+        "averageLatencyMs": 1500.6
+      },
+      "liveVerified": false,
+      "lastSuccessAt": null,
+      "lastFailureAt": "2026-11-26 10:06:11.385000+00:00"
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "live": true,
+  "rows": [
+    {
+      "fixture": "v01_clear_paracetamol.png",
+      "scenario": "A01-V01 clear packaging",
+      "http": 200,
+      "status": "analyzed",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite",
+      "responseSource": "vision_provider",
+      "providerError": null,
+      "packageCount": 1,
+      "embeddedTextIgnored": false,
+      "identifiedMedicine": "Paracetamol",
+      "extracted": {
+        "medicineNames": [
+          "Paracetamol"
+        ],
+        "brandNames": [
+          "Synthopar 500"
+        ],
+        "activeIngredients": [
+          "Paracetamol"
+        ],
+        "strengths": [
+          "500 mg"
+        ],
+        "dosageForm": "Tablets",
+        "route": "oral",
+        "legalCategory": null,
+        "expiryDateVisible": "08/2027",
+        "manufacturer": "Synthetic Test Labs Ltd",
+        "visibleInstructions": [
+          "Store below 30degC. Keep out of reach of children."
+        ],
+        "dosingDirectionsPrinted": false,
+        "otherVisibleText": [
+          "20 Tablets",
+          "For oral use",
+          "EXP 08/2027",
+          "LOT A01-7731"
+        ],
+        "unreadableFields": [],
+        "imageQuality": "good"
+      },
+      "reply": "**Text read from your photo** (as printed — not verified):\n- Brand name: Synthopar 500\n- Name: Paracetamol\n- Active ingredient: Paracetamol\n- Strength: 500 mg\n- Form: Tablets\n- Route: oral\n- Manufacturer: Synthetic Test Labs Ltd\n- Expiry shown: 08/2027\n\nPrinted on the pack: Store below 30degC. Keep out of reach of children.\n**Reference information from the MediConnect medicine library:**\n- Paracetamol — Analgesic & Antipyretic (Pain reliever & fever reducer)\n- Common uses: Temporary relief of mild to moderate pain (headache, muscle ache, toothache, backache), Reduction of fever associated with common cold, viral infections, or influenza\n\nThe strength on a package is not a dose recommendation.\nReading a photo cannot confirm that a medicine is genuine, in date, or right for you. Check the package with a registered pharmacist or your doctor before use.",
+      "checks": {
+        "brand": true,
+        "activeIngredient": true,
+        "strength": true,
+        "manufacturer": true,
+        "expiry": true
+      }
+    }
+  ]
+}

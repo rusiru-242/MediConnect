@@ -1,4 +1,4 @@
-# MediConnect — Master Bug Tracker (reconciled, Phases 00–05)
+# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01)
 
 For: the project owner, reviewers and future maintainers. Generated 2026-11-26 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
 
@@ -13,15 +13,15 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-26 b
 
 | Measure | Count |
 |---|---|
-| Unique tracked items | 184 |
-| Confirmed defects | 160 |
-| Defects fixed (automated regression) | 159 |
+| Unique tracked items | 205 |
+| Confirmed defects | 177 |
+| Defects fixed (automated regression) | 176 |
 | Defects open | 1 (BUG-039) |
 | …of the fixed: manual device retest still pending | 7 |
 | …of the fixed: external verification blocked | 1 |
 | Improvements / requirements delivered | 21 |
 | Regression guards (not defects) | 1 |
-| Observations (unconfirmed) | 1 |
+| Observations (unconfirmed) | 5 |
 | Security incidents (owner) | 1 |
 
 | Source | Defects | Improvements |
@@ -32,6 +32,7 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-26 b
 | Phase 03 | 21 | 3 |
 | Phase 04 | 23 | 0 |
 | Phase 05 | 25 | 13 |
+| Agent Completion A01 | 17 | 0 |
 
 Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not defects; see `PHASE_05_REMAINING_BLOCKERS.md`.
 
@@ -223,3 +224,24 @@ Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not def
 | P05-I12 | P4-B6 | improvement | — | — | Read-only P4-B6 reconciliation report (UAT) | IMPLEMENTED | phase-05/PHASE_05_BUG_FIX_REPORT.md |
 | P05-O1 |  | observation | Low | Tests | Intermittent test_phase3_care failure (6 reminder rows once) | OPEN (not reproduced) | phase-05/PHASE_05_BUG_FIX_REPORT.md |
 | P5-C1 |  | security incident | Critical | Repository / credentials | Live MongoDB URI with credentials in public git history (a41b659) | OPEN — owner rotation required | phase-05/PHASE_05_SECURITY_AND_PRIVACY_REPORT.md |
+| A01-N01 |  | defect | Critical (safety) | Emergency triage (02, shared) | "My child swallowed a whole strip of my blood pressure tablets." was not detected as an emergency. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N02 |  | defect | High | Provider gateway (32) | OpenAI 429 insufficient_quota (no credits) | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N03 |  | defect | High | Provider monitoring (32) | A 200 response whose JSON was unusable still counted as a success, so monitoring could show "available" while every answer was discarded. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N04 |  | defect | Medium | Provider gateway (32) | The single retry happened immediately; Retry-After was ignored. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N05 |  | defect | High | Health Assistant (02) | With no working provider, 11 of 26 probe messages got the same paragraph ("Balanced nutrition, adequate hydration…"): paracetamol, sleep, ex | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N06 |  | defect | High (cost/privacy) | Test suite (32) | The suite inherited the real GEMINI_API_KEY/OPENAI_API_KEY from backend/.env, so tests that did not patch the network made live provider cal | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N07 |  | defect | Medium | Provider gateway (32) | Gemini's free-tier daily quota 429 ("requests per day … retry in 21h") | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N08 |  | defect | Medium | Image upload (04) | Both image routes read the whole upload into memory before the 5 MB check. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N09 |  | defect | High (safety) | Medicine vision (04) | For the blurred fixture the live model returned exact label text ("Synthopar 500", "Paracetamol 500 mg", the storage line) | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N10 |  | defect | High | Provider architecture (32) | No secondary provider anywhere: the Health Assistant called only Gemini, vision and the doctor-search parser never fell back to the other pr | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N11 |  | defect | High | Model selection (32) | backend/.env names gemini-1.5-flash (live: 404, shut down). | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N12 |  | defect | High | Health Assistant (02) | Provider output was accepted after json.loads with no schema, language check or grounding check. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N13 |  | defect | Medium | Vision UI (04) | The image card repeated the field list already in the chat reply ("Detected Packaging Text"), and showed a "High Confidence" badge that the  | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N14 |  | defect | Medium (safety) | Medicine vision (04) | A photo with two packages was matched to one library card (the first name found). | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N15 |  | defect | Medium | Health Assistant (02) | A 3-day headache was referred to a Neurologist and a cold to an ENT specialist. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N16 |  | defect | Medium | Shared NLU (02) | "mata dawas thunak thisse …" and "දවස් තුනක්" (three days) | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N17 |  | defect | Medium | Shared NLU (02) | "How many paracetamol tablets can I take at once…? Give me an exact number." was not recognised as a dose request (generic answer). | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-O1 |  | observation | Low | A01 | A foreign patient gets **403** (not 404) for another patient's conversation | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-O2 |  | observation | Low | A01 | Live V17: the model listed fields that are simply absent (expiry, manufacturer) as "not readable" | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-O3 |  | observation | Low | A01 | "since yesterday" is not parsed as a duration (H04) | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-O4 |  | observation | Low | A01 | The Gemini free tier allows 20 generation requests per day for `gemini-3.8-flash`; that quota ran out during A01 | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |

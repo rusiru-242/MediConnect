@@ -1,0 +1,34 @@
+[
+ {
+  "_id": "gemini:2026-11-26",
+  "day": "2026-11-26",
+  "model": "gemini-3.5-flash-lite",
+  "provider": "gemini",
+  "requests": 29,
+  "failure_server_error": 1,
+  "failures": 7,
+  "lastStatus": "ok",
+  "latencyMsTotal": 115889.59830006934,
+  "failure_rate_limited": 2,
+  "completionTokens": 5037,
+  "promptTokens": 22254,
+  "successes": 22,
+  "failure_auth_failed": 1,
+  "failure_invalid_model": 1,
+  "failure_quota_exhausted": 1,
+  "failure_timeout": 1,
+  "fallback_timeout": 1,
+  "fallbacks": 1
+ },
+ {
+  "_id": "openai:2026-11-26",
+  "day": "2026-11-26",
+  "model": "gpt-6-luna",
+  "provider": "openai",
+  "requests": 4,
+  "failure_quota_exhausted": 4,
+  "failures": 4,
+  "lastStatus": "quota_exhausted",
+  "latencyMsTotal": 5764.465899992501
+ }
+]
