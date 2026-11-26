@@ -41,10 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     const refreshToken = sessionStorage.getItem('mediconnect_admin_refresh') || undefined;
-    sessionStorage.removeItem(AUTH_TOKEN_KEY);
-    sessionStorage.removeItem(AUTH_USER_KEY);
-    sessionStorage.removeItem('mediconnect_admin_refresh');
-    setAdmin(null);
+    // Revoke on the server first, while the access token is still attached, so both the refresh token and the
+    // access token are revoked (Phase 05). The local session is cleared whatever the outcome.
     if (refreshToken) {
       try {
         await authApi.logout(refreshToken);
@@ -52,6 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Best-effort remote revocation
       }
     }
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_USER_KEY);
+    sessionStorage.removeItem('mediconnect_admin_refresh');
+    setAdmin(null);
   };
 
   const isAuthenticated = !!admin && admin.role === 'ADMIN';
