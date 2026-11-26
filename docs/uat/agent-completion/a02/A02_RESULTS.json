@@ -1,0 +1,532 @@
+{
+  "phase": "Agent Completion A02",
+  "date": "2026-11-26",
+  "branch": "fix/agents-a02-reminders-notifications",
+  "baseBranch": "fix/agents-a01-ai-intelligence-vision",
+  "baseCommit": "febd063",
+  "codeCommits": [
+    "eb2e6ef",
+    "01129d9",
+    "9d21532",
+    "a16ff47",
+    "cdde444",
+    "36475b9",
+    "19b8134",
+    "07f8c22",
+    "f4f51aa",
+    "235cce4"
+  ],
+  "testedCodeCommit": "235cce4",
+  "merged": false,
+  "deployed": false,
+  "remoteDatabaseAccessed": false,
+  "mongoCredentialsChanged": false,
+  "paidServicesEnabled": false,
+  "externalMessagesSent": 0,
+  "agents": {
+    "05": {
+      "name": "AI Medication Reminder",
+      "before": "PARTIAL",
+      "after": "PARTIAL",
+      "verified": "live in-app + emulator device reminders",
+      "blocked": [
+        "FCM push (B4)",
+        "pharmacist review (B2)"
+      ]
+    },
+    "07": {
+      "name": "AI Appointment Reminder",
+      "before": "PARTIAL",
+      "after": "PARTIAL",
+      "verified": "live in-app 2 h reminder, Colombo time",
+      "blocked": [
+        "push/e-mail/SMS (B4/B5)"
+      ]
+    },
+    "08": {
+      "name": "AI Follow-up Reminder",
+      "before": "PARTIAL",
+      "after": "PARTIAL",
+      "verified": "live plan notices; automated 09:00 reminders",
+      "blocked": [
+        "09:00 live delivery not observed",
+        "external channels"
+      ]
+    },
+    "09": {
+      "name": "AI Medical Test Reminder",
+      "before": "PARTIAL",
+      "after": "PARTIAL",
+      "verified": "live test-task reminder",
+      "blocked": [
+        "external channels"
+      ]
+    },
+    "13": {
+      "name": "AI Notification Assistant",
+      "before": "PARTIAL",
+      "after": "PARTIAL",
+      "verified": "live + emulator in-app lifecycle; local SMTP",
+      "blocked": [
+        "FCM (B4)",
+        "external e-mail (owner: local only)",
+        "SMS (B5)"
+      ]
+    },
+    "19": {
+      "name": "AI Patient Communication Assistant",
+      "before": "PARTIAL",
+      "after": "PARTIAL",
+      "verified": "live doctor-approved batch and notices",
+      "blocked": [
+        "e-mail/SMS",
+        "free-text messaging not implemented"
+      ]
+    }
+  },
+  "matrixTotals": {
+    "before": {
+      "VERIFIED": 26,
+      "PARTIAL": 12,
+      "BLOCKED": 0
+    },
+    "after": {
+      "VERIFIED": 26,
+      "PARTIAL": 12,
+      "BLOCKED": 0
+    }
+  },
+  "defects": {
+    "count": 21,
+    "fixed": 21,
+    "ids": [
+      "A02-BUG-001",
+      "A02-BUG-002",
+      "A02-BUG-003",
+      "A02-BUG-004",
+      "A02-BUG-005",
+      "A02-BUG-006",
+      "A02-BUG-007",
+      "A02-BUG-008",
+      "A02-BUG-009",
+      "A02-BUG-010",
+      "A02-BUG-011",
+      "A02-BUG-012",
+      "A02-BUG-013",
+      "A02-BUG-014",
+      "A02-BUG-015",
+      "A02-BUG-016",
+      "A02-BUG-017",
+      "A02-BUG-018",
+      "A02-BUG-019",
+      "A02-BUG-020",
+      "A02-BUG-021"
+    ],
+    "high": [
+      "A02-BUG-001",
+      "A02-BUG-002",
+      "A02-BUG-005",
+      "A02-BUG-006",
+      "A02-BUG-011",
+      "A02-BUG-016",
+      "A02-BUG-017",
+      "A02-BUG-019",
+      "A02-BUG-020"
+    ],
+    "observations": [
+      "A02-O1",
+      "A02-O2",
+      "A02-O3",
+      "A02-O4",
+      "A02-O5"
+    ]
+  },
+  "tests": {
+    "backend": {
+      "passed": 907,
+      "failed": 0,
+      "baseline": 865,
+      "newA02File": 42,
+      "database": "mediconnect_a02final_test",
+      "providerConnectionAttempts": {
+        "baseline": 13,
+        "final": 0
+      }
+    },
+    "flutter": {
+      "passed": 313,
+      "failed": 0,
+      "baseline": 309,
+      "analyze": "no issues",
+      "debugApk": "built"
+    },
+    "adminWeb": {
+      "passed": 40,
+      "failed": 0,
+      "baseline": 39,
+      "build": "ok"
+    },
+    "totalAutomated": {
+      "before": 1213,
+      "after": 1260
+    },
+    "changedExpectations": [
+      "test_phase05_scheduler::test_s06c (A02-BUG-005)"
+    ]
+  },
+  "liveUat": {
+    "steps": 26,
+    "summary": {
+      "PASS": 26,
+      "FAIL": 0
+    },
+    "summaryBeforeReevaluation": {
+      "PASS": 24,
+      "FAIL": 2
+    },
+    "reevaluated": [
+      "A02-M06b",
+      "A02-F04"
+    ],
+    "startedAt": "2026-11-26T19:29:15+05:30",
+    "finishedAt": "2026-11-26T20:01:00+05:30"
+  },
+  "workerRestartAndRace": {
+    "status": "PASS",
+    "rows": [
+      {
+        "time": "20:05",
+        "events": 1,
+        "states": [
+          "processed"
+        ],
+        "inAppAttempts": [
+          1
+        ],
+        "notifications": 1,
+        "push": [
+          "disabled"
+        ]
+      },
+      {
+        "time": "20:07",
+        "events": 1,
+        "states": [
+          "processed"
+        ],
+        "inAppAttempts": [
+          1
+        ],
+        "notifications": 1,
+        "push": [
+          "disabled"
+        ]
+      }
+    ],
+    "backendTimeline": {
+      "stopped": "2026-11-26T20:01:43+05:30 (UAT backend on 8001 stopped while both reminders were pending)",
+      "restarted": "2026-11-26T20:05:31+05:30 (after the 20:05 reminder fell due)",
+      "extraWorkers": "2 scheduler processes against mediconnect_uat, 20:01:35-20:08:35, 7 s loop, real clock"
+    }
+  },
+  "scenarioMatrix": {
+    "total": 56,
+    "counts": {
+      "PASS": 44,
+      "BLOCKED": 9,
+      "PARTIAL": 3
+    },
+    "rows": {
+      "A02-M01": {
+        "scenario": "Clinician-approved schedule",
+        "evidence": "Live M01, M01b; Auto bug011",
+        "status": "PASS"
+      },
+      "A02-M02": {
+        "scenario": "Correct medicine and dosage",
+        "evidence": "Live M02",
+        "status": "PASS"
+      },
+      "A02-M03": {
+        "scenario": "Correct reminder time",
+        "evidence": "Live M03 (47 s after 19:32 Colombo)",
+        "status": "PASS"
+      },
+      "A02-M04": {
+        "scenario": "Taken",
+        "evidence": "Live M04; Emu a02_10",
+        "status": "PASS"
+      },
+      "A02-M05": {
+        "scenario": "Snooze",
+        "evidence": "Live M05 (redelivered after 6.0 min, once)",
+        "status": "PASS"
+      },
+      "A02-M06": {
+        "scenario": "Skip and missed history",
+        "evidence": "Live M06, M06b (re-evaluated, see the reminder report); Emu a02_13",
+        "status": "PASS"
+      },
+      "A02-M07": {
+        "scenario": "Schedule update",
+        "evidence": "Live M07",
+        "status": "PASS"
+      },
+      "A02-M08": {
+        "scenario": "Schedule cancellation",
+        "evidence": "Live M08",
+        "status": "PASS"
+      },
+      "A02-M09": {
+        "scenario": "App restart",
+        "evidence": "Emu: relaunch and sign-in re-planned device reminders (0 → 8 alarms)",
+        "status": "PASS"
+      },
+      "A02-M10": {
+        "scenario": "Actual push receipt",
+        "evidence": "Firebase not configured",
+        "status": "BLOCKED"
+      },
+      "A02-A01": {
+        "scenario": "Confirmed appointment reminder",
+        "evidence": "Live A01/A02 (22:00 slot, 2 h reminder)",
+        "status": "PASS"
+      },
+      "A02-A02": {
+        "scenario": "Timezone correctness",
+        "evidence": "Live (scheduledAt = 22:00 Colombo, due −2 h); Auto P05 s06h",
+        "status": "PASS"
+      },
+      "A02-A03": {
+        "scenario": "Rescheduling",
+        "evidence": "Live A03/A04; Auto P05 s06g",
+        "status": "PASS"
+      },
+      "A02-A04": {
+        "scenario": "Cancellation",
+        "evidence": "Live A03/A04 (0 events); Auto P05 s06f",
+        "status": "PASS"
+      },
+      "A02-A05": {
+        "scenario": "Unpaid appointment exclusion",
+        "evidence": "Live A05",
+        "status": "PASS"
+      },
+      "A02-A06": {
+        "scenario": "Notification navigation",
+        "evidence": "Live A06; Emu a02_11",
+        "status": "PASS"
+      },
+      "A02-F01": {
+        "scenario": "Doctor-approved follow-up",
+        "evidence": "Live F01",
+        "status": "PASS"
+      },
+      "A02-F02": {
+        "scenario": "Scheduled delivery",
+        "evidence": "Auto `test_f02` (real scheduler, 09:00 Colombo); not observed live",
+        "status": "PARTIAL"
+      },
+      "A02-F03": {
+        "scenario": "Date update",
+        "evidence": "Live T04/F03",
+        "status": "PASS"
+      },
+      "A02-F04": {
+        "scenario": "Cancellation and completion",
+        "evidence": "Live F04 (re-evaluated)",
+        "status": "PASS"
+      },
+      "A02-T01": {
+        "scenario": "Doctor-assigned test",
+        "evidence": "Live T01/T02",
+        "status": "PASS"
+      },
+      "A02-T02": {
+        "scenario": "Correct instructions",
+        "evidence": "Live T01/T02 (verbatim)",
+        "status": "PASS"
+      },
+      "A02-T03": {
+        "scenario": "Reminder execution",
+        "evidence": "Live T03",
+        "status": "PASS"
+      },
+      "A02-T04": {
+        "scenario": "Completion and cancellation",
+        "evidence": "Live T04/F03, F04",
+        "status": "PASS"
+      },
+      "A02-N01": {
+        "scenario": "In-app notification",
+        "evidence": "Live N01; Emu a02_08",
+        "status": "PASS"
+      },
+      "A02-N02": {
+        "scenario": "Foreground push",
+        "evidence": "Firebase not configured",
+        "status": "BLOCKED"
+      },
+      "A02-N03": {
+        "scenario": "Background push",
+        "evidence": "Firebase not configured",
+        "status": "BLOCKED"
+      },
+      "A02-N04": {
+        "scenario": "Terminated-app push",
+        "evidence": "Firebase not configured",
+        "status": "BLOCKED"
+      },
+      "A02-N05": {
+        "scenario": "Deep-link navigation",
+        "evidence": "Emu a02_09, a02_11 (from the in-app list); push tap not possible",
+        "status": "PASS (in-app)"
+      },
+      "A02-N06": {
+        "scenario": "Unread count",
+        "evidence": "Live N06; Emu a02_07, a02_12",
+        "status": "PASS"
+      },
+      "A02-N07": {
+        "scenario": "Mark as read",
+        "evidence": "Live N07, N07b; Emu a02_12",
+        "status": "PASS"
+      },
+      "A02-N08": {
+        "scenario": "Device token refresh",
+        "evidence": "Live N08/N09 (backend registration, refresh, account switch); no FCM token can be generated",
+        "status": "PARTIAL"
+      },
+      "A02-N09": {
+        "scenario": "Logout and token removal",
+        "evidence": "Live N08/N09; Emu a02_06 (alarms 8 → 0)",
+        "status": "PASS"
+      },
+      "A02-N10": {
+        "scenario": "Cross-account isolation",
+        "evidence": "Live N10, M04, A06, T01; Auto bug012",
+        "status": "PASS"
+      },
+      "A02-C01": {
+        "scenario": "Authorized doctor message",
+        "evidence": "Live C01",
+        "status": "PASS"
+      },
+      "A02-C02": {
+        "scenario": "AI draft review where supported",
+        "evidence": "Live C02 (fixed-template draft; approval required)",
+        "status": "PASS"
+      },
+      "A02-C03": {
+        "scenario": "Correct recipient",
+        "evidence": "Live C01/C03",
+        "status": "PASS"
+      },
+      "A02-C04": {
+        "scenario": "Unauthorized communication rejection",
+        "evidence": "Live C04",
+        "status": "PASS"
+      },
+      "A02-C05": {
+        "scenario": "Duplicate message prevention",
+        "evidence": "Live C05",
+        "status": "PASS"
+      },
+      "A02-I01": {
+        "scenario": "Firebase configuration",
+        "evidence": "Inspected: no Firebase project or config; the app logs `Failed to load FirebaseOptions`",
+        "status": "BLOCKED"
+      },
+      "A02-I02": {
+        "scenario": "Actual FCM acceptance",
+        "evidence": "Not configured",
+        "status": "BLOCKED"
+      },
+      "A02-I03": {
+        "scenario": "Actual device receipt",
+        "evidence": "Not configured (push). Device-local reminders were received: Emu a02_05",
+        "status": "BLOCKED (push)"
+      },
+      "A02-I04": {
+        "scenario": "SMTP integration",
+        "evidence": "Auto: local SMTP server (accept, TLS verify, refusals, drop, 451, booking confirmation, doctor e-mails)",
+        "status": "PASS (local)"
+      },
+      "A02-I05": {
+        "scenario": "Actual external e-mail delivery",
+        "evidence": "Owner decision: local only",
+        "status": "BLOCKED"
+      },
+      "A02-I06": {
+        "scenario": "SMS provider integration",
+        "evidence": "Auto with Twilio test doubles (P02/P05) and the A02 disabled test; no account",
+        "status": "PARTIAL"
+      },
+      "A02-I07": {
+        "scenario": "Actual SMS delivery",
+        "evidence": "No provider",
+        "status": "BLOCKED"
+      },
+      "A02-I08": {
+        "scenario": "Disabled provider handling",
+        "evidence": "Live I08; Auto bug004",
+        "status": "PASS"
+      },
+      "A02-I09": {
+        "scenario": "Provider failure and retry",
+        "evidence": "Auto bug003 (retry, uncertain, rejected), outbox retry",
+        "status": "PASS"
+      },
+      "A02-S01": {
+        "scenario": "Actual job execution",
+        "evidence": "Live M03, T03, A01",
+        "status": "PASS"
+      },
+      "A02-S02": {
+        "scenario": "Worker restart",
+        "evidence": "Worker: backend down 20:01:43–20:05:31 across a due time; exactly once",
+        "status": "PASS"
+      },
+      "A02-S03": {
+        "scenario": "Multi-process job claiming",
+        "evidence": "Worker: 3 competing workers; Auto P05 s06de (3 processes)",
+        "status": "PASS"
+      },
+      "A02-S04": {
+        "scenario": "Worker crash recovery",
+        "evidence": "Auto: a real subprocess crash, recovered once",
+        "status": "PASS"
+      },
+      "A02-S05": {
+        "scenario": "Duplicate prevention",
+        "evidence": "Live S05 (0 duplicate groups)",
+        "status": "PASS"
+      },
+      "A02-S06": {
+        "scenario": "Cancellation",
+        "evidence": "Live M08, A03/A04, F04",
+        "status": "PASS"
+      },
+      "A02-S07": {
+        "scenario": "Timezone boundaries",
+        "evidence": "Auto P05 s06h, A02 s07",
+        "status": "PASS"
+      },
+      "A02-S08": {
+        "scenario": "Permanent failure recovery",
+        "evidence": "Auto s08 (4 attempts → failed)",
+        "status": "PASS"
+      }
+    }
+  },
+  "external": {
+    "firebase": "not configured (BLOCKED)",
+    "smtp": "local SMTP server only (owner decision); external BLOCKED",
+    "sms": "no provider (BLOCKED)",
+    "stripe": "test mode only (booking confirmation)"
+  },
+  "ci": "235cce4: Backend CI success, Mobile CI success, Admin Web CI success",
+  "package": "C:\\Users\\REDTECH\\Downloads\\A02_REPORT_PACKAGE.zip",
+  "productionReady": false,
+  "clinicallyApproved": false
+}

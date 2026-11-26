@@ -1,0 +1,66 @@
+{
+ "run": "01bd79",
+ "schedules": [
+  {
+   "scheduleId": "6b0842bf9ffb81a5e6f967e8",
+   "time": "20:05",
+   "approve": 200
+  },
+  {
+   "scheduleId": "6b0842bf9ffb81a5e6f967e9",
+   "time": "20:07",
+   "approve": 200
+  }
+ ],
+ "preparedAt": "2026-11-26T20:01:27+05:30",
+ "extraWorkers": [
+  {
+   "returncode": 0,
+   "stdout": "SENT 2",
+   "stderrTail": ""
+  },
+  {
+   "returncode": 0,
+   "stdout": "SENT 1",
+   "stderrTail": ""
+  }
+ ],
+ "rows": [
+  {
+   "time": "20:05",
+   "events": 1,
+   "states": [
+    "processed"
+   ],
+   "inAppAttempts": [
+    1
+   ],
+   "notifications": 1,
+   "push": [
+    "disabled"
+   ]
+  },
+  {
+   "time": "20:07",
+   "events": 1,
+   "states": [
+    "processed"
+   ],
+   "inAppAttempts": [
+    1
+   ],
+   "notifications": 1,
+   "push": [
+    "disabled"
+   ]
+  }
+ ],
+ "deliveredByExtraWorkers": 3,
+ "status": "PASS",
+ "backendTimeline": {
+  "stopped": "2026-11-26T20:01:43+05:30 (UAT backend on 8001 stopped while both reminders were pending)",
+  "restarted": "2026-11-26T20:05:31+05:30 (after the 20:05 reminder fell due)",
+  "extraWorkers": "2 scheduler processes against mediconnect_uat, 20:01:35-20:08:35, 7 s loop, real clock"
+ },
+ "interpretation": "Exactly-once logical delivery held while the backend was down, after its restart and with three competing workers. Push was 'disabled' (Firebase not configured); nothing external was sent."
+}

@@ -140,3 +140,12 @@ The final matrix covering all 38 components is in [uat/MEDICONNECT_ALL_38_AGENT_
   - Gemini verified live: success, invalid key, invalid model, daily quota, fallback.
   - OpenAI live generation is blocked because the account has no credits.
 - **New totals:** 26 VERIFIED (local), 12 PARTIAL, 0 BLOCKED. See [uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md](uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md).
+
+## Agent Completion A02 update (2026-11-26, `fix/agents-a02-reminders-notifications`)
+
+- **05, 07, 08, 09, 13, 19 stay PARTIAL:**
+  - Engineering is complete and the in-app path is verified live with the real 60-second worker. This covers medication, appointment, test-task and plan reminders, read state, isolation and doctor-approved batches.
+  - Device-local reminders are verified on the Android emulator.
+  - Not yet available: push (no Firebase project), external e-mail (owner chose local SMTP testing only) and SMS (no provider). No external delivery is claimed.
+- **Scheduler (36):** exactly-once delivery re-verified live across a backend restart and three competing workers. A real worker crash is now recovered (A02-BUG-005).
+- **Totals unchanged:** 26 VERIFIED (local), 12 PARTIAL, 0 BLOCKED.

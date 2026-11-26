@@ -1,4 +1,4 @@
-# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01)
+# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A02)
 
 For: the project owner, reviewers and future maintainers. Generated 2026-11-26 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
 
@@ -13,15 +13,15 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-26 b
 
 | Measure | Count |
 |---|---|
-| Unique tracked items | 205 |
-| Confirmed defects | 177 |
-| Defects fixed (automated regression) | 176 |
+| Unique tracked items | 231 |
+| Confirmed defects | 198 |
+| Defects fixed (automated regression) | 197 |
 | Defects open | 1 (BUG-039) |
 | …of the fixed: manual device retest still pending | 7 |
 | …of the fixed: external verification blocked | 1 |
 | Improvements / requirements delivered | 21 |
 | Regression guards (not defects) | 1 |
-| Observations (unconfirmed) | 5 |
+| Observations (unconfirmed) | 10 |
 | Security incidents (owner) | 1 |
 
 | Source | Defects | Improvements |
@@ -33,6 +33,7 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-26 b
 | Phase 04 | 23 | 0 |
 | Phase 05 | 25 | 13 |
 | Agent Completion A01 | 17 | 0 |
+| Agent Completion A02 | 21 | 0 |
 
 Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not defects; see `PHASE_05_REMAINING_BLOCKERS.md`.
 
@@ -245,3 +246,29 @@ Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not def
 | A01-O2 |  | observation | Low | A01 | Live V17: the model listed fields that are simply absent (expiry, manufacturer) as "not readable" | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
 | A01-O3 |  | observation | Low | A01 | "since yesterday" is not parsed as a duration (H04) | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
 | A01-O4 |  | observation | Low | A01 | The Gemini free tier allows 20 generation requests per day for `gemini-3.8-flash`; that quota ran out during A01 | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A02-BUG-001 |  | defect | High | E-mail (13) | SMTP over STARTTLS/SMTPS accepted any certificate (found by reading the code; confirmed with a self-signed local server) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-002 |  | defect | High | Tests | The backend test suite sent real e-mail through the owner's SMTP account on every local run. | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-003 |  | defect | Medium | E-mail | Every SMTP exception became uncertain and was never retried, including "connection refused" (nothing sent). | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-004 |  | defect | Medium | Monitoring (13) | An unconfigured provider was reported as failed, and provider acceptance (sent/accepted) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-005 |  | defect | High | Scheduler | A worker crash after claiming a reminder but before the in-app write meant the patient never received it (whole event → uncertain) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-006 |  | defect | High | Push (13) | Push notifications put the full in-app text on the lock screen: doctor and patient names, dates and specialty (for example "Your appointment | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-007 |  | defect | Medium | Push | A quota, server or bad-payload FCM error could delete every device token of the user | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-008 |  | defect | Low | Device tokens | Unbounded device list per user, unchecked deviceType, and the first 10 characters of a raw token logged | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-009 |  | defect | Medium | Delivery tracking | No transactional notification (booking, cancellation, payment, renewal) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-010 |  | defect | Low | Monitoring | cleanup_invalid_device_tokens never removed anything | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-011 |  | defect | High | Medication reminder (05) | A patient could create reminders for an as-needed (PRN) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-012 |  | defect | Medium | Assistant (05/13) | "Show my medicine reminders for today" got a medicine-library lookup ("could not locate … medication name"). | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-013 |  | defect | Low | Assistant | "What medical tests do I have this week?" read only today, and "When is my next appointment?" listed one that had already started | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-014 |  | defect | Medium | Patient communication (19) | A doctor changing a follow-up date, instructions or test tasks, or closing the plan, did not tell the patient | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-015 |  | defect | Medium | Follow-up (08) | Re-saving a care plan with the same follow-up date was treated as a change: remindersSent was reset (date-based reminders could repeat) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-016 |  | defect | High | Mobile medication reminders | Device-local reminders were open-ended daily repeats. | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-017 |  | defect | High | Mobile logout | After logout, the previous account's device reminders kept firing for the next user. | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-018 |  | defect | Medium | Mobile sync | The device was never synchronised after a reinstall, a new phone or a sign-in. | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-019 |  | defect | High | Mobile Android manifest | Scheduled device reminders were never shown and were lost on reboot | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-020 |  | defect | High | Mobile Android 13+ permission | The notification permission was never requested while Firebase is unconfigured, so Android suppressed every device reminder (POST_NOTIFICATI | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-021 |  | defect | Medium | Patient communication (19) | A prescription issued from the clinical workflow (POST /clinical/prescriptions/sign) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O1 |  | observation | Low | A02 | NotificationService.check_and_send_appointment_reminders (24 h / 1 h) is legacy code that no worker calls | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O2 |  | observation | Low | A02 | Device-local reminders use Android inexact alarms (inexactAllowWhileIdle) | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O3 |  | observation | Low | A02 | normalize_phone accepts only 07XXXXXXXX and +947XXXXXXXX; 94…/0094… forms are refused (safe, but strict) | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O4 |  | observation | Low | A02 | Two test_phase02_booking_payment / test_production_security_audit tests fail when run **alone on an empty database**, because they depend on | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O5 |  | observation | Low | A02 | The "AI" patient-communication drafting is a fixed template (appointment reminder batch) with an HMAC approval token | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |

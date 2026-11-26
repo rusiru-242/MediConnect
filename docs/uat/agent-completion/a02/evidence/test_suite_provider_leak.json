@@ -1,0 +1,35 @@
+{
+ "what": "Outbound connection attempts to real delivery providers during the full backend pytest run, recorded and blocked by a pytest plugin (docs/uat/agent-completion/a02/a02_leak_detector.py). Nothing was allowed through during these two measurements.",
+ "baseline": {
+  "code": "fix/agents-a02-reminders-notifications at febd063 (A01 head)",
+  "database": "mediconnect_a02base_test",
+  "result": "865 passed",
+  "blockedAttempts": 13,
+  "byHost": {
+   "smtp.gmail.com": 13
+  },
+  "tests": [
+   "tests/test_admin_doctor_workflow.py::test_admin_doctor_verification_workflow",
+   "tests/test_doctor_auth.py::test_doctor_full_workflow",
+   "tests/test_phase04_admin_system.py::test_n08_approval_needs_registration_number_and_decisions_are_audited",
+   "tests/test_phase34_full_system_integration.py::test_phase34_e2e_doctor_registration_and_admin_approval",
+   "tests/test_phase8_final_integration.py::test_admin_doctor_verification_and_credential_audit"
+  ]
+ },
+ "afterFix": {
+  "code": "A02 working tree after A02-BUG-002",
+  "database": "mediconnect_a02full_test",
+  "result": "904 passed",
+  "blockedAttempts": 0,
+  "byHost": {},
+  "tests": []
+ },
+ "final": {
+  "code": "235cce4",
+  "database": "mediconnect_a02final_test",
+  "result": "907 passed",
+  "blockedAttempts": 0,
+  "byHost": {},
+  "tests": []
+ }
+}

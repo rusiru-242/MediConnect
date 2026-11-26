@@ -380,3 +380,15 @@ The owner's BUG-049 to BUG-063 descriptions are now recorded and mapped to the P
 - **A01-N10 / N11:** no secondary provider; retired or shutting-down model ids.
 
 Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (177 confirmed defects: 176 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a01/A01_BUG_FIX_REPORT.md](uat/agent-completion/a01/A01_BUG_FIX_REPORT.md).
+
+## Agent Completion A02 (2026-11-26, branch `fix/agents-a02-reminders-notifications`)
+
+21 new defects (A02-BUG-001 to 021), all fixed with automated tests or emulator evidence. The most serious:
+- **A02-BUG-001:** SMTP TLS certificates were never verified.
+- **A02-BUG-002:** the backend test suite submitted real e-mail through the SMTP account in `backend/.env` (13 attempts per local run).
+- **A02-BUG-011:** patient-set reminders for as-needed medicines and an invented 7-day course.
+- **A02-BUG-016/017/019/020:** device reminders never shown on Android 13+, endless after the course, and still firing after logout.
+- **A02-BUG-005:** a worker crash before the in-app write lost the reminder.
+- **A02-BUG-006:** push previews exposed names, dates and specialties on the lock screen.
+
+Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md). Details: [uat/agent-completion/a02/A02_BUG_FIX_REPORT.md](uat/agent-completion/a02/A02_BUG_FIX_REPORT.md).
