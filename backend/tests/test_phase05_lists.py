@@ -15,13 +15,14 @@ def test_p4o1_malformed_record_is_reported_not_fatal(db):
         "title": "Synthetic history", "recordType": "medical_history", "clinicalDate": "2026-11-01",
         "description": "Synthetic"})
     assert ok.status_code in (200, 201), ok.text
-    db["patient_medical_records"].insert_one({"recordId": "MED-BROKEN-P05", "patientUserId": patient["id"],
+    broken = f"MED-BROKEN-{uuid.uuid4().hex[:8]}"  # unique: the local test database is reused between runs
+    db["patient_medical_records"].insert_one({"recordId": broken, "patientUserId": patient["id"],
                                               "status": "active", "clinicalDate": "2026-11-02",
                                               "recordType": "not-a-type", "createdAt": utc_now()})
     res = client.get("/api/clinical/records", headers=_auth(patient))
     assert res.status_code == 200, res.text  # was 500 for the whole list
     body = res.json()
-    assert body["unreadableRecords"] == 1 and body["unreadableRecordRefs"] == ["MED-BROKEN-P05"]
+    assert body["unreadableRecords"] == 1 and body["unreadableRecordRefs"] == [broken]
     assert len(body["records"]) == 1
 
 
