@@ -141,8 +141,11 @@ async def admin_assistant(
         elif intent == "payment_summary" or "success rate" in query:
             rate = fin.get("paymentSuccessRate")
             if "rate" not in query:
-                reply_text = (f"{fin.get('succeededTransactions', 0)} successful payment(s) were recorded in {period}"
-                              f" ({fin.get('refundedTransactions', 0)} of them later refunded); "
+                # P05-N19: succeededTransactions excludes payments later fully refunded (status REFUNDED), so the
+                # number of successful (captured) payments is the sum of both.
+                captured = fin.get('succeededTransactions', 0) + fin.get('refundedTransactions', 0)
+                reply_text = (f"{captured} payment(s) were captured successfully in {period} "
+                              f"({fin.get('refundedTransactions', 0)} of them were later fully refunded); "
                               f"{fin.get('failedTransactions', 0)} attempt(s) failed.")
             elif rate is None:
                 reply_text = f"No payments were attempted in {period}, so there is no payment success rate."

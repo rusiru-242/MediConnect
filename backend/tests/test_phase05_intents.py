@@ -123,7 +123,21 @@ def test_admin_assistant_routes_new_intents_to_read_only_tools(db):
         assert body["toolCalled"] == tool, (text, body)
         assert body["intent"] and body["intentSource"] == "deterministic"
     week = _admin_chat(admin, "How many successful payments were recorded this week?")
-    assert "successful payment" in week["reply"] and week["dateRange"]
+    assert "captured successfully" in week["reply"] and week["dateRange"]
+
+
+def test_p05_n19_payment_total_counts_refunded_captures(db):
+    """succeededTransactions excludes fully refunded payments; the captured total must include them."""
+    from unittest.mock import patch
+    admin = _admin(db)
+    fake = {"dateRange": {"startDate": "2026-11-20", "endDate": "2026-11-26"}, "appointments": {},
+            "financials": {"succeededTransactions": 36, "refundedTransactions": 13, "failedTransactions": 3}}
+    import app.agents.orchestrator as orch
+    async def run(self, name, args, allowed, confirmed=False):
+        return fake
+    with patch.object(orch.AIOrchestrator, "execute", run):
+        body = _admin_chat(admin, "How many successful payments were recorded this week?")
+    assert body["reply"].startswith("49 payment(s) were captured successfully") and "13 of them" in body["reply"]
 
 
 def test_admin_fraud_explanation_uses_the_stored_assessment_and_says_signal_not_finding(db):
