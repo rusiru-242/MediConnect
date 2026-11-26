@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pymongo.database import Database
 
-from app.agents.medicine_image_agent import validate_image_file_bytes
+from app.agents.medicine_image_agent import MAX_IMAGE_SIZE_BYTES, validate_image_file_bytes
 
 from app.config.database import get_database
 from app.middleware.auth import require_patient
@@ -113,7 +113,8 @@ async def upload_companion_image(
     current_user: UserResponseSchema = Depends(require_patient),
 ) -> Dict[str, str]:
     """Securely upload a medicine packaging or label photo."""
-    content = await file.read()
+    # Read at most limit + 1 bytes: an oversized upload is rejected without buffering all of it (A01-N08).
+    content = await file.read(MAX_IMAGE_SIZE_BYTES + 1)
     filename = file.filename or "uploaded_image.png"
     is_valid, error_msg = validate_image_file_bytes(content, filename)
     if not is_valid:
@@ -157,7 +158,8 @@ async def send_session_image(
 ) -> BookingSessionResponse:
     """Upload and process medicine image in companion conversation."""
     _check_rate_limit(str(current_user.id))
-    content = await file.read()
+    # Read at most limit + 1 bytes: an oversized upload is rejected without buffering all of it (A01-N08).
+    content = await file.read(MAX_IMAGE_SIZE_BYTES + 1)
     filename = file.filename or "uploaded_image.png"
 
     is_valid, error_msg = validate_image_file_bytes(content, filename)
