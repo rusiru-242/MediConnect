@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    /* No web-font download (Phase 05, P4-O3): the system UI font is used unless Plus Jakarta Sans is installed. */
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   }
 

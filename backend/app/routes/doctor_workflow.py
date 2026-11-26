@@ -186,7 +186,23 @@ async def assistant(request: Chat, user=Depends(require_doctor), db=Depends(get_
     elif any(word in query for word in ("appointment", "schedule", "හමුවීම්", "சந்திப்பு")):
         name, args = "get_my_doctor_schedule", {"start": day, "end": end}
     else:
-        return {"message": "Ask about your schedule, free slots, patient queue, analytics, or follow-ups."}
+        # Phase 05 (component 33): paraphrases and requests the keyword branches above do not cover go through the
+        # shared role-specific classifier; each intent maps to one read-only DOCTOR tool.
+        from app.agents.intent_router import classify
+        intent = classify("DOCTOR", request.message).intent
+        by_intent = {
+            "renewal_queue": ("get_prescription_renewal_queue", {}),
+            "follow_ups": ("get_my_follow_up_tasks", {}),
+            "analytics": ("get_my_doctor_analytics", {"start": day, "end": end}),
+            "free_slots": ("get_my_available_slots", {"start": day}),
+            "queue": ("get_my_patient_queue", {"start": day}),
+            "next_patient": ("get_next_queue_patient", {"start": day}),
+            "schedule": ("get_my_doctor_schedule", {"start": day, "end": end}),
+        }
+        if intent not in by_intent:
+            return {"message": "Ask about your schedule, free slots, patient queue, analytics, follow-ups or "
+                               "prescription renewal requests.", "intent": intent}
+        name, args = by_intent[intent]
     result = await orch.execute(name, args, {name})
     if "error" in result:
         return {"message": "I could not retrieve that information. Check the selection and try again."}
@@ -200,6 +216,10 @@ async def assistant(request: Chat, user=Depends(require_doctor), db=Depends(get_
         "get_my_patient_queue": lambda: "Here is your patient queue.",
         "get_consultation_preparation": lambda: result["summary"],
         "get_my_follow_up_tasks": lambda: f"{len(result['followUps'])} recent follow-up plans.",
+        "get_prescription_renewal_queue": lambda: (
+            f"{sum(r.get('status') in ('requested', 'awaiting_review') for r in result['renewals'])} prescription "
+            "renewal request(s) are awaiting your review. Renewals are approved or "
+            "declined only by you on the Renewals screen; the assistant cannot approve them."),
         # Every number below comes from the analytics service; the reply only formats it (P03-N20).
         "get_my_doctor_analytics": lambda: (
             f"{result['from']} to {result['to']} (Asia/Colombo): {result['confirmed']} confirmed, "

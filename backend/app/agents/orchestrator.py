@@ -15,6 +15,11 @@ from app.agents.tool_registry import TOOLS, ToolContext
 logger = logging.getLogger(__name__)
 MAX_TOOL_ROUNDS = 3
 MAX_CALLS_PER_ROUND = 4
+# Phase 05 (component 31) execution bounds, applied to every tool call of one request.
+MAX_TOTAL_CALLS = 8
+TOOL_TIMEOUT_SECONDS = 5.0
+MAX_RESULT_BYTES = 256_000
+RUN_COLLECTION = "ai_agent_runs"
 PUBLIC_TOOLS = {"search_verified_doctors", "get_doctor_profile", "check_doctor_availability"}
 
 
@@ -52,20 +57,67 @@ def provider_result(result):
     return result
 
 
+def _canonical(args):
+    try:
+        return json.dumps(args if isinstance(args, (dict, list)) else json.loads(args or "{}"), sort_keys=True,
+                          default=str)
+    except (TypeError, ValueError):
+        return repr(args)
+
+
 class AIOrchestrator:
-    def __init__(self, db, user, provider):
+    """Executes role-authorized registry tools for one request, within fixed bounds.
+
+    The orchestrator never grants permissions: a tool runs only if it is in the caller-supplied allow-list AND the
+    signed-in user's role is in the tool's roles, then AISafetyGuard checks it again. Arguments are validated by the
+    tool's pydantic schema and results must be bounded JSON objects. Each request is recorded in ``ai_agent_runs``
+    (tool names, outcomes and durations only; no arguments, results or message text).
+    """
+
+    def __init__(self, db, user, provider, entry_point: str = "assistant"):
         self.context = ToolContext(db, user)
         self.provider = provider
         self.request_id = uuid4().hex
+        self.entry_point = entry_point
+        self.calls = 0
+        self.trace = []
+        self._results = {}
+
+    def _record(self, tool, outcome, duration_ms):
+        self.trace.append({"tool": tool, "outcome": outcome, "durationMs": duration_ms})
+        try:
+            from datetime import datetime, timedelta, timezone
+            now = datetime.now(timezone.utc)
+            self.context.db[RUN_COLLECTION].update_one(
+                {"_id": self.request_id},
+                {"$setOnInsert": {"correlationId": self.request_id, "role": self.context.user.role,
+                                  "entryPoint": self.entry_point, "startedAt": now,
+                                  "expiresAt": now + timedelta(days=30)},
+                 "$push": {"tools": {"tool": tool, "outcome": outcome, "durationMs": duration_ms}},
+                 "$inc": {"toolCalls": 1, "errors": int(outcome != "ok")},
+                 "$set": {"updatedAt": now, "lastOutcome": outcome}},
+                upsert=True)
+        except Exception:  # monitoring must never change the answer
+            pass
 
     def authorized(self, names):
         return {name: tool for name, tool in TOOLS.items()
                 if name in names and self.context.user.role in tool.roles}
 
-    async def execute(self, name, args, allowed):
+    async def execute(self, name, args, allowed, confirmed=False):
         started = monotonic()
         result = {"error": "tool_unavailable"}
-        if isinstance(name, str) and name in self.authorized(allowed):
+        self.calls += 1
+        key = (name if isinstance(name, str) else repr(name), _canonical(args))
+        if self.calls > MAX_TOTAL_CALLS:
+            result = {"error": "tool_call_limit"}
+        elif key in self._results:
+            # The same call with the same arguments in one request returns the first result instead of running
+            # the tool again (duplicate-call prevention; also stops a model from repeating a call in a loop).
+            result = {**self._results[key], "duplicateCall": True} if isinstance(self._results[key], dict) else self._results[key]
+        elif isinstance(name, str) and name in self.authorized(allowed) and TOOLS[name].mutates and not confirmed:
+            result = {"error": "confirmation_required"}
+        elif isinstance(name, str) and name in self.authorized(allowed):
             tool = TOOLS[name]
             try:
                 validated = (tool.arguments.model_validate_json(args) if isinstance(args, str)
@@ -83,16 +135,27 @@ class AIOrchestrator:
                     return {"error": "unauthorized_tool", "detail": auth_err}
 
                 with mongo_timeout(4):
-                    result = await tool.run(self.context, validated)
+                    result = await asyncio.wait_for(tool.run(self.context, validated), TOOL_TIMEOUT_SECONDS)
+                if not isinstance(result, dict):
+                    result = {"error": "invalid_tool_result"}
+                elif len(json.dumps(result, default=str)) > MAX_RESULT_BYTES:
+                    result = {"error": "tool_result_too_large"}
+                else:
+                    self._results[key] = result
+            except asyncio.TimeoutError:
+                result = {"error": "tool_timeout"}
             except ValidationError:
                 result = {"error": "invalid_arguments"}
             except HTTPException as exc:
                 result = {"error": "resource_unavailable" if exc.status_code in {403, 404} else "invalid_request"}
             except Exception:
                 result = {"error": "tool_failed"}
-        logger.info("ai_tool request_id=%s tool=%s outcome=%s duration_ms=%d", self.request_id,
-                    name if isinstance(name, str) and name in TOOLS else "unknown",
-                    result.get("error", "ok"), int((monotonic() - started) * 1000))
+        duration = int((monotonic() - started) * 1000)
+        tool_name = name if isinstance(name, str) and name in TOOLS else "unknown"
+        outcome = result.get("error", "ok") if isinstance(result, dict) else "ok"
+        logger.info("ai_tool request_id=%s tool=%s outcome=%s duration_ms=%d", self.request_id, tool_name, outcome,
+                    duration)
+        self._record(tool_name, outcome, duration)
         return result
 
     async def run_search(self, query, session, filters, requested_date=None, requested_time=None):
@@ -120,6 +183,7 @@ class AIOrchestrator:
             f"End with exactly one permitted sentence matching the result: {json.dumps(SAFE_REPLIES)}."
         )
         exchanges = []
+        previous_calls = None
         doctors = None
         slots_by_doctor = {}
         logger.info("ai_request request_id=%s intent=doctor_search role=%s", self.request_id, self.context.user.role)
@@ -136,6 +200,11 @@ class AIOrchestrator:
                         return doctors, slots_by_doctor, text.strip() if text.strip() in approved else None
                     if len(exchanges) >= MAX_TOOL_ROUNDS or len(calls) > MAX_CALLS_PER_ROUND:
                         break
+                    signature = sorted((c.get("name"), _canonical(c.get("arguments"))) for c in calls)
+                    if signature == previous_calls:  # the model repeated its last round: stop (loop detection)
+                        logger.info("ai_loop_detected request_id=%s", self.request_id)
+                        break
+                    previous_calls = signature
                     results = []
                     for call in calls:
                         name = call["name"]

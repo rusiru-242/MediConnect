@@ -57,6 +57,8 @@ class Tool:
     arguments: type[Arguments]
     run: Callable[[ToolContext, Arguments], Awaitable[dict]]
     roles: frozenset[str] = frozenset({"PATIENT"})
+    # Phase 05: tools that change state run only with an explicit, server-verified user confirmation.
+    mutates: bool = False
 
 
 def public_doctor(profile):
@@ -544,7 +546,7 @@ TOOLS.update({
     "prepare_medical_record_summary": Tool("Synthesize an authorized, source-grounded longitudinal medical record summary.", MedicalRecordSummaryArgs, prepare_medical_record_summary, PATIENT_AND_DOCTOR_ROLES),
     "prepare_clinical_note_draft": Tool("Organize consultation findings into a structured SOAP draft for doctor review.", NoteDraftArgs, prepare_clinical_note_draft, DOCTOR_ROLES),
     "prepare_prescription_documentation": Tool("Review proposed medications against patient allergies and active prescriptions.", PrescriptionDocArgs, prepare_prescription_documentation, DOCTOR_ROLES),
-    "prepare_renewal_request": Tool("Draft and submit a prescription renewal request for clinician review.", RenewalRequestDraftArgs, prepare_renewal_request, PATIENT_ROLES),
+    "prepare_renewal_request": Tool("Draft and submit a prescription renewal request for clinician review.", RenewalRequestDraftArgs, prepare_renewal_request, PATIENT_ROLES, mutates=True),
 })
 
 

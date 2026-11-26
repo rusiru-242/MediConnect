@@ -241,12 +241,12 @@ class HealthAssistantAgent:
     @classmethod
     async def _call_gemini_health_model(cls, text: str, lang: str) -> Optional[Dict[str, Any]]:
         """Call Gemini for health guidance generation."""
-        import requests
+        from app.agents.provider_gateway import ProviderCallError, record_fallback, resolve_gemini_model, send
         api_key = settings.GEMINI_API_KEY.strip()
-        model_name = settings.GEMINI_MODEL or "gemini-1.5-flash"
-        if model_name in ["gemini-1.5-flash", "gemini-2.5-flash"]:
-            model_name = "gemini-1.5-flash"
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        # Phase 05: the configured model is resolved through the retired-model map (it used to map to the retired
+        # gemini-1.5-flash), and the key travels in a header instead of the URL.
+        model_name = resolve_gemini_model(settings.GEMINI_MODEL)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
 
         payload = {
             "contents": [
@@ -262,12 +262,13 @@ class HealthAssistantAgent:
             },
         }
 
-        resp = requests.post(url, json=payload, timeout=settings.AI_TIMEOUT_SECONDS)
-        if resp.status_code == 200:
-            data = resp.json()
-            raw_json = data["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(raw_json)
-        return None
+        try:
+            data = send("gemini", model_name, url, {"x-goog-api-key": api_key}, payload, settings.AI_TIMEOUT_SECONDS)
+        except ProviderCallError as exc:
+            record_fallback("gemini", exc.category)
+            return None
+        raw_json = data["candidates"][0]["content"]["parts"][0]["text"]
+        return json.loads(raw_json)
 
     @classmethod
     def _generate_deterministic_fallback(

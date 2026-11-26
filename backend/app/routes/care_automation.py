@@ -1,4 +1,5 @@
 """Authenticated patient care agenda, clinician approval, and patient-reported activity."""
+from uuid import uuid4
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated, Literal
 import re
@@ -339,8 +340,12 @@ def record_measurement(req: Reading, patient=Depends(require_patient), db=Depend
     # Care Agenda is not silently stored (P02-N09). Thresholds are existing rules pending clinical review.
     from app.services.clinical_safety_service import ClinicalSafetyService
     alert = ClinicalSafetyService.evaluate_measurement_safety(req.metric, req.value, req.secondary)
+    now = datetime.now(timezone.utc)
+    # B7 (Phase 05): new Care Agenda readings carry the same identifying fields as Health Tracking readings.
     row = {**req.model_dump(), "patientUserId": str(patient.id), "unit": unit,
-           "recordedAt": datetime.now(timezone.utc), "source": "patient_reported", "criticalAlert": alert}
+           "recordedAt": now, "measuredAt": now, "measurementId": f"MEAS-{now:%Y%m%d}-{uuid4().hex[:6].upper()}",
+           "verificationStatus": "unverified", "entryPoint": "care_agenda",
+           "source": "patient_reported", "criticalAlert": alert}
     db["patient_health_measurements"].insert_one(row)
     return {"id": str(row["_id"]), "source": row["source"], "unit": unit, "criticalAlert": alert}
 

@@ -95,9 +95,13 @@ class PlatformMonitoringService:
         if not (gemini or openai):
             return {"name": "AI Providers", "status": "disabled", "latencyMs": None,
                     "message": "No Gemini or OpenAI key is configured; the deterministic engine answers."}
-        names = [n for n, ok in (("Gemini", gemini), ("OpenAI", openai)) if ok]
-        return {"name": "AI Providers", "status": "configured_not_verified", "latencyMs": None,
-                "message": f"Configured: {', '.join(names)}. See AI provider metrics for observed calls."}
+        # Phase 05: derived from calls actually observed today (provider gateway), never assumed.
+        from app.agents.provider_gateway import provider_status
+        states = [provider_status(p) for p, ok in (("gemini", gemini), ("openai", openai)) if ok]
+        order = ["unavailable", "rate_limited", "degraded", "configured_not_verified", "disabled", "available"]
+        worst = min((s["status"] for s in states), key=lambda v: order.index(v) if v in order else 0)
+        return {"name": "AI Providers", "status": worst, "latencyMs": None,
+                "message": "; ".join(f"{s['provider']}: {s['status']} (model {s['model']})" for s in states)}
 
     @classmethod
     def record_worker_heartbeat(
@@ -207,4 +211,19 @@ class PlatformMonitoringService:
             "workers": workers,
             "activeIncidentsCount": active_incidents,
             "openFraudAssessmentsCount": open_fraud,
+            "aiAgentRuns24h": cls.ai_agent_run_summary(db),
         }
+
+    @classmethod
+    def ai_agent_run_summary(cls, db: Database) -> Dict[str, Any]:
+        """Measured AI assistant executions in the last 24 hours (Phase 05, component 38): counts by outcome."""
+        since = utc_now() - timedelta(hours=24)
+        try:
+            runs = db["ai_agent_runs"].count_documents({"startedAt": {"$gte": since}})
+            with_errors = db["ai_agent_runs"].count_documents({"startedAt": {"$gte": since}, "errors": {"$gt": 0}})
+            outcomes = {row["_id"]: row["n"] for row in db["ai_agent_runs"].aggregate([
+                {"$match": {"startedAt": {"$gte": since}}}, {"$unwind": "$tools"},
+                {"$group": {"_id": "$tools.outcome", "n": {"$sum": 1}}}])}
+        except Exception:
+            return {"status": "not_reported"}
+        return {"runs": runs, "runsWithToolErrors": with_errors, "toolOutcomes": outcomes}

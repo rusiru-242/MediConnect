@@ -21,6 +21,14 @@ class DatabaseManager:
         if cls._client is None:
             if not settings.MONGODB_URI or not settings.MONGODB_URI.strip():
                 raise ConnectionError("MONGODB_URI environment variable is not configured.")
+            # Fail closed (P4-B5): every code path that reaches MongoDB through the application (API, worker,
+            # scripts that import the app) is checked here, not only the API lifespan.
+            from app.config.runtime_safety import database_target_error
+            problem = database_target_error(settings.MONGODB_URI, settings.DATABASE_NAME, settings.ENVIRONMENT,
+                                            settings.ALLOW_REMOTE_DATABASE)
+            if problem:
+                logger.error("Database target refused: %s", problem)
+                raise ConnectionError(problem)
             try:
                 try:
                     import dns.resolver
@@ -130,6 +138,8 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         ("care_scheduler", create_care_scheduler_indexes),
         ("doctor_communications", create_doctor_communication_indexes),
         ("payments", create_payment_indexes),
+        ("ai_agent_runs", lambda d: d["ai_agent_runs"].create_index("expiresAt", expireAfterSeconds=0,
+                                                                    name="idx_ai_agent_runs_ttl")),
         ("appointment_events", create_appointment_event_indexes),
         ("notifications", create_notification_indexes),
         ("booking_sessions", create_booking_session_indexes),

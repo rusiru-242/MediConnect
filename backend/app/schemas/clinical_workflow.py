@@ -57,6 +57,9 @@ class PatientMedicalRecordResponse(StrictBase):
 
 class PatientMedicalRecordListResponse(StrictBase):
     records: List[PatientMedicalRecordResponse]
+    # Phase 05 (P4-O1): records that exist but could not be displayed, by reference.
+    unreadableRecords: int = 0
+    unreadableRecordRefs: List[str] = Field(default_factory=list)
     total: int
     page: int
     pageSize: int

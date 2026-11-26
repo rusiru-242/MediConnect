@@ -1107,7 +1107,24 @@ class DoctorService:
             reason=req.reason,
             createdAt=now,
         )
-        res = coll.insert_one(doc.to_mongo_dict())
+        record = doc.to_mongo_dict()
+        record["blockKey"] = f"{doctor_user.id}:{req.date}:{req.startTime}-{req.endTime}"
+        from pymongo.errors import DuplicateKeyError
+        try:
+            # Concurrent identical requests: the unique key lets exactly one insert succeed (P05-N17; four
+            # processes used to create four identical blocks).
+            res = coll.insert_one(record)
+        except DuplicateKeyError:
+            raise HTTPException(409, "This time is already blocked.")
+        # A booking may have been reserved between the conflict check and the insert: check again and withdraw.
+        if db["appointments"].find_one({
+            "doctorUserId": str(doctor_user.id), "appointmentDate": req.date,
+            "startTime": {"$lt": req.endTime}, "endTime": {"$gt": req.startTime},
+            "$or": [{"status": "CONFIRMED"}, {"status": {"$in": ["HOLD", "PENDING"]}, "holdExpiresAt": {"$gt": now}},
+                    {"status": {"$in": ["HOLD", "PENDING"]}, "paymentStatus": "PAID"}],
+        }, {"_id": 1}):
+            coll.delete_one({"_id": res.inserted_id})
+            raise HTTPException(409, "This block overlaps a booking or active hold. Resolve the booking first.")
         return DoctorBlockedTimeResponse(
             id=str(res.inserted_id),
             doctorUserId=str(doctor_user.id),

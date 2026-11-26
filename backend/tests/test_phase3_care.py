@@ -64,7 +64,7 @@ def test_medication_approval_delivery_explicit_actions_and_prescription_change(f
     scheduler.run_scheduler(db, now)
     scheduler.run_scheduler(db, now + timedelta(seconds=30))
     rows = list(db["care_reminder_events"].find({"sourceId": approved.json()["scheduleId"]}))
-    assert len(rows) == 1
+    assert len(rows) == 1, [(r["_id"][:8], r["kind"], r["scheduledAt"], r["state"], r.get("sourceCollection")) for r in rows]
     row = rows[0]
     assert row["channels"]["inApp"]["status"] == "stored"
     assert row["channels"]["push"]["status"] == "accepted"

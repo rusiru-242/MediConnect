@@ -1,0 +1,16 @@
+{
+  "reply": "63 payment(s) were captured successfully in 2026-11-20 to 2026-11-26 (Asia/Colombo) (18 of them were later fully refunded); 3 attempt(s) failed.",
+  "dateRange": {
+    "startDate": "2026-11-20",
+    "endDate": "2026-11-26"
+  },
+  "tool": "get_admin_dashboard_metrics",
+  "mongoIndependentCount": {
+    "rule": "paidAt in the Colombo range, or createdAt when never paid",
+    "SUCCEEDED": 45,
+    "REFUNDED": 18,
+    "FAILED": 3,
+    "captured": 63
+  },
+  "match": true
+}

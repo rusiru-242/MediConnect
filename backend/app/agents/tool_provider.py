@@ -5,9 +5,8 @@ import requests
 
 def provider_turn(provider, system, messages, tools, exchanges, *, gemini=False):
     if gemini:
-        model = provider.model.removeprefix("models/")
-        if model in {"gemini-1.5-flash", "gemini-2.5-flash"}:
-            model = "gemini-flash-latest"
+        from app.agents.provider_gateway import resolve_gemini_model
+        model = resolve_gemini_model(provider.model)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         contents = [
             {"role": "model" if m["role"] == "assistant" else "user", "parts": [{"text": m["content"]}]}
@@ -32,7 +31,7 @@ def provider_turn(provider, system, messages, tools, exchanges, *, gemini=False)
             "generationConfig": {"maxOutputTokens": 2048},
         }
         headers = {"x-goog-api-key": provider.api_key}
-        data = _post(url, headers, payload, provider.timeout_seconds)
+        data = _post(url, headers, payload, provider.timeout_seconds, "gemini", model)
         message = data["candidates"][0]["content"]
         parts = message["parts"]
         return (
@@ -52,7 +51,7 @@ def provider_turn(provider, system, messages, tools, exchanges, *, gemini=False)
         "model": provider.model, "messages": history,
         "tools": [{"type": "function", "function": tool} for tool in tools],
         "max_completion_tokens": 1024,
-    }, provider.timeout_seconds)
+    }, provider.timeout_seconds, "openai", provider.model)
     message = data["choices"][0]["message"]
     return (
         [{"name": c["function"]["name"], "arguments": c["function"]["arguments"], "id": c["id"]}
@@ -62,15 +61,7 @@ def provider_turn(provider, system, messages, tools, exchanges, *, gemini=False)
     )
 
 
-def _post(url, headers, payload, timeout):
-    for attempt in range(2):
-        try:
-            response = requests.post(url, headers=headers, json=payload, timeout=timeout)
-        except requests.ConnectionError:
-            if attempt:
-                raise
-            continue
-        if attempt == 0 and response.status_code in {429, 502, 503, 504}:
-            continue
-        response.raise_for_status()
-        return response.json()
+def _post(url, headers, payload, timeout, provider_name="gemini", model=""):
+    """All tool-calling requests go through the provider gateway (limits, circuit breaker, metrics; Phase 05)."""
+    from app.agents.provider_gateway import send
+    return send(provider_name, model, url, headers, payload, timeout)

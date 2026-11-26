@@ -148,6 +148,7 @@ class PlatformHealthResponse(StrictBase):
     workers: List[WorkerHeartbeatResponse]
     activeIncidentsCount: int
     openFraudAssessmentsCount: int
+    aiAgentRuns24h: Optional[Dict[str, Any]] = None  # Phase 05: measured assistant executions and tool outcomes
 
 
 # ---------------------------------------------------------------------------
@@ -240,6 +241,11 @@ class AIProviderMetricsResponse(StrictBase):
     provider: str  # gemini, openai, fallback
     status: str  # healthy, degraded, circuit_open, not_configured, not_verified
     configured: Optional[bool] = None
+    # Phase 05: effective model, whether a retired id was remapped, today's durable counters and the daily limit
+    model: Optional[str] = None
+    modelRemapped: Optional[bool] = None
+    today: Optional[Dict[str, Any]] = None
+    dailyLimit: Optional[int] = None
     circuitBreakerState: str  # CLOSED, OPEN, HALF_OPEN
     totalRequests: int
     successfulRequests: int

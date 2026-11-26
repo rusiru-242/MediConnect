@@ -20,26 +20,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai", tags=["AI Doctor Recommendation"])
 
-# In-memory sliding window rate limiter: max 20 requests per minute per patient
-_RATE_LIMIT_WINDOW = 60.0  # seconds
-_RATE_LIMIT_MAX_REQUESTS = 20
-_user_request_timestamps: Dict[str, List[float]] = defaultdict(list)
+# Shared (MongoDB) limiter, 20 requests per minute per patient (Phase 05, BUG-038).
+from app.utils.rate_limiter import LimiterResetHandle, ai_recommendation_limiter  # noqa: E402
+
+_user_request_timestamps = LimiterResetHandle(ai_recommendation_limiter)
 
 
 def _check_rate_limit(user_id: str) -> None:
-    """Enforce per-user sliding window rate limit for AI recommendations."""
-    now = time.time()
-    timestamps = _user_request_timestamps[user_id]
-    # Prune timestamps older than window
-    cutoff = now - _RATE_LIMIT_WINDOW
-    active_timestamps = [ts for ts in timestamps if ts > cutoff]
-    if len(active_timestamps) >= _RATE_LIMIT_MAX_REQUESTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many AI recommendation requests. Please wait a moment before trying again.",
-        )
-    active_timestamps.append(now)
-    _user_request_timestamps[user_id] = active_timestamps
+    """Enforce the shared per-user rate limit for AI recommendations."""
+    ai_recommendation_limiter.check(user_id)
 
 
 @router.post(

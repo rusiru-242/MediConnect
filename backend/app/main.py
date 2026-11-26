@@ -39,7 +39,7 @@ from app.services.doctor_communications import run_communications
 from app.routes.care_automation import router as care_automation_router
 from app.routes.admin_workflow import router as admin_workflow_router
 from app.routes.clinical_workflow import clinical_workflow_router
-from app.routes.security_monitoring import router as security_monitoring_router
+from app.routes.security_monitoring import probe_router, router as security_monitoring_router
 from app.services.platform_monitoring_service import PlatformMonitoringService
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,10 @@ async def _run_reminder_worker():
                 await asyncio.to_thread(AppointmentService.release_expired_holds, db)
                 await asyncio.to_thread(run_confirmation_outbox, db)
                 await asyncio.to_thread(run_communications, db)
+                # B3 fallback (Phase 05): refunds that stayed pending are re-read from Stripe until webhooks are
+                # delivered to this backend.
+                from app.services.stripe_webhook_service import sync_pending_refunds
+                await asyncio.to_thread(sync_pending_refunds, db)
                 duration = asyncio.get_event_loop().time() - t0
                 # job_count was a constant 3 (the number of job types), shown as "pending jobs"; it is not recorded
                 # now because the worker does not measure a backlog (P04-N14).
@@ -78,12 +82,11 @@ async def _run_reminder_worker():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage startup validation, index creation, background workers, and shutdown cleanup."""
-    if not settings.JWT_SECRET or not settings.JWT_SECRET.strip():
-        raise RuntimeError("JWT_SECRET environment variable is missing. Refusing to start.")
-    if settings.ENVIRONMENT == "production" and len(settings.JWT_SECRET.strip().encode("utf-8")) < 32:
-        raise RuntimeError("JWT_SECRET must be at least 32 bytes (256 bits) in production mode.")
-    if settings.ENVIRONMENT == "production" and (not settings.MONGODB_URI or not settings.MONGODB_URI.strip()):
-        raise RuntimeError("MONGODB_URI environment variable is required in production mode.")
+    from app.config.runtime_safety import startup_errors
+    problems = startup_errors(settings)
+    if problems:
+        # Messages never contain secret values.
+        raise RuntimeError("Refusing to start: " + " ".join(problems))
     db_status = check_database_connection()
     if db_status.get("connected"):
         ensure_indexes()
@@ -176,7 +179,8 @@ app.include_router(doctor_workflow_router, prefix="/api")
 app.include_router(patient_timeline_router, prefix="/api")
 app.include_router(clinical_workflow_router, prefix="/api")
 app.include_router(security_monitoring_router, prefix="/api")
-app.include_router(security_monitoring_router)
+app.include_router(probe_router, prefix="/api")
+app.include_router(probe_router)
 
 
 

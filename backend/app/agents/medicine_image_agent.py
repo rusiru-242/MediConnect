@@ -131,17 +131,19 @@ def _call_vision_provider(image_bytes: bytes, mime: str) -> Tuple[Dict[str, Any]
                 "contents": [{"parts": [{"text": VISION_PROMPT}, {"inline_data": {"mime_type": mime, "data": encoded}}]}],
                 "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": 1024},
             }
-            response = requests.post(url, headers={"x-goog-api-key": gemini_key}, json=payload,
-                                     timeout=VISION_TIMEOUT_SECONDS)
-            if response.status_code != 200:
-                raise VisionUnavailable(f"gemini_http_{response.status_code}")
-            parts = (response.json().get("candidates") or [{}])[0].get("content", {}).get("parts", [])
+            from app.agents.provider_gateway import ProviderCallError, send
+            try:
+                data = send("gemini", _gemini_model_name(), url, {"x-goog-api-key": gemini_key}, payload,
+                            VISION_TIMEOUT_SECONDS)
+            except ProviderCallError as exc:
+                raise VisionUnavailable(f"gemini_{exc.category}")
+            parts = (data.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
             text = "".join(part.get("text", "") for part in parts if not part.get("thought"))
             return _parse_json_payload(text), "gemini"
-        response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {openai_key}"},
-            json={
+        from app.agents.provider_gateway import ProviderCallError, send
+        try:
+            data = send("openai", settings.OPENAI_MODEL, "https://api.openai.com/v1/chat/completions",
+                        {"Authorization": f"Bearer {openai_key}"}, {
                 "model": settings.OPENAI_MODEL,
                 "response_format": {"type": "json_object"},
                 "messages": [{"role": "user", "content": [
@@ -149,12 +151,10 @@ def _call_vision_provider(image_bytes: bytes, mime: str) -> Tuple[Dict[str, Any]
                     {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}},
                 ]}],
                 "max_completion_tokens": 1024,
-            },
-            timeout=VISION_TIMEOUT_SECONDS,
-        )
-        if response.status_code != 200:
-            raise VisionUnavailable(f"openai_http_{response.status_code}")
-        content = response.json()["choices"][0]["message"].get("content") or ""
+            }, VISION_TIMEOUT_SECONDS)
+        except ProviderCallError as exc:
+            raise VisionUnavailable(f"openai_{exc.category}")
+        content = data["choices"][0]["message"].get("content") or ""
         return _parse_json_payload(content), "openai"
     except VisionUnavailable:
         raise

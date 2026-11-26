@@ -39,6 +39,44 @@ from app.schemas.user import UserResponseSchema
 from app.services.clinical_safety_service import ClinicalSafetyService
 
 
+
+def normalize_measurement(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """One read model for both entry points (B7, Phase 05). Readings saved from the Care Agenda
+    (/care-automation/measurements) have no measurementId, measuredAt or verificationStatus; they are filled
+    *at read time* (nothing is written back) and the entry point is kept as provenance."""
+    row = dict(doc)
+    legacy = not row.get("measurementId")
+    row.setdefault("measuredAt", row.get("recordedAt"))
+    if row.get("measuredAt") is None:
+        row["measuredAt"] = row.get("recordedAt")
+    row.setdefault("verificationStatus", "unverified")
+    row.setdefault("source", "patient_reported")
+    if legacy:
+        row["measurementId"] = f"CARE-{str(row.get('_id'))[-10:].upper()}"
+    row["entryPoint"] = "care_agenda" if legacy else "health_tracking"
+    return row
+
+
+def measurement_rows(db: Database, query: Dict[str, Any], *, since=None, newest_first: bool = True,
+                     limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Measurements from both entry points, ordered by when they were measured (measuredAt, or recordedAt for
+    Care Agenda readings), in MongoDB."""
+    pipeline: List[Dict[str, Any]] = [{"$match": query},
+                                      {"$addFields": {"_at": {"$ifNull": ["$measuredAt", "$recordedAt"]}}}]
+    if since is not None:
+        pipeline.append({"$match": {"_at": {"$gte": since}}})
+    pipeline.append({"$sort": {"_at": -1 if newest_first else 1}})
+    if limit:
+        pipeline.append({"$limit": int(limit)})
+    pipeline.append({"$project": {"_at": 0}})
+    coll = get_health_measurement_collection(db)
+    if not callable(getattr(coll, "aggregate", None)):  # minimal collection doubles: previous query shape
+        filt = {**query, **({"measuredAt": {"$gte": since}} if since is not None else {})}
+        cursor = coll.find(filt).sort("measuredAt", -1 if newest_first else 1)
+        return [normalize_measurement(d) for d in (cursor.limit(int(limit)) if limit else cursor)]
+    return [normalize_measurement(d) for d in coll.aggregate(pipeline)]
+
+
 class HealthTrackingService:
     """Core service for patient health measurements, validation, and deterministic trend calculations."""
 
@@ -208,8 +246,8 @@ class HealthTrackingService:
         if metric:
             query["metric"] = metric.lower()
 
-        coll = get_health_measurement_collection(db)
-        cursor = coll.find(query).sort("measuredAt", -1).limit(limit)
+        # P05-N18: both entry points through one normalized read (a Care Agenda reading made this list fail).
+        cursor = measurement_rows(db, query, limit=limit)
 
         items: List[HealthMeasurementResponse] = []
         for doc in cursor:
@@ -239,8 +277,7 @@ class HealthTrackingService:
         thirty_days_ago = now - timedelta(days=30)
         seven_days_ago = now - timedelta(days=7)
 
-        coll = get_health_measurement_collection(db)
-        docs = list(coll.find({"patientUserId": target_patient, "measuredAt": {"$gte": thirty_days_ago}}).sort("measuredAt", 1))
+        docs = measurement_rows(db, {"patientUserId": target_patient}, since=thirty_days_ago, newest_first=False)
 
         # Group by metric
         grouped: Dict[str, List[Dict[str, Any]]] = {}
@@ -357,15 +394,9 @@ class HealthTrackingService:
 
         # 1. Blood Pressure query (e.g. "mage last 7 days blood pressure readings pennanna")
         if "blood pressure" in q_lower or "bp" in q_lower or "pressure" in q_lower:
-            coll = get_health_measurement_collection(db)
             seven_days_ago = utc_now() - timedelta(days=7)
-            readings = list(
-                coll.find({
-                    "patientUserId": target_patient,
-                    "metric": "blood_pressure",
-                    "measuredAt": {"$gte": seven_days_ago},
-                }).sort("measuredAt", -1)
-            )
+            readings = measurement_rows(db, {"patientUserId": target_patient, "metric": "blood_pressure"},
+                                        since=seven_days_ago)
             if not readings:
                 return {
                     "query": query,

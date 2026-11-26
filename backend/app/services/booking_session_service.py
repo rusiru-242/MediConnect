@@ -195,6 +195,17 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
     )
 
 
+
+def conversation_retention():
+    """Saved AI conversations may contain health information. With CONVERSATION_RETENTION_DAYS > 0 each saved
+    conversation expires that many days after its last message (the existing TTL index on expiresAt deletes it).
+    The default 0 keeps conversations until the patient deletes them, as before; the retention period is an owner
+    privacy decision (Phase 05)."""
+    from app.config.settings import settings
+    days = int(getattr(settings, "CONVERSATION_RETENTION_DAYS", 0) or 0)
+    return {"expiresAt": utc_now() + timedelta(days=days)} if days > 0 else {}
+
+
 class BookingSessionService:
     """Coordinates conversational turns, state verification, doctor selection, and booking hold creation."""
 
@@ -264,6 +275,7 @@ class BookingSessionService:
 
         if persistent:
             initial_dict.pop("expiresAt", None)
+            initial_dict.update(conversation_retention())
             initial_dict["persistent"] = True
             initial_dict["draft"] = not bool(req.initialMessage and req.initialMessage.strip())
             initial_dict["title"] = (req.initialMessage or "").strip()[:70] or "New Chat"
@@ -857,6 +869,7 @@ class BookingSessionService:
             doc["updatedAt"] = utc_now()
             doc["preview"] = doc["messages"][-1]["content"][:160]
             doc.pop("expiresAt", None)
+            doc.update(conversation_retention())
         result = collection.replace_one(query, doc)
         if doc.get("persistent") and not result.matched_count:
             raise HTTPException(409, "The conversation changed. Reload it and retry.")

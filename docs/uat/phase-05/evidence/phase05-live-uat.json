@@ -1,0 +1,153 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "steps": [
+    {
+      "id": "W08a",
+      "scenario": "Upload stored encrypted at rest (AES-256-GCM container, no plaintext)",
+      "expected": "201; file starts with MCENC1; synthetic text absent",
+      "actual": {
+        "http": 201,
+        "header": "MCENC1",
+        "plaintextPresent": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "W08b",
+      "scenario": "Patient downloads and gets the original bytes",
+      "expected": "200 and identical content",
+      "actual": {
+        "http": 200,
+        "identical": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "W08c",
+      "scenario": "Treating doctor (confirmed visit) can read it",
+      "expected": "200 and identical",
+      "actual": {
+        "doctor": "uat.doctor.neuro",
+        "http": 200,
+        "identical": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "W08d",
+      "scenario": "Unrelated doctor denied",
+      "expected": "403",
+      "actual": {
+        "http": 403,
+        "relationshipExists": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "W08e",
+      "scenario": "Other patient and general admin denied (no content returned)",
+      "expected": "403 / 403",
+      "actual": {
+        "otherPatient": 403,
+        "admin": 403,
+        "contentLeaked": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "W10a",
+      "scenario": "Worker heartbeat after backend restart",
+      "expected": "active with a recent heartbeat",
+      "actual": {
+        "status": "active",
+        "lastHeartbeat": "2026-11-26T05:28:24.671000Z"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "W10b",
+      "scenario": "No duplicate reminder occurrences or notifications in UAT after restarts",
+      "expected": "0 / 0",
+      "actual": {
+        "duplicateReminderOccurrences": 0,
+        "duplicateNotifications": 0
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "S-08a",
+      "scenario": "Unconfigured channels and AI providers are reported as such",
+      "expected": "no invented healthy states",
+      "actual": {
+        "MongoDB": "healthy",
+        "Stripe Payments": "configured_not_verified",
+        "Email (SMTP)": "not_configured",
+        "SMS (Twilio)": "not_configured",
+        "Push (FCM)": "not_configured",
+        "AI Providers": "disabled"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "S-08a2",
+      "scenario": "AI provider metrics show measured state and daily limit",
+      "expected": "not_configured in UAT",
+      "actual": [
+        {
+          "provider": "gemini",
+          "status": "not_configured",
+          "model": "gemini-flash-latest",
+          "dailyLimit": 2000
+        },
+        {
+          "provider": "openai",
+          "status": "not_configured",
+          "model": "gpt-4o-mini",
+          "dailyLimit": 2000
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "S-08c",
+      "scenario": "AI assistant executions measured (last 24 h)",
+      "expected": "runs counted with tool outcomes",
+      "actual": {
+        "runs": 33,
+        "runsWithToolErrors": 1,
+        "toolOutcomes": {
+          "resource_unavailable": 1,
+          "ok": 34
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "SEC-a",
+      "scenario": "Refresh rotation; replay of a used refresh token revokes the session family",
+      "expected": "200 / 401 / 401",
+      "actual": {
+        "me": 200,
+        "rotate": 200,
+        "replay": 401,
+        "familyAfterReplay": 401
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "SEC-b",
+      "scenario": "Logout revokes the access token immediately",
+      "expected": "401 after logout",
+      "actual": {
+        "meAfterLogout": 401
+      },
+      "status": "PASS"
+    }
+  ],
+  "summary": {
+    "total": 12,
+    "passed": 12,
+    "failed": []
+  }
+}

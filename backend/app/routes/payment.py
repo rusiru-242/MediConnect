@@ -147,4 +147,12 @@ async def refund_unconfirmed_ai_payment(
         "stripeRefundId": refund.id, "reconciliationState": state, "updatedAt": utc_now(),
         **({"status": "REFUNDED"} if state == "REFUNDED" else {}),
     }})
+    # P4-O7 (Phase 05): the reconciliation refund is an admin financial action and is audited.
+    from app.services.admin_audit_service import AdminAuditService
+    AdminAuditService.log_action(
+        db=db, actor_id=str(admin.id), actor_role="ADMIN", action_type="PAYMENT_RECONCILIATION_ACTION",
+        target_id=payment_id, target_type="payment", previous_state=payment.get("reconciliationState"),
+        new_state=state, reason="Refund of a payment whose booking could not be confirmed",
+        metadata={"stripeRefundId": refund.id, "stripeStatus": refund.status},
+    )
     return {"reconciliationState": state}

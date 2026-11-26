@@ -1,0 +1,914 @@
+{
+  "phase": "Phase 05 - Final AI intelligence, shared architecture, security, performance and complete system verification",
+  "date": "2026-11-26",
+  "branch": "fix/phase-05-final-ai-security-integration",
+  "baselineCommit": "211be8d",
+  "finalTestedCodeCommit": "74fc231",
+  "implementationCommits": [
+    "2c04dfe",
+    "30f41a2",
+    "48f22c2",
+    "0c59049",
+    "74013db",
+    "1c90f13",
+    "98ff4ed",
+    "a88f861",
+    "8b21c0c",
+    "d050340",
+    "a9aebf6",
+    "2c8e6af",
+    "fa15afd",
+    "74d183c",
+    "74fc231"
+  ],
+  "ci": {
+    "commit": "fa15afd",
+    "backend": "success",
+    "adminWeb": "success",
+    "flutter": "success",
+    "note": "later commits checked again after the documentation push (see final report)"
+  },
+  "pushed": true,
+  "mergedToMain": false,
+  "deployed": false,
+  "clinicallyApproved": false,
+  "productionReady": false,
+  "environment": {
+    "uatBackend": "127.0.0.1:8001 (second process 127.0.0.1:8002 for the two-process race only)",
+    "uatDatabase": "mediconnect_uat (local)",
+    "testDatabases": "fresh local *_test per full run",
+    "port8000Used": false,
+    "stripe": "test mode",
+    "aiProviders": "disabled; test doubles only",
+    "remoteDatabaseAccessed": false,
+    "emulatorApiBaseUrl": "http://10.0.2.2:8001"
+  },
+  "criticalFindings": {
+    "P5-C1": {
+      "summary": "live MongoDB URI with credentials in public git history",
+      "commit": "a41b659",
+      "firstAdded": "0a80f83",
+      "reachableFrom": "origin/main and 45 remote branches",
+      "valueDisclosedInReports": false,
+      "status": "OPEN - owner rotation required"
+    },
+    "P4-B1": "remote database incident still unverified (now including possible third-party access)"
+  },
+  "bugStatistics": {
+    "newDefects": 25,
+    "fixed": 25,
+    "openPhase05Defects": 0,
+    "improvementsDelivered": 13,
+    "observations": [
+      "P05-O1"
+    ],
+    "masterTracker": {
+      "uniqueTrackedItems": 184,
+      "confirmedDefects": 160,
+      "defectsFixed": 159,
+      "defectsOpen": [
+        "BUG-039"
+      ],
+      "defectsFixedPendingManualDeviceRetest": [
+        "BUG-004",
+        "BUG-014",
+        "BUG-015",
+        "BUG-025",
+        "BUG-042",
+        "BUG-043",
+        "BUG-045"
+      ],
+      "defectsFixedExternalVerificationBlocked": [
+        "BUG-023"
+      ],
+      "improvementsOrRequirements": 21,
+      "regressionGuards": 1,
+      "observations": [
+        "P05-O1"
+      ],
+      "securityIncidents": [
+        "P5-C1"
+      ],
+      "ownerIdsAliasedToPhase01": [
+        "BUG-049",
+        "BUG-050",
+        "BUG-051",
+        "BUG-052",
+        "BUG-053",
+        "BUG-054",
+        "BUG-056",
+        "BUG-057",
+        "BUG-062"
+      ],
+      "byPhase": {
+        "historical BUG-001..063 (unaliased)": {
+          "defects": 53,
+          "improvements": 0
+        },
+        "Phase 01": {
+          "defects": 21,
+          "improvements": 5
+        },
+        "Phase 02": {
+          "defects": 17,
+          "improvements": 0
+        },
+        "Phase 03": {
+          "defects": 21,
+          "improvements": 3
+        },
+        "Phase 04": {
+          "defects": 23,
+          "improvements": 0
+        },
+        "Phase 05": {
+          "defects": 25,
+          "improvements": 13
+        }
+      }
+    }
+  },
+  "defects": [
+    {
+      "id": "P05-N01",
+      "alias": "P4-B5",
+      "severity": "High",
+      "component": "Config / DB safety",
+      "reproduction": "Backend started with `backend/.env` and no `ENVIRONMENT` → used the remote cluster silently",
+      "expected": "Development refuses a remote DB unless deliberately allowed",
+      "rootCause": "`ENVIRONMENT` defaulted to development with no target rule",
+      "fix": "`config/runtime_safety.py`, `config/database.py`, `main.py`",
+      "test": "`sec` N01 (11 cases, subprocess with the `.env` shape, MongoClient never built)",
+      "status": "FIXED, VERIFIED (tests)"
+    },
+    {
+      "id": "P05-N02",
+      "alias": "—",
+      "severity": "High",
+      "component": "Auth",
+      "reproduction": "8 concurrent refreshes with one token → several 200s",
+      "expected": "exactly one rotation",
+      "rootCause": "unconditional `update_one` on rotation",
+      "fix": "`auth_service.py` (conditional claim, replay → family revoke)",
+      "test": "`sec` N02 (1×200/7×401; replay); live SEC-a",
+      "status": "FIXED, VERIFIED (live)"
+    },
+    {
+      "id": "P05-N03",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "Auth",
+      "reproduction": "refresh token of a deleted account → 500 (`NoneType.get`)",
+      "expected": "401",
+      "rootCause": "user read before None check",
+      "fix": "`auth_service.py`",
+      "test": "`sec` N03",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N04",
+      "alias": "P4-B2 (technical part)",
+      "severity": "High",
+      "component": "Config / JWT",
+      "reproduction": "11-character common-word secret accepted outside production",
+      "expected": "refuse weak/default secrets except in tests",
+      "rootCause": "strength checked only in production",
+      "fix": "`runtime_safety.py`",
+      "test": "`sec` N04 (8 cases)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N05",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "Auth",
+      "reproduction": "tokens without `iss`/`aud`/`jti` accepted",
+      "expected": "required claims",
+      "rootCause": "decode required only `exp, iat, sub, role`",
+      "fix": "`utils/security.py`",
+      "test": "`sec` N05 (missing/wrong claims, `alg=none`, expiry)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N06",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "Auth",
+      "reproduction": "logout → access token still worked for up to 60 min",
+      "expected": "revoked at logout",
+      "rootCause": "refresh-only revocation",
+      "fix": "`auth_service.py`, `middleware/auth.py`, `models/token.py` (TTL deny-list)",
+      "test": "`sec` N06; live SEC-b",
+      "status": "FIXED, VERIFIED (live)"
+    },
+    {
+      "id": "P05-N07",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "Auth",
+      "reproduction": "token issued before suspension worked again after reinstatement",
+      "expected": "stays invalid",
+      "rootCause": "no issue-time cut-off",
+      "fix": "`admin_service.py`, `auth_service.py` (`tokensValidAfter`)",
+      "test": "`sec` N07; Phase 04 A-03g now 401 (intended)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N09",
+      "alias": "BUG-038",
+      "severity": "Medium",
+      "component": "Rate limiting",
+      "reproduction": "limits multiplied by the number of processes; reset on restart",
+      "expected": "shared limits",
+      "rootCause": "in-process dicts",
+      "fix": "`utils/rate_limiter.py` (MongoDB counters, TTL, hashed keys)",
+      "test": "`sec` N09 (two instances; 3 OS processes → exactly 10 rejections)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N10",
+      "alias": "P4-O8",
+      "severity": "Low",
+      "component": "API",
+      "reproduction": "security router mounted at `/api` and root",
+      "expected": "API under `/api` only; probes at both",
+      "rootCause": "duplicate `include_router`",
+      "fix": "`main.py`, `routes/security_monitoring.py` (`probe_router`)",
+      "test": "`sec` N10",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N11",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "Medical records",
+      "reproduction": "upload with unknown `recordType` → 500 after the file was written (orphan file); admins could upload \"patient\" records for themselves",
+      "expected": "422 before any write; 403 for non-patients/doctors",
+      "rootCause": "validation after the write",
+      "fix": "`patient_medical_record_service.py`",
+      "test": "`enc` N11",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N12",
+      "alias": "—",
+      "severity": "High",
+      "component": "AI providers",
+      "reproduction": "Gemini parser and health assistant sent the API key as `?key=`",
+      "expected": "key only in headers",
+      "rootCause": "URL-based auth",
+      "fix": "`ai_provider.py`, `health_assistant_agent.py`, `provider_gateway.py`",
+      "test": "`arch` S-02a (URL has no key)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N13",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "AI monitoring",
+      "reproduction": "provider metrics and circuit breaker never changed",
+      "expected": "fed by every call",
+      "rootCause": "`record_*` never called",
+      "fix": "`provider_gateway.py`",
+      "test": "`arch` S-02c–h, S-08a",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N14",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "AI providers",
+      "reproduction": "health assistant mapped model names to the retired `gemini-1.5-flash`",
+      "expected": "maintained alias, remap reported",
+      "rootCause": "inverted mapping",
+      "fix": "`provider_gateway.resolve_gemini_model`",
+      "test": "`arch` S-02a",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N15",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "Conversation memory",
+      "reproduction": "\"cardiologist in Atlantis\" → \"in Colombo then\" → clarification, city lost",
+      "expected": "city refined, specialty kept",
+      "rootCause": "filler words defeated the city-only check",
+      "fix": "`booking_agent.py`",
+      "test": "`mem` S-05c",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N16",
+      "alias": "—",
+      "severity": "Low",
+      "component": "Scheduler",
+      "reproduction": "with an injected clock, live leases were judged expired and set to `uncertain` mid-delivery",
+      "expected": "one clock for lease and expiry",
+      "rootCause": "lease from wall clock, expiry from run clock",
+      "fix": "`care_scheduler.py`",
+      "test": "`sch` S-06d/e (3 processes, exactly once)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N17",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "Doctor schedule",
+      "reproduction": "4 processes creating the same block → 4 identical blocks (sequential duplicates too)",
+      "expected": "one block, 409 for the rest",
+      "rootCause": "no uniqueness",
+      "fix": "`doctor_service.py`, `models/doctor_blocked_time.py` (sparse unique `blockKey`, post-insert booking re-check)",
+      "test": "`mp` blocked time",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N18",
+      "alias": "B7",
+      "severity": "High",
+      "component": "Health tracking",
+      "reproduction": "after one Care Agenda reading, `GET /clinical/measurements` (patient and doctor) → unhandled ValidationError",
+      "expected": "both entry points listed in order",
+      "rootCause": "two document shapes in one collection; strict model; sort by `measuredAt` only",
+      "fix": "`health_tracking_service.py` (read-time normalization, server-side ordering), `care_automation.py` (new rows complete)",
+      "test": "`meas` (2 tests)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N19",
+      "alias": "— (introduced in Phase 05)",
+      "severity": "Medium",
+      "component": "Admin assistant",
+      "reproduction": "\"successful payments this week\" said \"39 (13 of them refunded)\", but those 13 were not part of the 39 (fully refunded payments are counted separately)",
+      "expected": "captured = succeeded + refunded",
+      "rootCause": "`succeededTransactions` excludes refunded",
+      "fix": "`routes/admin_workflow.py`",
+      "test": "`int` N19; live re-check matches MongoDB exactly (63 captured, 18 refunded, 3 failed; `evidence/p05-n19-live-reconciliation.json`)",
+      "status": "FIXED before release"
+    },
+    {
+      "id": "P05-N20",
+      "alias": "—",
+      "severity": "High",
+      "component": "Care plans",
+      "reproduction": "4 concurrent updates all 200, version +3 (one update lost)",
+      "expected": "no silent lost update",
+      "rootCause": "unconditional write after reading the version",
+      "fix": "`care_plan_service.py` (version-conditional write, 409)",
+      "test": "`mp` care plan (3 repeated races)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N21",
+      "alias": "B17",
+      "severity": "Medium",
+      "component": "Emergency triage",
+      "reproduction": "Sinhala chest-pain emergency, then \"ok\" → English emergency text",
+      "expected": "Sinhala continues",
+      "rootCause": "emergency branch never stored the language",
+      "fix": "`booking_agent.py` (`emergencyLanguage`)",
+      "test": "`emg` S-04e (fails without the fix)",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N22",
+      "alias": "B16",
+      "severity": "High",
+      "component": "Patient assistant",
+      "reproduction": "\"change my dose to two tablets\" → medicine-database lookup",
+      "expected": "explain that the prescriber decides; change nothing",
+      "rootCause": "no intent for dose changes",
+      "fix": "`intent_router.py`, `booking_agent.py`",
+      "test": "`int` B16; live probe P-9",
+      "status": "FIXED; pharmacist review pending (B2)"
+    },
+    {
+      "id": "P05-N23",
+      "alias": "—",
+      "severity": "Medium",
+      "component": "Patient assistant",
+      "reproduction": "\"When should I take the medicine prescribed by my doctor?\" → prescription refusal",
+      "expected": "the patient's approved schedule",
+      "rootCause": "prescription-request rule ran first",
+      "fix": "`intent_router.py`, `booking_agent.py`, `patient_care.py`",
+      "test": "`int`; live probe P-5",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N24",
+      "alias": "P4-O1",
+      "severity": "Medium",
+      "component": "Medical records",
+      "reproduction": "one malformed record → whole list 500",
+      "expected": "other records shown; unreadable ones reported",
+      "rootCause": "per-row strict validation",
+      "fix": "`patient_medical_record_service.py`, schema",
+      "test": "`lists` P4-O1",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N25",
+      "alias": "P4-O7",
+      "severity": "Medium",
+      "component": "Payments",
+      "reproduction": "reconcile-refund (an admin financial action) not audited",
+      "expected": "audited",
+      "rootCause": "missing audit call",
+      "fix": "`routes/payment.py`",
+      "test": "`wh` reconcile audit",
+      "status": "FIXED"
+    },
+    {
+      "id": "P05-N26",
+      "alias": "— (exposed by the 15-min default)",
+      "severity": "Medium",
+      "component": "Admin web",
+      "reproduction": "admins would be signed out on every access-token expiry; logout cleared the token before calling the API, so the access token was never revoked",
+      "expected": "refresh once, retry; revoke on logout",
+      "rootCause": "no refresh logic; wrong order",
+      "fix": "`admin-web/src/api/client.ts`, `context/AuthContext.tsx`",
+      "test": "`ses` (2 tests); browser P05-REFRESH-ui",
+      "status": "FIXED, VERIFIED (browser)"
+    }
+  ],
+  "tests": {
+    "backendPytest": {
+      "executed": 782,
+      "passed": 782,
+      "failed": 0,
+      "baseline": 615,
+      "newPhase05": 167,
+      "commit": "74fc231",
+      "database": "fresh mediconnect_p05f_test",
+      "newByFile": {
+        "security": 37,
+        "intents": 45,
+        "ai_architecture": 19,
+        "document_encryption": 13,
+        "stripe_webhooks": 13,
+        "emergency": 12,
+        "memory": 9,
+        "scheduler": 6,
+        "doctor_multiprocess": 6,
+        "measurements": 4,
+        "lists": 3
+      },
+      "utcRun": "GitHub Actions (UTC) success"
+    },
+    "adminWeb": {
+      "tests": 39,
+      "passed": 39,
+      "baseline": 37,
+      "new": 2,
+      "typecheck": "clean",
+      "lint": "clean",
+      "build": "success (CSP present, no third-party fonts)"
+    },
+    "flutter": {
+      "tests": 307,
+      "passed": 307,
+      "baseline": 304,
+      "new": 3,
+      "analyze": "no issues",
+      "debugApk": "built with API_BASE_URL=http://10.0.2.2:8001, installed on emulator-5554"
+    },
+    "livePhase05Uat": {
+      "total": 12,
+      "passed": 12,
+      "failed": []
+    },
+    "browserUat": {
+      "total": 14,
+      "passed": 14,
+      "failed": []
+    },
+    "intentProbe": {
+      "prompts": 25,
+      "beforeEvidence": "intent-probe-baseline-phase04-code.json",
+      "afterEvidence": "intent-probe-phase05.json"
+    },
+    "regression": {
+      "phase04AdminUat": {
+        "total": 90,
+        "passed": 88,
+        "failed": [
+          "A-01h",
+          "A-03g"
+        ]
+      },
+      "phase03DoctorWorkflow": {
+        "passed": 44,
+        "failed": [
+          "D-03c"
+        ]
+      },
+      "phase03AuthzSweep": "identical to Phase 04 (0 row differences)",
+      "phase02Stripe": {
+        "steps": 36,
+        "behaviouralDifferences": [
+          {
+            "step": "S4_admin_payment_list",
+            "field": "total",
+            "phase04": 41,
+            "phase05": 49
+          }
+        ]
+      },
+      "phase02Care": {
+        "steps": 71,
+        "behaviouralDifferences": [
+          {
+            "step": "05_medication:worker_executed_reminder",
+            "field": "due_colombo",
+            "phase04": "2026-11-26T02:53:00+05:30",
+            "phase05": "2026-11-26T10:46:00+05:30"
+          },
+          {
+            "step": "07_appointment_reminder:fixture_confirmed_appointment",
+            "field": "starts_colombo",
+            "phase04": "2026-11-26T04:57:05.020618+05:30",
+            "phase05": "2026-11-26T12:49:33.181497+05:30"
+          },
+          {
+            "step": "11_renewal:patient_sees_status",
+            "field": "statuses[4]",
+            "phase04": null,
+            "phase05": "approved"
+          }
+        ]
+      },
+      "phase01Probe": {
+        "valuesCompared": 609,
+        "differences": [
+          {
+            "field": "E2_romanized_chest[0].prefs.language",
+            "phase04": "en",
+            "phase05": "si"
+          },
+          {
+            "field": "E3_sinhala_chest[0].prefs.language",
+            "phase04": "en",
+            "phase05": "si"
+          },
+          {
+            "field": "E4_unconscious_other[0].prefs.language",
+            "phase04": "en",
+            "phase05": "si"
+          },
+          {
+            "field": "E5_selfharm_romanized[0].prefs.language",
+            "phase04": "en",
+            "phase05": "si"
+          },
+          {
+            "field": "E7_selfharm_si[0].prefs.language",
+            "phase04": "en",
+            "phase05": "si"
+          }
+        ]
+      },
+      "phase02TwoProcessRace": "5/5 slots single winner; AI loser gets alternatives; 1 payment",
+      "interpretation": "all differences are intended Phase 05 changes (A-01h, A-03g, B17 language) or accumulating UAT data; D-03c is the Phase 04 test-data date collision"
+    },
+    "loadTest": {
+      "requests": 2150,
+      "errors": 0.0,
+      "environment": {
+        "machine": "AMD64",
+        "processor": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel",
+        "os": "Windows-11-10.0.26200-SP0",
+        "python": "3.13.0",
+        "backend": "127.0.0.1:8001, one uvicorn worker, local MongoDB 127.0.0.1",
+        "database": "mediconnect_uat (synthetic)",
+        "logicalCpus": 12,
+        "ramGb": 16.9
+      },
+      "scenarios": [
+        {
+          "scenario": "liveness probe",
+          "requests": 400,
+          "concurrency": 20,
+          "wallSeconds": 0.72,
+          "throughputRps": 553.3,
+          "statusCodes": {
+            "200": 400
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 34.5,
+            "p95": 47.3,
+            "max": 53.9,
+            "min": 18.3
+          },
+          "backendCpuPercentPeak": 99.9,
+          "backendRssMbPeak": 135.6
+        },
+        {
+          "scenario": "readiness probe (database ping)",
+          "requests": 300,
+          "concurrency": 20,
+          "wallSeconds": 0.66,
+          "throughputRps": 453.7,
+          "statusCodes": {
+            "200": 300
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 41.6,
+            "p95": 56.4,
+            "max": 69.5,
+            "min": 21.6
+          },
+          "backendCpuPercentPeak": 125.0,
+          "backendRssMbPeak": 135.0
+        },
+        {
+          "scenario": "authenticated profile (/auth/me)",
+          "requests": 300,
+          "concurrency": 20,
+          "wallSeconds": 0.78,
+          "throughputRps": 383.4,
+          "statusCodes": {
+            "200": 300
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 50.1,
+            "p95": 63.8,
+            "max": 71.8,
+            "min": 24.3
+          },
+          "backendCpuPercentPeak": 106.1,
+          "backendRssMbPeak": 140.4
+        },
+        {
+          "scenario": "doctor search (signed-in patient)",
+          "requests": 200,
+          "concurrency": 10,
+          "wallSeconds": 0.63,
+          "throughputRps": 316.0,
+          "statusCodes": {
+            "200": 200
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 29.9,
+            "p95": 45.4,
+            "max": 55.6,
+            "min": 17.7
+          },
+          "backendCpuPercentPeak": 121.8,
+          "backendRssMbPeak": 133.8
+        },
+        {
+          "scenario": "patient appointments list",
+          "requests": 200,
+          "concurrency": 10,
+          "wallSeconds": 1.2,
+          "throughputRps": 166.7,
+          "statusCodes": {
+            "200": 200
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 57.9,
+            "p95": 70.7,
+            "max": 80.2,
+            "min": 31.5
+          },
+          "backendCpuPercentPeak": 84.3,
+          "backendRssMbPeak": 135.7
+        },
+        {
+          "scenario": "doctor appointment list",
+          "requests": 200,
+          "concurrency": 10,
+          "wallSeconds": 0.93,
+          "throughputRps": 215.4,
+          "statusCodes": {
+            "200": 200
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 45.5,
+            "p95": 58.9,
+            "max": 68.0,
+            "min": 25.1
+          },
+          "backendCpuPercentPeak": 99.8,
+          "backendRssMbPeak": 134.3
+        },
+        {
+          "scenario": "admin dashboard analytics (30 days)",
+          "requests": 100,
+          "concurrency": 5,
+          "wallSeconds": 2.19,
+          "throughputRps": 45.8,
+          "statusCodes": {
+            "200": 100
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 108.7,
+            "p95": 122.0,
+            "max": 129.1,
+            "min": 28.0
+          },
+          "backendCpuPercentPeak": 65.6,
+          "backendRssMbPeak": 135.9
+        },
+        {
+          "scenario": "admin payments list (page 1)",
+          "requests": 150,
+          "concurrency": 10,
+          "wallSeconds": 0.8,
+          "throughputRps": 187.5,
+          "statusCodes": {
+            "200": 150
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 52.3,
+            "p95": 64.7,
+            "max": 72.6,
+            "min": 22.0
+          },
+          "backendCpuPercentPeak": 100.0,
+          "backendRssMbPeak": 137.1
+        },
+        {
+          "scenario": "admin appointments search",
+          "requests": 150,
+          "concurrency": 10,
+          "wallSeconds": 1.24,
+          "throughputRps": 120.8,
+          "statusCodes": {
+            "200": 150
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 82.1,
+            "p95": 96.9,
+            "max": 111.2,
+            "min": 34.7
+          },
+          "backendCpuPercentPeak": 74.9,
+          "backendRssMbPeak": 135.5
+        },
+        {
+          "scenario": "platform monitoring snapshot",
+          "requests": 100,
+          "concurrency": 5,
+          "wallSeconds": 0.49,
+          "throughputRps": 203.2,
+          "statusCodes": {
+            "200": 100
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 22.7,
+            "p95": 40.3,
+            "max": 43.3,
+            "min": 15.8
+          },
+          "backendCpuPercentPeak": 118.7,
+          "backendRssMbPeak": 136.3
+        },
+        {
+          "scenario": "admin AI assistant (deterministic)",
+          "requests": 25,
+          "concurrency": 5,
+          "wallSeconds": 0.38,
+          "throughputRps": 65.0,
+          "statusCodes": {
+            "200": 25
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 74.1,
+            "p95": 92.8,
+            "max": 109.0,
+            "min": 30.6
+          },
+          "backendCpuPercentPeak": 28.1,
+          "backendRssMbPeak": 136.2
+        },
+        {
+          "scenario": "doctor AI assistant (deterministic)",
+          "requests": 25,
+          "concurrency": 5,
+          "wallSeconds": 0.15,
+          "throughputRps": 163.5,
+          "statusCodes": {
+            "200": 25
+          },
+          "errorRatePercent": 0.0,
+          "latencyMs": {
+            "median": 29.0,
+            "p95": 33.6,
+            "max": 46.0,
+            "min": 13.0
+          },
+          "backendCpuPercentPeak": 28.1,
+          "backendRssMbPeak": 136.2
+        }
+      ]
+    },
+    "securityScans": {
+      "pipAuditRequirements": 0,
+      "pipAuditVenvBefore": "11 advisories in 5 packages",
+      "pipAuditVenvAfter": 0,
+      "bandit": {
+        "high": 0,
+        "medium": 0,
+        "low": 17
+      },
+      "npmAuditProductionAfterFixes": {
+        "moderate": 2,
+        "high": 1,
+        "note": "react-router, zod: not exploitable in current use; major upgrades required"
+      },
+      "bundleSecretScan": {
+        "apkEntries": 1476,
+        "adminFiles": 38,
+        "hits": 0
+      },
+      "gitHistoryScan": {
+        "blobs": 3450,
+        "realSecretExposures": 1,
+        "id": "P5-C1"
+      }
+    }
+  },
+  "components38": {
+    "verifiedLocal": 25,
+    "partial": 11,
+    "blocked": 2,
+    "matrix": "PHASE_05_ALL_38_AGENT_VERIFICATION_MATRIX.md"
+  },
+  "sharedMatrix": {
+    "rows": 65,
+    "pass": 63,
+    "passWithCriticalException": 1,
+    "blocked": 1,
+    "mocked": 7
+  },
+  "closedBlockers": [
+    "P4-B3",
+    "P4-B5",
+    "P4-B9 (telemetry part)",
+    "P4-B10",
+    "P4-O1",
+    "P4-O3",
+    "P4-O4",
+    "P4-O7",
+    "P4-O8",
+    "B7",
+    "B8",
+    "B16",
+    "B17",
+    "BUG-038",
+    "P3-B7",
+    "P3-B8",
+    "P3-B11"
+  ],
+  "openBlockers": [
+    "P5-C1",
+    "P4-B1",
+    "P4-B2",
+    "P5-S1",
+    "P5-S2",
+    "P5-B1",
+    "P5-B2",
+    "P5-B3",
+    "P5-B4",
+    "P5-B5",
+    "P05-O1",
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B9",
+    "B10",
+    "B12",
+    "B13",
+    "P3-B5",
+    "P3-B6",
+    "P3-B9",
+    "P3-B10",
+    "P4-B4a",
+    "P4-B4b",
+    "P4-B6",
+    "P4-B7",
+    "P4-B8",
+    "iPhone"
+  ],
+  "readiness": {
+    "academicDemonstration": "ready",
+    "localUat": "ready",
+    "staging": "not ready (P5-C1, P4-B1, P4-B2, P5-S1)",
+    "clinicalPilot": "not ready (B1, B2, P3-B9, B10)",
+    "production": "not ready"
+  }
+}

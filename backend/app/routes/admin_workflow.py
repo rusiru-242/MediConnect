@@ -64,14 +64,13 @@ async def admin_assistant(
     query = req.message.casefold().strip()
     orch = AIOrchestrator(db, current_admin, None)
 
-    # Determine timeframe if mentioned
-    timeframe = "last_30_days"
-    if any(w in query for w in ["today", "ada", "අද", "இன்று"]):
-        timeframe = "today"
-    elif any(w in query for w in ["7 days", "week", "sathiya", "සතිය", "வாரம்"]):
-        timeframe = "last_7_days"
-    elif any(w in query for w in ["month", "mase", "මාසය", "மாதம்", "30 days"]):
-        timeframe = "last_30_days"
+    # Phase 05 (component 33): one shared, role-specific intent classifier instead of per-branch keyword lists.
+    # It never executes anything; each intent maps to one read-only ADMIN tool below.
+    from app.agents.intent_router import classify
+    from app.agents.ai_provider import get_ai_provider
+    classified = classify("ADMIN", req.message, provider=get_ai_provider())
+    intent = classified.intent
+    timeframe = classified.timeframe or "last_30_days"
 
     tool_called: Optional[str] = None
     tool_args: Dict[str, Any] = {}
@@ -81,7 +80,7 @@ async def admin_assistant(
     suggestions: List[str] = []
 
     # 1. Doctor verification intent
-    if any(w in query for w in ["doctor verification", "pending doctor", "pending doc", "verification backlog", "වෛද්‍ය", "மருத்துவர்"]):
+    if intent == "pending_doctor_verifications":
         tool_called = "get_pending_doctor_verifications"
         tool_args = {}
         res = await orch.execute(tool_called, tool_args, {tool_called})
@@ -91,7 +90,8 @@ async def admin_assistant(
         suggestions = ["Review oldest doctor verification", "Show doctor document checklist"]
 
     # 2. Payment reconciliation & discrepancy intent
-    elif any(w in query for w in ["reconcil", "discrepanc", "unmatched", "mismatch", "failed payment", "ගෙවීම්", "பணம்"]):
+    # "failed payments tika check karanna" (the assistant's own suggestion) has always run the reconciliation check.
+    elif intent in {"payment_reconciliation", "failed_payments"}:
         tool_called = "get_payment_reconciliation_issues"
         tool_args = {}
         res = await orch.execute(tool_called, tool_args, {tool_called})
@@ -105,7 +105,7 @@ async def admin_assistant(
         suggestions = ["Show unconfirmed paid bookings", "Check delayed pending transactions"]
 
     # 3. Refund request intent
-    elif any(w in query for w in ["refund", "money back", "cancellation settlement", "මුදල් ආපසු"]):
+    elif intent == "refunds_attention":
         tool_called = "get_admin_report_data"
         tool_args = {"report_type": "refund_status"}
         res = await orch.execute(tool_called, tool_args, {tool_called})
@@ -115,7 +115,7 @@ async def admin_assistant(
         suggestions = ["Review pending refunds", "Show cancellation policy rules"]
 
     # 4. Support ticket intent
-    elif any(w in query for w in ["support ticket", "customer support", "tickets summary", "උපකාරක"]):
+    elif intent == "support_tickets":
         tool_called = "get_support_tickets"
         tool_args = {"status": "open"}
         res = await orch.execute(tool_called, tool_args, {tool_called})
@@ -125,7 +125,7 @@ async def admin_assistant(
         suggestions = ["Draft response for top ticket", "View urgent support tickets"]
 
     # 5. Operational Analytics intent (appointments, revenue, conversion, Colombo area)
-    elif any(w in query for w in ["booking", "revenue", "analytics", "appointment", "success rate", "conversion", "colombo", "kandy", "galle", "keeyada", "monawada"]):
+    elif intent in {"booking_analytics", "revenue", "payment_summary"}:
         tool_called = "get_admin_dashboard_metrics"
         tool_args = {"timeframe": timeframe}
         res = await orch.execute(tool_called, tool_args, {tool_called})
@@ -138,15 +138,22 @@ async def admin_assistant(
             # Appointments do not record a city; the former per-city counts were always 0 (P04-N05).
             reply_text = ("Appointments do not record a city or area, so MediConnect cannot count bookings by "
                           "location. Ask for total bookings instead.")
-        elif "success rate" in query:
+        elif intent == "payment_summary" or "success rate" in query:
             rate = fin.get("paymentSuccessRate")
-            if rate is None:
+            if "rate" not in query:
+                # P05-N19: succeededTransactions excludes payments later fully refunded (status REFUNDED), so the
+                # number of successful (captured) payments is the sum of both.
+                captured = fin.get('succeededTransactions', 0) + fin.get('refundedTransactions', 0)
+                reply_text = (f"{captured} payment(s) were captured successfully in {period} "
+                              f"({fin.get('refundedTransactions', 0)} of them were later fully refunded); "
+                              f"{fin.get('failedTransactions', 0)} attempt(s) failed.")
+            elif rate is None:
                 reply_text = f"No payments were attempted in {period}, so there is no payment success rate."
             else:
                 reply_text = (f"Payment success rate is {rate}% ({fin.get('succeededTransactions', 0)} succeeded, "
                               f"{fin.get('refundedTransactions', 0)} later refunded, {fin.get('failedTransactions', 0)} "
                               f"failed) for {period}.")
-        elif any(w in query for w in ["revenue", "gross", "income", "collection"]):
+        elif intent == "revenue":
             rows = fin.get("byCurrency") or {}
             if not rows:
                 reply_text = f"No payments were captured in {period}."
@@ -163,6 +170,72 @@ async def admin_assistant(
         result_data = res
         suggestions = ["Show financial revenue breakdown", "Compare with last month", "Download operational report"]
 
+    # 6. Notification delivery failures (Phase 05)
+    elif intent == "notification_failures":
+        tool_called = "get_notification_queue_status"
+        metrics = await orch.execute(tool_called, {}, {tool_called})
+        dead = await orch.execute("get_notification_failures", {}, {"get_notification_failures"})
+        channels = metrics.get("byChannel") or []
+        parts = ", ".join(f"{row.get('channel')}: {row.get('failed', 0)} failed ({row.get('providerStatus')})"
+                          for row in channels if isinstance(row, dict)) or "not reported"
+        reply_text = (f"Notification delivery by channel: {parts}. Dead-letter items awaiting review: "
+                      f"{metrics.get('deadLetterQueueCount', 0)}. Channels that are not configured are reported as "
+                      "not configured, never as delivered.")
+        result_data = {"byChannel": channels, "deadLetterQueueCount": metrics.get("deadLetterQueueCount"),
+                       "deadLetters": (dead.get("dead_letters") or [])[:5], "notes": metrics.get("notes")}
+        suggestions = ["Open Notification Monitoring", "Retry a dead-letter item"]
+
+    # 7. Fraud assessment explanation (Phase 05): signals for human review, never findings.
+    elif intent == "fraud_explanation":
+        assessment_id = (req.contextFilter or {}).get("assessmentId") if isinstance(req.contextFilter, dict) else None
+        if assessment_id:
+            tool_called = "get_fraud_review_details"
+            res = await orch.execute(tool_called, {"assessment_id": str(assessment_id)}, {tool_called})
+            if res.get("error"):
+                reply_text = "That fraud assessment was not found."
+            else:
+                rules = ", ".join(res.get("triggeredRules") or []) or "no rule recorded"
+                reply_text = (f"Assessment {res.get('assessmentId')} (risk {res.get('riskLevel')}, score "
+                              f"{res.get('riskScore')}) was generated because these rules triggered: {rules}. "
+                              f"{res.get('explanation', '')} This is a signal for human review, not a finding; no "
+                              "account action is taken automatically.")
+                result_data = {k: res.get(k) for k in ("assessmentId", "riskLevel", "riskScore", "triggeredRules",
+                                                       "explanation", "reviewStatus")}
+        else:
+            tool_called = "get_fraud_alerts"
+            res = await orch.execute(tool_called, {"status": "AWAITING_REVIEW"}, {tool_called})
+            items = res.get("items") or []
+            if not items:
+                reply_text = "No fraud assessments are awaiting review."
+            else:
+                lines = [f"{i.get('assessmentId')}: {', '.join(i.get('triggeredRules') or [])}" for i in items[:5]]
+                reply_text = (f"{res.get('total', len(items))} assessment(s) await review. Each was generated by "
+                              "these rule triggers: " + "; ".join(lines) + ". Open one to see its full explanation; "
+                              "these are signals for human review, not findings.")
+            result_data = {"items": items[:5], "total": res.get("total", len(items))}
+        suggestions = ["Open Fraud Monitoring"]
+
+    # 8. Platform health (Phase 05)
+    elif intent == "system_health":
+        tool_called = "get_platform_health"
+        res = await orch.execute(tool_called, {}, {tool_called})
+        deps = res.get("dependencies") or []
+        dep_text = ", ".join(f"{d.get('name')}: {d.get('status')}" for d in deps if isinstance(d, dict)) or "not reported"
+        reply_text = (f"Overall status: {res.get('status', 'not reported')}. Dependencies: {dep_text}. Active "
+                      f"incidents: {res.get('activeIncidentsCount', 0)}.")
+        result_data = {k: res.get(k) for k in ("status", "dependencies", "workers", "activeIncidentsCount")}
+        suggestions = ["Open System Monitoring"]
+
+    elif intent == "ambiguous":
+        labels = {"pending_doctor_verifications": "doctor verifications", "payment_reconciliation": "payment reconciliation",
+                  "failed_payments": "failed payments", "payment_summary": "payment totals", "revenue": "collections",
+                  "refunds_attention": "refunds", "support_tickets": "support tickets", "booking_analytics": "bookings",
+                  "notification_failures": "notification failures", "fraud_explanation": "fraud assessments",
+                  "system_health": "system health"}
+        options = [labels.get(c, c) for c in classified.candidates]
+        reply_text = "Your message mentions more than one topic: " + ", ".join(options) + ". Which one should I check first?"
+        suggestions = [f"Show {o}" for o in options]
+
     # Fallback response
     else:
         reply_text = (
@@ -178,6 +251,9 @@ async def admin_assistant(
 
     return AdminAssistantChatResponse(
         reply=reply_text,
+        intent=intent,
+        intentSource=classified.source,
+        language=classified.language,
         toolCalled=tool_called,
         data=result_data,
         dateRange=date_range,
@@ -565,3 +641,13 @@ async def list_audit_logs(
         page_size=pageSize,
     )
     return AdminAuditLogListResponse(**res)
+
+
+@router.post("/refunds/sync-pending", summary="Re-read pending Stripe refunds and apply final states (Phase 05)")
+async def sync_pending_refunds_now(
+    current_admin: UserResponseSchema = Depends(require_admin),
+    db: Database = Depends(get_database),
+):
+    """Admin-triggered version of the worker's pending-refund check. It never creates a refund."""
+    from app.services.stripe_webhook_service import sync_pending_refunds
+    return sync_pending_refunds(db, older_than_minutes=0)

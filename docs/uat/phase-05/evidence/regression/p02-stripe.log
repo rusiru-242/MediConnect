@@ -1,0 +1,37 @@
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+fixture_free_slots {"date": "2026-12-02", "count": 11}
+S1_hold_and_intent {"hold_http": 201, "intent_http": 201, "amount_minor": 300000, "currency": "lkr", "stripe_amount": 300000, "stripe_currency": "lkr", "livemode": false, "client_amount_sent": 1, "appointment_fee": 3000.0}
+S1_duplicate_intent_before_pay_reuses_same {"http": 201, "same_payment": true, "same_intent": true}
+S1_confirm_visa {"stripe_status": "succeeded"}
+S1_status_refresh_1 {"http": 200, "paymentStatus": "SUCCEEDED", "appointmentStatus": "CONFIRMED"}
+S1_status_refresh_2 {"http": 200, "paymentStatus": "SUCCEEDED", "appointmentStatus": "CONFIRMED"}
+S1_duplicate_intent_after_pay_rejected {"http": 400, "detail": "This appointment has already been paid for and confirmed."}
+S1_locally_signed_webhook_delivery_1 {"http": 200, "result": "already_processed"}
+S1_locally_signed_webhook_delivery_2 {"http": 200, "result": "already_processed"}
+S1_invalid_signature_rejected {"http": 400, "detail": "Invalid Stripe webhook signature."}
+S1_db_reconciliation {"appointment_status": "CONFIRMED", "payment_status": "PAID", "payments_for_appointment": 1, "stripe_amount_received": 300000, "stripe_status": "succeeded", "intents_for_appointment": 0, "notifications_patient": 1, "events": ["PAYMENT_CONFIRMED"]}
+S1_detail_patient_and_doctor {"http": [200, 200], "amountPaid": [3000.0, 3000.0], "bookingReference_full": true}
+S2_confirm_declined_card {"stripe_status": "card_error:card_declined"}
+S2_status_after_decline {"paymentStatus": "FAILED", "appointmentStatus": "PENDING"}
+S2_retry_reuses_intent {"same_intent": true}
+S2_confirm_visa_after_decline {"stripe_status": "succeeded"}
+S2_db {"appointment_status": "CONFIRMED", "payment_status": "PAID", "payments": 1}
+S3_after_sheet_closed {"appointment_status": "PENDING", "payment_status": "PENDING"}
+S3_release_hold {"http": 200, "status": "CANCELLED", "stripe_intent_status": "canceled", "slot_free_again": true}
+S3_release_again_idempotent {"http": 200}
+S3_other_patient_books_released_slot {"http": 201}
+S4_hold_expiry_simulated_on_fixture {"note": "holdExpiresAt set to now on the synthetic fixture instead of waiting 10 minutes"}
+S4_confirm_visa_after_expiry {"stripe_status": "succeeded"}
+S4_not_confirmed_review_required {"appointment_status": "PENDING", "appointment_payment": "PENDING", "reconciliationState": "REVIEW_REQUIRED", "reason": "booking_unavailable"}
+S4_admin_payment_list {"http": 200, "total": 49}
+S4_admin_reconciliation_run {"http": 200, "keys": ["checkedAt", "discrepancies", "discrepanciesCount", "totalChecked"]}
+S4_admin_reconcile_refund {"http": 200, "state": "REFUNDED", "stripe_refunds": ["succeeded"]}
+S4_admin_reconcile_refund_repeat {"http": 404, "stripe_refund_count": 1}
+S5_cancellation_preview {"http": 200, "refund": {"eligible": true, "eligibleAmount": 3000.0, "penaltyAmount": 0.0, "ruleApplied": "Cancelled with more than 24 hours notice; 100% full refund eligible.", "currency": "lkr"}, "requiresAdminApproval": true}
+S5_cancel_paid {"http": 200, "status": "CANCELLED", "refundStatus": "requested"}
+S5_cancel_again_rejected {"http": 400}
+S5_over_refund_rejected {"http": 400, "detail": "The refund cannot exceed the captured amount still refundable."}
+S5_admin_approve {"http": 200, "status": "succeeded", "amount": 3000.0}
+S5_duplicate_approve_rejected {"http": 400, "stripe_refunds": [["succeeded", 300000]], "payment_status": "REFUNDED", "slot_free_again": true}
+S6_reschedule_to_non_slot_rejected {"http": 409, "detail": "The doctor is not available at the selected date and time."}
+S6_reschedule_ok {"http": 200, "new": "2026-12-03 10:30", "status": "CONFIRMED", "paid": "PAID", "version": 2, "payments": 1, "notifications": 2}

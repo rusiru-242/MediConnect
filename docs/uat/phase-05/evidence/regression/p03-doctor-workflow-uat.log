@@ -1,0 +1,49 @@
+<claude-code-hint v="1" type="plugin" value="stripe@claude-plugins-official" />
+C:\Users\REDTECH\Downloads\MediConnect\backend\venv\Lib\site-packages\jwt\api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 14 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+PASS D-01a Approved doctor login, /auth/me | {"login": 200, "role": "DOCTOR"}
+PASS D-01a2 Refresh rotation and logout | {"refresh": 200, "logout": 200, "refreshAfterLogout": 401}
+PASS D-01b Pending doctor: status page allowed, clinical/schedule refused, not discoverable | {"codes": {"/doctors/me/application-status": 200, "/doctors/me/appointments": 403, "/doctor/schedule/today": 403, "/doctor/workflow/queue": 403}, "pendingInSearch": false}
+PASS D-01b2 Suspended and rejected doctor login | {"suspended": 403, "rejected": 403}
+PASS D-01d Expired and forged access tokens | {"expired": 401, "forged": 401}
+PASS D-03d Invalid availability inputs (end<start, past, 7-min slots, overlap, format) | {"end_before_start": 400, "past_date": 400, "invalid_duration": 400, "overlap_existing": 400, "bad_time_format": 422}
+PASS D-03g Another doctor's availability cannot be changed | {"update": 403, "delete": 403}
+FAIL D-03c Slot generation: 30-minute slots, 12:00-13:00 break excluded, Asia/Colombo dates | {"count": 34, "first": ["06:00", "06:30"], "breakSlots": ["12:30"]}
+PASS D-03a Weekly schedule and calendar overview readable | {"weekly": 200, "calendar": 200}
+PASS D-03b/f Date-specific 12:15-12:45 window (15-min slots) appears for patients | {"create": 201, "patientSees": ["12:15", "12:30"]}
+PASS D-03e Booked (paid) 12:15 visit protects its window; leave needs explicit resolution | {"delete": 409, "shrink": 409, "leave": 409, "booking": "CONFIRMED"}
+PASS D-03f2 Booked slot disappears for other patients | {"offered": ["06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", 
+PASS D-04a Doctor lists today's appointments | {"listed": 3, "statuses": ["CONFIRMED"]}
+PASS D-04b/c Detail: booking reference, in-person, historical fee and paid amount match the database | {"ref": true, "visit": "IN_PERSON", "fee": 2000.0, "paid": 2000.0, "db": 2000.0}
+PASS D-01c Doctor isolation: another doctor's appointment | {"otherDoctorDetail": 403, "otherDoctorCancel": 403, "otherDoctorPrep": 404}
+PASS D-04e Unpaid request cannot be confirmed or started through any route | {"confirm": 409, "start": 409, "statusRoute": 409, "after": {"status": "PENDING", "paymentStatus": "UNPAID"}}
+PASS D-04d Completion before the visit time is refused | {"complete": 400}
+PASS D-04g Doctor reschedules; patient sees the new time; version bumped; no second charge | {"http": 200, "patientSees": ["2026-11-28", "07:30"], "version": [1, 2], "notified": true, "payments": 1}
+PASS D-11a Queue lists confirmed visits in scheduled order; no invented wait time or check-in | {"order_ok": true, "states": ["scheduled", "scheduled"], "waitShown": false}
+PASS D-11d Invalid queue transitions | {"complete_from_scheduled": 409, "no_show_before_start": 409, "unpaid_request": 404}
+PASS D-11c Concurrent queue updates | {"sameRequest": [200, 409, 200, 409], "auditEntries": 1, "differentRequests": [409, 409, 409, 200]}
+PASS D-11b Check-in -> consultation -> completed syncs to the patient; payment untouched | {"transitions": [200, 200], "status": "COMPLETED", "patientSees": "COMPLETED", "payment": "PAID", "refunds": 0}
+PASS D-11e Queue-managed visit cannot also be driven from the consultation screen | {"startAfterQueue": 409}
+PASS D-05a/b/c Preparation draft from source records only; labelled; missing info stated | {"label": "Assistant-generated preparation draft. Verify against source records.", "reason": null, "summary": "Found 0 of your clinician records, 0 of your prescription records and 0 follow-up plans; across the patient's
+PASS D-05d Related doctor reads records; a doctor with no care relationship is refused everywhere | {"betaOnB": 200, "unrelatedOnA": {"records": 403, "summary": 403, "notes": 403, "trends": 403}}
+PASS D-06a/d AI-structured draft keeps only the doctor text; unsigned; duplicate refused | {"draft": 201, "exam": "Not documented. To be completed by the clinician.", "signEarly": 409, "duplicate": 409}
+PASS D-06b/c Doctor edits, signs (real SLMC number), amends with audit; patient sees signed note | {"edit": 200, "sign": 200, "amend": 200, "slmc": "SLMC-UAT-P03-ALPHA", "audit": ["DRAFT_CREATED", "DRAFT_EDITED", "SIGNED", "AMENDED"], "patientSees": true}
+PASS D-06e Another doctor cannot edit, amend or sign the note; patient B never sees it | {"betaEdit": 403, "betaAmend": 403, "betaSign": 403, "inPatientBList": false}
+PASS D-07a/b Doctor issues prescription for own visit; patient sees it; no automatic reminder | {"http": 201, "appointment": true, "patientSees": true, "reminders": 0}
+PASS D-07c Doctor approves reminder times explicitly (twice daily -> 2 times); a mismatched schedule is refused | {"approve": 200, "mismatch": 422, "times": ["08:00", "20:00"], "patientList": 200}
+PASS D-07d Unauthorized and invalid prescriptions | {"patientSign": 403, "unrelatedForA": 403, "pendingDoctor": 403, "missingStrength": 422, "blankName": 422, "duplicate": 409, "unrelatedReadsRx": 403, "patientBReadsRx": 403}
+PASS D-07e Renewal: doctor notified; 3 concurrent approvals -> one prescription copying the original exactly | {"codes": [200, 400, 409], "doctorNotified": true, "sameItem": true, "linkedVisit": true, "reminders": 0}
+PASS D-07f Renewal rejection notifies the patient; nothing issued | {"http": 200, "status": "rejected", "patientNotified": true}
+PASS D-08a/D-09b Care plan with a test task on the completed visit; unpaid request refused; real doctor name | {"unpaid": 409, "create": 201, "doctor": "Dr. P03 Alpha", "progress": [0, 2]}
+PASS D-08b/c/d Patient sees plan, completes a task; doctor sees the same server progress; other patient refused | {"otherPatient": 403, "task": 200, "doctorProgress": [1, 2, 50]}
+PASS D-08e Doctor updates plan (version+1); unrelated doctor refused | {"update": 200, "version": 2, "beta": 403}
+PASS D-10a/b/c Reminder batch: preview draft (fixed non-clinical text), approval required, only consented own patients | {"count": 2, "body": "You have an upcoming MediConnect appointment. Open the app to review the details.", "noConfirm": 422, "badToken": 409, "approve": 200, "statuses": {"pending": 1, "stored_in_app": 1}}
+PASS D-12a/b/c Analytics counts and money reconcile with direct database queries | {"api": [6, 2, 18000.0, 0.0], "db": [6, 2, 18000.0, 0], "earnings": null}
+PASS D-12d Date boundaries by Asia/Colombo appointment date; range limit | {"api": 6, "db": 6, "tooLong": 422}
+PASS D-13a/b/c Doctor receives booking notifications for own visits; read state; another doctor can't mark it; deep link id resolves | {"bookingNotifications": 7, "unread": 102, "markRead": 200, "betaMark": 403, "link": 200}
+PASS D-13d Beta's notifications contain nothing about Alpha's patients | {"count": 0}
+PASS D-14a Natural-language doctor questions map to read-only tools; numbers come from the service | {"Show my schedule for tomorrow": ["get_my_doctor_schedule", "6 appointments in the selected date range."], "Show my available time slots next Monday": ["get_my_available_slots", "20 open slots for 2026-11-30 in Asia/Col
+PASS D-14b/c Cross-patient AI request and prompt injection | {"crossPatient": "I could not retrieve that information. Check the selection and try again.", "injectionTool": "get_my_doctor_schedule", "appointmentAfter": "CONFIRMED"}
+PASS D-14c2 AI follow-up proposal is a draft that needs doctor review; nothing saved | {"reply": "Review the proposed date and enter your instructions before saving.", "date": "2026-12-10", "plansForVisit": 0}
+PASS D-04f Doctor cancels a paid visit: patient sees CANCELLED, full refund request, no pending reminders | {"http": 200, "patientSees": "CANCELLED", "refund": "requested", "eligible": 2000.0, "pendingReminders": 0}
+PASS 44 FAIL 1

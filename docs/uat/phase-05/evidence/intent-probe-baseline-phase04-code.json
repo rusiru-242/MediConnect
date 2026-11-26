@@ -1,0 +1,247 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "rows": [
+    {
+      "id": "P-1",
+      "role": "PATIENT",
+      "message": "mata Colombo walin hoda cardiologist kenek hoyala denna",
+      "expectedIntent": "doctor_search",
+      "status": 201,
+      "card": "doctor_options",
+      "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 2 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න."
+    },
+    {
+      "id": "P-2",
+      "role": "PATIENT",
+      "message": "mata 3000ta aduwen kenek hoyala denna",
+      "expectedIntent": "doctor_search",
+      "status": 201,
+      "card": "doctor_options",
+      "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 5 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න."
+    },
+    {
+      "id": "P-3",
+      "role": "PATIENT",
+      "message": "Select the most experienced doctor.",
+      "expectedIntent": "doctor_selection",
+      "status": 200,
+      "card": "doctor_auto_selected",
+      "reply": "From 2 verified doctors that meet all your requirements, I selected **Dr. UAT Cardio Two**.\n\n**Why this doctor (from their profile data):**\n- Specialty: Cardiology\n- Location: Colombo\n- Consultation fee LKR 3,500\n- No published patient reviews yet\n- 20 years of experience (as listed on the profile)\n\n**Other eligible doctors:**\n- Dr. UAT Cardio One: 12 years\n\nRanking basis: most years of experience"
+    },
+    {
+      "id": "P-4",
+      "role": "PATIENT",
+      "message": "Show me my next appointment.",
+      "expectedIntent": "appointments",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "26 Nov 10:00 · Confirmed appointment\nTimes are in Asia/Colombo. Open My Care Plan for details."
+    },
+    {
+      "id": "P-5",
+      "role": "PATIENT",
+      "message": "When should I take the medicine prescribed by my doctor?",
+      "expectedIntent": "medication_schedule",
+      "status": 201,
+      "card": "prescription_request_declined",
+      "reply": "**I can't prescribe medicines or give you a personal dose or treatment length.**\nA licensed doctor needs to assess you first — your age, weight, allergies, pregnancy, other medicines and the likely cause all change what is safe.\nWould you like me to find a doctor you can consult?"
+    },
+    {
+      "id": "P-6",
+      "role": "PATIENT",
+      "message": "Show my upcoming medical tests.",
+      "expectedIntent": "medical_tests",
+      "status": 201,
+      "card": "clarification_needed",
+      "reply": "Could you please share your symptoms, preferred doctor specialty (e.g., Cardiologist), or city?"
+    },
+    {
+      "id": "P-7",
+      "role": "PATIENT",
+      "message": "මට කොළඹ හෘද වෛද්‍යවරයෙක් හොයලා දෙන්න",
+      "expectedIntent": "doctor_search",
+      "status": 201,
+      "card": "doctor_options",
+      "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 2 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න.\n\nහෘද රෝග විශේෂඥ වෛද්‍යවරු හෘද ස්පන්දන ගැටලු, අධි රුධිර පීඩනය වැනි හදවත හා රුධිර නාල ආශ්‍රිත ගැටලු පරීක්ෂා කරනවා. මෙය රෝග විනිශ්චයක් නොවෙයි; නිවැරදි තක්සේරුව වෛද්‍යවරයා කරනු ඇත."
+    },
+    {
+      "id": "P-8",
+      "role": "PATIENT",
+      "message": "I want a skin doctor in Kandy under 2500",
+      "expectedIntent": "doctor_search",
+      "status": 201,
+      "card": "no_results",
+      "reply": "I couldn't find any verified doctors matching Dermatologist in Kandy under LKR 2,500. Would you like to try a different city, another date, or a higher fee limit?"
+    },
+    {
+      "id": "P-9",
+      "role": "PATIENT",
+      "message": "change my dose to two tablets",
+      "expectedIntent": "medication_change_refusal",
+      "status": 201,
+      "card": "medicine_information",
+      "reply": "I could not locate verified pharmacological information for that specific medication name in our database. For your safety, I never guess or invent medicine details. Please verify the exact generic or brand spelling on your prescription or packaging, or speak directly with a registered pharmacist or qualified physician before taking any medication."
+    },
+    {
+      "id": "D-1",
+      "role": "DOCTOR",
+      "message": "Show my appointments for tomorrow.",
+      "expectedIntent": "schedule",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_doctor_schedule",
+      "reply": "0 appointments in the selected date range."
+    },
+    {
+      "id": "D-2",
+      "role": "DOCTOR",
+      "message": "Find the patients requiring follow-up this week.",
+      "expectedIntent": "follow_ups",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_follow_up_tasks",
+      "reply": "0 recent follow-up plans."
+    },
+    {
+      "id": "D-3",
+      "role": "DOCTOR",
+      "message": "Prepare the consultation summary for my next patient.",
+      "expectedIntent": "consultation_preparation",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "Select an appointment. There is no checked-in patient waiting."
+    },
+    {
+      "id": "D-4",
+      "role": "DOCTOR",
+      "message": "Show my pending prescription renewal requests.",
+      "expectedIntent": "renewal_queue",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "Ask about your schedule, free slots, patient queue, analytics, or follow-ups."
+    },
+    {
+      "id": "D-5",
+      "role": "DOCTOR",
+      "message": "How many consultations did I complete this month?",
+      "expectedIntent": "analytics",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_doctor_analytics",
+      "reply": "2026-11-01 to 2026-11-30 (Asia/Colombo): 0 confirmed, 0 completed and 0 cancelled appointments; 0 awaiting payment and 0 open refund requests."
+    },
+    {
+      "id": "D-6",
+      "role": "DOCTOR",
+      "message": "heta mage appointments monawada?",
+      "expectedIntent": "schedule",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_doctor_schedule",
+      "reply": "0 appointments in the selected date range."
+    },
+    {
+      "id": "D-7",
+      "role": "DOCTOR",
+      "message": "Who still needs a follow up from me in the coming days?",
+      "expectedIntent": "follow_ups",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_follow_up_tasks",
+      "reply": "0 recent follow-up plans."
+    },
+    {
+      "id": "A-1",
+      "role": "ADMIN",
+      "message": "Show me pending doctor verification applications.",
+      "expectedIntent": "pending_doctor_verifications",
+      "status": 200,
+      "intent": null,
+      "tool": "get_pending_doctor_verifications",
+      "reply": "There are currently 3 doctor verification application(s) pending administrative review."
+    },
+    {
+      "id": "A-2",
+      "role": "ADMIN",
+      "message": "Which refunds need attention?",
+      "expectedIntent": "refunds_attention",
+      "status": 200,
+      "intent": null,
+      "tool": "get_admin_report_data",
+      "reply": "Refund Report (2026-10-28 to 2026-11-26, Asia/Colombo): 23 refund request(s) opened. 10 settled in Stripe (LKR 23,400.00 returned), 8 awaiting review, 0 processing, 2 failed and retryable, 3 rejected."
+    },
+    {
+      "id": "A-3",
+      "role": "ADMIN",
+      "message": "How many successful payments were recorded this week?",
+      "expectedIntent": "payment_summary",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "I am the MediConnect Admin AI Assistant. You can ask me in English, Sinhala, or Romanized Sinhala about doctor verification backlogs, payment reconciliation, bookings analytics, revenue metrics, support tickets, or refunds."
+    },
+    {
+      "id": "A-4",
+      "role": "ADMIN",
+      "message": "Show notification failures.",
+      "expectedIntent": "notification_failures",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "I am the MediConnect Admin AI Assistant. You can ask me in English, Sinhala, or Romanized Sinhala about doctor verification backlogs, payment reconciliation, bookings analytics, revenue metrics, support tickets, or refunds."
+    },
+    {
+      "id": "A-5",
+      "role": "ADMIN",
+      "message": "Explain why this fraud assessment was generated.",
+      "expectedIntent": "fraud_explanation",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "I am the MediConnect Admin AI Assistant. You can ask me in English, Sinhala, or Romanized Sinhala about doctor verification backlogs, payment reconciliation, bookings analytics, revenue metrics, support tickets, or refunds."
+    },
+    {
+      "id": "A-6",
+      "role": "ADMIN",
+      "message": "doctorlage applications kiyak approve karanna thiyenawada?",
+      "expectedIntent": "pending_doctor_verifications",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "I am the MediConnect Admin AI Assistant. You can ask me in English, Sinhala, or Romanized Sinhala about doctor verification backlogs, payment reconciliation, bookings analytics, revenue metrics, support tickets, or refunds."
+    },
+    {
+      "id": "A-7",
+      "role": "ADMIN",
+      "message": "Are any messages failing to reach users?",
+      "expectedIntent": "notification_failures",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "I am the MediConnect Admin AI Assistant. You can ask me in English, Sinhala, or Romanized Sinhala about doctor verification backlogs, payment reconciliation, bookings analytics, revenue metrics, support tickets, or refunds."
+    },
+    {
+      "id": "A-8",
+      "role": "ADMIN",
+      "message": "මේ සතියේ සාර්ථක ගෙවීම් කීයද?",
+      "expectedIntent": "payment_summary",
+      "status": 200,
+      "intent": null,
+      "tool": "get_payment_reconciliation_issues",
+      "reply": "Payment reconciliation identified 15 discrepancy item(s) requiring administrative review."
+    },
+    {
+      "id": "A-9",
+      "role": "ADMIN",
+      "message": "Is the system healthy?",
+      "expectedIntent": "system_health",
+      "status": 200,
+      "intent": null,
+      "tool": null,
+      "reply": "I am the MediConnect Admin AI Assistant. You can ask me in English, Sinhala, or Romanized Sinhala about doctor verification backlogs, payment reconciliation, bookings analytics, revenue metrics, support tickets, or refunds."
+    }
+  ]
+}

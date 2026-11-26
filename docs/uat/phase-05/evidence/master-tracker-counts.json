@@ -1,0 +1,65 @@
+{
+  "uniqueTrackedItems": 184,
+  "confirmedDefects": 160,
+  "defectsFixed": 159,
+  "defectsOpen": [
+    "BUG-039"
+  ],
+  "defectsFixedPendingManualDeviceRetest": [
+    "BUG-004",
+    "BUG-014",
+    "BUG-015",
+    "BUG-025",
+    "BUG-042",
+    "BUG-043",
+    "BUG-045"
+  ],
+  "defectsFixedExternalVerificationBlocked": [
+    "BUG-023"
+  ],
+  "improvementsOrRequirements": 21,
+  "regressionGuards": 1,
+  "observations": [
+    "P05-O1"
+  ],
+  "securityIncidents": [
+    "P5-C1"
+  ],
+  "ownerIdsAliasedToPhase01": [
+    "BUG-049",
+    "BUG-050",
+    "BUG-051",
+    "BUG-052",
+    "BUG-053",
+    "BUG-054",
+    "BUG-056",
+    "BUG-057",
+    "BUG-062"
+  ],
+  "byPhase": {
+    "historical BUG-001..063 (unaliased)": {
+      "defects": 53,
+      "improvements": 0
+    },
+    "Phase 01": {
+      "defects": 21,
+      "improvements": 5
+    },
+    "Phase 02": {
+      "defects": 17,
+      "improvements": 0
+    },
+    "Phase 03": {
+      "defects": 21,
+      "improvements": 3
+    },
+    "Phase 04": {
+      "defects": 23,
+      "improvements": 0
+    },
+    "Phase 05": {
+      "defects": 25,
+      "improvements": 13
+    }
+  }
+}

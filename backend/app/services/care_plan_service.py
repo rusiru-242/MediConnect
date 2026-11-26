@@ -498,13 +498,20 @@ class CarePlanService:
             note="; ".join(audit_notes) if audit_notes else "Plan details updated",
         ).model_dump()
 
-        coll.update_one(
-            {"_id": ObjectId(plan_id)},
+        # P05-N20: optimistic concurrency. The write applies only to the version this request read, so two
+        # doctors (or two devices) saving at the same moment can no longer silently overwrite each other; the
+        # later one gets 409 and reloads. Found by the Phase 05 multi-process test (4 updates, version +3).
+        version_filter = {"version": doc["version"]} if "version" in doc else {"version": {"$exists": False}}
+        changed = coll.update_one(
+            {"_id": ObjectId(plan_id), "status": doc.get("status"), **version_filter},
             {
                 "$set": update_fields,
                 "$push": {"auditLog": audit_entry},
             },
         )
+        if not changed.matched_count:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="This care plan was changed by another update. Reload it and try again.")
 
         updated_doc = coll.find_one({"_id": ObjectId(plan_id)})
         return _doc_to_response(db, updated_doc)

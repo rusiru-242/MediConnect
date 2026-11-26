@@ -26,8 +26,32 @@ class Settings(BaseModel):
     JWT_ALGORITHM: str = Field(
         default_factory=lambda: (os.getenv("JWT_ALGORITHM") or "HS256").strip() or "HS256"
     )
+    # Phase 05: 15-minute default (was 60). Suspension, logout and doctor revocation are also enforced per request.
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default_factory=lambda: int((os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or "60").strip())
+        default_factory=lambda: int((os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or "15").strip())
+    )
+    JWT_ISSUER: str = Field(
+        default_factory=lambda: (os.getenv("JWT_ISSUER") or "mediconnect-api").strip() or "mediconnect-api"
+    )
+    JWT_AUDIENCE: str = Field(
+        default_factory=lambda: (os.getenv("JWT_AUDIENCE") or "mediconnect-clients").strip() or "mediconnect-clients"
+    )
+    # Development may only use a remote database when this is set deliberately (P4-B5).
+    ALLOW_REMOTE_DATABASE: bool = Field(
+        default_factory=lambda: (os.getenv("ALLOW_REMOTE_DATABASE") or "").strip().lower() in {"1", "true", "yes", "on"}
+    )
+    # Application-level encryption of uploaded documents (B8): comma-separated "keyId:base64-32-byte-key" entries,
+    # newest first. Never committed; see docs/uat/phase-05/PHASE_05_SECURITY_AND_PRIVACY_REPORT.md.
+    DOCUMENT_ENCRYPTION_KEYS: Optional[str] = Field(
+        default_factory=lambda: (os.getenv("DOCUMENT_ENCRYPTION_KEYS") or "").strip() or None
+    )
+    # Days a saved AI conversation is kept after its last message; 0 keeps it until the patient deletes it.
+    CONVERSATION_RETENTION_DAYS: int = Field(
+        default_factory=lambda: int((os.getenv("CONVERSATION_RETENTION_DAYS") or "0").strip())
+    )
+    # Daily cap on external AI provider calls per process-wide counter in MongoDB (0 = provider calls disabled).
+    AI_DAILY_REQUEST_LIMIT: int = Field(
+        default_factory=lambda: int((os.getenv("AI_DAILY_REQUEST_LIMIT") or "2000").strip())
     )
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
         default_factory=lambda: int((os.getenv("REFRESH_TOKEN_EXPIRE_DAYS") or "7").strip())
@@ -78,7 +102,7 @@ class Settings(BaseModel):
         default_factory=lambda: (os.getenv("GEMINI_API_KEY") or "").strip() or None
     )
     GEMINI_MODEL: str = Field(
-        default_factory=lambda: (os.getenv("GEMINI_MODEL") or "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+        default_factory=lambda: (os.getenv("GEMINI_MODEL") or "gemini-flash-latest").strip() or "gemini-flash-latest"
     )
     OPENAI_API_KEY: Optional[str] = Field(
         default_factory=lambda: (os.getenv("OPENAI_API_KEY") or "").strip() or None
