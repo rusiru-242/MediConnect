@@ -70,3 +70,6 @@ def create_doctor_blocked_time_indexes(db: Database) -> None:
         [("doctorUserId", ASCENDING), ("date", ASCENDING), ("startTime", ASCENDING)],
         name="idx_doctor_blocked_time_lookup",
     )
+    # P05-N17: one block per doctor, date and exact interval. Sparse, so blocks created before Phase 05 (which have
+    # no blockKey, and may already contain duplicates) do not prevent the index from being built.
+    coll.create_index([("blockKey", ASCENDING)], unique=True, sparse=True, name="idx_doctor_blocked_time_key")
