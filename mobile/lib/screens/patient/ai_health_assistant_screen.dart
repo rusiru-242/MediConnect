@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/health_chat.dart';
 import '../../services/health_chat_service.dart';
 import '../../utils/money.dart';
+import '../../widgets/safe_markdown_text.dart';
 
 /// Screen providing AI Symptom Guidance & Doctor Referral Chatbot (Phase 20).
 class AiHealthAssistantScreen extends StatefulWidget {
@@ -435,7 +436,8 @@ class _AiHealthAssistantScreenState extends State<AiHealthAssistantScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
+                // A01 (emulator finding): replies use **bold** and "- " bullets, which a plain Text showed literally.
+                SafeMarkdownText(
                   msg.content,
                   style: const TextStyle(fontSize: 14.5, color: Colors.black87, height: 1.4),
                 ),

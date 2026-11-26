@@ -70,6 +70,15 @@ class MockAiHealthChatService extends AiHealthChatService {
         emergencyNumber: '1990',
         disclaimer: 'MediConnect emergency disclaimer.',
       );
+    } else if (message.toLowerCase().contains('paracetamol')) {
+      assistantMsg = HealthChatMessage(
+        id: 'm-med-${DateTime.now().millisecondsSinceEpoch}',
+        sender: 'assistant',
+        content: '**Paracetamol** — general information from the MediConnect medicine library\n\n'
+            '**Common uses:**\n- Relief of mild to moderate pain',
+        timestamp: DateTime.now(),
+        triageLevel: 'general_info',
+      );
     } else if (message.toLowerCase().contains('headache') || message.contains('doctor')) {
       assistantMsg = HealthChatMessage(
         id: 'm-doc-${DateTime.now().millisecondsSinceEpoch}',
@@ -158,6 +167,19 @@ void main() {
 
       expect(find.text('How to stay hydrated?'), findsOneWidget);
       expect(find.text('This is educational guidance regarding health and wellness.'), findsOneWidget);
+    });
+
+    testWidgets('A01: assistant markdown is rendered, not shown as literal asterisks', (tester) async {
+      final mock = MockAiHealthChatService();
+      await tester.pumpWidget(createTestWidget(mockService: mock));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('health_chat_input_field')), 'What is paracetamol used for?');
+      await tester.tap(find.byKey(const Key('health_chat_send_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Common uses:', findRichText: true), findsOneWidget);
+      expect(find.textContaining('**', findRichText: true), findsNothing);
     });
 
     testWidgets('triggers emergency escalation with 1990 ambulance banner and button', (tester) async {

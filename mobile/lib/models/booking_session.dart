@@ -472,8 +472,15 @@ class ImageAnalysisSummary {
   final String? uncertaintyExplanation;
   final String? safetyAdvice;
   final bool requiresClearerPhoto;
-  /// 'analyzed' | 'unreadable' | 'not_medicine' | 'provider_unavailable' | 'invalid_file'
+  /// 'analyzed' | 'multiple_packages' | 'unreadable' | 'not_medicine' | 'provider_unavailable' | 'invalid_file'
   final String? status;
+  /// A01: which provider/model read the photo (null when no provider read it).
+  final String? provider;
+  final String? model;
+  /// Fields the provider reported as present on the pack but not legible (for example "expiry date").
+  final List<String> unreadableFields;
+  final int? packageCount;
+  final bool embeddedTextIgnored;
 
   const ImageAnalysisSummary({
     this.status,
@@ -484,9 +491,15 @@ class ImageAnalysisSummary {
     this.uncertaintyExplanation,
     this.safetyAdvice,
     this.requiresClearerPhoto = false,
+    this.provider,
+    this.model,
+    this.unreadableFields = const [],
+    this.packageCount,
+    this.embeddedTextIgnored = false,
   });
 
   factory ImageAnalysisSummary.fromJson(Map<String, dynamic> json) {
+    final extracted = json['extracted'] is Map<String, dynamic> ? json['extracted'] as Map<String, dynamic> : const {};
     return ImageAnalysisSummary(
       status: json['status'] as String?,
       detectedText: json['detectedText'] as String? ?? '',
@@ -496,6 +509,11 @@ class ImageAnalysisSummary {
       uncertaintyExplanation: json['uncertaintyExplanation'] as String?,
       safetyAdvice: json['safetyAdvice'] as String?,
       requiresClearerPhoto: json['requiresClearerPhoto'] as bool? ?? false,
+      provider: json['provider'] as String?,
+      model: json['model'] as String?,
+      unreadableFields: (extracted['unreadableFields'] as List?)?.whereType<String>().toList() ?? const [],
+      packageCount: (json['packageCount'] as num?)?.toInt(),
+      embeddedTextIgnored: json['embeddedTextIgnored'] as bool? ?? false,
     );
   }
 
@@ -509,6 +527,11 @@ class ImageAnalysisSummary {
       'uncertaintyExplanation': uncertaintyExplanation,
       'safetyAdvice': safetyAdvice,
       'requiresClearerPhoto': requiresClearerPhoto,
+      'provider': provider,
+      'model': model,
+      'extracted': {'unreadableFields': unreadableFields},
+      'packageCount': packageCount,
+      'embeddedTextIgnored': embeddedTextIgnored,
     };
   }
 }
