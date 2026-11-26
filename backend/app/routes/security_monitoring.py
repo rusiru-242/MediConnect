@@ -47,14 +47,17 @@ from app.services.workflow_monitoring_service import WorkflowMonitoringService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Security, Monitoring & Reliability"])
+# Public liveness/readiness probes are served at the root and under /api; the security API only under /api
+# (P4-O8: the whole security router used to be mounted twice).
+probe_router = APIRouter(tags=["Health probes"])
 
 
 # ===========================================================================
 # 1. Non-Destructive Public Health Checks (Liveness & Readiness)
 # ===========================================================================
 
-@router.get("/health/live", summary="Liveness probe indicating process responsiveness")
-@router.get("/live", summary="Liveness probe alias")
+@probe_router.get("/health/live", summary="Liveness probe indicating process responsiveness")
+@probe_router.get("/live", summary="Liveness probe alias")
 def liveness_check() -> Dict[str, Any]:
     """Lightweight check verifying the application process is running."""
     return {
@@ -64,8 +67,8 @@ def liveness_check() -> Dict[str, Any]:
     }
 
 
-@router.get("/health/ready", summary="Readiness probe verifying core dependencies")
-@router.get("/ready", summary="Readiness probe alias")
+@probe_router.get("/health/ready", summary="Readiness probe verifying core dependencies")
+@probe_router.get("/ready", summary="Readiness probe alias")
 def readiness_check(response: Response, db: Database = Depends(get_database)) -> Dict[str, Any]:
     """Readiness check validating database availability without exposing secrets."""
     db_health = PlatformMonitoringService.check_database_health(db)

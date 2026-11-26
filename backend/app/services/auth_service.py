@@ -41,7 +41,9 @@ from app.services.document_storage_service import document_storage
 from app.services.email_service import EmailService
 from app.services.google_auth_service import GoogleAuthVerifier
 from app.utils.security import (
+    access_token_expiry,
     create_access_token,
+    decode_access_token,
     generate_refresh_token,
     hash_password,
     hash_token,
@@ -604,7 +606,15 @@ class AuthService:
         )
 
     @staticmethod
-    def login(payload: LoginRequest, db: Database) -> LoginResponse:
+    def _auth_event(db: Database, event_type: str, **kwargs) -> None:
+        try:
+            from app.services.security_event_service import SecurityEventService
+            SecurityEventService.record_auth_event(db, event_type, endpoint="/api/auth/login", **kwargs)
+        except Exception as exc:  # telemetry must never change the login outcome
+            logger.warning("Auth telemetry failed (%s)", type(exc).__name__)
+
+    @staticmethod
+    def login(payload: LoginRequest, db: Database, client_ip: Optional[str] = None) -> LoginResponse:
         """Authenticate user credentials and issue access + refresh tokens."""
         normalized_email = payload.email.strip().lower()
 
@@ -619,6 +629,8 @@ class AuthService:
 
         # Generic credential rejection (does not reveal if email or password was wrong)
         if not user or not user.get("passwordHash"):
+            AuthService._auth_event(db, "LOGIN_FAILED", email=normalized_email, ip=client_ip,
+                                    reason="unknown_account_or_no_password")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password.",
@@ -626,6 +638,8 @@ class AuthService:
             )
 
         if not verify_password(payload.password, user["passwordHash"]):
+            AuthService._auth_event(db, "LOGIN_FAILED", user_id=str(user["_id"]), email=normalized_email,
+                                    ip=client_ip, reason="wrong_password")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password.",
@@ -649,6 +663,8 @@ class AuthService:
         account_status = user.get("accountStatus")
 
         if account_status == AccountStatus.SUSPENDED.value:
+            AuthService._auth_event(db, "LOGIN_BLOCKED_ACCOUNT_STATE", user_id=str(user["_id"]),
+                                    email=normalized_email, ip=client_ip, reason="suspended")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is suspended. Please contact support.",
@@ -693,6 +709,7 @@ class AuthService:
             db["refresh_tokens"].insert_one({
                 "userId": user_id_str,
                 "tokenHash": refresh_hash,
+                "familyId": refresh_hash[:32],  # one family per login; replay of a rotated token revokes it
                 "expiresAt": refresh_expires,
                 "createdAt": now,
                 "revokedAt": None,
@@ -728,6 +745,22 @@ class AuthService:
         )
 
     @staticmethod
+    def _handle_refresh_replay(token_record: Dict[str, Any], db: Database) -> None:
+        """A refresh token that was already rotated was presented again. It may have been copied, so every token of
+        that login family is revoked and a security event is recorded (no token values are stored)."""
+        now = datetime.now(timezone.utc)
+        family = token_record.get("familyId")
+        try:
+            if family:
+                db["refresh_tokens"].update_many({"familyId": family, "revokedAt": None},
+                                                 {"$set": {"revokedAt": now, "revokedReason": "replay_detected"}})
+            from app.services.security_event_service import SecurityEventService
+            SecurityEventService.record_auth_event(db, "REFRESH_TOKEN_REPLAY", user_id=token_record.get("userId"),
+                                                   severity="HIGH")
+        except Exception as exc:  # a refused refresh must never become a 500
+            logger.warning("Refresh replay handling failed (%s)", type(exc).__name__)
+
+    @staticmethod
     def refresh_token(payload: RefreshTokenRequest, db: Database) -> RefreshTokenResponse:
         """Rotate a refresh token, revoking the old one and returning a new access + refresh pair."""
         token_hash = hash_token(payload.refreshToken)
@@ -742,6 +775,8 @@ class AuthService:
             )
 
         if not token_record or token_record.get("revokedAt") is not None:
+            if token_record and token_record.get("revokedReason") == "rotated":
+                AuthService._handle_refresh_replay(token_record, db)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or revoked refresh token.",
@@ -769,12 +804,7 @@ class AuthService:
                 detail="Database error during token refresh.",
             )
 
-        is_pending_verified_doctor = (
-            user.get("role") == UserRole.DOCTOR.value
-            and user.get("emailVerified") is True
-            and user.get("accountStatus") == AccountStatus.PENDING.value
-        )
-
+        # P05-N03: the account may have been removed; check it before reading it (was an AttributeError, 500).
         if not user or not user.get("emailVerified") or user.get("accountStatus") == AccountStatus.SUSPENDED.value:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -782,6 +812,11 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        is_pending_verified_doctor = (
+            user.get("role") == UserRole.DOCTOR.value
+            and user.get("emailVerified") is True
+            and user.get("accountStatus") == AccountStatus.PENDING.value
+        )
         if not is_pending_verified_doctor and user.get("accountStatus") != AccountStatus.ACTIVE.value:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -789,17 +824,24 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Invalidate the used refresh token immediately (token rotation)
+        # Invalidate the used refresh token (rotation). Conditional on it still being active, so two concurrent
+        # refreshes with the same token cannot both succeed (P05-N02: the update was unconditional).
         try:
-            db["refresh_tokens"].update_one(
-                {"_id": token_record["_id"]},
-                {"$set": {"revokedAt": now}},
+            claimed = db["refresh_tokens"].update_one(
+                {"_id": token_record["_id"], "revokedAt": None},
+                {"$set": {"revokedAt": now, "revokedReason": "rotated"}},
             )
         except PyMongoError as exc:
             logger.error("Failed to revoke old refresh token during rotation: %s", type(exc).__name__)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to update session state.",
+            )
+        if not claimed.modified_count:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or revoked refresh token.",
+                headers={"WWW-Authenticate": "Bearer"},
             )
 
         # Generate fresh access token and new rotated refresh token
@@ -812,6 +854,8 @@ class AuthService:
             db["refresh_tokens"].insert_one({
                 "userId": str(user["_id"]),
                 "tokenHash": new_refresh_hash,
+                "familyId": token_record.get("familyId") or token_record["tokenHash"][:32],
+                "parentTokenId": token_record["_id"],
                 "expiresAt": new_expires_at,
                 "createdAt": now,
                 "revokedAt": None,
@@ -832,16 +876,27 @@ class AuthService:
         )
 
     @staticmethod
-    def logout(payload: LogoutRequest, db: Database) -> LogoutResponse:
-        """Revoke the submitted refresh token to terminate session."""
+    def logout(payload: LogoutRequest, db: Database, access_token: Optional[str] = None) -> LogoutResponse:
+        """Revoke the submitted refresh token and, when supplied, the current access token (Phase 05)."""
         token_hash = hash_token(payload.refreshToken)
         now = datetime.now(timezone.utc)
 
         try:
             db["refresh_tokens"].update_one(
                 {"tokenHash": token_hash, "revokedAt": None},
-                {"$set": {"revokedAt": now}},
+                {"$set": {"revokedAt": now, "revokedReason": "logout"}},
             )
+            if access_token:
+                try:
+                    claims = decode_access_token(access_token)
+                    db["revoked_access_tokens"].update_one(
+                        {"_id": claims["jti"]},
+                        {"$setOnInsert": {"userId": claims["sub"], "revokedAt": now,
+                                          "expiresAt": access_token_expiry(claims)}},
+                        upsert=True,
+                    )
+                except HTTPException:
+                    pass  # an expired or invalid access token needs no revocation
         except PyMongoError as exc:
             logger.error("Database error during logout: %s", type(exc).__name__)
 
@@ -1053,6 +1108,8 @@ class AuthService:
                     "$set": {
                         "passwordHash": new_password_hash,
                         "updatedAt": now,
+                        # Phase 05: access tokens issued before the reset stop working.
+                        "tokensValidAfter": now.replace(microsecond=0),
                     }
                 },
             )
@@ -1186,6 +1243,7 @@ class AuthService:
             db["refresh_tokens"].insert_one({
                 "userId": user_id_str,
                 "tokenHash": refresh_hash,
+                "familyId": refresh_hash[:32],  # one family per login; replay of a rotated token revokes it
                 "expiresAt": refresh_expires,
                 "createdAt": now,
                 "revokedAt": None,

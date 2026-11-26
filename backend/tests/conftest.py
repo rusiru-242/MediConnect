@@ -18,6 +18,11 @@ os.environ.setdefault("MONGODB_URI", "mongodb://127.0.0.1:27017/mediconnect_test
 os.environ.setdefault("DATABASE_NAME", "mediconnect_test")
 os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_mock_secret_key")
 os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test_mock_webhook_secret")
+# Phase 05: the test session never inherits the JWT secret, environment or provider keys from backend/.env.
+os.environ.setdefault("ENVIRONMENT", "test")
+if not os.environ.get("JWT_SECRET"):
+    import secrets as _secrets
+    os.environ["JWT_SECRET"] = os.environ["JWT_SECRET_KEY"] = _secrets.token_urlsafe(48)
 
 from app.config.db_safety import isolation_error  # noqa: E402  (pure parsing helper, no settings import)
 
@@ -40,3 +45,19 @@ def pytest_runtest_logreport(report):
     if os.environ.get("GITHUB_ACTIONS") == "true" and report.failed:
         detail = (report.longreprtext or "")[-900:]
         print(f"\n::error title={_gha_escape(report.nodeid, prop=True)}::{_gha_escape(detail)}", flush=True)
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _fresh_rate_limit_counters():
+    """Rate-limit counters are shared through MongoDB since Phase 05, so they survive between pytest runs. Each test
+    session starts from empty counters in its own (local, *_test) database."""
+    from app.config.database import DatabaseManager
+    from app.utils.rate_limiter import COLLECTION
+    try:
+        DatabaseManager.get_database()[COLLECTION].delete_many({})
+    except Exception:
+        pass
+    yield

@@ -55,7 +55,8 @@ def main() -> int:
     name = os.environ.get("DATABASE_NAME", "")
     if not uri or not name:
         sys.exit("Set MONGODB_URI and DATABASE_NAME explicitly.")
-    if (urlsplit(uri).hostname or "") not in {"localhost", "127.0.0.1"} and not args.allow_remote:
+    from app.config.db_safety import is_local_mongodb_uri  # parses every host (Phase 05; was urlsplit hostname)
+    if not is_local_mongodb_uri(uri) and not args.allow_remote:
         sys.exit("Refusing a non-local database without --allow-remote (requires owner approval).")
     mode = "revert" if args.revert else "apply" if args.apply else "dry-run"
     print(run(MongoClient(uri)[name], mode))

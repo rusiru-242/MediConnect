@@ -24,25 +24,16 @@ from app.services.booking_session_service import BookingSessionService
 
 ai_booking_router = APIRouter(prefix="/ai/booking", tags=["AI Booking Agent"])
 
-# In-memory sliding window rate limiter: max 30 requests per minute per patient
-_RATE_LIMIT_BUCKET: Dict[str, list] = {}
+# Shared (MongoDB) limiter, 30 requests per minute per patient (Phase 05, BUG-038).
+from app.utils.rate_limiter import LimiterResetHandle, ai_booking_limiter  # noqa: E402
+
+_RATE_LIMIT_BUCKET = LimiterResetHandle(ai_booking_limiter)  # tests call .clear()
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_MAX_REQUESTS = 30
 
 
 def _check_rate_limit(user_id: str) -> None:
-    now = time.time()
-    history = _RATE_LIMIT_BUCKET.setdefault(user_id, [])
-    # Evict timestamps older than 60s
-    while history and history[0] <= now - RATE_LIMIT_WINDOW_SECONDS:
-        history.pop(0)
-
-    if len(history) >= RATE_LIMIT_MAX_REQUESTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many requests to the AI Booking Assistant. Please wait a moment before sending another message.",
-        )
-    history.append(now)
+    ai_booking_limiter.check(user_id)
 
 
 # ---------------------------------------------------------------------------

@@ -43,3 +43,7 @@ def create_token_indexes(db: Database) -> None:
         expireAfterSeconds=0,
         name="idx_refresh_tokens_ttl",
     )
+    collection.create_index([("familyId", ASCENDING)], name="idx_refresh_tokens_family", sparse=True)
+    # Access-token deny-list (logout); each entry expires with the token it revokes (Phase 05).
+    db["revoked_access_tokens"].create_index([("expiresAt", ASCENDING)], expireAfterSeconds=0,
+                                             name="idx_revoked_access_tokens_ttl")

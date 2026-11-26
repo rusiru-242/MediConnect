@@ -50,6 +50,9 @@ def create_access_token(
         "sub": user_id,
         "role": role,
         "type": "access",
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "jti": secrets.token_urlsafe(16),  # lets logout revoke this access token before it expires
         "iat": int(now.timestamp()),
         "exp": int(expire.timestamp()),
     }
@@ -70,8 +73,10 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         payload = jwt.decode(
             token,
             settings.JWT_SECRET,
-            algorithms=[settings.JWT_ALGORITHM],
-            options={"require": ["exp", "iat", "sub", "role"]},
+            algorithms=[settings.JWT_ALGORITHM],  # a single configured HMAC algorithm; never "none"
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
+            options={"require": ["exp", "iat", "sub", "role", "type", "jti", "iss", "aud"]},
         )
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -108,3 +113,7 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         )
 
     return payload
+
+
+def access_token_expiry(payload: Dict[str, Any]) -> datetime:
+    return datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)

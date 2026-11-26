@@ -1,9 +1,10 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Request, Security, UploadFile, status
+from fastapi.security import HTTPAuthorizationCredentials
 from pymongo.database import Database
 
 from app.config.database import get_database
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, security_bearer
 from app.schemas.auth import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
@@ -31,6 +32,7 @@ from app.schemas.user import UserResponseSchema
 from app.services.auth_service import AuthService
 from app.utils.rate_limiter import (
     auth_login_limiter,
+    auth_refresh_limiter,
     auth_otp_limiter,
     auth_password_reset_limiter,
     auth_register_limiter,
@@ -147,7 +149,7 @@ def login(
 ) -> LoginResponse:
     """Handle user login and session initialization."""
     auth_login_limiter.check(get_client_ip(request))
-    return AuthService.login(payload, db)
+    return AuthService.login(payload, db, client_ip=get_client_ip(request))
 
 
 @router.get(
@@ -173,9 +175,11 @@ def get_me(
 )
 def refresh_token(
     payload: RefreshTokenRequest,
+    request: Request,
     db: Database = Depends(get_database),
 ) -> RefreshTokenResponse:
     """Handle refresh token rotation."""
+    auth_refresh_limiter.check(get_client_ip(request))
     return AuthService.refresh_token(payload, db)
 
 
@@ -189,9 +193,10 @@ def refresh_token(
 def logout(
     payload: LogoutRequest,
     db: Database = Depends(get_database),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security_bearer),
 ) -> LogoutResponse:
-    """Handle user logout and session invalidation."""
-    return AuthService.logout(payload, db)
+    """Handle user logout: revoke the refresh token and, when sent, the current access token."""
+    return AuthService.logout(payload, db, access_token=credentials.credentials if credentials else None)
 
 
 @router.post(

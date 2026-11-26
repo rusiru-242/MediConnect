@@ -21,6 +21,14 @@ class DatabaseManager:
         if cls._client is None:
             if not settings.MONGODB_URI or not settings.MONGODB_URI.strip():
                 raise ConnectionError("MONGODB_URI environment variable is not configured.")
+            # Fail closed (P4-B5): every code path that reaches MongoDB through the application (API, worker,
+            # scripts that import the app) is checked here, not only the API lifespan.
+            from app.config.runtime_safety import database_target_error
+            problem = database_target_error(settings.MONGODB_URI, settings.DATABASE_NAME, settings.ENVIRONMENT,
+                                            settings.ALLOW_REMOTE_DATABASE)
+            if problem:
+                logger.error("Database target refused: %s", problem)
+                raise ConnectionError(problem)
             try:
                 try:
                     import dns.resolver

@@ -26,7 +26,12 @@ export function resolveApiBaseUrl(
     return '/api';
   }
 
-  return 'http://localhost:8000/api';
+  // Development without VITE_API_BASE_URL uses the isolated local UAT backend (127.0.0.1:8001), never port 8000,
+  // which is the production-like default (Phase 05, P4-B3). Set VITE_API_BASE_URL explicitly in .env.local.
+  console.warn(
+    '[MediConnect Admin] VITE_API_BASE_URL is not set; using the local UAT backend http://127.0.0.1:8001/api.'
+  );
+  return 'http://127.0.0.1:8001/api';
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();

@@ -12,6 +12,23 @@ from app.utils.security import decode_access_token
 security_bearer = HTTPBearer(auto_error=False)
 
 
+def _aware(value):
+    from datetime import timezone
+    if value is None or getattr(value, "tzinfo", None) is not None:
+        return value
+    return value.replace(tzinfo=timezone.utc)
+
+
+def access_token_revoked(payload: dict, user: dict, db: Database) -> bool:
+    """True when the access token was revoked at logout (jti deny-list) or issued before the account's
+    ``tokensValidAfter`` (set on suspension and password reset), Phase 05."""
+    valid_after = _aware(user.get("tokensValidAfter"))
+    if valid_after is not None and int(payload.get("iat") or 0) < int(valid_after.timestamp()):
+        return True
+    jti = payload.get("jti")
+    return bool(jti) and db["revoked_access_tokens"].find_one({"_id": jti}, {"_id": 1}) is not None
+
+
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security_bearer),
     db: Database = Depends(get_database),
@@ -46,6 +63,12 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if access_token_revoked(payload, user, db):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has ended. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -181,7 +204,7 @@ def get_optional_current_user(
             query = {"_id": user_id}
 
         user = db["users"].find_one(query)
-        if not user or not user.get("emailVerified"):
+        if not user or not user.get("emailVerified") or access_token_revoked(payload, user, db):
             return None
         if user.get("accountStatus") == AccountStatus.SUSPENDED.value:
             return None

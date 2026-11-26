@@ -142,8 +142,9 @@ describe('Admin Authentication & Protected Routes', () => {
       expect(resolveApiBaseUrl('', true)).toBe('/api');
     });
 
-    it('defaults to localhost:8000/api in development when empty', () => {
-      expect(resolveApiBaseUrl('', false)).toBe('http://localhost:8000/api');
+    // Expectation changed in Phase 05 (P4-B3): an unset development target must not silently use port 8000.
+    it('defaults to the local UAT backend (127.0.0.1:8001) in development when empty', () => {
+      expect(resolveApiBaseUrl('', false)).toBe('http://127.0.0.1:8001/api');
     });
   });
 });

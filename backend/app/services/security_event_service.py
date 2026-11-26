@@ -35,6 +35,57 @@ class SecurityEventService:
             return [cls.sanitize_metadata(item) for item in data]
         return data
 
+    @staticmethod
+    def pseudonym(value: Optional[str]) -> Optional[str]:
+        """Keyed, non-reversible reference for an e-mail address or IP address (P4-B9). The raw value is never
+        stored, and the same value maps to the same reference so repeated attempts can be correlated."""
+        import hashlib
+        import hmac
+        from app.config.settings import settings
+        if not value:
+            return None
+        key = ("mediconnect-telemetry:" + (settings.JWT_SECRET or "")).encode("utf-8")
+        return hmac.new(key, value.strip().lower().encode("utf-8"), hashlib.sha256).hexdigest()[:20]
+
+    AUTH_EVENT_TYPES = {
+        "LOGIN_FAILED": (SecurityEventCategory.AUTH_FAILURE, "Login rejected"),
+        "LOGIN_BLOCKED_ACCOUNT_STATE": (SecurityEventCategory.AUTH_FAILURE, "Login refused for account state"),
+        "REFRESH_TOKEN_REPLAY": (SecurityEventCategory.UNAUTHORIZED_ACCESS,
+                                 "A rotated refresh token was reused; the session family was revoked"),
+        "REFRESH_REJECTED": (SecurityEventCategory.AUTH_FAILURE, "Refresh token rejected"),
+        "RATE_LIMITED": (SecurityEventCategory.RATE_LIMIT_EXCEEDED, "Request rate limit exceeded"),
+    }
+    BRUTE_FORCE_THRESHOLD = 5          # failed logins for one account reference ...
+    BRUTE_FORCE_WINDOW_MINUTES = 15    # ... within this window raise one BRUTE_FORCE signal
+
+    @classmethod
+    def record_auth_event(cls, db: Database, event_type: str, *, user_id: Optional[str] = None,
+                          email: Optional[str] = None, ip: Optional[str] = None, reason: Optional[str] = None,
+                          severity: str = "LOW", endpoint: Optional[str] = None) -> None:
+        """Privacy-preserving authentication telemetry (P4-B9): no password, token, e-mail or IP is stored; only
+        keyed pseudonyms. The HTTP response is unchanged, so telemetry adds no account-enumeration signal."""
+        category, description = cls.AUTH_EVENT_TYPES[event_type]
+        account_ref = cls.pseudonym(email)
+        metadata = {"eventType": event_type, "accountRef": account_ref, "sourceRef": cls.pseudonym(ip),
+                    "reason": reason}
+        cls.record_security_event(category, SecuritySeverity(severity), description, actor_id=user_id,
+                                  endpoint=endpoint, metadata=metadata, db=db)
+        if event_type == "LOGIN_FAILED" and account_ref:
+            since = utc_now() - timedelta(minutes=cls.BRUTE_FORCE_WINDOW_MINUTES)
+            recent = db["security_events"].count_documents({"metadata.eventType": "LOGIN_FAILED",
+                                                            "metadata.accountRef": account_ref,
+                                                            "timestamp": {"$gte": since}})
+            already = db["security_events"].count_documents({"category": SecurityEventCategory.BRUTE_FORCE.value,
+                                                             "metadata.accountRef": account_ref,
+                                                             "timestamp": {"$gte": since}})
+            if recent >= cls.BRUTE_FORCE_THRESHOLD and not already:
+                cls.record_security_event(
+                    SecurityEventCategory.BRUTE_FORCE, SecuritySeverity.MEDIUM,
+                    f"{recent} failed logins for one account within {cls.BRUTE_FORCE_WINDOW_MINUTES} minutes "
+                    "(signal for review; no automatic lock)", actor_id=user_id, endpoint=endpoint,
+                    metadata={"eventType": "REPEATED_LOGIN_FAILURES", "accountRef": account_ref,
+                              "failedAttempts": recent}, db=db)
+
     @classmethod
     def record_security_event(
         cls,

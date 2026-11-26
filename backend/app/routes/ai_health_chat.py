@@ -18,25 +18,18 @@ from app.services.health_chat_service import HealthChatService
 
 ai_health_chat_router = APIRouter(prefix="/ai/health-chat", tags=["AI Health Chatbot"])
 
-# Sliding window in-memory rate limiter: max 30 requests per minute per patient
-_HEALTH_CHAT_RATE_LIMIT_BUCKET: Dict[str, list] = {}
+# Shared (MongoDB) limiter, 30 requests per minute per patient (Phase 05, BUG-038). The 429 message carries the
+# emergency number so a rate-limited patient is never left without urgent-care guidance.
+from app.utils.rate_limiter import LimiterResetHandle, ai_health_chat_limiter  # noqa: E402
+
+_HEALTH_CHAT_RATE_LIMIT_BUCKET = LimiterResetHandle(ai_health_chat_limiter)
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_MAX_REQUESTS = 30
 
 
 def _check_rate_limit(user_id: str) -> None:
-    """Sliding-window rate limiter per authenticated patient."""
-    now = time.time()
-    history = _HEALTH_CHAT_RATE_LIMIT_BUCKET.setdefault(user_id, [])
-    while history and history[0] <= now - RATE_LIMIT_WINDOW_SECONDS:
-        history.pop(0)
-
-    if len(history) >= RATE_LIMIT_MAX_REQUESTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many requests to the AI Health Assistant. Please wait a moment before sending another message.",
-        )
-    history.append(now)
+    """Shared rate limit per authenticated patient."""
+    ai_health_chat_limiter.check(user_id)
 
 
 # ---------------------------------------------------------------------------

@@ -687,6 +687,10 @@ class AdminService:
             # Access tokens already stop working on the next request (the auth middleware reads the account);
             # refresh tokens are revoked as well so no new session can be issued.
             db["refresh_tokens"].update_many({"userId": str(u_oid), "revokedAt": None}, {"$set": {"revokedAt": now}})
+            # Phase 05: access tokens issued before suspension stay invalid after a later reinstatement.
+            import math
+            db["users"].update_one({"_id": u_oid}, {"$set": {
+                "tokensValidAfter": datetime.fromtimestamp(math.ceil(now.timestamp()), tz=timezone.utc)}})
         AdminAuditService.log_action(
             db=db, actor_id=str(admin_user_id), actor_role="ADMIN", action_type=AdminAuditAction.USER_STATUS_CHANGE,
             target_id=str(u_oid), target_type="user", previous_state=previous, new_state=clean_status,
