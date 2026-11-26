@@ -99,7 +99,7 @@ def main(out_path, pid):
         scenario('liveness probe', 'GET', ROOT + '/health/live', 400, 20, pid=pid),
         scenario('readiness probe (database ping)', 'GET', ROOT + '/health/ready', 300, 20, pid=pid),
         scenario('authenticated profile (/auth/me)', 'GET', BASE + '/auth/me', 300, 20, token=patient, pid=pid),
-        scenario('public doctor search', 'GET', BASE + '/doctors?specialty=Cardiologist', 200, 10, pid=pid),
+        scenario('doctor search (signed-in patient)', 'GET', BASE + '/doctors?specialty=Cardiologist', 200, 10, token=patient, pid=pid),
         scenario('patient appointments list', 'GET', BASE + '/appointments/me', 200, 10, token=patient, pid=pid),
         scenario('doctor appointment list', 'GET', BASE + '/doctors/me/appointments', 200, 10, token=doctor, pid=pid),
         scenario('admin dashboard analytics (30 days)', 'GET', BASE + '/admin/analytics/overview', 100, 5, token=admin, pid=pid),

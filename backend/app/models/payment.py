@@ -91,6 +91,8 @@ def create_payment_indexes(db: Database) -> None:
         [("appointmentId", ASCENDING)],
         name="idx_payments_appointment_id",
     )
+    # Phase 05 (P4-O4): admin payment list pages newest first in MongoDB.
+    collection.create_index([("createdAt", DESCENDING), ("_id", DESCENDING)], name="idx_payments_created_desc")
 
     # Unique lookup per Stripe PaymentIntent
     collection.create_index(

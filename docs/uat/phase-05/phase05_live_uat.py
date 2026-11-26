@@ -108,7 +108,8 @@ def main(out_path):
     step('W10a', 'Worker heartbeat after backend restart', 'active with a recent heartbeat',
          {'status': worker.get('status'), 'lastHeartbeat': worker.get('lastHeartbeat')}, worker.get('status') == 'active')
     dup_events = list(DB.care_reminder_events.aggregate([
-        {'$group': {'_id': {'s': '$sourceId', 'k': '$kind', 'at': '$scheduledAt'}, 'n': {'$sum': 1}}},
+        # 24 h and 2 h appointment reminders share scheduledAt; one occurrence = source, kind, time and due time.
+        {'$group': {'_id': {'s': '$sourceId', 'k': '$kind', 'at': '$scheduledAt', 'due': '$dueAt'}, 'n': {'$sum': 1}}},
         {'$match': {'n': {'$gt': 1}}}]))
     dup_notes = list(DB.notifications.aggregate([
         {'$match': {'idempotencyKey': {'$exists': True, '$ne': None}}},

@@ -117,6 +117,8 @@ def create_appointment_indexes(db: Database) -> None:
     The partial unique index on (doctorUserId, appointmentDate, startTime) for
     non-cancelled appointments provides database-level double-booking protection.
     """
+    # Phase 05 (P4-O4): admin appointment list pages newest first in MongoDB.
+    db["appointments"].create_index([("createdAt", -1), ("_id", -1)], name="idx_appointments_created_desc")
     collection = get_appointment_collection(db)
 
     # Patient lookup
