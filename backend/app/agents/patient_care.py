@@ -29,13 +29,55 @@ async def respond_to_care(db, user, provider, session, text, category=None):
             "Open My Care Plan and choose the exact medication occurrence to record or correct an action. "
             "A clinician must approve the exact times before medication reminders are activated."
         )
+    elif category == "notification_action":
+        # A02: the assistant never changes notification state; the user does it in the app.
+        message = ("I can't change your notifications from the chat. Open Notifications and use Mark as read or "
+                   "Mark all as read.")
+    elif category == "notifications":
+        output = await AIOrchestrator(db, user, provider).execute(
+            "get_my_notifications", {"unread_only": True}, {"get_my_notifications"})
+        if output.get("error"):
+            message = "Your notifications are temporarily unavailable. Open Notifications in the app."
+        elif not output.get("unreadCount"):
+            message = "You have no unread notifications."
+        else:
+            lines = [f"{datetime.fromisoformat(item['createdAt']).astimezone(COLOMBO):%d %b %H:%M} · {item['title']}"
+                     for item in output["items"] if item.get("createdAt")]
+            message = (f"You have {output['unreadCount']} unread notification"
+                       f"{'s' if output['unreadCount'] != 1 else ''}.\n" + "\n".join(lines)
+                       + "\nOpen Notifications to read them.")
+    elif category == "missed":
+        # Past medication occurrences with no recorded action, from the clinician-approved schedule only.
+        today = datetime.now(COLOMBO).date()
+        yesterday = bool(re.search(r"\byesterday\b|\biye\b|ඊයේ", query))
+        start = today - timedelta(days=1) if yesterday else today - timedelta(days=6)
+        output = await AIOrchestrator(db, user, provider).execute(
+            "get_my_care_agenda",
+            {"day": start.isoformat(), "days": 1 if yesterday else 7, "kind": "medication", "unrecorded_only": True},
+            {"get_my_care_agenda"})
+        items = output.get("items", [])
+        if output.get("error"):
+            message = "Your care records are temporarily unavailable. Try My Care Plan."
+        elif not items:
+            message = ("No scheduled medicine doses without a recorded action "
+                       f"{'yesterday' if yesterday else 'in the last 7 days'}.")
+        else:
+            lines = [f"{datetime.fromisoformat(item['scheduledAt']).astimezone(COLOMBO):%d %b %H:%M} · {item['title']}"
+                     for item in items[:10]]
+            message = ("Scheduled doses with no action recorded:\n" + "\n".join(lines)
+                       + "\nIf you took a dose but did not record it, open My Care Plan to record it. "
+                         "For what to do about a missed dose, ask your pharmacist or the doctor who prescribed it.")
     elif category:
         day = datetime.now(COLOMBO).date()
         tomorrow = bool(re.search(r"\b(?:tomorrow|heta)\b|හෙට|நாளை", query))
         day += timedelta(days=int(tomorrow))
-        days = 7 if re.search(r"\b(?:next|upcoming|coming)\b", query) and category in {"appointment", "test"} and not tomorrow else 1
+        # A02-BUG-013: "this week" read only today, and "next appointment" listed one that had already started.
+        upcoming = bool(re.search(r"\b(?:next|upcoming|coming)\b", query))
+        week = bool(re.search(r"\bthis week\b|\bweek\b|sathiye|සතියේ", query))
+        days = 7 if (upcoming or week) and category in {"appointment", "test"} and not tomorrow else 1
         tool = "get_my_health_tracking_summary" if category == "readings" else "get_my_care_agenda"
-        arguments = {} if category == "readings" else {"day": day.isoformat(), "days": days, "kind": category}
+        arguments = {} if category == "readings" else {"day": day.isoformat(), "days": days, "kind": category,
+                                                        "upcoming_only": upcoming and not tomorrow}
         output = await AIOrchestrator(db, user, provider).execute(tool, arguments, {tool})
         items = output.get("items", [])
         if output.get("error"):

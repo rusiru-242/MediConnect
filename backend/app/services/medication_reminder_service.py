@@ -79,6 +79,38 @@ def expected_doses_per_day(frequency: str) -> Optional[int]:
     return None
 
 
+_AS_NEEDED = re.compile(r"\b(?:prn|as needed|as required|when needed|when required|if needed|sos|stat)\b")
+_DOSE_PATTERNS = (
+    (4, r"\b(?:four times (?:a day|daily)|qds|qid|every 6 (?:hours|hrs?))\b"),
+    (3, r"\b(?:three times (?:a day|daily)|thrice daily|tds|tid|every 8 (?:hours|hrs?))\b"),
+    (2, r"\b(?:twice (?:a day|daily)|bd|bid|every 12 (?:hours|hrs?))\b"),
+    (1, r"\b(?:once (?:a day|daily)|once at (?:bedtime|night)|at bedtime|nocte|od|daily|every (?:morning|night|day))\b"),
+)
+
+
+def prescribed_doses_per_day(frequency: str) -> Optional[int]:
+    """Daily dose count only when the prescribed frequency states it unambiguously (A02-BUG-011).
+
+    ``expected_doses_per_day`` matched substrings, so "after food" counted as "od" (once daily) and an "as needed"
+    (PRN) medicine or a weekly medicine accepted any number of daily reminder times. None means the schedule must
+    come from the clinician (My Care Plan), never from the patient or the app.
+    """
+    text = re.sub(r"\s+", " ", (frequency or "").strip().casefold())
+    if not text or _AS_NEEDED.search(text) or re.search(r"\b(?:week|weekly|month|monthly|alternate|other day)\b", text):
+        return None
+    # The most specific statement wins ("twice daily" also contains "daily").
+    return next((count for count, pattern in _DOSE_PATTERNS if re.search(pattern, text)), None)
+
+
+def prescribed_duration_days(duration: str) -> Optional[int]:
+    """Number of days only when the prescription states it as days or weeks; no default is invented."""
+    match = re.fullmatch(r"([1-9][0-9]{0,2})\s*(day|week)s?", (duration or "").strip().casefold())
+    if not match:
+        return None
+    days = int(match[1]) * (7 if match[2] == "week" else 1)
+    return days if days <= 366 else None
+
+
 def get_safe_timezone(tz_name: Optional[str]) -> ZoneInfo:
     """Safely return a ZoneInfo instance with fallback to Asia/Colombo."""
     fallback = ZoneInfo("Asia/Colombo")
@@ -162,10 +194,19 @@ class MedicationReminderService:
                 detail=f"An active reminder already exists for {med_item.get('medicationName')} from this prescription.",
             )
 
-        # 6. Validate schedule times count against prescribed frequency
+        # 6. Validate schedule times count against prescribed frequency. A02-BUG-011: a frequency or duration that
+        #    does not state a daily schedule (as needed, weekly, unparsed) is refused instead of accepting any times
+        #    and inventing a 7-day course.
         freq = med_item.get("frequency", "")
-        expected_doses = expected_doses_per_day(freq)
-        if expected_doses is not None and len(req.scheduledTimes) != expected_doses:
+        expected_doses = prescribed_doses_per_day(freq)
+        duration_days = prescribed_duration_days(med_item.get("duration", ""))
+        if expected_doses is None or duration_days is None or rx_status not in {"ISSUED", "DISPENSED", "AMENDED"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=("This prescription does not state a fixed daily schedule and duration, so the app cannot "
+                        "set reminder times for it. Ask your doctor to approve a reminder schedule in My Care Plan."),
+            )
+        if len(req.scheduledTimes) != expected_doses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -175,10 +216,21 @@ class MedicationReminderService:
                 ),
             )
 
-        # 7. Calculate start and end dates
+        # 7. Calculate start and end dates. The course cannot be extended beyond the prescribed duration.
         start_dt = req.startDate or utc_now()
-        duration_days = parse_duration_days(med_item.get("duration", "7 days"))
-        end_dt = req.endDate or (start_dt + timedelta(days=duration_days))
+        if start_dt.tzinfo is None:
+            start_dt = start_dt.replace(tzinfo=timezone.utc)
+        if start_dt < utc_now() - timedelta(days=1):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "The reminder start date has already passed.")
+        prescribed_end = start_dt + timedelta(days=duration_days)
+        end_dt = req.endDate or prescribed_end
+        if end_dt.tzinfo is None:
+            end_dt = end_dt.replace(tzinfo=timezone.utc)
+        if not start_dt < end_dt <= prescribed_end:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Reminders can run for at most the prescribed duration ({med_item.get('duration')}).",
+            )
 
         # 8. Generate reference ID
         now = utc_now()
@@ -313,8 +365,8 @@ class MedicationReminderService:
 
         if req.scheduledTimes is not None:
             freq = raw.get("frequency", "")
-            expected_doses = expected_doses_per_day(freq)
-            if expected_doses is not None and len(req.scheduledTimes) != expected_doses:
+            expected_doses = prescribed_doses_per_day(freq)
+            if expected_doses is None or len(req.scheduledTimes) != expected_doses:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(

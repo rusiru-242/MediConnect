@@ -245,12 +245,17 @@ class BookingAgent:
                              {"type": "medication_change_requires_clinician", "scheduleChanged": False,
                               "ambulanceCall": AMBULANCE_NUMBER},
                              intent_value="MEDICATION_CHANGE_REQUEST")
-            if patient_intent in {"medication_schedule", "medical_tests"}:
+            if patient_intent in {"medication_schedule", "medical_tests", "missed_medication", "unread_notifications",
+                                  "notification_action"}:
                 if patient_user:
                     from app.agents.patient_care import respond_to_care
                     care = await respond_to_care(db, patient_user, get_ai_provider(), session_data, clean_text,
-                                                 category="medication" if patient_intent == "medication_schedule"
-                                                 else "test")
+                                                 category={"medication_schedule": "medication",
+                                                           "medical_tests": "test",
+                                                           "missed_medication": "missed",
+                                                           "unread_notifications": "notifications",
+                                                           "notification_action": "notification_action",
+                                                           }[patient_intent])
                     if care is not None:
                         return care
                 return reply(
