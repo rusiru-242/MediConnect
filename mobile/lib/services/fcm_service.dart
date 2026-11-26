@@ -152,6 +152,17 @@ class FcmService {
         debugPrint('[FCM] Error removing token from backend: $e');
       }
     }
+    // A02-BUG-017: if the backend call failed (offline, timeout), the server still held this token and kept
+    // sending the signed-out account's pushes to the device. Deleting the token at FCM invalidates it: later sends
+    // fail as "unregistered" and the backend removes it. A new token is issued at the next sign-in.
+    if (_isInitialized) {
+      try {
+        await FirebaseMessaging.instance.deleteToken().timeout(const Duration(milliseconds: 1500));
+      } catch (e) {
+        debugPrint('[FCM] Could not delete the device token: $e');
+      }
+    }
+    _currentToken = null;
   }
 
   /// Handle notification arriving while user is actively in the app.

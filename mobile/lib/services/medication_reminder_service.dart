@@ -117,7 +117,7 @@ class MedicationReminderService {
     );
 
     // Cancel local notifications
-    _cancelLocalNotificationsForId(reminderId);
+    await _cancelLocalNotificationsForId(reminderId);
 
     if (response is Map<String, dynamic>) {
       return response['success'] == true;
@@ -198,14 +198,24 @@ class MedicationReminderService {
     throw Exception('Unexpected response format when fetching adherence summary.');
   }
 
-  /// Synchronize local scheduled notifications across all active reminders.
+  /// Payload prefix of every device-local medication reminder.
+  static const String payloadPrefix = 'medrem:';
+
+  /// Days of occurrences scheduled ahead on the device; re-planned whenever the reminders list is loaded.
+  static const int horizonDays = 7;
+
+  /// Synchronize device-local reminders with the server (A02-BUG-016).
+  ///
+  /// Before A02 only reminders still returned as active were (re)scheduled, as open-ended daily repeats: a
+  /// reminder cancelled on the server, on another device or by a prescription change kept firing on this phone,
+  /// and every reminder kept firing after its prescribed end date. Now every pending local medication reminder is
+  /// cancelled and only occurrences of active reminders inside their start/end dates are scheduled again.
   Future<void> syncLocalReminders(List<MedicationReminder> reminders) async {
     try {
+      await _notificationService.cancelPendingWithPayloadPrefix(payloadPrefix);
       for (final r in reminders) {
         if (r.enabled && r.status == 'ACTIVE') {
           await _scheduleLocalNotificationsForReminder(r);
-        } else {
-          await _cancelLocalNotificationsForReminder(r);
         }
       }
     } catch (e) {
@@ -213,42 +223,62 @@ class MedicationReminderService {
     }
   }
 
-  /// Schedule notifications for each daily time of a reminder.
-  Future<void> _scheduleLocalNotificationsForReminder(MedicationReminder reminder) async {
-    for (int i = 0; i < reminder.scheduledTimes.length; i++) {
-      final timeStr = reminder.scheduledTimes[i];
-      final parts = timeStr.split(':');
-      if (parts.length == 2) {
-        final hour = int.tryParse(parts[0]) ?? 8;
-        final minute = int.tryParse(parts[1]) ?? 0;
-        final notifId = _generateNotificationId(reminder.id, i);
-
-        await _notificationService.scheduleDailyMedicationReminder(
-          notificationId: notifId,
-          hour: hour,
-          minute: minute,
-          payload: reminder.id,
-        );
+  /// Exact occurrences of [reminder] in the next [days] days, inside its start and end dates.
+  ///
+  /// Reminder times are Asia/Colombo wall-clock times (UTC+05:30, no daylight saving), the only zone the backend
+  /// schedules in. No time is invented: an unparsable time is skipped.
+  static List<MapEntry<int, DateTime>> planOccurrences(MedicationReminder reminder, DateTime now,
+      {int days = horizonDays}) {
+    const offset = Duration(hours: 5, minutes: 30);
+    final nowUtc = now.toUtc();
+    final localToday = nowUtc.add(offset);
+    final result = <MapEntry<int, DateTime>>[];
+    for (var d = 0; d <= days; d++) {
+      final day = DateTime.utc(localToday.year, localToday.month, localToday.day + d);
+      for (var slot = 0; slot < reminder.scheduledTimes.length; slot++) {
+        final match = RegExp(r'^([01][0-9]|2[0-3]):([0-5][0-9])$').firstMatch(reminder.scheduledTimes[slot]);
+        if (match == null) continue;
+        final whenUtc = DateTime.utc(day.year, day.month, day.day, int.parse(match.group(1)!),
+                int.parse(match.group(2)!))
+            .subtract(offset);
+        if (!whenUtc.isAfter(nowUtc)) continue;
+        if (whenUtc.isBefore(reminder.startDate.toUtc()) || !whenUtc.isBefore(reminder.endDate.toUtc())) continue;
+        final key = '${reminder.id}:${day.toIso8601String().substring(0, 10)}:$slot';
+        result.add(MapEntry(_hashId(key), whenUtc));
       }
+    }
+    return result;
+  }
+
+  Future<void> _scheduleLocalNotificationsForReminder(MedicationReminder reminder) async {
+    await _cancelLocalNotificationsForId(reminder.id);
+    for (final occurrence in planOccurrences(reminder, DateTime.now())) {
+      await _notificationService.scheduleMedicationOccurrence(
+        notificationId: occurrence.key,
+        whenUtc: occurrence.value,
+        payload: '$payloadPrefix${reminder.id}',
+      );
     }
   }
 
   /// Cancel all notifications associated with a reminder.
   Future<void> _cancelLocalNotificationsForReminder(MedicationReminder reminder) async {
-    _cancelLocalNotificationsForId(reminder.id);
+    await _cancelLocalNotificationsForId(reminder.id);
   }
 
   Future<void> _cancelLocalNotificationsForId(String reminderId) async {
+    // Occurrences scheduled since A02, and the daily repeats created by earlier versions of the app.
+    await _notificationService.cancelPendingWithPayloadPrefix('$payloadPrefix$reminderId');
     for (int i = 0; i < 6; i++) {
-      final notifId = _generateNotificationId(reminderId, i);
-      await _notificationService.cancelReminder(notifId);
+      await _notificationService.cancelReminder(_generateNotificationId(reminderId, i));
     }
   }
 
   /// Generate a deterministic 31-bit positive integer notification ID.
-  int _generateNotificationId(String reminderId, int slotIndex) {
+  int _generateNotificationId(String reminderId, int slotIndex) => _hashId('$reminderId:$slotIndex');
+
+  static int _hashId(String key) {
     var hash = 0;
-    final key = '$reminderId:$slotIndex';
     for (var i = 0; i < key.length; i++) {
       hash = (31 * hash + key.codeUnitAt(i)) & 0x7FFFFFFF;
     }
