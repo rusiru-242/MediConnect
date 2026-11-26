@@ -109,9 +109,10 @@ class FcmService {
         });
       }
     } catch (e) {
-      // Graceful fallback when Firebase config / Google Services are unavailable
+      // Graceful fallback when Firebase config / Google Services are unavailable. Push is then disabled; the
+      // notification permission is still requested by the reminder service when it has something to show.
       _isInitialized = false;
-      debugPrint('[FCM] Firebase initialization skipped or failed: $e');
+      debugPrint('[FCM] Firebase initialization skipped or failed (push disabled): ${e.runtimeType}');
     }
   }
 

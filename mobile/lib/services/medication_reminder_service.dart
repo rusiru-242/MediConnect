@@ -28,13 +28,26 @@ class MedicationReminderService {
 
     if (response is Map<String, dynamic>) {
       final list = MedicationReminderListResponse.fromJson(response);
-      // Synchronize local notifications in background
-      if (activeOnly) {
+      // Synchronize device reminders whenever the complete list is known (A02-BUG-018: the reminders screen
+      // loads with activeOnly=false, so the device was never synchronised after a reinstall, a new device or a
+      // sign-in; reminders cancelled elsewhere kept their device notifications).
+      if (activeOnly || (page == 1 && list.total <= list.items.length)) {
         syncLocalReminders(list.items);
       }
       return list;
     }
     throw Exception('Unexpected response format when fetching medication reminders.');
+  }
+
+  /// Re-plan this patient's device reminders from the server (sign-in, app start). No-op where the local
+  /// notification plugin is unavailable (tests, unsupported platforms).
+  Future<void> syncFromServer() async {
+    if (!_notificationService.isInitialized) return;
+    try {
+      await getReminders(activeOnly: true, limit: 50);
+    } catch (e) {
+      debugPrint('[MedicationReminderService] syncFromServer skipped: $e');
+    }
   }
 
   /// Get details for a single medication reminder.
@@ -213,6 +226,13 @@ class MedicationReminderService {
   Future<void> syncLocalReminders(List<MedicationReminder> reminders) async {
     try {
       await _notificationService.cancelPendingWithPayloadPrefix(payloadPrefix);
+      // A02-BUG-020: the Android 13+ notification permission was only requested inside the FCM set-up, which never
+      // runs while Firebase is not configured, so every device reminder was silently suppressed. Ask when there is
+      // a reminder to show (the system shows the prompt at most until the user decides).
+      if (reminders.any((r) => r.enabled && r.status == 'ACTIVE') &&
+          !await _notificationService.areNotificationsEnabled()) {
+        await _notificationService.requestPermissions();
+      }
       for (final r in reminders) {
         if (r.enabled && r.status == 'ACTIVE') {
           await _scheduleLocalNotificationsForReminder(r);

@@ -15,6 +15,9 @@ class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
+
+  /// True once the plugin initialised on a real device (never in widget tests).
+  bool get isInitialized => _isInitialized;
   NotificationTapCallback? onNotificationTap;
 
   static const String _channelId = 'mediconnect_medication_reminders';
