@@ -230,12 +230,64 @@ def preparation(db, user, identifier):
         for row in db[collection].find(scope, {field: 1 for field in (*fields, "createdAt", "appointmentId")}).sort("createdAt", -1).limit(5):
             row["reference"] = str(row.pop("_id"))
             sources[label].append(row)
+    shared, missing = _shared_preparation_sources(db, user, patient_id)
+    sources.update(shared)
+    counts = (f"Found {len(sources['priorRecords'])} of your clinician records, {len(sources['prescriptions'])} of your "
+              f"prescription records and {len(sources['followUps'])} follow-up plans")
+    if "patientRecords" in sources:
+        counts += (f"; across the patient's record: {len(sources['activePrescriptions'])} active prescriptions, "
+                   f"{len(sources['recordedAllergies'])} recorded allergies, {len(sources['patientRecords'])} recent "
+                   f"records and {len(sources['recentMeasurements'])} recent measurements")
     return {"label": "Assistant-generated preparation draft. Verify against source records.",
             "appointment": appointment_view(appt, {patient_id: (patient or {}).get("fullName")}, {}),
-            "patientReportedReason": appt.get("patientNote"), "sources": sources,
-            "summary": (f"Found {len(sources['priorRecords'])} clinician records, "
-                        f"{len(sources['prescriptions'])} prescription records and {len(sources['followUps'])} follow-up plans. "
-                        "Current medication use, allergies and test results require source verification.")}
+            "patientReportedReason": appt.get("patientNote"), "sources": sources, "missingSources": missing,
+            "summary": counts + ". Nothing here is a diagnosis; current medication use, allergies and test results "
+                                "require verification with the patient."}
+
+
+def _shared_preparation_sources(db, user, patient_id):
+    """P3-B8 (Phase 05): sources from the patient's whole record that this doctor may already read through the
+    care-relationship check (the same check as the doctor's record, prescription and measurement tools). Only
+    metadata and clinician-entered fields are included; other clinicians' consultation note text is not (scope
+    decision for the owner). Absence of a record is reported as missing information, never as a finding."""
+    from app.services.clinical_safety_service import ClinicalSafetyService
+    try:
+        ClinicalSafetyService.verify_doctor_patient_care_relationship(db, str(user.id), patient_id)
+    except HTTPException:
+        return {}, ["The patient's shared record is available after the visit is confirmed (paid)."]
+    from app.services.health_tracking_service import measurement_rows
+    records = list(db["patient_medical_records"].find(
+        {"patientUserId": patient_id, "status": {"$ne": "archived"}},
+        {"recordId": 1, "recordType": 1, "title": 1, "clinicalDate": 1, "sourceType": 1, "description": 1},
+    ).sort("clinicalDate", -1).limit(30))
+    allergies = [{"reference": r.get("recordId"), "title": r.get("title"), "detail": r.get("description"),
+                  "source": r.get("sourceType"), "date": r.get("clinicalDate")}
+                 for r in records if r.get("recordType") == "allergy"]
+    recent = [{"reference": r.get("recordId"), "type": r.get("recordType"), "title": r.get("title"),
+               "date": r.get("clinicalDate"), "source": r.get("sourceType")} for r in records[:8]]
+    active = []
+    for rx in db["prescriptions"].find({"patientUserId": patient_id, "status": {"$in": ["ISSUED", "AMENDED"]}},
+                                       {"prescriptionId": 1, "medicationItems": 1, "doctorUserId": 1, "createdAt": 1}
+                                       ).sort("createdAt", -1).limit(10):
+        for item in rx.get("medicationItems") or []:
+            active.append({"reference": rx.get("prescriptionId"), "medication": item.get("medicationName"),
+                           "strength": item.get("strength"), "dose": item.get("dose"),
+                           "frequency": item.get("frequency"),
+                           "prescriber": "you" if rx.get("doctorUserId") == str(user.id) else "another clinician"})
+    readings = [{"metric": m.get("metric"), "value": m.get("value"), "secondary": m.get("secondary"),
+                 "unit": m.get("unit"), "measuredAt": m.get("measuredAt"), "source": m.get("source"),
+                 "verification": m.get("verificationStatus")}
+                for m in measurement_rows(db, {"patientUserId": patient_id}, limit=6)]
+    missing = []
+    if not allergies:
+        missing.append("No allergy is recorded. This does not mean the patient has no allergies; ask the patient.")
+    if not active:
+        missing.append("No active prescription is recorded on MediConnect; medicines from elsewhere are not shown.")
+    if not readings:
+        missing.append("No measurements are recorded.")
+    missing.append("Other clinicians' consultation note text is not included (scope decision pending).")
+    return {"patientRecords": recent, "recordedAllergies": allergies, "activePrescriptions": active,
+            "recentMeasurements": readings}, missing
 
 
 def follow_ups(db, user):

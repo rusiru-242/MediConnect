@@ -281,15 +281,23 @@ class _DoctorWorkflowScreenState extends State<DoctorWorkflowScreen> {
                 ),
               for (final section in sources.entries) ...[
                 const SizedBox(height: 8),
-                Text(switch (section.key) {
-                  'priorRecords' => 'Prior clinician records',
-                  'prescriptions' => 'Prescription records',
-                  _ => 'Follow-up plans',
-                }),
+                Text(
+                  sourceSectionLabel(section.key.toString()),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 if ((section.value as List).isEmpty)
                   const Text('No accessible records found.'),
                 for (final record in section.value as List)
                   _fields(record as Map),
+              ],
+              if (result['missingSources'] case final List missing
+                  when missing.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Missing or unavailable information',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                for (final note in missing) Text('• $note'),
               ],
             ] else if (result?['followUps'] case final List plans) ...[
               for (final plan in plans.cast<Map>())
@@ -333,8 +341,8 @@ class _DoctorWorkflowScreenState extends State<DoctorWorkflowScreen> {
               if (row is Map) _fields(row) else Text(row.toString())
           else if (entry.value case final Map value)
             _fields(value)
-          else if (entry.value != null)
-            Text('${entry.key}: ${entry.value}'),
+          else if (entry.value != null && !isInternalField(entry.key.toString()))
+            Text('${fieldLabel(entry.key.toString())}: ${entry.value}'),
       ],
     ),
   );
@@ -450,3 +458,86 @@ class _DoctorWorkflowScreenState extends State<DoctorWorkflowScreen> {
     ),
   );
 }
+
+/// Readable labels for workflow and analytics fields (Phase 05, P3-B7). The screen used to show raw API keys
+/// such as `bookedFees: 2500.0`; unknown keys fall back to a sentence-case form of the key.
+const Map<String, String> workflowFieldLabels = {
+  'bookedFees': 'Booked consultation fees',
+  'netCollected': 'Net collected',
+  'grossCollected': 'Gross collected',
+  'refundedAmount': 'Refunded amount',
+  'awaitingPayment': 'Awaiting payment',
+  'openRefundRequests': 'Open refund requests',
+  'confirmed': 'Confirmed',
+  'completed': 'Completed',
+  'cancelled': 'Cancelled',
+  'noShow': 'No-shows',
+  'waiting': 'Waiting',
+  'total': 'Total',
+  'from': 'From',
+  'to': 'To',
+  'timezone': 'Time zone',
+  'measuredConsultations': 'Consultations with measured duration',
+  'averageMeasuredMinutes': 'Average consultation length (minutes)',
+  'appointmentDate': 'Date',
+  'startTime': 'Start',
+  'endTime': 'End',
+  'fullName': 'Patient',
+  'patientName': 'Patient',
+  'status': 'Status',
+  'reference': 'Reference',
+  'recordId': 'Record',
+  'prescriptionId': 'Prescription',
+  'carePlanId': 'Care plan',
+  'chiefComplaint': 'Chief complaint',
+  'clinicalNotes': 'Clinical notes',
+  'assessment': 'Assessment',
+  'allergies': 'Allergies',
+  'medications': 'Medications',
+  'medication': 'Medicine',
+  'strength': 'Strength',
+  'dose': 'Dose',
+  'frequency': 'Frequency',
+  'prescriber': 'Prescribed by',
+  'followUpDate': 'Follow-up date',
+  'instructions': 'Instructions',
+  'createdAt': 'Created',
+  'metric': 'Measurement',
+  'value': 'Value',
+  'secondary': 'Second value',
+  'unit': 'Unit',
+  'measuredAt': 'Measured',
+  'source': 'Source',
+  'verification': 'Verification',
+  'type': 'Type',
+  'title': 'Title',
+  'detail': 'Details',
+  'date': 'Date',
+  'queueOrder': 'Queue position',
+  'estimatedWaitMinutes': 'Estimated wait (minutes)',
+};
+
+String fieldLabel(String key) {
+  final known = workflowFieldLabels[key];
+  if (known != null) return known;
+  final words = key
+      .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (m) => '${m[1]} ${m[2]}')
+      .replaceAll('_', ' ')
+      .toLowerCase();
+  return words.isEmpty ? key : words[0].toUpperCase() + words.substring(1);
+}
+
+/// Internal identifiers are not shown to the doctor (they are not meaningful and include account ids).
+bool isInternalField(String key) =>
+    key == 'id' || key == '_id' || key.endsWith('UserId') || key.endsWith('ProfileId') || key == 'appointmentId';
+
+String sourceSectionLabel(String key) => switch (key) {
+  'priorRecords' => 'Your earlier records for this patient',
+  'prescriptions' => 'Your prescriptions for this patient',
+  'followUps' => 'Follow-up plans',
+  'patientRecords' => "Recent records in the patient's file",
+  'recordedAllergies' => 'Recorded allergies',
+  'activePrescriptions' => 'Active prescriptions (all clinicians)',
+  'recentMeasurements' => 'Recent measurements',
+  _ => fieldLabel(key),
+};
