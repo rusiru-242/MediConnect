@@ -167,6 +167,21 @@ class PrescriptionWorkflowService:
         # No reminder schedule is created here (P03-N06). Reminder times are approved explicitly by the doctor
         # (PUT /care-automation/prescriptions/{id}/schedule) or set by the patient against the prescribed frequency.
 
+        # A02-BUG-021: a prescription issued from the clinical workflow did not tell the patient it was available
+        # (only the older consultation path did). Generic text: no medicine names on the lock screen or in the list.
+        try:
+            from app.models.notification import NotificationType
+            from app.services.notification_service import NotificationService
+            NotificationService.create_notification(
+                db=db, recipient_user_id=str(req.patientUserId), type=NotificationType.PRESCRIPTION_ISSUED,
+                title="New prescription available",
+                body="Your doctor issued a prescription. Open Medical Records in MediConnect to view it.",
+                related_appointment_id=str(req.appointmentId) if getattr(req, "appointmentId", None) else None,
+                idempotency_key=f"prescription_issued_{rx_db_id}", send_push=True,
+            )
+        except Exception as exc:  # the prescription itself is already issued
+            logger.warning("Prescription notification failed (%s)", type(exc).__name__)
+
         return {
             "id": rx_db_id,
             "prescriptionId": prescription_id,

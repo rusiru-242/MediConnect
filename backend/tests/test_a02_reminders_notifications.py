@@ -301,6 +301,22 @@ def test_i04_booking_confirmation_email_through_local_smtp_once(adb, smtp, monke
     assert "Dr. A02 Synthetic" in text and str(appt["_id"]) in text
 
 
+def test_i04_doctor_verification_emails_render_through_local_smtp(smtp):
+    import email
+    server = smtp()
+    assert EmailService.send_doctor_approval_email(
+        "a02.doctor@uat.mediconnect.lk", "Dr. A02 Synthetic", "Cardiology", "SLMC-A02-0001", "UAT Synthetic Hospital")
+    assert EmailService.send_doctor_rejection_email("a02.doctor2@uat.mediconnect.lk", "Dr. A02 Rejected",
+                                                    reason="Synthetic: registration number could not be verified")
+    approval, rejection = server.messages
+    texts = []
+    for message in (approval, rejection):
+        parsed = email.message_from_string(message["data"].rsplit("\r\n.\r\n", 1)[0])
+        texts.append(next(p.get_payload(decode=True).decode() for p in parsed.walk() if p.get_content_type() == "text/plain"))
+    assert approval["rcpts"] == ["a02.doctor@uat.mediconnect.lk"] and "SLMC-A02-0001" in texts[0]
+    assert rejection["rcpts"] == ["a02.doctor2@uat.mediconnect.lk"] and "could not be verified" in texts[1]
+
+
 def test_i08_i09_outbox_disabled_and_transient_failure(adb, monkeypatch):
     pid = _patient(adb)
     appt = _confirmed(adb, pid)
@@ -399,6 +415,28 @@ def test_s08_permanent_failure_after_bounded_retries(adb, monkeypatch):
             break
     (event,) = _events(adb, appt)
     assert event["channels"]["inApp"]["status"] == "failed" and event["attempts"] == 4
+
+
+def test_f02_follow_up_reminders_7d_1d_due_at_0900_colombo_once_each(adb):
+    """The real scheduler with an injected clock: three reminders at 09:00 Asia/Colombo, each delivered once; a moved
+    follow-up date cancels the remaining old ones."""
+    pid = _patient(adb)
+    follow = APPT_LOCAL.date() + timedelta(days=10)
+    plan = adb["care_plans"].insert_one({"patientUserId": pid, "doctorUserId": str(ObjectId()), "status": "ACTIVE",
+                                         "followUpDate": follow.isoformat(), "tasks": [],
+                                         "instructions": "Synthetic"}).inserted_id
+    nine = lambda day: datetime.combine(day, datetime.min.time().replace(hour=9), COLOMBO).astimezone(timezone.utc)  # noqa: E731
+    for days in (7, 1):
+        due = nine(follow - timedelta(days=days))
+        assert scheduler.run_scheduler(adb, due - timedelta(minutes=1)) == 0      # not before 09:00
+        assert scheduler.run_scheduler(adb, due + timedelta(minutes=1)) == 1
+        assert scheduler.run_scheduler(adb, due + timedelta(minutes=30)) == 0     # once
+    adb["care_plans"].update_one({"_id": plan}, {"$set": {"followUpDate": (follow + timedelta(days=3)).isoformat()}})
+    assert scheduler.run_scheduler(adb, nine(follow) + timedelta(minutes=1)) == 0     # old due-day reminder obsolete
+    events = list(adb["care_reminder_events"].find({"sourceId": str(plan)}))
+    assert sorted(e["legacyMarker"] for e in events) == ["1D", "7D"]
+    assert all(e["kind"] == "follow_up" and e["state"] == "processed" for e in events)
+    assert adb["notifications"].count_documents({"recipientUserId": pid}) == 2
 
 
 def test_s07_colombo_midnight_boundary_for_medication(adb):
@@ -620,3 +658,24 @@ def test_bug012_assistant_answers_from_own_records_only(seeded_booking_env):
     reply = ask("Show my missed medicine reminders.", seed["token_patient_a"])
     assert "without a recorded action" in reply.lower()
     assert "Could you please share your symptoms" not in reply
+
+
+# ============================================================================ prescription availability (agent 19)
+def test_bug021_issued_prescription_notifies_patient_once_without_medicine_names():
+    from app.config.database import get_database
+    from app.main import app
+    from tests.test_phase02_booking_payment import _auth
+    from tests.test_phase03_doctor_system import ITEM, _visit
+    from tests.test_payment import _make_test_doctor, _make_test_patient
+    db, client = get_database(), TestClient(app)
+    patient, doctor = _make_test_patient(db, "A02B021"), _make_test_doctor(db, "A02B021Doc")
+    visit = _visit(db, patient, doctor)
+    res = client.post("/api/clinical/prescriptions/sign", headers=_auth(doctor),
+                      json={"patientUserId": patient["id"], "appointmentId": visit, "medicationItems": [ITEM]})
+    assert res.status_code == 201, res.text
+    again = client.post("/api/clinical/prescriptions/sign", headers=_auth(doctor),
+                        json={"patientUserId": patient["id"], "appointmentId": visit, "medicationItems": [ITEM]})
+    assert again.status_code == 409
+    notices = list(db["notifications"].find({"recipientUserId": patient["id"], "type": "PRESCRIPTION_ISSUED"}))
+    assert len(notices) == 1 and notices[0]["relatedAppointmentId"] == visit
+    assert ITEM["medicationName"] not in notices[0]["title"] + notices[0]["body"]
