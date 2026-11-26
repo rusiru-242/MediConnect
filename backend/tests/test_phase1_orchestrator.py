@@ -89,11 +89,23 @@ async def test_round_limit_and_provider_failure(monkeypatch):
 
     search = AsyncMock(return_value=SimpleNamespace(items=[]))
     monkeypatch.setattr(DoctorService, "list_approved_doctors", search)
-    provider = SimpleNamespace(tool_turn=Mock(return_value=reply("search_verified_doctors", {})))
+    # Expectation changed in Phase 05 (component 31): the round limit is now exercised with a *different* call each
+    # round. An identical call repeated every round is stopped earlier by loop detection and duplicate-call
+    # prevention (asserted below), so it no longer reaches the round limit.
+    turns = iter([reply("search_verified_doctors", {"specialty": s}) for s in
+                  ("Cardiologist", "Dermatologist", "Neurologist", "Pediatrician", "Psychiatrist")])
+    provider = SimpleNamespace(tool_turn=Mock(side_effect=lambda *a, **k: next(turns)))
     orch = AIOrchestrator(None, actor(), provider)
     assert await orch.run_search("doctor", {}, {}) is None
     assert search.await_count == 3
     assert provider.tool_turn.call_count == 4
+
+    search.reset_mock()
+    provider = SimpleNamespace(tool_turn=Mock(return_value=reply("search_verified_doctors", {})))
+    orch = AIOrchestrator(None, actor(), provider)
+    assert await orch.run_search("doctor", {}, {}) is None
+    assert search.await_count == 1          # the repeated identical call runs once
+    assert provider.tool_turn.call_count == 2  # loop detected on the second identical round
     provider.tool_turn = Mock(side_effect=TimeoutError)
     assert await orch.run_search("doctor", {}, {}) is None
 

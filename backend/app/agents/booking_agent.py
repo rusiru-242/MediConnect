@@ -124,6 +124,16 @@ class BookingAgent:
         turn_lang = detected_language if detected_language in ("si", "ta") else (
             "en" if re.search(r"[a-z]{3,}", clean_text, re.I) and detected_language == "en" else prefs.get("language", "en")
         )
+        # B17 (Phase 05): after an emergency reply in Sinhala or Tamil, a follow-up without clear English (a short
+        # "ok", "1990?", or Romanized Sinhala such as "mata dan mokada karanna one?") continues in that language.
+        emergency_language = session_data.get("emergencyLanguage")
+        if emergency_language in ("si", "ta") and detected_language not in ("si", "ta") and \
+                last_assistant_was_emergency(session_data):
+            from app.agents.intent_router import detect_language as detect_script
+            english_words = re.findall(r"\b(?:the|is|are|what|now|should|do|i|my|can|help|call|still|pain|"
+                                       r"breath\w*|chest|ambulance|hospital|doctor)\b", clean_text, re.I)
+            if detect_script(clean_text) == "si-Latn" or len(english_words) < 2:
+                turn_lang = emergency_language
 
         # 1. Emergency triage runs BEFORE any routing, search, booking, medicine or wellness logic (BUG-013).
         #    Deterministic, multilingual, and aware of recent conversation context.
@@ -142,6 +152,11 @@ class BookingAgent:
         if emergency.is_emergency:
             session_data["isUrgent"] = True
             session_data["urgencyReason"] = emergency.reason
+            # Remember the language of the emergency conversation for its follow-ups (B17).
+            if turn_lang in ("si", "ta", "en"):
+                session_data["emergencyLanguage"] = turn_lang
+                session_data["preferences"] = {**prefs, "language": turn_lang if turn_lang in ("si", "en")
+                                               else prefs.get("language", "en")}
             if turn_lang == "ta":
                 emergency_text = EMERGENCY_TA_ALERT
             else:
@@ -365,8 +380,12 @@ class BookingAgent:
                     intent = CompanionIntent.FIND_DOCTOR
             session_data["understandingSource"] = proposal_source
 
-        selection_text = re.sub(r"^(?:in|near|around)\s+", "", clean_text, flags=re.IGNORECASE)
-        selection_text = selection_text.strip(".!? ").casefold()
+        # "in Colombo then", "ok, Colombo please" and "Colombo instead" are a city refinement as much as "Colombo"
+        # (P05-N15: the filler words made the previous specialty fall back to a clarification question).
+        selection_text = re.sub(r"^(?:(?:ok(?:ay)?|then|so|and|maybe|try)[, ]+)*(?:in|near|around)?\s*", "", clean_text,
+                                flags=re.IGNORECASE)
+        selection_text = re.sub(r"[, ]+(?:then|please|pls|instead|now)\s*[.!?]*$", "", selection_text, flags=re.IGNORECASE)
+        selection_text = selection_text.strip(".!?, ").casefold()
         filter_only = any(
             isinstance(parsed_delta.get(key), str) and parsed_delta[key].casefold() == selection_text
             for key in ("city", "specialty")

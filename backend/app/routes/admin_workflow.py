@@ -90,7 +90,8 @@ async def admin_assistant(
         suggestions = ["Review oldest doctor verification", "Show doctor document checklist"]
 
     # 2. Payment reconciliation & discrepancy intent
-    elif intent == "payment_reconciliation":
+    # "failed payments tika check karanna" (the assistant's own suggestion) has always run the reconciliation check.
+    elif intent in {"payment_reconciliation", "failed_payments"}:
         tool_called = "get_payment_reconciliation_issues"
         tool_args = {}
         res = await orch.execute(tool_called, tool_args, {tool_called})
@@ -124,7 +125,7 @@ async def admin_assistant(
         suggestions = ["Draft response for top ticket", "View urgent support tickets"]
 
     # 5. Operational Analytics intent (appointments, revenue, conversion, Colombo area)
-    elif intent in {"booking_analytics", "revenue", "payment_summary", "failed_payments"}:
+    elif intent in {"booking_analytics", "revenue", "payment_summary"}:
         tool_called = "get_admin_dashboard_metrics"
         tool_args = {"timeframe": timeframe}
         res = await orch.execute(tool_called, tool_args, {tool_called})
@@ -137,13 +138,9 @@ async def admin_assistant(
             # Appointments do not record a city; the former per-city counts were always 0 (P04-N05).
             reply_text = ("Appointments do not record a city or area, so MediConnect cannot count bookings by "
                           "location. Ask for total bookings instead.")
-        elif intent in {"payment_summary", "failed_payments"} or "success rate" in query:
+        elif intent == "payment_summary" or "success rate" in query:
             rate = fin.get("paymentSuccessRate")
-            if intent == "failed_payments":
-                reply_text = (f"{fin.get('failedTransactions', 0)} payment attempt(s) failed in {period} "
-                              f"({fin.get('succeededTransactions', 0)} succeeded). Failed attempts are card declines "
-                              "or abandoned payments; they are not charges.")
-            elif intent == "payment_summary" and "rate" not in query:
+            if "rate" not in query:
                 reply_text = (f"{fin.get('succeededTransactions', 0)} successful payment(s) were recorded in {period}"
                               f" ({fin.get('refundedTransactions', 0)} of them later refunded); "
                               f"{fin.get('failedTransactions', 0)} attempt(s) failed.")

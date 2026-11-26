@@ -121,9 +121,20 @@ class AIProviderMonitoringService:
                 status_value = "not_configured"
             elif not data.get("totalRequests"):
                 status_value = "not_verified"  # no call observed since start-up
+            # Phase 05: status and today's counters come from the durable provider-gateway metrics.
+            try:
+                from app.agents.provider_gateway import provider_status
+                durable = provider_status(p)
+                status_value = durable["status"]
+            except Exception:
+                durable = {}
             results.append({
                 "provider": p,
                 "configured": configured,
+                "model": durable.get("model"),
+                "modelRemapped": durable.get("modelRemapped"),
+                "today": durable.get("today"),
+                "dailyLimit": durable.get("dailyLimit"),
                 "status": status_value,
                 "circuitBreakerState": data.get("circuitBreakerState", "CLOSED"),
                 "totalRequests": data.get("totalRequests", 0),

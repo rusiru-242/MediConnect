@@ -138,6 +138,8 @@ def ensure_indexes(db: Optional[Database] = None) -> bool:
         ("care_scheduler", create_care_scheduler_indexes),
         ("doctor_communications", create_doctor_communication_indexes),
         ("payments", create_payment_indexes),
+        ("ai_agent_runs", lambda d: d["ai_agent_runs"].create_index("expiresAt", expireAfterSeconds=0,
+                                                                    name="idx_ai_agent_runs_ttl")),
         ("appointment_events", create_appointment_event_indexes),
         ("notifications", create_notification_indexes),
         ("booking_sessions", create_booking_session_indexes),

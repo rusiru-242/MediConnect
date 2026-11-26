@@ -45,6 +45,10 @@ class Settings(BaseModel):
     DOCUMENT_ENCRYPTION_KEYS: Optional[str] = Field(
         default_factory=lambda: (os.getenv("DOCUMENT_ENCRYPTION_KEYS") or "").strip() or None
     )
+    # Days a saved AI conversation is kept after its last message; 0 keeps it until the patient deletes it.
+    CONVERSATION_RETENTION_DAYS: int = Field(
+        default_factory=lambda: int((os.getenv("CONVERSATION_RETENTION_DAYS") or "0").strip())
+    )
     # Daily cap on external AI provider calls per process-wide counter in MongoDB (0 = provider calls disabled).
     AI_DAILY_REQUEST_LIMIT: int = Field(
         default_factory=lambda: int((os.getenv("AI_DAILY_REQUEST_LIMIT") or "2000").strip())
@@ -98,7 +102,7 @@ class Settings(BaseModel):
         default_factory=lambda: (os.getenv("GEMINI_API_KEY") or "").strip() or None
     )
     GEMINI_MODEL: str = Field(
-        default_factory=lambda: (os.getenv("GEMINI_MODEL") or "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+        default_factory=lambda: (os.getenv("GEMINI_MODEL") or "gemini-flash-latest").strip() or "gemini-flash-latest"
     )
     OPENAI_API_KEY: Optional[str] = Field(
         default_factory=lambda: (os.getenv("OPENAI_API_KEY") or "").strip() or None
