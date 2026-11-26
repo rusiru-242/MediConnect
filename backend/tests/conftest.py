@@ -20,6 +20,11 @@ os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_mock_secret_key")
 os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test_mock_webhook_secret")
 # Phase 05: the test session never inherits the JWT secret, environment or provider keys from backend/.env.
 os.environ.setdefault("ENVIRONMENT", "test")
+# A01-N06: the comment above was not true for provider keys. load_dotenv() filled GEMINI_API_KEY / OPENAI_API_KEY from
+# backend/.env, so tests that did not patch the network made real provider calls. An empty value set here wins over
+# .env (load_dotenv never overrides an existing variable), so every test runs with no provider unless it patches one.
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = ""
 if not os.environ.get("DOCUMENT_ENCRYPTION_KEYS"):  # a throwaway per-session test key (never a deployment key)
     import base64 as _b64
     os.environ["DOCUMENT_ENCRYPTION_KEYS"] = "test-session:" + _b64.b64encode(os.urandom(32)).decode()
@@ -64,3 +69,23 @@ def _fresh_rate_limit_counters():
     except Exception:
         pass
     yield
+
+
+_LIVE_AI_HOSTS = ("generativelanguage.googleapis.com", "api.openai.com")
+
+
+@pytest.fixture(autouse=True)
+def _no_live_ai_provider_calls(monkeypatch):
+    """A01-N06 second guard: a request that reaches the transport for a live AI provider host fails as a network
+    error. Tests that patch requests.post never reach the transport, so test doubles keep working."""
+    import requests
+    import requests.adapters
+
+    real_send = requests.adapters.HTTPAdapter.send
+
+    def guarded(self, request, *args, **kwargs):
+        if any(host in (request.url or "") for host in _LIVE_AI_HOSTS):
+            raise requests.ConnectionError("live AI provider call blocked in tests")
+        return real_send(self, request, *args, **kwargs)
+
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", guarded)

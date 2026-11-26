@@ -101,17 +101,33 @@ class Settings(BaseModel):
     GEMINI_API_KEY: Optional[str] = Field(
         default_factory=lambda: (os.getenv("GEMINI_API_KEY") or "").strip() or None
     )
+    # A01: pinned current stable ids (checked 2026-11-26; see provider_gateway MODEL lifecycle notes). Retired Gemini
+    # ids in an old .env are remapped and reported; OpenAI ids with a shutdown date are reported in provider status.
     GEMINI_MODEL: str = Field(
-        default_factory=lambda: (os.getenv("GEMINI_MODEL") or "gemini-flash-latest").strip() or "gemini-flash-latest"
+        default_factory=lambda: (os.getenv("GEMINI_MODEL") or "gemini-3.8-flash").strip() or "gemini-3.8-flash"
     )
     OPENAI_API_KEY: Optional[str] = Field(
         default_factory=lambda: (os.getenv("OPENAI_API_KEY") or "").strip() or None
     )
     OPENAI_MODEL: str = Field(
-        default_factory=lambda: (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip() or "gpt-4o-mini"
+        default_factory=lambda: (os.getenv("OPENAI_MODEL") or "gpt-6-luna").strip() or "gpt-6-luna"
+    )
+    # Optional separate model for image input; empty means "use the text model" (both defaults accept images).
+    GEMINI_VISION_MODEL: str = Field(default_factory=lambda: (os.getenv("GEMINI_VISION_MODEL") or "").strip())
+    OPENAI_VISION_MODEL: str = Field(default_factory=lambda: (os.getenv("OPENAI_VISION_MODEL") or "").strip())
+    # Provider order (A01): the primary is tried first and the secondary only after the primary failed or is not
+    # usable. "none" disables a slot. Providers without a key are skipped.
+    AI_PRIMARY_PROVIDER: str = Field(
+        default_factory=lambda: (os.getenv("AI_PRIMARY_PROVIDER") or "gemini").strip().lower()
+    )
+    AI_SECONDARY_PROVIDER: str = Field(
+        default_factory=lambda: (os.getenv("AI_SECONDARY_PROVIDER") or "openai").strip().lower()
     )
     AI_TIMEOUT_SECONDS: int = Field(
         default_factory=lambda: int((os.getenv("AI_TIMEOUT_SECONDS") or "5").strip())
+    )
+    AI_VISION_TIMEOUT_SECONDS: int = Field(
+        default_factory=lambda: int((os.getenv("AI_VISION_TIMEOUT_SECONDS") or "25").strip())
     )
     AI_MAX_RECOMMENDATIONS: int = Field(
         default_factory=lambda: int((os.getenv("AI_MAX_RECOMMENDATIONS") or "10").strip())

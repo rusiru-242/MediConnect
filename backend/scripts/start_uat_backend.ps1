@@ -6,20 +6,26 @@
   Safety guarantees (all enforced here, without editing backend/.env):
     - Database: mongodb://127.0.0.1:27017/mediconnect_uat (never the Atlas URI in .env).
     - Stripe: refuses to start unless STRIPE_SECRET_KEY in .env is a test key (sk_test_...).
-    - External medical image processing: disabled (AI_EXTERNAL_IMAGE_ANALYSIS_ENABLED=false).
+    - External medical image processing: disabled (AI_EXTERNAL_IMAGE_ANALYSIS_ENABLED=false) unless
+      -EnableVision is passed (A01: synthetic packaging images only, with owner authorization).
     - Email: SMTP disabled (synthetic accounts are never emailed) unless -EnableEmail is passed.
     - JWT: a dedicated random UAT secret stored in the git-ignored backend/uat.env.
-    - AI provider: deterministic engine by default. -AiProvider gemini|openai re-enables a provider
-      (both had exhausted quota/credit when this script was written).
+    - AI provider: deterministic engine by default. -AiProvider gemini|openai|both enables providers
+      (both = Gemini primary, OpenAI secondary). Live calls are capped by -AiDailyLimit (default 150), counted
+      in MongoDB by the provider gateway. Models: gemini-3.8-flash and gpt-6-luna (A01, checked 2026-11-26).
   Secrets are never printed.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File backend/scripts/start_uat_backend.ps1
   powershell -ExecutionPolicy Bypass -File backend/scripts/start_uat_backend.ps1 -SeedOnly
   powershell -ExecutionPolicy Bypass -File backend/scripts/start_uat_backend.ps1 -AiProvider gemini
+  powershell -ExecutionPolicy Bypass -File backend/scripts/start_uat_backend.ps1 -AiProvider both -EnableVision -SkipSeed
 #>
 param(
-  [ValidateSet('deterministic', 'gemini', 'openai')] [string] $AiProvider = 'deterministic',
+  [ValidateSet('deterministic', 'gemini', 'openai', 'both')] [string] $AiProvider = 'deterministic',
+  [int] $AiDailyLimit = 150,
+  [string] $GeminiModel = 'gemini-3.8-flash',
+  [switch] $EnableVision,
   [int] $Port = 8001,
   [string] $BindHost = '127.0.0.1',
   [switch] $SeedOnly,
@@ -74,9 +80,15 @@ $env:DATABASE_NAME = 'mediconnect_uat'
 $env:ENVIRONMENT = 'staging'
 $env:JWT_SECRET = $jwt
 $env:JWT_SECRET_KEY = $jwt
-$env:AI_EXTERNAL_IMAGE_ANALYSIS_ENABLED = 'false'
-$env:GEMINI_MODEL = 'gemini-flash-latest'   # .env still names the retired gemini-1.5-flash
-$env:AI_TIMEOUT_SECONDS = '8'
+$env:AI_EXTERNAL_IMAGE_ANALYSIS_ENABLED = $(if ($EnableVision) { 'true' } else { 'false' })
+# .env still names gemini-1.5-flash (shut down) and gpt-4o-mini (shutdown 2027-01-14); pin the current stable ids.
+$env:GEMINI_MODEL = $GeminiModel
+$env:OPENAI_MODEL = 'gpt-6-luna'
+$env:AI_PRIMARY_PROVIDER = $(if ($AiProvider -eq 'openai') { 'openai' } else { 'gemini' })
+$env:AI_SECONDARY_PROVIDER = $(if ($AiProvider -eq 'both') { 'openai' } else { 'none' })
+$env:AI_DAILY_REQUEST_LIMIT = "$AiDailyLimit"
+$env:AI_TIMEOUT_SECONDS = '12'
+$env:AI_VISION_TIMEOUT_SECONDS = '30'
 $env:ALLOWED_ORIGINS = 'http://localhost:5174,http://127.0.0.1:5174'
 # A single space is used to blank a value: Windows deletes variables set to '', and python-dotenv would
 # then reload the value from .env. The backend strips whitespace, so ' ' means "not configured".
@@ -86,11 +98,12 @@ if (-not $EnableEmail) { $env:SMTP_HOST = ' ' }
 switch ($AiProvider) {
   'deterministic' { $env:GEMINI_API_KEY = ' '; $env:OPENAI_API_KEY = ' ' }
   'openai'        { $env:GEMINI_API_KEY = ' ' }
-  'gemini'        { }
+  'gemini'        { $env:OPENAI_API_KEY = ' ' }
+  'both'          { }
 }
 
 $python = Join-Path $backend 'venv\Scripts\python.exe'
-Write-Host "UAT backend: database=mediconnect_uat (local), documents=encrypted, AI=$AiProvider, image analysis=disabled, email=$(if ($EnableEmail) {'enabled'} else {'disabled'}), Stripe=test mode"
+Write-Host "UAT backend: database=mediconnect_uat (local), documents=encrypted, AI=$AiProvider, image analysis=$(if ($EnableVision) {'enabled'} else {'disabled'}), AI daily limit=$AiDailyLimit, email=$(if ($EnableEmail) {'enabled'} else {'disabled'}), Stripe=test mode"
 
 if (-not $SkipSeed) {
   & $python -m scripts.seed_uat_data
