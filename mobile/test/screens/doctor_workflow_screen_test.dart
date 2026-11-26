@@ -64,6 +64,7 @@ void main() {
     await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
     expect(client.approved, {'confirm': true, 'token': 'fixture-token'});
-    expect(find.text('pending: 1'), findsOneWidget);
+    // Expectation changed in Phase 05 (P3-B7): fields are shown with readable labels, not raw API keys.
+    expect(find.text('Pending: 1'), findsOneWidget);
   });
 }
