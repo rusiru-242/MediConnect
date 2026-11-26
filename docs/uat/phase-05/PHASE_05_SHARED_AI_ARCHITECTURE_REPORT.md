@@ -51,7 +51,7 @@ User request (Flutter / admin web)
 | Unknown / other-role tool | `tool_unavailable` | S-01f, S-01a–c |
 | Mutating tool without confirmation | `confirmation_required` | `test_mutating_tool_requires_server_side_confirmation` |
 
-Registry audit: 47 tools; exactly one is state-changing (`prepare_renewal_request`, patient-only, now `mutates=True`). Every DOCTOR and ADMIN tool is read-only (asserted by `test_admin_and_doctor_tools_never_mutate`). The orchestrator never grants permissions: the allow-list is supplied by the server-side caller, and the role check uses the database account.
+Registry audit: 52 tools (24 admin, 15 doctor, 14 patient; one tool serves both patients and doctors); exactly one is state-changing (`prepare_renewal_request`, patient-only, now `mutates=True`). Every DOCTOR and ADMIN tool is read-only (asserted by `test_admin_and_doctor_tools_never_mutate`). The orchestrator never grants permissions: the allow-list is supplied by the server-side caller, and the role check uses the database account.
 
 ## 4. Component 32 — Provider management (`app/agents/provider_gateway.py`)
 

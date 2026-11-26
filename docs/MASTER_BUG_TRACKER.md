@@ -353,3 +353,19 @@ The owner's BUG-049 to BUG-063 descriptions are now recorded and mapped to the P
 - **Corrected finding:** P3-B4. Admins cannot read patient clinical records, notes, measurements or prescriptions (verified by content). Care-plan content and booking notes remain owner decisions (P4-B4a/b).
 - **Still urgent (owner):** P4-B1, the remote database incident, is unverified, and its possible impact is wider than first recorded (worker sweeps and SMTP).
 - **Details:** [docs/uat/phase-04/PHASE_04_BUG_FIX_REPORT.md](uat/phase-04/PHASE_04_BUG_FIX_REPORT.md) and [PHASE_04_FINAL_COMPLETION_REPORT.md](uat/phase-04/PHASE_04_FINAL_COMPLETION_REPORT.md).
+
+## Phase 05 (2026-11-26, branch `fix/phase-05-final-ai-security-integration`)
+
+- **New defects fixed and verified:** P05-N01 to N07 and N09 to N26 (25 defects). The most serious:
+  - P05-N01: the backend silently used the remote database when started without configuration (P4-B5).
+  - P05-N02: two concurrent refreshes of one token created two sessions.
+  - P05-N12: the Gemini key was sent in URLs.
+  - P05-N18: one Care Agenda reading made the measurement list fail (B7).
+  - P05-N20: concurrent care-plan updates lost an update.
+  - P05-N17: duplicate blocked times.
+  - P05-N22: B16, dose-change requests answered with a medicine lookup.
+  - P05-N21: B17, Sinhala emergency follow-ups answered in English.
+- **Historical items closed:** BUG-038 (shared rate limiting), P4-O1, P4-O3, P4-O4, P4-O7, P4-O8, B7, B8, B16, B17, P3-B7, P3-B8, P3-B11.
+- **Critical owner item:** P5-C1. The live MongoDB credentials are in public git history (commit `a41b659`); rotate them.
+- **Reconciled tracker for all phases:** [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md). It lists 160 unique confirmed defects (159 fixed, 1 open: BUG-039).
+- **Details:** [uat/phase-05/PHASE_05_BUG_FIX_REPORT.md](uat/phase-05/PHASE_05_BUG_FIX_REPORT.md).

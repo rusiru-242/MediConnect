@@ -1,0 +1,242 @@
+{
+  "environment": {
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel",
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.13.0",
+    "backend": "127.0.0.1:8001, one uvicorn worker, local MongoDB 127.0.0.1",
+    "database": "mediconnect_uat (synthetic)",
+    "logicalCpus": 12,
+    "ramGb": 16.9
+  },
+  "scenarios": [
+    {
+      "scenario": "liveness probe",
+      "requests": 400,
+      "concurrency": 20,
+      "wallSeconds": 0.72,
+      "throughputRps": 553.3,
+      "statusCodes": {
+        "200": 400
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 34.5,
+        "p95": 47.3,
+        "max": 53.9,
+        "min": 18.3
+      },
+      "backendCpuPercentPeak": 99.9,
+      "backendRssMbPeak": 135.6
+    },
+    {
+      "scenario": "readiness probe (database ping)",
+      "requests": 300,
+      "concurrency": 20,
+      "wallSeconds": 0.66,
+      "throughputRps": 453.7,
+      "statusCodes": {
+        "200": 300
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 41.6,
+        "p95": 56.4,
+        "max": 69.5,
+        "min": 21.6
+      },
+      "backendCpuPercentPeak": 125.0,
+      "backendRssMbPeak": 135.0
+    },
+    {
+      "scenario": "authenticated profile (/auth/me)",
+      "requests": 300,
+      "concurrency": 20,
+      "wallSeconds": 0.78,
+      "throughputRps": 383.4,
+      "statusCodes": {
+        "200": 300
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 50.1,
+        "p95": 63.8,
+        "max": 71.8,
+        "min": 24.3
+      },
+      "backendCpuPercentPeak": 106.1,
+      "backendRssMbPeak": 140.4
+    },
+    {
+      "scenario": "doctor search (signed-in patient)",
+      "requests": 200,
+      "concurrency": 10,
+      "wallSeconds": 0.63,
+      "throughputRps": 316.0,
+      "statusCodes": {
+        "200": 200
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 29.9,
+        "p95": 45.4,
+        "max": 55.6,
+        "min": 17.7
+      },
+      "backendCpuPercentPeak": 121.8,
+      "backendRssMbPeak": 133.8
+    },
+    {
+      "scenario": "patient appointments list",
+      "requests": 200,
+      "concurrency": 10,
+      "wallSeconds": 1.2,
+      "throughputRps": 166.7,
+      "statusCodes": {
+        "200": 200
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 57.9,
+        "p95": 70.7,
+        "max": 80.2,
+        "min": 31.5
+      },
+      "backendCpuPercentPeak": 84.3,
+      "backendRssMbPeak": 135.7
+    },
+    {
+      "scenario": "doctor appointment list",
+      "requests": 200,
+      "concurrency": 10,
+      "wallSeconds": 0.93,
+      "throughputRps": 215.4,
+      "statusCodes": {
+        "200": 200
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 45.5,
+        "p95": 58.9,
+        "max": 68.0,
+        "min": 25.1
+      },
+      "backendCpuPercentPeak": 99.8,
+      "backendRssMbPeak": 134.3
+    },
+    {
+      "scenario": "admin dashboard analytics (30 days)",
+      "requests": 100,
+      "concurrency": 5,
+      "wallSeconds": 2.19,
+      "throughputRps": 45.8,
+      "statusCodes": {
+        "200": 100
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 108.7,
+        "p95": 122.0,
+        "max": 129.1,
+        "min": 28.0
+      },
+      "backendCpuPercentPeak": 65.6,
+      "backendRssMbPeak": 135.9
+    },
+    {
+      "scenario": "admin payments list (page 1)",
+      "requests": 150,
+      "concurrency": 10,
+      "wallSeconds": 0.8,
+      "throughputRps": 187.5,
+      "statusCodes": {
+        "200": 150
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 52.3,
+        "p95": 64.7,
+        "max": 72.6,
+        "min": 22.0
+      },
+      "backendCpuPercentPeak": 100.0,
+      "backendRssMbPeak": 137.1
+    },
+    {
+      "scenario": "admin appointments search",
+      "requests": 150,
+      "concurrency": 10,
+      "wallSeconds": 1.24,
+      "throughputRps": 120.8,
+      "statusCodes": {
+        "200": 150
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 82.1,
+        "p95": 96.9,
+        "max": 111.2,
+        "min": 34.7
+      },
+      "backendCpuPercentPeak": 74.9,
+      "backendRssMbPeak": 135.5
+    },
+    {
+      "scenario": "platform monitoring snapshot",
+      "requests": 100,
+      "concurrency": 5,
+      "wallSeconds": 0.49,
+      "throughputRps": 203.2,
+      "statusCodes": {
+        "200": 100
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 22.7,
+        "p95": 40.3,
+        "max": 43.3,
+        "min": 15.8
+      },
+      "backendCpuPercentPeak": 118.7,
+      "backendRssMbPeak": 136.3
+    },
+    {
+      "scenario": "admin AI assistant (deterministic)",
+      "requests": 25,
+      "concurrency": 5,
+      "wallSeconds": 0.38,
+      "throughputRps": 65.0,
+      "statusCodes": {
+        "200": 25
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 74.1,
+        "p95": 92.8,
+        "max": 109.0,
+        "min": 30.6
+      },
+      "backendCpuPercentPeak": 28.1,
+      "backendRssMbPeak": 136.2
+    },
+    {
+      "scenario": "doctor AI assistant (deterministic)",
+      "requests": 25,
+      "concurrency": 5,
+      "wallSeconds": 0.15,
+      "throughputRps": 163.5,
+      "statusCodes": {
+        "200": 25
+      },
+      "errorRatePercent": 0.0,
+      "latencyMs": {
+        "median": 29.0,
+        "p95": 33.6,
+        "max": 46.0,
+        "min": 13.0
+      },
+      "backendCpuPercentPeak": 28.1,
+      "backendRssMbPeak": 136.2
+    }
+  ]
+}

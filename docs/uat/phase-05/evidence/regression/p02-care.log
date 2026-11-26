@@ -1,0 +1,71 @@
+setup synthetic_completed_visit {"appointmentId": "6b06b536c9320433b0ed3adc", "note": "fixture inserted directly (care relationship)"}
+05_medication doctor_signs_prescription {"http": 201, "status": "ISSUED"}
+05_medication patient_cannot_approve_schedule {"http": 403}
+05_medication other_doctor_cannot_approve {"http": 404}
+05_medication doctor_approves_schedule {"http": 200, "scheduleTimes": ["10:46"], "timezone": "Asia/Colombo", "repeat_same_schedule": true}
+05_medication worker_executed_reminder {"found": true, "state": "processed", "channels": {"inApp": "stored", "push": "unavailable", "email": "skipped", "sms": "skipped"}, "due_colombo": "2026-11-26T10:46:00+05:30"}
+05_medication in_app_notification_private {"exists": true, "body_has_medicine_name": false}
+05_medication patient_reads_instructions {"http": 200, "instructions": "1 tablet \u00b7 Oral \u00b7 Once daily"}
+05_medication other_patient_denied {"http": 404}
+05_medication action_snooze_idempotent {"http": [200, 200]}
+05_medication action_taken_idempotent {"http": [200, 200]}
+05_medication audit_entries {"count": 2}
+05_medication other_patient_cannot_act {"http": 404}
+05_medication doctor_sees_patient_reported_activity {"http": 200, "sources": ["patient_reported"]}
+05_medication ai_cannot_change_dose {"http": 200, "prescription_unchanged": true, "reply": "**I can't change your dose or medicine times.** Changes to a prescribed medicine must be decided by the doctor who prescribed it, so nothing in your schedule has been changed.\n\n- Talk to your doctor, or
+05_medication doctor_cancels_schedule {"http": 200}
+06_care_plan patient_cannot_create {"http": 403}
+06_care_plan video_type_rejected {"http": 422}
+06_care_plan doctor_creates {"http": 201, "status": "ACTIVE", "tasks": 1}
+06_care_plan patient_receives {"http": 200, "visible": true}
+06_care_plan other_patient_denied {"http": 403}
+06_care_plan unrelated_doctor_denied {"http": 403}
+09_medical_test worker_executed_test_reminder {"found": true, "state": "processed", "channels": {"inApp": "stored", "push": "unavailable", "email": "skipped", "sms": "skipped"}}
+06_care_plan ai_reads_real_tasks_before_completion {"http": 200, "reply": "26 Nov 10:47 \u00b7 UAT fasting blood test\nTimes are in Asia/Colombo. Open My Care Plan for details."}
+09_medical_test agenda_shows_test {"http": 200, "titles": ["UAT fasting blood test"]}
+06_care_plan patient_completes_task {"http": 200, "task_completed": [true], "progress": {"completedTasks": 1, "progressPercentage": 100}}
+06_care_plan other_patient_cannot_complete {"http": 403}
+08_follow_up doctor_follow_up_list {"http": 200, "contains_plan": true}
+06_care_plan doctor_updates {"http": 200, "version": 2}
+06_care_plan patient_cannot_update {"http": 403}
+06_care_plan ai_reads_real_tasks {"http": 200, "reply": "There are no matching scheduled records for 2026-11-26."}
+08_follow_up doctor_cancels_plan {"http": 200, "status": "CANCELLED"}
+07_appointment_reminder fixture_confirmed_appointment {"starts_colombo": "2026-11-26T12:49:33.181497+05:30", "note": "2h reminder due ~1 min later"}
+07_appointment_reminder worker_executed {"found": true, "state": "processed", "recipient_is_patient": true, "channels": {"inApp": "stored", "push": "unavailable", "email": "skipped", "sms": "skipped"}, "in_app": true}
+07_appointment_reminder cancel_appointment {"http": 200, "future_reminders": 0}
+10_health_tracking clinical_invalid_bp {"http": 422, "alert": null, "unit": null, "source": null}
+10_health_tracking clinical_crisis_bp {"http": 201, "alert": "CRITICAL HYPERTENSIVE CRISIS ALERT: Blood pressure reading is severely elevated (\u2265180/120 mmHg). Seek immediate emergency medical care (Call 1990 Suwa Seriya).", "unit": "mmHg", "source": "patient_reported"}
+10_health_tracking clinical_normal_glucose {"http": 201, "alert": null, "unit": "mg/dL", "source": "patient_reported"}
+10_health_tracking agenda_invalid_unit {"http": 422, "alert": null, "unit": null, "source": null}
+10_health_tracking agenda_crisis_bp {"http": 201, "alert": "CRITICAL HYPERTENSIVE CRISIS ALERT: Blood pressure reading is severely elevated (\u2265180/120 mmHg). Seek immediate emergency medical care (Call 1990 Suwa Seriya).", "unit": "mmHg", "source": "patient_reported"}
+10_health_tracking agenda_weight {"http": 201, "alert": null, "unit": "kg", "source": "patient_reported"}
+10_health_tracking trends {"http": 200, "metrics": ["blood_pressure", "blood_glucose", "weight", "temperature", "heart_rate", "oxygen_saturation"]}
+10_health_tracking patient_b_sees_only_own {"http": 200, "count": 0}
+10_health_tracking related_doctor_trends {"http": 200}
+10_health_tracking unrelated_doctor_trends {"http": 403}
+11_renewal patient_requests {"http": 201, "status": "requested"}
+11_renewal duplicate_rejected {"http": 409}
+11_renewal other_patient_cannot_request {"http": 404}
+11_renewal doctor_notified {"exists": true}
+11_renewal unrelated_doctor_cannot_review {"http": 403}
+11_renewal ai_cannot_approve {"http": 200, "status_after": "requested"}
+11_renewal doctor_approves {"http": 200, "status": "approved", "new_prescription": true}
+11_renewal second_review_rejected {"http": 400}
+11_renewal patient_sees_status {"http": 200, "statuses": ["approved", "approved", "approved", "approved", "approved"], "patient_notified": true}
+12_records upload_pdf {"http": 201, "hasAttachment": true}
+12_records reject_text_file {"http": 400}
+12_records reject_fake_pdf {"http": 400}
+12_records reject_oversize {"http": 400}
+12_records download_patient {"http": 200}
+12_records download_related_doctor {"http": 200}
+12_records download_unrelated_doctor {"http": 403}
+12_records download_other_patient {"http": 403}
+12_records invalid_token {"http": 401}
+12_records storage_metadata {"keys": ["amendmentHistory", "auditLog", "authorId", "authorName", "authorRole", "clinicalData", "clinicalDate", "createdAt", "description", "documentMetadata", "isAiGenerated", "patientUserId", "recordId", "recordType"]}
+12_records summary_is_source_grounded {"http": 200, "disclaimer": true}
+13_notifications list_and_unread {"http": [200, 200], "unread": {"unreadCount": 10}, "listed": 20}
+13_notifications mark_read {"http": 200}
+13_notifications other_user_cannot_mark {"http": 403}
+13_notifications mark_all_read {"http": 200, "unread_after": {"unreadCount": 0}}
+13_notifications doctor_deep_link_resolves {"http": 200}
+13_notifications deleted_appointment_link {"http": 404}

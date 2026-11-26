@@ -123,3 +123,7 @@ Fabricated or misleading production behaviour was found and removed:
 - Opaque "% Match" score in the AI assistant (BUG-022).
 
 No `NotImplementedError`, `UnimplementedError` or TODO/FIXME was found in production code. Mocks exist only under `tests/` (`mock_db.py`, fakes in Flutter tests).
+
+## Phase 05 update (2026-11-26)
+
+The final matrix covering all 38 components is in [uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md](uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md): 25 VERIFIED (local), 11 PARTIAL and 2 BLOCKED. It supersedes the statuses above, which are kept as history. No component is verified against a live LLM, a clinician or a physical device.

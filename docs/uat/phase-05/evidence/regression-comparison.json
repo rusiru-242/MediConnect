@@ -1,0 +1,116 @@
+{
+  "phase02Stripe": {
+    "stepsPhase04": 36,
+    "stepsPhase05": 36,
+    "behaviouralDifferences": [
+      {
+        "step": "S4_admin_payment_list",
+        "field": "total",
+        "phase04": 41,
+        "phase05": 49
+      }
+    ],
+    "dataDifferences": 1,
+    "dataDifferenceExamples": [
+      {
+        "step": "S6_reschedule_ok",
+        "field": "new",
+        "phase04": "2026-12-03 10:00",
+        "phase05": "2026-12-03 10:30"
+      }
+    ]
+  },
+  "phase02Care": {
+    "stepsPhase04": 71,
+    "stepsPhase05": 71,
+    "behaviouralDifferences": [
+      {
+        "step": "05_medication:worker_executed_reminder",
+        "field": "due_colombo",
+        "phase04": "2026-11-26T02:53:00+05:30",
+        "phase05": "2026-11-26T10:46:00+05:30"
+      },
+      {
+        "step": "07_appointment_reminder:fixture_confirmed_appointment",
+        "field": "starts_colombo",
+        "phase04": "2026-11-26T04:57:05.020618+05:30",
+        "phase05": "2026-11-26T12:49:33.181497+05:30"
+      },
+      {
+        "step": "11_renewal:patient_sees_status",
+        "field": "statuses[4]",
+        "phase04": null,
+        "phase05": "approved"
+      }
+    ],
+    "dataDifferences": 4,
+    "dataDifferenceExamples": [
+      {
+        "step": "05_medication:doctor_approves_schedule",
+        "field": "scheduleTimes[0]",
+        "phase04": "02:53",
+        "phase05": "10:46"
+      },
+      {
+        "step": "05_medication:ai_cannot_change_dose",
+        "field": "reply",
+        "phase04": "I could not locate verified pharmacological information for that specific medication name in our database. For your safety, I never guess or invent medicine details. Please verify the exact generic or brand spelling on your prescription or ",
+        "phase05": "**I can't change your dose or medicine times.** Changes to a prescribed medicine must be decided by the doctor who prescribed it, so nothing in your schedule has been changed.\n\n- Talk to your doctor, or book an appointment to review your me"
+      },
+      {
+        "step": "06_care_plan:ai_reads_real_tasks_before_completion",
+        "field": "reply",
+        "phase04": "26 Nov 02:55 · UAT fasting blood test\nTimes are in Asia/Colombo. Open My Care Plan for details.",
+        "phase05": "26 Nov 10:47 · UAT fasting blood test\nTimes are in Asia/Colombo. Open My Care Plan for details."
+      },
+      {
+        "step": "13_notifications:list_and_unread",
+        "field": "unread.unreadCount",
+        "phase04": 9,
+        "phase05": 10
+      }
+    ]
+  },
+  "phase01Probe": {
+    "valuesCompared": 609,
+    "behaviouralDifferences": [
+      {
+        "field": "E2_romanized_chest[0].prefs.language",
+        "phase04": "en",
+        "phase05": "si"
+      },
+      {
+        "field": "E3_sinhala_chest[0].prefs.language",
+        "phase04": "en",
+        "phase05": "si"
+      },
+      {
+        "field": "E4_unconscious_other[0].prefs.language",
+        "phase04": "en",
+        "phase05": "si"
+      },
+      {
+        "field": "E5_selfharm_romanized[0].prefs.language",
+        "phase04": "en",
+        "phase05": "si"
+      },
+      {
+        "field": "E7_selfharm_si[0].prefs.language",
+        "phase04": "en",
+        "phase05": "si"
+      }
+    ],
+    "behaviouralDifferenceCount": 5
+  },
+  "p03-doctor-workflow-uat": {
+    "steps": 45
+  },
+  "p04-admin-system-uat": {
+    "total": 90,
+    "passed": 88,
+    "failed": [
+      "A-01h",
+      "A-03g"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "database": "mediconnect_uat (local, synthetic)",
+  "readOnly": true,
+  "paidCancellationsWithoutRefundRequest": 1,
+  "byCancelledBy": {
+    "DOCTOR": 1
+  },
+  "rows": [
+    {
+      "appointmentId": "6b06f10e10993f4410e9baa6",
+      "appointmentDate": "2026-12-04",
+      "cancelledBy": "DOCTOR",
+      "paymentIntent": "pi_3Uf\u20263UwJ",
+      "paymentStatus": "SUCCEEDED",
+      "captured": 2000.0,
+      "currency": "LKR",
+      "alreadyRefunded": 0,
+      "reconciliationState": "CONFIRMED",
+      "suggestedAction": "Admin review through payment reconciliation; no automatic backfill"
+    }
+  ],
+  "note": "P4-B6 remains an owner decision for any other database; nothing was changed here."
+}
