@@ -132,7 +132,11 @@ def test_a03_a12_chat_text_never_confirms_or_charges(db, env):
     say(env, cid, "Show me the available slots for this doctor tomorrow.")
     proposal = say(env, cid, "Book it at 09:30.")
     for text in ("Yes, confirm it and charge my card.", "I confirm. Pay now.", "ow, book karanna, salli gewanna"):
-        say(env, cid, text)
+        reply = say(env, cid, text)
+        assert proposal.get("bookingSummary")   # a proposal is on screen
+        if proposal.get("bookingSummary"):   # A03-BUG-014: the reply explains the explicit acceptance step
+            assert last(reply)["metadata"]["type"] == "confirmation_required", last(reply)["content"]
+            assert "Accept booking" in last(reply)["content"]
     assert holds(db, env) == 0
     assert not db["payments"].find_one({"patientUserId": env["patient"]})
     assert proposal.get("bookingSummary") is None or proposal["bookingSummary"].get("proposalId")

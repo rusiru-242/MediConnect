@@ -80,6 +80,15 @@ _OTHER_TIME = (r"\b(?:another|other|different|more|next)\s+(?:available\s+|open\
 def other_time_request(text: str) -> bool:
     return bool(re.search(_OTHER_TIME, text, re.IGNORECASE))
 
+
+# A03-BUG-014: "yes, confirm it", "pay now", "ow book karanna" while a proposal is shown (no time in the message).
+_CONFIRM_CHAT = (r"\b(?:confirm\w*|yes|yeah|ok(?:ay)?|book\s+it|go\s+ahead|proceed|pay\w*|charge\w*|accept\w*|ow|hari|"
+                 r"salli\s+gew\w*)\b|තහවුරු|ගෙවන්න|හරි")
+
+
+def confirm_by_chat_request(text: str) -> bool:
+    return bool(re.search(_CONFIRM_CHAT, text, re.IGNORECASE)) and not re.search(r"\d{1,2}[:.]\d{2}", text)
+
 # "Recommend a good doctor" shows the most suitable one or two by default (Phase 01 requirement).
 RECOMMENDATION_LIMIT = 2
 
@@ -819,6 +828,24 @@ class BookingAgent:
                 "content": "Your current slot is held. Complete payment here, or start a New Chat for another booking.",
                 "timestamp": utc_now(), "metadata": {"type": "booking_status"},
             })
+            return session_data
+
+        # A03-BUG-014: a chat message never accepts a proposal or authorizes a charge. "Yes, confirm it and charge my card"
+        # got a request for symptoms; it now says how the explicit acceptance and the secure payment screen work.
+        if (session_data.get("bookingSummary") and not session_data.get("appointmentId")
+                and confirm_by_chat_request(clean_text)):
+            reply = ("චැට් පණිවිඩයකින් හමුවීම තහවුරු කිරීම හෝ ගෙවීම කළ නොහැක. පහත යෝජනාව පරීක්ෂා කර Accept booking "
+                     "ඔබන්න. ඉන්පසු ආරක්ෂිත Stripe ගෙවීම් තිරයේ පමණක් ගෙවීම සිදු වේ."
+                     if lang == "si" else
+                     "I can't confirm a booking or take a payment from a chat message. Review the proposal below and tap "
+                     "Accept booking; the slot is then held for 10 minutes and you pay only on the secure Stripe payment "
+                     "screen.")
+            session_data["messages"].append({
+                "id": str(ObjectId()), "sender": "assistant", "content": reply, "timestamp": utc_now(),
+                "metadata": {"type": "confirmation_required",
+                             "proposalId": (session_data.get("bookingSummary") or {}).get("proposalId")},
+            })
+            session_data["updatedAt"] = utc_now()
             return session_data
 
         # A03-BUG-011: other open times with the same doctor on the same date (read-only). The current proposal is kept;
