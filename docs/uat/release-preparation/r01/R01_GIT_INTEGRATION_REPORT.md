@@ -20,10 +20,11 @@ For: the project owner and reviewers. Records how R01 was branched, verified, pr
 
 | Commit | Scope |
 |---|---|
-| (code) | feat(branding): MediConnect symbol, launcher icon, native and Flutter splash, admin favicon and brand mark |
-| (docs) | docs(uat): R01 branding reports, before/after screenshots and results |
+| `a3649b0` | feat(branding): MediConnect symbol, launcher icon, native and Flutter splash, admin favicon and brand mark (tested code) |
+| `eb5010c` | docs(uat): R01 branding reports, before/after screenshots and results |
+| next docs commit | this CI and PR record |
 
-Filled in after committing: see **PR, CI and merge**.
+The branch was pushed as `feat/mediconnect-branding` (new remote branch; no force push).
 
 **Not committed:** `backend/uat.env`, `.env` files, the debug APK, `admin-web/dist`, scratch logs.
 
@@ -40,7 +41,27 @@ R01 changes `mobile/**` and `admin-web/**` (plus `branding/**` and docs). Mobile
 
 ## PR, CI and merge
 
-**Status when this report was written:** not yet opened.
+### CI on the branch push (public GitHub API)
+
+| Workflow | Commit | Result | Run |
+|---|---|---|---|
+| Mobile CI | `eb5010c` (contains code `a3649b0`) | **success** (20:19–20:21 UTC) | actions/runs/46062796615 |
+| Admin Web CI | `eb5010c` | **success** (20:19–20:19 UTC) | actions/runs/46062796590 |
+| Backend CI | — | not triggered (no `backend/**` change) | — |
+
+Deployment check after the push: `/deployments` is empty (0).
+
+### Pull request
+
+**Status when this report was written:** not opened. The GitHub CLI is not logged in on this machine, so the agent cannot open or merge the PR. The owner was given the compare URL, title and prepared description, with the instruction **to merge only after Mobile CI and Admin Web CI have succeeded on the PR's final head**.
+
+| Item | Value |
+|---|---|
+| Compare URL | https://github.com/rusiru-242/MediConnect/compare/main...feat/mediconnect-branding?expand=1 |
+| Title | R01: Integrate MediConnect Branding, Logo and Splash Screen |
+| Description | `evidence/r01_pr_description.md` in the report package |
+| Pull request number, CI on the PR head, merge commit | Not yet available; to be recorded after the owner's actions |
+| `origin/main` at the time of writing | `96e6fe7` (unchanged) |
 
 ## Post-merge verification
 

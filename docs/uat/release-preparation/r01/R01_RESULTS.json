@@ -284,6 +284,16 @@
     "payments": 0,
     "deployed": false
   },
-  "integration": "pending",
+  "integration": {
+    "branchCi": {
+      "commit": "eb5010c",
+      "Mobile CI": "success",
+      "Admin Web CI": "success",
+      "Backend CI": "not triggered"
+    },
+    "pr": "not opened (gh not authenticated)",
+    "merge": "not performed",
+    "originMain": "96e6fe7"
+  },
   "productionReady": false
 }
