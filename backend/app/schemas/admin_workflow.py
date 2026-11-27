@@ -128,6 +128,10 @@ class RefundRequestResponse(StrictModel):
     approvedAmount: Optional[float] = None
     refundedAmount: Optional[float] = None
     stripeRefundStatus: Optional[str] = None
+    # A03-BUG-009: states an administrator must see (Stripe failure after success; unknown provider outcome).
+    requiresReview: Optional[bool] = None
+    reviewReason: Optional[str] = None
+    stripeOutcome: Optional[str] = None
     createdAt: datetime
     updatedAt: datetime
     completedAt: Optional[datetime] = None
@@ -166,6 +170,7 @@ class ReconciliationDiscrepancy(StrictModel):
     paymentId: Optional[str] = None
     appointmentId: Optional[str] = None
     stripePaymentIntentId: Optional[str] = None
+    refundId: Optional[str] = None  # A03-BUG-009 refund-review discrepancies
     description: str
     recommendation: str
     detectedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

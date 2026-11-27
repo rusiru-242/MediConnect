@@ -120,6 +120,11 @@ export interface RefundRequest {
   approvedAmount?: number | null;
   refundedAmount?: number | null;
   stripeRefundStatus?: string | null;
+  /** A03: Stripe reported a failure after the refund had succeeded; a human must review it. */
+  requiresReview?: boolean | null;
+  reviewReason?: string | null;
+  /** A03: "uncertain" while the provider's answer to the refund request is unknown. */
+  stripeOutcome?: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;

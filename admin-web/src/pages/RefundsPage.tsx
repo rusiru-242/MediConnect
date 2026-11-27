@@ -224,6 +224,14 @@ export const RefundsPage: React.FC = () => {
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusClass(r.status)}`}>
                         {r.status.replace('_', ' ')}
                       </span>
+                      {r.requiresReview && (
+                        <div className="mt-1 text-[11px] font-semibold text-rose-700" data-testid={`refund-review-${r.refundId}`}>
+                          Needs review: Stripe reported {r.stripeRefundStatus || 'a failure'}
+                        </div>
+                      )}
+                      {r.status === 'processing' && r.stripeOutcome === 'uncertain' && (
+                        <div className="mt-1 text-[11px] font-semibold text-amber-700">Outcome being checked with Stripe</div>
+                      )}
                     </td>
                     <td className="px-4 py-4 text-right whitespace-nowrap">
                       <Button variant="outline" size="sm" onClick={() => openReview(r)}>
@@ -292,11 +300,27 @@ export const RefundsPage: React.FC = () => {
                   <span className="font-semibold text-slate-700">Reviewer note:</span> {selectedRefund.reviewNotes}
                 </p>
               )}
-              {selectedRefund.failureReason && (
-                <p className="text-orange-700">
-                  <span className="font-semibold">Last Stripe error:</span> {selectedRefund.failureReason}. No money was
-                  recorded as refunded; retrying uses the same idempotency key.
+              {selectedRefund.requiresReview && (
+                <p className="rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-rose-800" role="alert">
+                  <span className="font-semibold">Needs review:</span> Stripe reported this refund as{' '}
+                  {selectedRefund.stripeRefundStatus || 'failed'} after it had succeeded. MediConnect still records the
+                  money as returned and has not changed any record. Check the refund in Stripe and contact the patient
+                  before any further action.
                 </p>
+              )}
+              {selectedRefund.status === 'processing' && selectedRefund.stripeOutcome === 'uncertain' ? (
+                <p className="text-amber-700">
+                  <span className="font-semibold">Outcome not confirmed:</span> the payment provider did not answer the
+                  refund request ({selectedRefund.failureReason || 'network error'}). It is being looked up in Stripe
+                  automatically. Do not approve it again.
+                </p>
+              ) : (
+                selectedRefund.failureReason && (
+                  <p className="text-orange-700">
+                    <span className="font-semibold">Last Stripe error:</span> {selectedRefund.failureReason}. No money was
+                    recorded as refunded; a retry first checks Stripe for an existing refund.
+                  </p>
+                )
               )}
               {selectedRefund.stripeRefundId && (
                 <p className="font-mono text-[11px] text-slate-500">Stripe refund: {selectedRefund.stripeRefundId}</p>

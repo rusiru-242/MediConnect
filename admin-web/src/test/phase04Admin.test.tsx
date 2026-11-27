@@ -147,7 +147,8 @@ describe('Refunds page (B15 / P3-B3)', () => {
     });
     wrap(<RefundsPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Review / retry' }));
-    expect(await screen.findByText(/same idempotency key/)).toBeInTheDocument();
+    // A03-BUG-007: a retry now looks the refund up in Stripe first (the idempotency key expires after 24 hours).
+    expect(await screen.findByText(/first checks Stripe for an existing refund/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry Stripe refund' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reject request' })).not.toBeInTheDocument();
   });
