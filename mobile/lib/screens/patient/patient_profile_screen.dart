@@ -682,6 +682,21 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
               ),
               const SizedBox(height: 18),
 
+              // A05 (Agent 26): Help & Support
+              StitchCard(
+                padding: EdgeInsets.zero,
+                child: _buildDocumentTile(
+                  key: const Key('profile_help_support'),
+                  icon: Icons.support_agent_rounded,
+                  title: 'Help & Support',
+                  subtitle: 'Your support tickets and replies',
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/patient/support');
+                  },
+                ),
+              ),
+              const SizedBox(height: 18),
+
               // 5. Emergency Contacts
               const Text(
                 'Emergency Contacts',
@@ -900,12 +915,14 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
   }
 
   Widget _buildDocumentTile({
+    Key? key,
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
     return ListTile(
+      key: key,
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(

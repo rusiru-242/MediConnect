@@ -79,6 +79,8 @@ class NotificationModel {
   final String title;
   final String body;
   final String? relatedCareEventId;
+  /// A05: the support ticket a reply notification refers to.
+  final String? relatedTicketId;
   final String? relatedAppointmentId;
   final String? relatedPaymentId;
   final bool isRead;
@@ -92,6 +94,7 @@ class NotificationModel {
     required this.title,
     required this.body,
     this.relatedCareEventId,
+    this.relatedTicketId,
     this.relatedAppointmentId,
     this.relatedPaymentId,
     required this.isRead,
@@ -107,6 +110,7 @@ class NotificationModel {
       title: json['title']?.toString() ?? '',
       body: json['body']?.toString() ?? '',
       relatedCareEventId: json['relatedCareEventId']?.toString(),
+      relatedTicketId: json['relatedTicketId']?.toString(),
       relatedAppointmentId: json['relatedAppointmentId']?.toString(),
       relatedPaymentId: json['relatedPaymentId']?.toString(),
       isRead: json['isRead'] == true,
@@ -138,6 +142,7 @@ class NotificationModel {
       title: title ?? this.title,
       body: body ?? this.body,
       relatedCareEventId: relatedCareEventId,
+      relatedTicketId: relatedTicketId,
       relatedAppointmentId: relatedAppointmentId ?? this.relatedAppointmentId,
       relatedPaymentId: relatedPaymentId ?? this.relatedPaymentId,
       isRead: isRead ?? this.isRead,

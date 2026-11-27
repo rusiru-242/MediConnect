@@ -69,6 +69,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final authProvider = context.read<AuthProvider>();
     final isDoctor = authProvider.user?.role == 'DOCTOR';
 
+    // A05: a support reply opens its ticket.
+    if (!isDoctor && item.relatedTicketId != null && item.relatedTicketId!.isNotEmpty) {
+      Navigator.of(context).pushNamed('/patient/support/ticket', arguments: item.relatedTicketId);
+      return;
+    }
+
     if (!isDoctor && item.relatedCareEventId != null) {
       Navigator.of(context).pushNamed('/patient/care-agenda', arguments: item.relatedCareEventId);
       return;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -121,19 +121,25 @@ export const MonitoringPage: React.FC = () => {
     }
   };
 
+  // A05-BUG-011: a double click recorded the same review decision twice.
+  const deciding = useRef(false);
   const handleFraudDecision = async (decision: string) => {
     if (!reviewingFraud || !fraudDecisionNotes.trim()) {
       showError('Please provide investigation notes for this decision.');
       return;
     }
+    if (deciding.current) return;
+    deciding.current = true;
     try {
       await securityMonitoringApi.reviewFraudAssessment(reviewingFraud.assessmentId, decision, fraudDecisionNotes);
-      showSuccess(`Fraud assessment ${decision.toUpperCase()}ed.`);
+      showSuccess(`Review decision recorded: ${decision}.`);
       setReviewingFraud(null);
       setFraudDecisionNotes('');
       fetchAllData();
     } catch {
       showError('Failed to submit fraud review.');
+    } finally {
+      deciding.current = false;
     }
   };
 
@@ -395,8 +401,12 @@ export const MonitoringPage: React.FC = () => {
       {activeTab === 'fraud' && (
         <div className="rounded-xl border border-slate-200/80 bg-white shadow-xs">
           <div className="border-b border-slate-200 p-4">
-            <h3 className="text-base font-semibold text-slate-900">Explainable Fraud Risk Assessments</h3>
-            <p className="text-xs text-slate-500">Evaluated against deterministic transactional and authorization rules.</p>
+            <h3 className="text-base font-semibold text-slate-900">Rule-based Risk Signals</h3>
+            <p className="text-xs text-slate-500">
+              Raised by fixed rules over stored booking, payment and sign-in records. A signal is a reason to review an
+              account, not proof of fraud. No account, booking, refund or payment action is taken automatically;
+              thresholds are provisional and not calibrated on real fraud data.
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
@@ -777,9 +787,54 @@ export const MonitoringPage: React.FC = () => {
       {/* Fraud Review Modal */}
       {reviewingFraud && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Review Fraud Assessment: {reviewingFraud.assessmentId}</h3>
+          <div
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
+            data-testid="fraud-review-modal"
+          >
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Review risk signal: {reviewingFraud.assessmentId}</h3>
+            <p className="text-xs text-slate-500 mb-2">
+              Account {reviewingFraud.relatedAccountId || reviewingFraud.relatedEntityReference} · status{' '}
+              {reviewingFraud.reviewStatus}
+            </p>
             <p className="text-xs text-slate-600 mb-3">{reviewingFraud.explanation}</p>
+            {(reviewingFraud.ruleEvidence || []).length > 0 && (
+              <div className="mb-3 space-y-2" data-testid="fraud-evidence">
+                <p className="text-xs font-semibold text-slate-700">Why each rule fired</p>
+                {(reviewingFraud.ruleEvidence || []).map(ev => (
+                  <div key={ev.rule} className="rounded-lg border border-slate-200 p-2 text-xs text-slate-700">
+                    <p className="font-semibold">{ev.rule}</p>
+                    <p>{ev.description}</p>
+                    <p>
+                      Threshold: {ev.threshold} · observed: <span className="font-bold">{String(ev.observed)}</span>
+                    </p>
+                    {ev.items && ev.items.length > 0 ? (
+                      <ul className="mt-1 list-disc pl-4">
+                        {ev.items.map(item => (
+                          <li key={item.appointmentId}>
+                            {item.slot} · {item.outcome.replace(/_/g, ' ')} · appointment {item.appointmentId}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      ev.references.length > 0 && <p className="break-all">References: {ev.references.join(', ')}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {reviewingFraud.investigationNotes.length > 0 && (
+              <div className="mb-3" data-testid="fraud-history">
+                <p className="text-xs font-semibold text-slate-700">Review history</p>
+                <ul className="list-disc pl-4 text-xs text-slate-600">
+                  {reviewingFraud.investigationNotes.map((n, i) => (
+                    <li key={i}>
+                      {String(n.timestamp ?? '').slice(0, 16).replace('T', ' ')} · {String(n.decision ?? '')} ·{' '}
+                      {String(n.notes ?? '')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <label className="block text-xs font-semibold text-slate-700 mb-1">Investigation Justification / Notes:</label>
             <textarea
               rows={3}
@@ -796,23 +851,41 @@ export const MonitoringPage: React.FC = () => {
               >
                 Cancel
               </button>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => handleFraudDecision('dismiss')}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  Dismiss (False Positive)
+                  Dismiss (not suspicious)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFraudDecision('investigate')}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Investigate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFraudDecision('resolve')}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Resolve
                 </button>
                 <button
                   type="button"
                   onClick={() => handleFraudDecision('confirm')}
                   className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
                 >
-                  Confirm Fraud
+                  Confirm finding (human decision)
                 </button>
               </div>
             </div>
+            <p className="mt-3 text-[11px] text-slate-500">
+              Recording a decision changes only this review record. Any account, booking or refund action is a
+              separate, manual step.
+            </p>
           </div>
         </div>
       )}

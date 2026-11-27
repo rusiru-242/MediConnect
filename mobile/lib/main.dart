@@ -38,6 +38,7 @@ import 'screens/patient/medical_records_screen.dart';
 import 'screens/patient/patient_medical_records_screen.dart';
 import 'screens/patient/patient_health_tracking_screen.dart';
 import 'screens/patient/prescription_renewals_screen.dart';
+import 'screens/patient/support_screens.dart';
 import 'screens/doctor/doctor_clinical_documentation_screen.dart';
 import 'screens/doctor/doctor_prescription_renewal_queue_screen.dart';
 import 'screens/patient/medication_reminders_screen.dart';
@@ -174,6 +175,11 @@ class MediConnectApp extends StatelessWidget {
           '/patient/medical-records-v2': (context) => const PatientMedicalRecordsScreen(),
           '/patient/health-tracking': (context) => const PatientHealthTrackingScreen(),
           '/patient/prescription-renewals': (context) => const PrescriptionRenewalsScreen(),
+          // A05 (Agent 26): Help & Support; a notification opens the ticket it refers to.
+          '/patient/support': (context) => const SupportTicketsScreen(),
+          '/patient/support/ticket': (context) => SupportTicketDetailScreen(
+                ticketId: (ModalRoute.of(context)?.settings.arguments as String?) ?? '',
+              ),
           '/doctor/clinical-documentation': (context) => const DoctorClinicalDocumentationScreen(patientUserId: ''),
           '/doctor/prescription-renewals': (context) => const DoctorPrescriptionRenewalQueueScreen(),
           '/patient/medication-reminders': (context) =>
