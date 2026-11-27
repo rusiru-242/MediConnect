@@ -86,3 +86,8 @@ def create_support_ticket_indexes(db: Database) -> None:
     coll.create_index([("category", ASCENDING), ("status", ASCENDING)])
     coll.create_index([("priority", ASCENDING), ("status", ASCENDING)])
     coll.create_index([("createdAt", DESCENDING)])
+    coll.create_index([("updatedAt", DESCENDING)], name="idx_support_tickets_updated")
+    # A05-BUG-007: the same requester submitting the same subject and message twice (double tap, retry after a
+    # timeout) created two tickets. ``openDedupeKey`` exists while the ticket is open and is removed on resolve/close.
+    coll.create_index([("openDedupeKey", ASCENDING)], unique=True, name="idx_support_tickets_open_dedupe",
+                      partialFilterExpression={"openDedupeKey": {"$exists": True}})

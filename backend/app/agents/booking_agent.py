@@ -281,6 +281,12 @@ class BookingAgent:
             prescription = await prescription_reply(db, patient_user, patient_intent)
             if prescription is not None:
                 return reply(prescription[0], prescription[1], intent_value="PRESCRIPTIONS")
+            # A05 (Agent 26): support guidance from the patient's own tickets; refund, appointment and password
+            # actions are refused. Nothing is created or sent from the chat.
+            from app.agents.support_assistant import patient_reply as support_reply
+            support = await support_reply(db, patient_user, patient_intent)
+            if support is not None:
+                return reply(support[0], support[1], intent_value="CUSTOMER_SUPPORT")
             if patient_intent == "medication_change_request":
                 return reply(medication_change_message(reply_lang),
                              {"type": "medication_change_requires_clinician", "scheduleChanged": False,

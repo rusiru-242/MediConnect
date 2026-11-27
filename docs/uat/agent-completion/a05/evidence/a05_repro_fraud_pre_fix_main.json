@@ -1,0 +1,13 @@
+{
+ "label": "pre_fix_main",
+ "backend": "backend",
+ "at": "2026-11-27T19:13:04.649182+00:00",
+ "BUG-002_assessmentsStoredFor6ParallelEvaluations": 6,
+ "BUG-003_newAlertFromSameEvidenceAfterDismissal": true,
+ "BUG-010_rulesForFourRetriesOnOneSlot": [
+  "RAPID_CANCELLATION_PATTERN"
+ ],
+ "N12_rulesForFourDistinctUnpaidSlots": [
+  "RAPID_CANCELLATION_PATTERN"
+ ]
+}

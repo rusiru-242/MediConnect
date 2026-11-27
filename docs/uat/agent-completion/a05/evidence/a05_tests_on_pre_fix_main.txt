@@ -1,0 +1,31 @@
+A05 backend tests (tests/test_a05_fraud_support.py) run on unchanged main 18e8a32 (detached worktree, isolated mediconnect_a05pre_test).
+Note: most F-tests fail with AttributeError because the A05 sweep/helpers do not exist on main; they do not by themselves reproduce a defect.
+Behavioural reproductions on main: see a05_repro_fraud_pre_fix_main.json (fraud) and the C-test assertions listed in A05_BUG_FIX_REPORT.md.
+
+____________ test_f01_repeated_failed_logins_raise_a_review_signal ____________
+    def test_f01_repeated_failed_logins_raise_a_review_signal(db, people):
+            # Stripe is mocked (no network): the failed card's PaymentIntent is cancelled when the hold is released.
+FAILED tests/test_a05_fraud_support.py::test_f01_repeated_failed_logins_raise_a_review_signal
+FAILED tests/test_a05_fraud_support.py::test_f02_normal_login_activity_raises_nothing
+FAILED tests/test_a05_fraud_support.py::test_f03_f11_f14_f15_slot_hoarding_signal_with_evidence_and_no_action
+FAILED tests/test_a05_fraud_support.py::test_f04_normal_booking_and_one_release_raise_nothing
+FAILED tests/test_a05_fraud_support.py::test_f05_payment_retries_on_the_same_slot_are_not_hoarding
+FAILED tests/test_a05_fraud_support.py::test_f06_thresholds_and_window_are_configurable
+FAILED tests/test_a05_fraud_support.py::test_f07_no_duplicate_alerts_and_dismissal_is_respected
+FAILED tests/test_a05_fraud_support.py::test_f08_concurrent_detection_stores_one_open_assessment
+FAILED tests/test_a05_fraud_support.py::test_f09_restart_and_repeated_sweeps_are_idempotent_and_throttled
+FAILED tests/test_a05_fraud_support.py::test_f10_f12_admin_sees_evidence_reviews_and_audit_records_no_account_action
+FAILED tests/test_a05_fraud_support.py::test_f13_non_admins_cannot_read_or_review_fraud_signals
+FAILED tests/test_a05_fraud_support.py::test_f16_detection_does_not_touch_reservation_integrity
+FAILED tests/test_a05_fraud_support.py::test_c02_c05_patient_creates_lists_and_reads_own_ticket_without_internal_draft
+FAILED tests/test_a05_fraud_support.py::test_c03_invalid_ticket_submissions_are_rejected[payload4]
+FAILED tests/test_a05_fraud_support.py::test_c03b_requester_category_is_kept_and_priority_is_not_self_assigned
+FAILED tests/test_a05_fraud_support.py::test_c06_c13_admin_reply_patient_follow_up_and_status_flow
+FAILED tests/test_a05_fraud_support.py::test_c14_resolved_ticket_reopens_on_reply_and_closed_ticket_takes_no_messages
+FAILED tests/test_a05_fraud_support.py::test_c15_duplicate_tickets_and_messages_are_stored_once
+FAILED tests/test_a05_fraud_support.py::test_c16_c17_cross_patient_doctor_and_role_restrictions
+FAILED tests/test_a05_fraud_support.py::test_c18_c19_injection_and_html_are_data_and_no_refund_or_promise_is_made
+FAILED tests/test_a05_fraud_support.py::test_c18b_emergency_wording_gets_safe_routing
+FAILED tests/test_a05_fraud_support.py::test_c18c_c22_support_chat_is_grounded_refuses_actions_and_needs_no_provider
+FAILED tests/test_a05_fraud_support.py::test_c21_ticket_and_reply_persist_across_new_sessions
+23 failed, 4 passed in 34.28s

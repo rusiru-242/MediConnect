@@ -165,6 +165,13 @@ PATIENT_INTENTS: Sequence[Tuple[str, str]] = (
      r"show (?:me )?(?:my )?prescriptions?|mage (?:prescription|beheth wattoru)|මගේ බෙහෙත් වට්ටෝරු"),
     ("renewal_request",
      r"renew|refill|repeat prescription|wattoruwa alut|බෙහෙත් වට්ටෝරුව අලුත්"),
+    # A05 (Agent 26): support actions the assistant must refuse, then general support / ticket questions.
+    ("support_action_request",
+     r"approv\w*\s+(?:my\s+|the\s+|a\s+)?refund|refund\s+(?:me|my\s+(?:money|payment))\b|"
+     r"give\s+me\s+(?:a\s+|my\s+)?refund|reset\s+(?:my\s+)?password|unlock\s+my\s+account"),
+    ("support_request",
+     r"\b(?:customer\s+)?support\b|help\s?desk|support\s+tickets?|my\s+tickets?\b|"
+     r"contact\s+(?:mediconnect|the\s+team|admin)|raise\s+a\s+ticket|complain"),
 )
 
 ROLE_INTENTS: Dict[str, Sequence[Tuple[str, str]]] = {
@@ -187,6 +194,7 @@ COMPATIBLE = {
     frozenset({"notification_failures", "failed_payments"}), frozenset({"system_health", "notification_failures"}),
     frozenset({"fraud_explanation", "failed_payments"}), frozenset({"analytics", "follow_ups"}),
     frozenset({"refunds_attention", "booking_analytics"}),
+    frozenset({"support_action_request", "support_request"}),
     # A04 prescription intents: the first (most restrictive) one wins.
     frozenset({"other_patient_prescriptions", "medication_change_request"}),
     frozenset({"other_patient_prescriptions", "my_prescriptions"}),

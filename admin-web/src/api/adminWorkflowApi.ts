@@ -65,7 +65,7 @@ export const adminWorkflowApi = {
     message: string,
     status?: string,
     resolve?: boolean
-  ): Promise<{ message: string; ticketId: string; status: string }> => {
+  ): Promise<{ message: string; ticketId: string; status: string; duplicate?: boolean }> => {
     const { data } = await apiClient.post(`/admin/workflow/tickets/${ticketId}/reply`, {
       message,
       status,

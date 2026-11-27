@@ -481,6 +481,14 @@ async def patient_measurements(ctx, args):
     return res.model_dump(mode="json")
 
 
+async def patient_support_tickets(ctx, args):
+    """A05 (Agent 26): the caller's own tickets only, minimal fields (no internal draft, no other requester)."""
+    from app.services.support_ticket_service import SupportTicketService
+    res = SupportTicketService.list_tickets(ctx.db, user_id=str(ctx.user.id), is_admin=False, page_size=5)
+    return {"items": [{k: t.get(k) for k in ("ticketId", "subject", "category", "status", "awaitingReplyFrom")}
+                      for t in res["items"]], "total": res["total"]}
+
+
 async def patient_renewal_requests(ctx, args):
     from app.services.prescription_workflow_service import PrescriptionWorkflowService
     res = PrescriptionWorkflowService.list_renewal_requests(ctx.db, ctx.user)
@@ -581,6 +589,7 @@ TOOLS.update({
     "get_my_prescriptions": Tool("Read your active doctor-prescribed medications.", Arguments, patient_prescriptions, PATIENT_ROLES),
     "get_my_health_measurements": Tool("Read your logged vital signs and health measurements.", PatientMeasurementsArgs, patient_measurements, PATIENT_ROLES),
     "get_my_renewal_requests": Tool("Read your submitted prescription renewal requests.", Arguments, patient_renewal_requests, PATIENT_ROLES),
+    "get_my_support_tickets": Tool("Read your own customer support tickets and their status.", Arguments, patient_support_tickets, PATIENT_ROLES),
 
     # Doctor read tools
     "get_authorized_patient_records": Tool("Read authorized patient longitudinal medical records.", DoctorPatientRecordsArgs, doctor_patient_records, DOCTOR_ROLES),

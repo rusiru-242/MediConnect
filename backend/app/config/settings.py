@@ -98,6 +98,19 @@ class Settings(BaseModel):
     REMINDER_CHECK_INTERVAL_SECONDS: int = Field(
         default_factory=lambda: int((os.getenv("REMINDER_CHECK_INTERVAL_SECONDS") or "60").strip())
     )
+    # A05 (Agent 25): slot-hoarding review signal. Provisional engineering defaults, not calibrated on real
+    # fraud data: an account that occupied at least FRAUD_SLOT_HOARDING_MIN_SLOTS distinct appointment slots with
+    # unpaid reservations that expired, were released, or are still held, within the window, is flagged for review.
+    FRAUD_SLOT_HOARDING_WINDOW_HOURS: int = Field(
+        default_factory=lambda: int((os.getenv("FRAUD_SLOT_HOARDING_WINDOW_HOURS") or "24").strip())
+    )
+    FRAUD_SLOT_HOARDING_MIN_SLOTS: int = Field(
+        default_factory=lambda: int((os.getenv("FRAUD_SLOT_HOARDING_MIN_SLOTS") or "4").strip())
+    )
+    # How often the background worker re-evaluates recently active accounts (0 turns the sweep off).
+    FRAUD_SWEEP_INTERVAL_SECONDS: int = Field(
+        default_factory=lambda: int((os.getenv("FRAUD_SWEEP_INTERVAL_SECONDS") or "300").strip())
+    )
     GEMINI_API_KEY: Optional[str] = Field(
         default_factory=lambda: (os.getenv("GEMINI_API_KEY") or "").strip() or None
     )

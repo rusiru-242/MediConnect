@@ -1,0 +1,35 @@
+{
+ "at": "2026-11-27T19:11:05.033Z",
+ "mode": "reply",
+ "ref": "TCK-6257A245",
+ "steps": [
+  {
+   "id": "A05-C06/C07/C08/C09",
+   "scenario": "Admin finds the emulator ticket, inserts the template, edits it and sends it explicitly",
+   "actual": {
+    "flagged": true,
+    "prefilledBeforeInsert": "",
+    "draftInserted": true,
+    "replyPosts": 1,
+    "patientMessageShown": true
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A05-NET",
+   "scenario": "No request left 127.0.0.1:5174 / 127.0.0.1:8001",
+   "actual": {
+    "blocked": []
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A05-ERR",
+   "scenario": "No uncaught page error",
+   "actual": {
+    "pageErrors": []
+   },
+   "status": "PASS"
+  }
+ ]
+}

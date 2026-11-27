@@ -145,6 +145,7 @@ def _doc_to_response(doc: Dict[str, Any]) -> NotificationResponse:
         title=doc.get("title", ""),
         body=doc.get("body", ""),
         relatedCareEventId=doc.get("relatedCareEventId"),
+        relatedTicketId=doc.get("relatedTicketId"),
         relatedAppointmentId=str(doc["relatedAppointmentId"]) if doc.get("relatedAppointmentId") else None,
         relatedPaymentId=str(doc["relatedPaymentId"]) if doc.get("relatedPaymentId") else None,
         isRead=bool(doc.get("isRead", False)),
@@ -322,6 +323,7 @@ class NotificationService:
         idempotency_key: Optional[str] = None,
         send_push: bool = True,
         related_care_event_id: Optional[str] = None,
+        related_ticket_id: Optional[str] = None,
     ) -> Optional[NotificationResponse]:
         """Persist an in-app notification in MongoDB and trigger FCM push safely.
 
@@ -345,6 +347,7 @@ class NotificationService:
                 "title": title,
                 "body": body,
                 "relatedCareEventId": related_care_event_id,
+                "relatedTicketId": related_ticket_id,
                 "relatedAppointmentId": str(related_appointment_id) if related_appointment_id else None,
                 "relatedPaymentId": str(related_payment_id) if related_payment_id else None,
                 "isRead": False,

@@ -28,6 +28,16 @@ export interface PlatformHealthResponse {
   openFraudAssessmentsCount: number;
 }
 
+/** A05: why one rule fired: its threshold, the observed value and minimal evidence rows. */
+export interface FraudRuleEvidence {
+  rule: string;
+  description: string;
+  threshold: string;
+  observed: number | string;
+  references: string[];
+  items?: Array<{ appointmentId: string; slot: string; outcome: string; reservedAt?: string }>;
+}
+
 export interface FraudAssessment {
   assessmentId: string;
   relatedAccountId?: string;
@@ -36,6 +46,7 @@ export interface FraudAssessment {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   triggeredRules: string[];
   supportingEventReferences: string[];
+  ruleEvidence?: FraudRuleEvidence[];
   explanation: string;
   reviewStatus: 'DETECTED' | 'AWAITING_REVIEW' | 'INVESTIGATING' | 'DISMISSED' | 'CONFIRMED' | 'RESOLVED';
   investigationNotes: Array<Record<string, unknown>>;

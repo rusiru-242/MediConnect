@@ -16,6 +16,7 @@ class NotificationResponse(BaseModel):
     title: str
     body: str
     relatedCareEventId: Optional[str] = None
+    relatedTicketId: Optional[str] = None
     relatedAppointmentId: Optional[str] = None
     relatedPaymentId: Optional[str] = None
     isRead: bool = False

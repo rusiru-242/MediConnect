@@ -91,8 +91,8 @@ Abbreviations: **Tests** = automated test files (count of test functions). **UI*
 | 22 | Doctor Verification Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/doctor_verification_assistant.py`, `services/admin_service.py` | `/admin/doctors/*` | `DoctorVerificationPage.tsx` | test_admin_doctor_workflow, admin-web doctorVerification.test | A human admin approves or rejects; the AI only summarizes. |
 | 23 | Admin Analytics Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/admin_analytics_assistant.py`, `analytics_service.py` | `/admin/analytics/*` | `AnalyticsPage.tsx`, `DashboardPage.tsx` | test_phase5 (11) | Real aggregates. |
 | 24 | Payment Monitoring Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/payment_monitoring_service.py` | `/admin/workflow/payments/*` | `PaymentsPage.tsx`, `ReconciliationPage.tsx` | test_payment (18), test_phase5 | Live Stripe reconciliation BLOCKED (test mode only). |
-| 25 | Fraud Detection Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/fraud_detection_service.py` | `/security/*` | `MonitoringPage.tsx` | test_phase7 (10) | Rule-based signals; humans decide. |
-| 26 | Customer Support Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/support_ticket_service.py` | `/admin/workflow/tickets*` | `SupportTicketsPage.tsx` | test_phase5 | Drafted replies require admin send. |
+| 25 | Fraud Detection Agent | VERIFIED (local, A05; thresholds provisional) | `services/fraud_detection_service.py` | `/security/*` | `MonitoringPage.tsx` | test_phase7 (10) | Rule-based signals; humans decide. |
+| 26 | Customer Support Agent | VERIFIED (local, A05) | `services/support_ticket_service.py` | `/admin/workflow/tickets*` | `SupportTicketsPage.tsx` | test_phase5 | Drafted replies require admin send. |
 | 27 | Refund Assistance Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/refund_service.py` | `/admin/workflow/refunds/*` | `RefundsPage.tsx` | test_phase5, test_payment | Stripe refunds BLOCKED live; needs a test-mode run. |
 | 28 | Platform Monitoring Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/platform_monitoring_service.py` | `/security/*`, `/health/live`, `/health/ready` | `MonitoringPage.tsx` | test_phase7 | Worker heartbeat recorded by the reminder worker. |
 | 29 | Notification Monitoring Agent | IMPLEMENTED BUT NOT FULLY VERIFIED | `services/notification_monitoring_service.py` | `/security/*`, `/admin/workflow/*` | `MonitoringPage.tsx` | test_phase7 | |
@@ -171,3 +171,20 @@ The final matrix covering all 38 components is in [uat/MEDICONNECT_ALL_38_AGENT_
   - Emulator end-to-end: doctor issue → patient view → reminder → renewal → doctor approval.
   - Remaining gates: drug-interaction source (P3-B9), pharmacist review (B2), clinical validation (B1), physical phone (B10), language review (B12).
 - **Totals:** 27 VERIFIED (local), 11 PARTIAL, 0 BLOCKED (unchanged).
+
+## Agent Completion A05 update (2026-11-28, `fix/agents-a05-fraud-support`)
+
+- **25 Fraud Detection: PARTIAL → VERIFIED (local); thresholds provisional.**
+  - Classified as a deterministic rule engine: no generative AI and no provider call.
+  - The slot-hoarding rule is implemented (distinct unpaid slots within a configurable window) and was raised in UAT by the backend worker sweep, which now evaluates recently active accounts.
+  - One open alert per account under concurrency; a dismissal is respected; payment retries are no longer flagged.
+  - Administrators see the threshold, the observed value, slot evidence and the review history; every decision is human and changes no account.
+  - No real-world calibration or measured false-positive rate.
+- **26 Customer Support: PARTIAL → VERIFIED (local).**
+  - Classified as deterministic, tool-orchestrated assistance: keyword triage, fixed templates (labelled as such) and role-checked read tools.
+  - Patients create, read and answer tickets in the mobile app.
+  - An administrator inserts, edits and explicitly sends every reply.
+  - The notification opens the ticket.
+  - The internal draft is admin-only, and duplicates are stored once.
+  - Emulator and browser end to end.
+- **Totals:** 29 VERIFIED (local), 9 PARTIAL, 0 BLOCKED.

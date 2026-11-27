@@ -25,6 +25,8 @@ from app.schemas.admin_workflow import (
     RefundRequestResponse,
     RejectRefundRequest,
     ReplySupportTicketRequest,
+    RequesterTicketReplyRequest,
+    SupportTicketStatusRequest,
     SupportTicketListResponse,
     SupportTicketResponse,
 )
@@ -398,7 +400,8 @@ async def create_support_ticket(
         priority=req.priority,
         related_entity_id=req.relatedEntityId,
     )
-    return SupportTicketResponse(id=str(doc.get("_id", doc.get("ticketId"))), **doc)
+    from app.services.support_ticket_service import ticket_view
+    return SupportTicketResponse(**ticket_view(doc, current_user.role == "ADMIN"))
 
 
 @router.get(
@@ -450,6 +453,37 @@ async def reply_support_ticket(
         new_status=req.status,
         resolve=bool(req.resolve),
     )
+
+
+@router.post(
+    "/tickets/{ticketId}/messages",
+    response_model=SupportTicketResponse,
+    status_code=status.HTTP_200_OK,
+    summary="The requester adds a follow-up message to their own ticket (A05)",
+)
+async def add_ticket_message(
+    ticketId: str,
+    req: RequesterTicketReplyRequest,
+    current_user: UserResponseSchema = Depends(get_current_user),
+    db: Database = Depends(get_database),
+) -> SupportTicketResponse:
+    if current_user.role == "ADMIN":
+        raise HTTPException(status_code=403, detail="Administrators reply through the authorized reply action.")
+    return SupportTicketResponse(**SupportTicketService.add_requester_reply(db, current_user, ticketId, req.message))
+
+
+@router.post(
+    "/tickets/{ticketId}/status",
+    status_code=status.HTTP_200_OK,
+    summary="Admin changes a support ticket status without a message (A05)",
+)
+async def update_ticket_status(
+    ticketId: str,
+    req: SupportTicketStatusRequest,
+    current_admin: UserResponseSchema = Depends(require_admin),
+    db: Database = Depends(get_database),
+):
+    return SupportTicketService.update_status(db, str(current_admin.id), ticketId, req.status)
 
 
 # -----------------------------------------------------------------------------

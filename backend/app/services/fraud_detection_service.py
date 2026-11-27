@@ -4,7 +4,9 @@ from app.utils.mongo_documents import document_for_insert
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+from pymongo import ReturnDocument
 from pymongo.database import Database
+from pymongo.errors import DuplicateKeyError
 
 from app.config.database import get_database
 from app.models.fraud_assessment import (
@@ -42,17 +44,21 @@ class FraudDetectionService:
             "description": "More than 2 refund requests submitted within 7 days.",
         },
         "SLOT_HOARDING_ATTEMPT": {
-            "weight": 20.0,
-            "description": "Repeated booking attempts against already reserved slots.",
-            # Declared but not evaluated: booking conflicts are rejected by a unique index and are not recorded
-            # per account, so there is no evidence source for this rule (P04-N12).
-            "implemented": False,
+            # A05: evaluated from the account's own unpaid reservations (expired, released before payment, or still
+            # held). Weight 25 so the rule alone reaches the MEDIUM review tier; it was 20 and declared only (P04-N12).
+            "weight": 25.0,
+            "description": "Several distinct appointment slots reserved and left unpaid within the observation window.",
         },
         "UNAUTHORIZED_ACCESS_BURST": {
             "weight": 35.0,
             "description": "5 or more authorization failures within a 15-minute window.",
         },
     }
+
+    OPEN_STATUSES = (FraudReviewStatus.DETECTED.value, FraudReviewStatus.AWAITING_REVIEW.value,
+                     FraudReviewStatus.INVESTIGATING.value)
+    CLOSED_STATUSES = (FraudReviewStatus.DISMISSED.value, FraudReviewStatus.CONFIRMED.value,
+                       FraudReviewStatus.RESOLVED.value)
 
     @classmethod
     def _compute_risk_level(cls, score: float) -> FraudRiskLevel:
@@ -64,26 +70,89 @@ class FraudDetectionService:
             return FraudRiskLevel.MEDIUM
         return FraudRiskLevel.LOW
 
+    @staticmethod
+    def _aware(value):
+        if isinstance(value, datetime) and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
+    @classmethod
+    def slot_hoarding_evidence(cls, db: Database, account_id: str, since: datetime) -> Dict[str, Any]:
+        """A05 (Agent 25): unpaid reservations of distinct slots that the account held without paying.
+
+        Counted: holds that expired unpaid (released by the system), holds the patient released before paying, and
+        holds still open and unpaid. Not counted: paid or confirmed bookings, free bookings, and cancellations by a
+        doctor or administrator. Repeated attempts on the *same* slot (a payment retry after a card failure or a
+        network error) count once, because the rule counts distinct slots.
+        """
+        rows = []
+        cursor = db["appointments"].find(
+            {"patientUserId": account_id, "createdAt": {"$gte": since},
+             "paymentStatus": {"$nin": ["PAID", "NOT_REQUIRED", "REFUNDED", "PARTIALLY_REFUNDED"]},
+             "confirmedAt": None},
+            {"doctorUserId": 1, "appointmentDate": 1, "startTime": 1, "status": 1, "cancelledBy": 1,
+             "cancellationReason": 1, "holdReleasedAt": 1, "createdAt": 1}).sort("createdAt", 1).limit(500)
+        for appt in cursor:
+            status_value = appt.get("status")
+            if status_value in {"HOLD", "PENDING"}:
+                outcome = "held_unpaid"
+            elif status_value == "CANCELLED" and appt.get("holdReleasedAt"):
+                outcome = "released_before_payment"
+            elif (status_value == "CANCELLED" and appt.get("cancelledBy") == "SYSTEM"
+                  and appt.get("cancellationReason") == "Booking hold expired"):
+                outcome = "expired_unpaid"
+            else:
+                continue
+            rows.append({"appointmentId": str(appt["_id"]), "doctorUserId": str(appt.get("doctorUserId") or ""),
+                         "slot": f"{appt.get('appointmentDate')} {appt.get('startTime')} (Asia/Colombo)",
+                         "outcome": outcome, "reservedAt": cls._aware(appt.get("createdAt"))})
+        slots = {(r["doctorUserId"], r["slot"]) for r in rows}
+        return {"rows": rows, "distinctSlots": len(slots)}
+
     @classmethod
     def evaluate_account_risk(
         cls,
         account_id: str,
         entity_ref: Optional[str] = None,
         db: Optional[Database] = None,
+        now: Optional[datetime] = None,
     ) -> Optional[FraudAssessmentDocument]:
         """Evaluate real behavioral signals against deterministic risk rules."""
         if db is None:
             db = get_database()
+        from app.config.settings import settings
 
-        now = utc_now()
-        day_ago = now - timedelta(hours=24)
-        hour_ago = now - timedelta(hours=1)
-        fifteen_mins_ago = now - timedelta(minutes=15)
-        week_ago = now - timedelta(days=7)
+        now = now or utc_now()
+        # A05-BUG-003: after a reviewer closed an assessment, the same evidence raised a new alert on the next
+        # evaluation. Only activity after the latest closing decision counts towards a new signal.
+        last_closed = next(iter(db["fraud_risk_assessments"].find(
+            {"relatedAccountId": account_id, "reviewStatus": {"$in": list(cls.CLOSED_STATUSES)}}
+        ).sort("updatedAt", -1).limit(1)), None)
+        reviewed_until = cls._aware(last_closed.get("updatedAt")) if last_closed else None
+
+        def since(delta: timedelta) -> datetime:
+            start = now - delta
+            return max(start, reviewed_until) if reviewed_until else start
+
+        day_ago = since(timedelta(hours=24))
+        hour_ago = since(timedelta(hours=1))
+        fifteen_mins_ago = since(timedelta(minutes=15))
+        week_ago = since(timedelta(days=7))
 
         triggered_rules: List[str] = []
         supporting_events: List[str] = []
-        calculated_score: float = 0.0
+        rule_evidence: List[Dict[str, Any]] = []
+        score = {"value": 0.0}
+
+        def trigger(rule: str, threshold: str, observed: Any, references: List[str], items=None) -> None:
+            triggered_rules.append(rule)
+            score["value"] += cls.RULES_DEFINITION[rule]["weight"]
+            supporting_events.extend(references[:5])
+            entry = {"rule": rule, "description": cls.RULES_DEFINITION[rule]["description"],
+                     "threshold": threshold, "observed": observed, "references": references[:10]}
+            if items is not None:
+                entry["items"] = items[:20]
+            rule_evidence.append(entry)
 
         # 1. Rule: MULTIPLE_FAILED_PAYMENTS
         # Payment statuses are upper case; the former lower-case "failed" never matched, so this rule could never
@@ -94,40 +163,44 @@ class FraudDetectionService:
             "createdAt": {"$gte": day_ago},
         }))
         if len(failed_payments) >= 3:
-            triggered_rules.append("MULTIPLE_FAILED_PAYMENTS")
-            calculated_score += cls.RULES_DEFINITION["MULTIPLE_FAILED_PAYMENTS"]["weight"]
-            supporting_events.extend([str(p.get("stripePaymentIntentId") or p.get("paymentIntentId") or p.get("_id")) for p in failed_payments[:5]])
+            trigger("MULTIPLE_FAILED_PAYMENTS", "3 or more in 24 hours", len(failed_payments),
+                    [str(p.get("stripePaymentIntentId") or p.get("paymentIntentId") or p.get("_id"))
+                     for p in failed_payments])
 
         # 1b. Rule: DUPLICATE_PAYMENT_REFERENCES - this account's PaymentIntent is also recorded for another account.
-        own_intents = [p["stripePaymentIntentId"] for p in db["payments"].find(
-            {"patientUserId": account_id, "stripePaymentIntentId": {"$nin": [None, ""]}}, {"stripePaymentIntentId": 1})]
+        intent_query: Dict[str, Any] = {"patientUserId": account_id, "stripePaymentIntentId": {"$nin": [None, ""]}}
+        if reviewed_until:
+            intent_query["createdAt"] = {"$gte": reviewed_until}
+        own_intents = [p["stripePaymentIntentId"] for p in db["payments"].find(intent_query, {"stripePaymentIntentId": 1})]
         shared = list(db["payments"].find({"stripePaymentIntentId": {"$in": own_intents},
                                            "patientUserId": {"$ne": account_id}}, {"stripePaymentIntentId": 1})) if own_intents else []
         if shared:
-            triggered_rules.append("DUPLICATE_PAYMENT_REFERENCES")
-            calculated_score += cls.RULES_DEFINITION["DUPLICATE_PAYMENT_REFERENCES"]["weight"]
-            supporting_events.extend(sorted({str(x["stripePaymentIntentId"]) for x in shared})[:5])
+            refs = sorted({str(x["stripePaymentIntentId"]) for x in shared})
+            trigger("DUPLICATE_PAYMENT_REFERENCES", "any payment reference shared with another account", len(refs), refs)
 
         # 2. Rule: EXCESSIVE_BOOKING_RATE
         recent_bookings = list(db["appointments"].find({
             "patientUserId": account_id,
             "createdAt": {"$gte": hour_ago},
-        }))
+        }, {"_id": 1}))
         if len(recent_bookings) > 5:
-            triggered_rules.append("EXCESSIVE_BOOKING_RATE")
-            calculated_score += cls.RULES_DEFINITION["EXCESSIVE_BOOKING_RATE"]["weight"]
-            supporting_events.extend([str(b.get("_id")) for b in recent_bookings[:5]])
+            trigger("EXCESSIVE_BOOKING_RATE", "more than 5 in 1 hour", len(recent_bookings),
+                    [str(b.get("_id")) for b in recent_bookings])
 
         # 3. Rule: RAPID_CANCELLATION_PATTERN
+        # A05-BUG-010: released or expired unpaid holds were counted as cancellations, so a patient who retried a
+        # failed card payment a few times on one slot raised this signal. Only the patient's own cancellations of
+        # bookings count here; unpaid holds are assessed by SLOT_HOARDING_ATTEMPT (distinct slots).
         cancellations = list(db["appointments"].find({
             "patientUserId": account_id,
             "status": "CANCELLED",
+            "cancelledBy": "PATIENT",
+            "holdReleasedAt": None,
             "updatedAt": {"$gte": day_ago},
-        }))
+        }, {"_id": 1}))
         if len(cancellations) > 3:
-            triggered_rules.append("RAPID_CANCELLATION_PATTERN")
-            calculated_score += cls.RULES_DEFINITION["RAPID_CANCELLATION_PATTERN"]["weight"]
-            supporting_events.extend([str(c.get("_id")) for c in cancellations[:5]])
+            trigger("RAPID_CANCELLATION_PATTERN", "more than 3 in 24 hours", len(cancellations),
+                    [str(c.get("_id")) for c in cancellations])
 
         # 4. Rule: EXCESSIVE_REFUND_REQUESTS
         refunds = list(db["refund_requests"].find({
@@ -135,9 +208,17 @@ class FraudDetectionService:
             "createdAt": {"$gte": week_ago},
         }))
         if len(refunds) > 2:
-            triggered_rules.append("EXCESSIVE_REFUND_REQUESTS")
-            calculated_score += cls.RULES_DEFINITION["EXCESSIVE_REFUND_REQUESTS"]["weight"]
-            supporting_events.extend([str(r.get("refundId") or r.get("_id")) for r in refunds[:5]])
+            trigger("EXCESSIVE_REFUND_REQUESTS", "more than 2 in 7 days", len(refunds),
+                    [str(r.get("refundId") or r.get("_id")) for r in refunds])
+
+        # 4b. Rule: SLOT_HOARDING_ATTEMPT (A05).
+        window_hours = max(1, int(settings.FRAUD_SLOT_HOARDING_WINDOW_HOURS))
+        min_slots = max(2, int(settings.FRAUD_SLOT_HOARDING_MIN_SLOTS))
+        hoarding = cls.slot_hoarding_evidence(db, account_id, since(timedelta(hours=window_hours)))
+        if hoarding["distinctSlots"] >= min_slots:
+            trigger("SLOT_HOARDING_ATTEMPT",
+                    f"{min_slots} or more distinct slots held unpaid within {window_hours} hours (provisional)",
+                    hoarding["distinctSlots"], [r["appointmentId"] for r in hoarding["rows"]], items=hoarding["rows"])
 
         # 5. Rule: UNAUTHORIZED_ACCESS_BURST
         # Events typed in by an administrator (POST /security/events) are not evidence about the account.
@@ -148,12 +229,11 @@ class FraudDetectionService:
             "metadata.source": {"$ne": "manual_admin_entry"},
         }))
         if len(auth_failures) >= 5:
-            triggered_rules.append("UNAUTHORIZED_ACCESS_BURST")
-            calculated_score += cls.RULES_DEFINITION["UNAUTHORIZED_ACCESS_BURST"]["weight"]
-            supporting_events.extend([str(af.get("eventId")) for af in auth_failures[:5]])
+            trigger("UNAUTHORIZED_ACCESS_BURST", "5 or more in 15 minutes", len(auth_failures),
+                    [str(af.get("eventId")) for af in auth_failures])
 
         # Cap score at 100.0
-        calculated_score = min(calculated_score, 100.0)
+        calculated_score = min(score["value"], 100.0)
 
         # Do not create an assessment if risk is negligible (< 25.0)
         if calculated_score < 25.0 or not triggered_rules:
@@ -162,12 +242,6 @@ class FraudDetectionService:
         risk_level = cls._compute_risk_level(calculated_score)
         target_entity = entity_ref or f"ACCOUNT-{account_id}"
 
-        # Deduplication: check if an active assessment already exists
-        existing = db["fraud_risk_assessments"].find_one({
-            "relatedAccountId": account_id,
-            "reviewStatus": {"$in": [FraudReviewStatus.DETECTED.value, FraudReviewStatus.AWAITING_REVIEW.value, FraudReviewStatus.INVESTIGATING.value]},
-        })
-
         # Explanation: the score is the sum of fixed rule weights, not a probability, and a signal is not proof.
         explanation = (
             f"Rule weight total {calculated_score:.1f}/100 ({risk_level.value}). "
@@ -175,26 +249,23 @@ class FraudDetectionService:
             f"Supported by {len(supporting_events)} event reference(s). These are signals for human review, "
             f"not a finding of fraud; no account action is taken automatically."
         )
+        refresh = {"riskScore": calculated_score, "riskLevel": risk_level.value, "triggeredRules": triggered_rules,
+                   "supportingEventReferences": supporting_events, "ruleEvidence": rule_evidence,
+                   "explanation": explanation, "updatedAt": now}
 
-        if existing:
-            # Re-evaluation refreshes the open assessment instead of creating a duplicate alert. The explanation and
-            # the returned document were stale before Phase 04: only score and level were refreshed (P04-N22).
-            db["fraud_risk_assessments"].update_one(
-                {"_id": existing["_id"]},
-                {
-                    "$set": {
-                        "riskScore": calculated_score,
-                        "riskLevel": risk_level.value,
-                        "triggeredRules": triggered_rules,
-                        "supportingEventReferences": supporting_events,
-                        "explanation": explanation,
-                        "updatedAt": now,
-                    }
-                },
-            )
-            refreshed = db["fraud_risk_assessments"].find_one({"_id": existing["_id"]})
-            refreshed["_id"] = str(refreshed["_id"])
-            return FraudAssessmentDocument(**refreshed)
+        def refresh_open() -> Optional[FraudAssessmentDocument]:
+            # Re-evaluation refreshes the open assessment instead of creating a duplicate alert (P04-N22).
+            existing = db["fraud_risk_assessments"].find_one_and_update(
+                {"relatedAccountId": account_id, "reviewStatus": {"$in": list(cls.OPEN_STATUSES)}},
+                {"$set": refresh}, sort=[("createdAt", 1)], return_document=ReturnDocument.AFTER)
+            if not existing:
+                return None
+            existing["_id"] = str(existing["_id"])
+            return FraudAssessmentDocument(**existing)
+
+        refreshed = refresh_open()
+        if refreshed:
+            return refreshed
 
         assessment = FraudAssessmentDocument(
             assessmentId=f"FRAUD-{uuid4().hex[:10].upper()}",
@@ -204,13 +275,18 @@ class FraudDetectionService:
             riskLevel=risk_level,
             triggeredRules=triggered_rules,
             supportingEventReferences=supporting_events,
+            ruleEvidence=rule_evidence,
             explanation=explanation,
             reviewStatus=FraudReviewStatus.AWAITING_REVIEW,
             createdAt=now,
             updatedAt=now,
         )
 
-        db["fraud_risk_assessments"].insert_one(document_for_insert(assessment))  # never "_id": None (P04-N20)
+        try:
+            # never "_id": None (P04-N20); openKey makes a concurrent second insert fail (A05-BUG-002)
+            db["fraud_risk_assessments"].insert_one({**document_for_insert(assessment), "openKey": account_id})
+        except DuplicateKeyError:
+            return refresh_open()
 
         # Log security audit event for high/critical fraud scores
         if risk_level in (FraudRiskLevel.HIGH, FraudRiskLevel.CRITICAL):
@@ -224,6 +300,44 @@ class FraudDetectionService:
             )
 
         return assessment
+
+    _last_sweep_at: Optional[datetime] = None
+
+    @classmethod
+    def run_detection_sweep(cls, db: Database, now: Optional[datetime] = None, *, force: bool = False,
+                            limit: int = 200) -> Dict[str, int]:
+        """A05-BUG-001: evaluate recently active accounts from the background worker.
+
+        Before A05 the rules ran only when an administrator called the evaluate endpoint with an account id, so no
+        signal appeared unless the account was already suspected. The sweep reads only stored records, takes no
+        account, booking or payment action, and is safe to repeat: concurrent or repeated runs refresh the one open
+        assessment per account (unique ``openKey``). It is stateless, so a backend restart only makes it run again.
+        """
+        from app.config.settings import settings
+        now = now or utc_now()
+        interval = int(settings.FRAUD_SWEEP_INTERVAL_SECONDS)
+        if not force:
+            if interval <= 0:
+                return {"skipped": 1}
+            if cls._last_sweep_at and (now - cls._last_sweep_at).total_seconds() < interval:
+                return {"skipped": 1}
+        cls._last_sweep_at = now
+        window = timedelta(hours=max(24, int(settings.FRAUD_SLOT_HOARDING_WINDOW_HOURS)))
+        accounts = set(db["appointments"].distinct("patientUserId", {"createdAt": {"$gte": now - window}}))
+        accounts |= set(db["appointments"].distinct("patientUserId", {"updatedAt": {"$gte": now - window},
+                                                                      "status": "CANCELLED"}))
+        accounts |= set(db["payments"].distinct("patientUserId", {"createdAt": {"$gte": now - window}}))
+        accounts |= set(db["refund_requests"].distinct("patientUserId",
+                                                       {"createdAt": {"$gte": now - timedelta(days=7)}}))
+        accounts |= set(db["security_events"].distinct("actorId", {
+            "category": {"$in": ["AUTH_FAILURE", "UNAUTHORIZED_ACCESS"]},
+            "timestamp": {"$gte": now - timedelta(minutes=15)}}))
+        stats = {"evaluated": 0, "flagged": 0}
+        for account_id in sorted(str(a) for a in accounts if a)[:limit]:
+            stats["evaluated"] += 1
+            if cls.evaluate_account_risk(account_id, db=db, now=now):
+                stats["flagged"] += 1
+        return stats
 
     @classmethod
     def review_assessment(
@@ -263,17 +377,26 @@ class FraudDetectionService:
             "timestamp": utc_now(),
         }
 
-        db["fraud_risk_assessments"].update_one(
-            {"assessmentId": assessment_id},
-            {
-                "$set": {
-                    "reviewStatus": new_status,
-                    "assignedAdminId": admin_id,
-                    "updatedAt": utc_now(),
-                },
-                "$push": {"investigationNotes": investigation_entry},
+        update: Dict[str, Any] = {
+            "$set": {
+                "reviewStatus": new_status,
+                "assignedAdminId": admin_id,
+                "updatedAt": utc_now(),
             },
-        )
+            "$push": {"investigationNotes": investigation_entry},
+        }
+        if new_status in cls.CLOSED_STATUSES:
+            # A closed assessment no longer blocks a new one for later activity (A05-BUG-002/003).
+            update["$unset"] = {"openKey": ""}
+        elif assessment.get("reviewStatus") in cls.CLOSED_STATUSES:
+            # Reopening a closed assessment makes it the account's open one again.
+            update["$set"]["openKey"] = assessment.get("relatedAccountId") or assessment_id
+        try:
+            db["fraud_risk_assessments"].update_one({"assessmentId": assessment_id}, update)
+        except DuplicateKeyError:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=409, detail="This account already has an open assessment. "
+                                                        "Review that one instead of reopening this.")
 
         from app.services.admin_audit_service import AdminAuditService
         AdminAuditService.log_action(

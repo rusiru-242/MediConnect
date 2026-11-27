@@ -1,6 +1,6 @@
 # MediConnect — Final Verification Matrix: All 38 AI Components
 
-_Final consolidated copy of `phase-05/PHASE_05_ALL_38_AGENT_VERIFICATION_MATRIX.md` (state after all five phases), updated by Agent Completion A01 for components 02, 04 and 32 by A02 for 05, 07, 08, 09, 13 and 19, by A03 for 01, and by A04 for 17._
+_Final consolidated copy of `phase-05/PHASE_05_ALL_38_AGENT_VERIFICATION_MATRIX.md` (state after all five phases), updated by Agent Completion A01 for components 02, 04 and 32 by A02 for 05, 07, 08, 09, 13 and 19, by A03 for 01, by A04 for 17, and by A05 for 25 and 26._
 
 For: the project owner and reviewers. 2026-11-26, branch `fix/phase-05-final-ai-security-integration`.
 
@@ -57,8 +57,8 @@ For: the project owner and reviewers. 2026-11-26, branch `fix/phase-05-final-ai-
 | 22 | Doctor Verification Assistant | Admin | Yes | Document completeness, registration format | No | test_admin_doctor_workflow, test_phase04_admin_system, P05 `enc` (view audit) | Live Phase 04 admin (88/90, 2 intended changes); probe A-1, A-6 | — | Browser 14/14 | Human decision; document views audited | Official registry check (manual) | VERIFIED (local) |
 | 23 | Platform Analytics Assistant | Admin | Yes | Refund-aware aggregates, Colombo ranges | No | test_phase5, test_phase04, P05 `int` (N19) | Live probe A-3, A-8; MongoDB match (63/18/3) | — | Browser | Figures from tools only | Revenue model (P4-B7) | VERIFIED (local) |
 | 24 | Payment Monitoring Agent | Admin | Yes | Reconciliation rules | No | test_payment, test_phase04, P05 `wh`, `lists` | Live Phase 04 admin; Stripe test mode | — | Browser | Review, never auto-confirm | Webhook delivery (B3) | VERIFIED (local) |
-| 25 | Fraud Detection Agent | Admin | Yes | Rule-based signals; failed-login signal (new) | No | test_phase7, test_phase04, P05 `sec` N08, `int` | Live probe A-5 | — | Browser | Signals, never account action | Slot-hoarding rule not implemented | PARTIAL |
-| 26 | Customer Support Assistant | Admin | Yes | Template drafts | No | test_phase5, test_phase04 | Live Phase 04 admin | — | Browser | Admin sends | Patient replies/mobile UI (P4-B8 scope) | PARTIAL |
+| 25 | Fraud Detection Agent | Admin | Yes | Rule-based signals incl. failed logins and **slot hoarding (A05, provisional thresholds)**; background sweep; one open alert per account; evidence and review history | No (deterministic rules) | test_phase7, test_phase04, P05 `sec` N08, `int`, **A05 `test_a05_fraud_support` (F)** | Live probe A-5, **A05 probe: worker-raised hoarding signal, clean negative** | — | **Browser A05: evidence, history, human decisions** | Signals for review only; never account, booking, refund or payment action | Thresholds uncalibrated (no real fraud data, no measured false-positive rate) | **VERIFIED (local)** · thresholds provisional |
+| 26 | Customer Support Assistant | Admin | Yes | Rule-based triage and template drafts; **patient tickets, replies and follow-ups in the mobile app (A05)**; ticket deep link; grounded support answers and refusals in the patient chat | No (deterministic templates and role-checked tools) | test_phase5, test_phase04, **A05 `test_a05_fraud_support` (C), Flutter `a05_support_test`, admin `a05FraudSupport`** | Live Phase 04 admin, **A05 probe** | — | **Emu + Browser A05: ticket → admin edited reply → notification → follow-up → restart/re-login** | Admin explicitly sends every reply; nothing automatic | Physical phone (B10), native-language review (B12) | **VERIFIED (local)** |
 | 27 | Refund Management Agent | Admin | Yes | Policy amounts, atomic claims, webhook states | No | test_phase04, P05 `wh` | Live: 4 concurrent approvals → 1 Stripe test refund | — | Browser A-16f | Human approval; idempotency | Webhook delivery (B3); policy (B6) | VERIFIED (local) |
 | 28 | System Monitoring Agent | Admin | Yes | Measured statuses, AI run counts | No | test_phase7, P05 `arch` S-08a | Live S-08a, S-08c, probe A-9 | — | Browser A-11-ui | No invented "healthy" | — | VERIFIED (local) |
 | 29 | Notification Monitoring Agent | Admin | Yes | Outbox/reminder state counts | No | test_phase04, P05 `sch` (uncertain visible) | Live probe A-4, A-7 | — | Browser | Unconfigured ≠ delivered | Delivery providers (B4/B5) | VERIFIED (local) |
@@ -81,8 +81,8 @@ For: the project owner and reviewers. 2026-11-26, branch `fix/phase-05-final-ai-
 
 | Final status | Count | Components |
 |---|---|---|
-| VERIFIED (local) | 27 | 01, 02, 03, 06, 10, 11, 12, 14, 15, 16, 18, 20, 21, 22, 23, 24, 27, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38 |
-| PARTIAL | 11 | 04, 05, 07, 08, 09, 13, 17, 19, 25, 26, 32 |
+| VERIFIED (local) | 29 | 01, 02, 03, 06, 10, 11, 12, 14, 15, 16, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38 |
+| PARTIAL | 9 | 04, 05, 07, 08, 09, 13, 17, 19, 32 |
 | BLOCKED | 0 | — |
 | **Total** | **38** | |
 
@@ -93,6 +93,8 @@ Updated by Agent Completion A02 (2026-11-26, branch `fix/agents-a02-reminders-no
 Updated by Agent Completion A03 (2026-11-27, branch `fix/agents-a03-booking-payments`): 01 PARTIAL → **VERIFIED (test mode + live Gemini)**. Its two former blockers are closed for test mode: Stripe-generated test webhooks were delivered by the Stripe CLI (B3) and processed, and live Gemini booking conversations ran (B13). 20 defects were fixed (A03-BUG-001 to 020). Remaining gates: refund/cancellation policy confirmation (B6), a physical-phone PaymentSheet run (B10), Sinhala review (B12), and a staging webhook endpoint. Production delivery was not tested. Details: [agent-completion/a03/A03_FINAL_COMPLETION_REPORT.md](agent-completion/a03/A03_FINAL_COMPLETION_REPORT.md).
 
 Updated by Agent Completion A04 (2026-11-27, branch `fix/agents-a04-prescription-assistant`): 17 stays **PARTIAL**. The feasible engineering work is complete and verified: 16 defects were fixed (A04-BUG-001 to 016), including prescriptions issued with pre-filled dosing from the app, dropped allergy warnings, duplicate prescriptions under concurrency, an unreachable documentation list and a renewal queue unusable on phones. 34 of 36 A04 scenarios pass (M04 PARTIAL, P06 not applicable). The reasons it was PARTIAL are unchanged: no clinically validated drug-interaction source (P3-B9), pharmacist review (B2) and clinical validation (B1). Totals are unchanged. Details: [agent-completion/a04/A04_FINAL_COMPLETION_REPORT.md](agent-completion/a04/A04_FINAL_COMPLETION_REPORT.md).
+
+Updated by Agent Completion A05 (2026-11-28, branch `fix/agents-a05-fraud-support`): 25 PARTIAL → **VERIFIED (local)** and 26 PARTIAL → **VERIFIED (local)**. 25: the slot-hoarding rule is implemented and raised by the backend worker in UAT; concurrent evaluations store one alert; a dismissed alert is not re-raised from the same evidence; payment retries are no longer flagged. Its thresholds are provisional engineering defaults with no real-world calibration or measured false-positive rate, and a signal is never proof or an account action. 26: patients create, read and answer tickets in the mobile app; an administrator edits and explicitly sends every reply; the internal draft is no longer shown to patients; duplicates are stored once. 14 defects were fixed (A05-BUG-001 to 014). Totals: 29 VERIFIED, 9 PARTIAL, 0 BLOCKED. Local engineering verification only; not production-validated. Details: [agent-completion/a05/A05_FINAL_COMPLETION_REPORT.md](agent-completion/a05/A05_FINAL_COMPLETION_REPORT.md).
 
 Of the 27 VERIFIED (local) components, nine carry an additional human or owner gate: clinical, pharmacist, language, policy or physical-device review (01, 02, 06, 10, 11, 15, 16, 33, 34).
 

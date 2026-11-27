@@ -61,6 +61,9 @@ async def _run_reminder_worker():
                 await asyncio.to_thread(AppointmentService.stop_intents_of_released_holds, db)
                 await asyncio.to_thread(run_confirmation_outbox, db)
                 await asyncio.to_thread(run_communications, db)
+                # A05 (Agent 25): rule-based review signals for recently active accounts; no account action.
+                from app.services.fraud_detection_service import FraudDetectionService
+                await asyncio.to_thread(FraudDetectionService.run_detection_sweep, db)
                 # B3 fallback (Phase 05): refunds that stayed pending are re-read from Stripe until webhooks are
                 # delivered to this backend.
                 from app.services.stripe_webhook_service import sync_pending_refunds

@@ -54,6 +54,8 @@ export interface AIDraftSupportResponse {
   suggestedResolution: string;
   draftResponse: string;
   flags: string[];
+  /** 'template': fixed wording chosen by keyword rules, not generated text. */
+  draftType?: string;
 }
 
 export interface SupportTicket {
@@ -72,6 +74,10 @@ export interface SupportTicket {
   relatedEntityId?: string;
   messages: SupportMessage[];
   aiDraft?: AIDraftSupportResponse;
+  /** Shown to the requester when their message may describe an emergency. */
+  safetyNotice?: string | null;
+  /** Whose turn it is on an open ticket: 'support' after a requester message, 'requester' after a reply. */
+  awaitingReplyFrom?: 'support' | 'requester' | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;

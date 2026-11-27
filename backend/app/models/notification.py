@@ -52,6 +52,7 @@ class NotificationDocument(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     body: str = Field(..., min_length=1, max_length=1000)
     relatedCareEventId: Optional[str] = None
+    relatedTicketId: Optional[str] = None  # A05: support ticket deep link
     relatedAppointmentId: Optional[str] = Field(default=None, description="Optional references appointments._id")
     relatedPaymentId: Optional[str] = Field(default=None, description="Optional references payments._id")
     isRead: bool = Field(default=False)
