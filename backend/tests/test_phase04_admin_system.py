@@ -298,16 +298,24 @@ def test_n10_refund_failure_then_retry_after_external_success(db):
         with pytest.raises(HTTPException) as exc:
             RefundService.approve_refund(db, admin["id"], refund["refundId"])
         assert exc.value.status_code == 502
-    assert db["refund_requests"].find_one({"_id": refund["_id"]})["status"] == "failed"
+    # A03-BUG-007 (changed expectation): the outcome is unknown, so the request is not "failed" (that invited a
+    # second approval once Stripe's 24-hour idempotency key had expired); it stays processing and uncertain.
+    stored_request = db["refund_requests"].find_one({"_id": refund["_id"]})
+    assert stored_request["status"] == "processing" and stored_request["stripeOutcome"] == "uncertain"
     assert db["payments"].find_one({"_id": payment["_id"]})["status"] == "SUCCEEDED"  # nothing recorded as refunded
 
-    def replay(**kwargs):
-        keys.append(kwargs["idempotency_key"])
-        return MagicMock(id="re_p04_same", status="succeeded")
+    with patch("stripe.Refund.create") as create, pytest.raises(HTTPException) as busy:
+        RefundService.approve_refund(db, admin["id"], refund["refundId"])   # immediate retry: refused, no call
+    assert busy.value.status_code == 409 and not create.called
 
-    with patch("stripe.Refund.create", side_effect=replay):
+    # Once the claim is stale, the retry looks the refund up at Stripe and adopts it instead of creating another.
+    db["refund_requests"].update_one({"_id": refund["_id"]}, {"$set": {"updatedAt": utc_now() - timedelta(minutes=5)}})
+    import stripe as _stripe
+    existing = _stripe.Refund.construct_from({"id": "re_p04_same", "object": "refund", "status": "succeeded",
+                                             "metadata": {"refundId": refund["refundId"]}}, "sk_test_unused")
+    with patch("app.services.stripe_webhook_service._list_refunds_for_intent", return_value=[existing]),             patch("stripe.Refund.create") as create:
         assert RefundService.approve_refund(db, admin["id"], refund["refundId"])["status"] == "succeeded"
-    assert len(set(keys)) == 1  # one idempotency key: Stripe returns the existing refund, no second refund
+    assert not create.called and len(set(keys)) == 1  # no second refund was ever requested
     stored = db["payments"].find_one({"_id": payment["_id"]})
     assert stored["refundedAmount"] == 3000.0 and stored["refundRequestIds"] == [refund["refundId"]]
 

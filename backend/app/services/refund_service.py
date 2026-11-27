@@ -306,6 +306,9 @@ class RefundService:
                 "approvedAmount": r.get("approvedAmount"),
                 "refundedAmount": r.get("refundedAmount"),
                 "stripeRefundStatus": r.get("stripeRefundStatus"),
+                "requiresReview": r.get("requiresReview"),
+                "reviewReason": r.get("reviewReason"),
+                "stripeOutcome": r.get("stripeOutcome"),
                 "createdAt": r.get("createdAt", utc_now()),
                 "updatedAt": r.get("updatedAt", utc_now()),
                 "completedAt": r.get("completedAt"),
@@ -344,6 +347,9 @@ class RefundService:
             "approvedAmount": r.get("approvedAmount"),
             "refundedAmount": r.get("refundedAmount"),
             "stripeRefundStatus": r.get("stripeRefundStatus"),
+            "requiresReview": r.get("requiresReview"),
+            "reviewReason": r.get("reviewReason"),
+            "stripeOutcome": r.get("stripeOutcome"),
             "createdAt": r.get("createdAt", utc_now()),
             "updatedAt": r.get("updatedAt", utc_now()),
             "completedAt": r.get("completedAt"),
@@ -410,12 +416,38 @@ class RefundService:
 
         amount_minor = int(round(amount_to_refund * 100))
         try:
-            stripe_resp = stripe.Refund.create(
+            existing = None
+            if current_status in {RefundStatus.PROCESSING.value, RefundStatus.FAILED.value}:
+                # An earlier attempt may have created the refund even though its response was lost (A03-BUG-007).
+                # Stripe's idempotency key expires after 24 hours, so look the refund up instead of trusting it.
+                from app.services.stripe_webhook_service import find_refund_by_request
+                existing = find_refund_by_request(payment_intent_id, r["refundId"])
+                if existing is not None and getattr(existing, "status", None) in {"failed", "canceled"}:
+                    existing = None   # a refund that definitely failed can be issued again
+            stripe_resp = existing or stripe.Refund.create(
                 payment_intent=payment_intent_id,
                 amount=amount_minor,
                 idempotency_key=r.get("idempotencyKey", f"ref_{r['refundId']}"),
                 reason="requested_by_customer",
+                # Lets a webhook or the polling fallback find this refund when the create response is lost.
+                metadata={"refundId": r["refundId"], "appointmentId": str(r.get("appointmentId") or ""),
+                          "paymentId": str(r.get("paymentId") or "")},
             )
+        except (stripe.error.APIConnectionError, stripe.error.APIError) as exc:
+            # Network failure or a Stripe server error after the request was sent: Stripe may have created the
+            # refund. It is not marked failed (an administrator could then send it again); it stays processing and
+            # is resolved from Stripe by the webhook or the polling fallback (A03-BUG-007).
+            logger.error("Stripe refund outcome unknown for %s (%s).", r["refundId"], type(exc).__name__)
+            db["refund_requests"].update_one(
+                {"_id": r["_id"], "status": RefundStatus.PROCESSING.value},
+                {"$set": {"stripeOutcome": "uncertain", "failureReason": type(exc).__name__, "updatedAt": utc_now()}},
+            )
+            AdminAuditService.log_action(
+                db=db, actor_id=admin_user_id, actor_role="ADMIN", action_type=AdminAuditAction.REFUND_EXECUTION,
+                target_id=r["refundId"], target_type="refund_request", status="UNCERTAIN", reason=type(exc).__name__,
+            )
+            raise HTTPException(status_code=502, detail="The payment provider did not confirm the refund. It is being "
+                                                        "checked automatically; do not approve it again.")
         except stripe.error.StripeError as exc:
             logger.error("Stripe refund error for %s (%s).", r["refundId"], type(exc).__name__)
             db["refund_requests"].update_one(
@@ -437,7 +469,7 @@ class RefundService:
         db["refund_requests"].update_one(
             {"_id": r["_id"]},
             {"$set": {"status": new_status, "stripeRefundId": stripe_refund_id, "stripeRefundStatus": stripe_status,
-                      "refundedAmount": amount_to_refund, "updatedAt": now,
+                      "refundedAmount": amount_to_refund, "updatedAt": now, "stripeOutcome": "confirmed",
                       **({"completedAt": now} if new_status == RefundStatus.SUCCEEDED.value else {})}},
         )
         if new_status == RefundStatus.SUCCEEDED.value:

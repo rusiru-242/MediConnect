@@ -46,7 +46,7 @@ def _processing_refund(db, suffix, amount=None):
     re_id = f"re_p05_{uuid.uuid4().hex[:16]}"
     amt = amount if amount is not None else float(payment["amount"] if isinstance(payment, dict) else payment.amount)
     db["refund_requests"].update_one({"_id": refund["_id"]}, {"$set": {
-        "status": "PROCESSING", "stripeRefundId": re_id, "approvedAmount": amt}})
+        "status": "processing", "stripeRefundId": re_id, "approvedAmount": amt}})
     pay = db["payments"].find_one({"_id": ObjectId(refund["paymentId"])})
     return db["refund_requests"].find_one({"_id": refund["_id"]}), pay, re_id
 
@@ -85,7 +85,7 @@ def test_pending_refund_reaches_final_state_once_and_redelivery_is_a_duplicate(d
     assert again["status"] == "no_change"
     after = db["refund_requests"].find_one({"_id": request["_id"]})
     payment = db["payments"].find_one({"_id": pay["_id"]})
-    assert after["status"] == "SUCCEEDED" and payment["refundedAmount"] == pay["amount"]  # applied exactly once
+    assert after["status"] == "succeeded" and payment["refundedAmount"] == pay["amount"]  # applied exactly once
     assert payment["status"] == "REFUNDED"
     assert db["admin_audit_logs"].find_one({"actionType": "REFUND_RECONCILIATION", "targetId": request["refundId"]})
     logged = db[hooks.EVENTS].find_one({"_id": ev["id"]})
@@ -99,14 +99,14 @@ def test_out_of_order_pending_after_success_is_ignored_and_failure_after_success
     flagged = _post(_event("refund.failed", _refund_obj(re_id, pay, "failed"))).json()
     assert flagged["status"] == "flagged_for_review"
     doc = db["refund_requests"].find_one({"_id": request["_id"]})
-    assert doc["status"] == "SUCCEEDED" and doc["requiresReview"] is True  # money records not edited automatically
+    assert doc["status"] == "succeeded" and doc["requiresReview"] is True  # money records not edited automatically
     assert db["payments"].find_one({"_id": pay["_id"]})["refundedAmount"] == pay["amount"]
 
 
 def test_refund_failure_marks_failed_and_is_audited(db):
     request, pay, re_id = _processing_refund(db, "P05WH3")
     assert _post(_event("refund.failed", _refund_obj(re_id, pay, "failed"))).json()["status"] == "refund_failed"
-    assert db["refund_requests"].find_one({"_id": request["_id"]})["status"] == "FAILED"
+    assert db["refund_requests"].find_one({"_id": request["_id"]})["status"] == "failed"
     assert db["payments"].find_one({"_id": pay["_id"]}).get("refundedAmount", 0) in (0, None)
 
 
@@ -121,7 +121,7 @@ def test_refund_event_that_does_not_match_its_payment_changes_nothing(db, change
     else:
         obj["payment_intent"] = "pi_someone_else"
     assert _post(_event("refund.updated", obj)).json()["status"] == "rejected_mismatch"
-    assert db["refund_requests"].find_one({"_id": request["_id"]})["status"] == "PROCESSING"
+    assert db["refund_requests"].find_one({"_id": request["_id"]})["status"] == "processing"
 
 
 def test_unknown_refund_is_ignored(db):
@@ -148,12 +148,12 @@ def test_sync_pending_refunds_applies_final_state_and_survives_network_errors(db
     request, pay, re_id = _processing_refund(db, "P05WH6")
     db["refund_requests"].update_one({"_id": request["_id"]}, {"$set": {"updatedAt": hooks.utc_now().replace(year=2020)}})
     failing = MagicMock(side_effect=ConnectionError("network down"))
-    stats = hooks.sync_pending_refunds(db, retrieve=failing)
-    assert stats["checked"] >= 1 and db["refund_requests"].find_one({"_id": request["_id"]})["status"] == "PROCESSING"
+    stats = hooks.sync_pending_refunds(db, retrieve=failing, limit=500)
+    assert stats["checked"] >= 1 and db["refund_requests"].find_one({"_id": request["_id"]})["status"] == "processing"
     ok = MagicMock(side_effect=lambda rid: _refund_obj(rid, pay, "succeeded") if rid == re_id else
                    {"id": rid, "status": "pending"})
-    hooks.sync_pending_refunds(db, retrieve=ok)
-    assert db["refund_requests"].find_one({"_id": request["_id"]})["status"] == "SUCCEEDED"
+    hooks.sync_pending_refunds(db, retrieve=ok, limit=500)
+    assert db["refund_requests"].find_one({"_id": request["_id"]})["status"] == "succeeded"
 
 
 def test_admin_sync_endpoint_is_admin_only(db):
