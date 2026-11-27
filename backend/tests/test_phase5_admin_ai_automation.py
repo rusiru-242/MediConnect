@@ -247,8 +247,11 @@ def test_customer_support_ticket_workflow_and_ai_draft(test_env):
     ticket = create_resp.json()
     t_id = ticket["ticketId"]
     assert ticket["status"] == "open"
-    assert ticket["aiDraft"] is not None
-    assert "draftResponse" in ticket["aiDraft"]
+    # A05 changed expectation (A05-BUG-005): the internal draft is for administrators only, never the requester.
+    assert ticket["aiDraft"] is None
+    admin_view = client.get(f"/api/admin/workflow/tickets/{t_id}", headers=test_env["admin_headers"]).json()
+    assert admin_view["aiDraft"] is not None
+    assert "draftResponse" in admin_view["aiDraft"]
 
     # 2. Patient can view own ticket, but another patient cannot
     get_resp = client.get(f"/api/admin/workflow/tickets/{t_id}", headers=test_env["patient_headers"])
@@ -278,7 +281,10 @@ def test_emergency_ticket_ai_draft_escalation(test_env):
     create_resp = client.post("/api/admin/workflow/tickets", json=req_body, headers=test_env["patient_headers"])
     assert create_resp.status_code == 201
     ticket = create_resp.json()
-    draft = ticket["aiDraft"]
+    # A05 changed expectation (A05-BUG-005): the requester gets the emergency notice; the draft is admin-only.
+    assert ticket["aiDraft"] is None and "1990" in ticket["safetyNotice"]
+    draft = client.get(f"/api/admin/workflow/tickets/{ticket['ticketId']}",
+                       headers=test_env["admin_headers"]).json()["aiDraft"]
     assert draft["suggestedPriority"] == TicketPriority.URGENT.value
     assert any("POTENTIAL_MEDICAL_EMERGENCY" in f for f in draft.get("flags", []))
     assert "1990" in draft["draftResponse"]

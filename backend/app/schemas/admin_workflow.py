@@ -18,9 +18,18 @@ class StrictModel(BaseModel):
 class CreateSupportTicketRequest(StrictModel):
     subject: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=200)]
     description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=4000)]
-    category: Optional[str] = Field(default="general_support")
-    priority: Optional[str] = Field(default="medium")
-    relatedEntityId: Optional[str] = Field(default=None)
+    # A05-BUG-006: any string was stored as the category; only the defined categories are accepted now.
+    category: Optional[Literal["appointment_issue", "payment_issue", "refund_request", "doctor_verification",
+                               "account_access", "notification_issue", "general_support"]] = Field(
+        default="general_support")
+    # Priority is set by the triage rules, not by the requester; the field is accepted for compatibility only.
+    priority: Optional[str] = Field(default=None)
+    relatedEntityId: Optional[str] = Field(default=None, max_length=64)
+
+
+class RequesterTicketReplyRequest(StrictModel):
+    """A05: the requester's follow-up message on their own ticket."""
+    message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
 
 
 class ReplySupportTicketRequest(StrictModel):
@@ -28,6 +37,10 @@ class ReplySupportTicketRequest(StrictModel):
     status: Optional[Literal["in_progress", "waiting_for_user", "resolved", "closed"]] = Field(
         default=None, description="Optional new status (in_progress, waiting_for_user, resolved, closed)")
     resolve: Optional[bool] = Field(default=False)
+
+
+class SupportTicketStatusRequest(StrictModel):
+    status: Literal["open", "in_progress", "waiting_for_user", "resolved", "closed"]
 
 
 class SupportMessageSchema(StrictModel):
@@ -55,6 +68,8 @@ class SupportTicketResponse(StrictModel):
     relatedEntityId: Optional[str] = None
     messages: List[SupportMessageSchema] = Field(default_factory=list)
     aiDraft: Optional[Dict[str, Any]] = None
+    safetyNotice: Optional[str] = None
+    awaitingReplyFrom: Optional[str] = None
     createdAt: datetime
     updatedAt: datetime
     resolvedAt: Optional[datetime] = None

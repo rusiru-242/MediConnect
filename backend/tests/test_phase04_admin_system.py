@@ -512,5 +512,8 @@ def test_n22_re_evaluation_returns_current_rules_and_explanation(db):
                                        "createdAt": utc_now()})
     second = FraudDetectionService.evaluate_account_risk(account_id=patient["id"], db=db)
     assert second.assessmentId == first.assessmentId  # no duplicate alert
-    assert set(second.triggeredRules) == {"MULTIPLE_FAILED_PAYMENTS", "EXCESSIVE_BOOKING_RATE"}  # was the stale list
-    assert "Triggered 2 deterministic rule(s)" in second.explanation and "65.0/100" in second.explanation
+    # A05 changed expectation: the six unpaid holds on six distinct slots now also meet the slot-hoarding rule
+    # (implemented in A05; weight 25). The point of N22, a refreshed rule list and explanation, is unchanged.
+    assert set(second.triggeredRules) == {"MULTIPLE_FAILED_PAYMENTS", "EXCESSIVE_BOOKING_RATE",
+                                          "SLOT_HOARDING_ATTEMPT"}  # was the stale list
+    assert "Triggered 3 deterministic rule(s)" in second.explanation and "90.0/100" in second.explanation

@@ -44,6 +44,8 @@ class FraudAssessmentDocument(BaseModel):
     riskLevel: FraudRiskLevel
     triggeredRules: List[str] = Field(default_factory=list, description="IDs/names of rules triggered")
     supportingEventReferences: List[str] = Field(default_factory=list, description="Supporting transaction or event IDs")
+    # A05: per-rule threshold, observed value and minimal evidence rows, so a reviewer can see why a rule fired.
+    ruleEvidence: List[Dict[str, Any]] = Field(default_factory=list)
     explanation: str = Field(..., description="Explainable natural language narrative detailing triggers")
     reviewStatus: FraudReviewStatus = Field(default=FraudReviewStatus.AWAITING_REVIEW)
     investigationNotes: List[Dict[str, Any]] = Field(default_factory=list)
@@ -60,3 +62,7 @@ def create_fraud_assessments_indexes(db: Database) -> None:
     collection.create_index([("relatedEntityReference", ASCENDING)], name="idx_fraud_assessments_entity")
     collection.create_index([("reviewStatus", ASCENDING), ("riskLevel", ASCENDING)], name="idx_fraud_assessments_status_lvl")
     collection.create_index([("createdAt", DESCENDING)], name="idx_fraud_assessments_created")
+    # A05-BUG-002: one open assessment per account, enforced by the database (two concurrent evaluations used to
+    # insert two alerts). ``openKey`` is set while the assessment is open and removed when a reviewer closes it.
+    collection.create_index([("openKey", ASCENDING)], unique=True, name="idx_fraud_assessments_open_unique",
+                            partialFilterExpression={"openKey": {"$exists": True}})

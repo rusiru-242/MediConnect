@@ -59,6 +59,7 @@ class FraudAssessmentResponse(StrictBase):
     riskLevel: str
     triggeredRules: List[str]
     supportingEventReferences: List[str]
+    ruleEvidence: List[Dict[str, Any]] = Field(default_factory=list)
     explanation: str
     reviewStatus: str
     investigationNotes: List[Dict[str, Any]]
