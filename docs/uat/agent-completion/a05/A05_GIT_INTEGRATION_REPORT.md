@@ -38,10 +38,43 @@ For: the project owner and reviewers. Records how A05 was branched, verified, pr
 | Vercel | `admin-web/vercel.json` exists; no Vercel status or check appeared on earlier `main` merges |
 | Conclusion | Merging to `main` runs CI only; no production deployment is wired to `main` (re-checked at merge time below) |
 
-## PR, CI and merge (recorded from GitHub after the events)
+## CI on the tested code (branch push, public GitHub API)
 
-_Pending._
+| Workflow | Commit | Result | Run |
+|---|---|---|---|
+| Backend Lint, Compile & Test | `f075b33` | **success** (19:18–19:25 UTC) | actions/runs/46055726433 |
+| Flutter Analyze & Test | `f075b33` | **success** | actions/runs/46055726445 |
+| Admin Web Lint, Typecheck, Test & Build | `f075b33` | **success** | actions/runs/46055726472 |
+
+All three path-filtered workflows ran, because A05 changes backend, mobile and admin-web. The later commits on the branch change documentation only.
+
+| Deployment check (2026-11-27, after the push) | Result |
+|---|---|
+| `/deployments` | Empty |
+| `/environments` | 0 environments |
+| Branch protection on `main` | Not readable without authentication (401); none was observed on PRs #25 and #26 |
+
+## PR, CI and merge
+
+**Status when this report was written:** branch pushed with head `3b336cf` or later; no open PR (public API: none for this head).
+
+GitHub CLI is not logged in on this machine, so the agent cannot open or merge the PR. The owner was asked to open it from the compare URL with the prepared title and description, and **to merge only after Backend CI, Mobile CI and Admin Web CI have all succeeded on the PR's final head**. The A04 PR was merged while a check was still pending; that must not happen again.
+
+| Item | Value |
+|---|---|
+| Compare URL | https://github.com/rusiru-242/MediConnect/compare/main...fix/agents-a05-fraud-support?expand=1 |
+| Title | A05: Complete Fraud Detection and Customer Support Agents |
+| Pull request number, CI on the PR head, merge commit | Not yet available; to be recorded after the owner's actions |
 
 ## Post-merge verification
 
-_Pending._
+Not yet performed: there is no merge yet. Steps once merged:
+
+1. Fetch `origin/main` and record the merge commit.
+2. Confirm A01–A05 ancestry.
+3. Check CI on `main`.
+4. Run the A05 smoke tests on the merged code.
+5. Fast-forward local `main`.
+6. Keep the feature branches.
+
+The branding phase must start from that verified `origin/main`.

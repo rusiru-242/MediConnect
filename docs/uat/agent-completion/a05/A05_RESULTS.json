@@ -597,7 +597,18 @@
       }
     }
   },
-  "integration": "pending",
+  "integration": {
+    "pr": "not yet opened (gh not authenticated; owner to open from the compare URL)",
+    "ciOnTestedCode": {
+      "commit": "f075b33",
+      "backend": "success",
+      "mobile": "success",
+      "adminWeb": "success"
+    },
+    "deployments": 0,
+    "merge": "not performed",
+    "originMain": "18e8a3272e5079e5a2afd303734479a4abd0c1e1"
+  },
   "productionReady": false,
   "clinicallyApproved": false
 }
