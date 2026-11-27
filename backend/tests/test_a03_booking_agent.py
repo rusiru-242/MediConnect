@@ -197,3 +197,29 @@ def test_a03_phrase_detectors():
                                            ("udeta", "morning"), ("under 3000", None)])
 def test_a03_bug013_romanized_time_of_day(text, expected):
     assert extract_time_range(text) == expected
+
+
+def test_a03_bug015_016_summary_is_in_person_and_prompt_names_the_real_button(db, env):
+    cid = chat(env)
+    say(env, cid, "Find me a cardiologist in Batticaloa.")
+    say(env, cid, "Select the most experienced doctor.")
+    slots = say(env, cid, "Show me the available slots for this doctor tomorrow.")
+    slot = slots["candidateSlots"][0]
+    res = client.post(f"/api/ai/booking/sessions/{cid}/select-slot", headers=env["headers"],
+                      json={"availabilityId": slot["availabilityId"], "date": slot["date"], "startTime": slot["startTime"]})
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["bookingSummary"]["visitType"] == "IN_PERSON"
+    prompt = data["messages"][-1]["content"]
+    assert "Accept & Continue" in prompt and "Confirm Booking" not in prompt
+
+
+def test_a03_bug017_summary_without_server_fee_is_not_presented():
+    from app.services.booking_session_service import _to_response_schema
+    doc = {"_id": ObjectId(), "patientUserId": "p", "state": "AWAITING_BOOKING_CONFIRMATION", "messages": [],
+           "preferences": {}, "createdAt": utc_now(), "updatedAt": utc_now(),
+           "bookingSummary": {"doctorName": "Dr. X", "specialty": "Cardiology", "appointmentDate": "2026-12-01",
+                              "startTime": "09:00", "endTime": "09:30"}}
+    assert _to_response_schema(doc).bookingSummary is None          # was LKR 2,500 invented
+    doc["bookingSummary"].update(consultationFee=3500.0, totalAmount=3500.0)
+    assert _to_response_schema(doc).bookingSummary.totalAmount == 3500.0

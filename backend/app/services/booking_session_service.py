@@ -110,8 +110,9 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
         )
 
     booking_summary = None
-    if doc.get("bookingSummary"):
-        bs = doc["bookingSummary"]
+    bs = doc.get("bookingSummary") or {}
+    # A03-BUG-017: a summary without the server-owned fee and total is not presented (it defaulted to LKR 2,500).
+    if bs and isinstance(bs.get("consultationFee"), (int, float)) and isinstance(bs.get("totalAmount"), (int, float)):
         booking_summary = BookingSummary(
             doctorName=bs.get("doctorName", "Doctor"),
             specialty=bs.get("specialty", ""),
@@ -119,12 +120,13 @@ def _to_response_schema(doc: Dict[str, Any]) -> BookingSessionResponse:
             appointmentDate=bs.get("appointmentDate", ""),
             startTime=bs.get("startTime", ""),
             endTime=bs.get("endTime", ""),
-            consultationFee=float(bs.get("consultationFee", 2500.0)),
+            consultationFee=float(bs["consultationFee"]),
             serviceFee=float(bs.get("serviceFee", 0.0)),
-            totalAmount=float(bs.get("totalAmount", 2500.0)),
+            totalAmount=float(bs["totalAmount"]),
             currency=bs.get("currency", "lkr"),
             **{key: bs.get(key) for key in ("proposalId", "proposalExpiresAt", "timezone", "city", "patientName",
                                            "maskedEmail", "maskedPhone", "requestedTime", "selectionReason")},
+            visitType=bs.get("visitType") or "IN_PERSON",
         )
 
     candidate_docs = [_map_doctor_card(d) for d in doc.get("candidateDoctors", [])]
@@ -751,14 +753,16 @@ class BookingSessionService:
 
         lang = (doc.get("preferences") or {}).get("language", "en")
         doc_name = selected_doctor.get("fullName", "Doctor")
-        total_amt = doc.get("bookingSummary", {}).get("totalAmount", 2500.0)
+        # A03-BUG-017: never an invented amount (BUG-028); the summary always carries the server-owned total.
+        total_amt = (doc.get("bookingSummary") or {}).get("totalAmount")
+        pay_label = f"Pay Now (LKR {total_amt:,.0f})" if isinstance(total_amt, (int, float)) else "Pay Now"
 
         assistant_msg = (
             f"ඔබේ වේලාව සාර්ථකව විනාඩි 10 ක කාලයක් සඳහා වෙන් කර ඇත (Hold Created). "
-            f"කරුණාකර පහත 'Pay Now (LKR {total_amt:,.0f})' බොත්තම ඔබා Stripe හරහා ඔබගේ ගෙවීම සිදු කරන්න."
+            f"කරුණාකර පහත '{pay_label}' බොත්තම ඔබා Stripe හරහා ඔබගේ ගෙවීම සිදු කරන්න."
             if lang == "si"
             else f"Your appointment slot with {doc_name} has been held for 10 minutes. "
-            f"Please tap 'Pay Now (LKR {total_amt:,.0f})' below to securely complete your payment with Stripe."
+            f"Please tap '{pay_label}' below to securely complete your payment with Stripe."
         )
 
         doc["messages"].append({

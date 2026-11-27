@@ -136,6 +136,7 @@ class BookingSummary(BaseModel):
     serviceFee: float = 0.0
     totalAmount: float
     currency: str = "lkr"
+    visitType: str = "IN_PERSON"  # A03-BUG-015: the only supported visit type
 
 
 class AssistantResponse(BaseModel):

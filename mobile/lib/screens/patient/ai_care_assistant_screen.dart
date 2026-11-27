@@ -2589,6 +2589,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             if (s.hospitalOrClinic != null)
               _buildSummaryRow('Location', s.hospitalOrClinic!),
             if (s.city != null) _buildSummaryRow('City', s.city!),
+            // A03-BUG-015: the patient accepts an in-person clinic visit (no video consultation exists).
+            _buildSummaryRow('Visit type', s.visitType == 'IN_PERSON' ? 'In-person at the clinic' : s.visitType),
             if (s.patientName != null) _buildSummaryRow('Patient', s.patientName!),
             if (s.proposalId != null) ...[
               _buildSummaryRow('Email', s.maskedEmail ?? 'Add a verified email in your account'),

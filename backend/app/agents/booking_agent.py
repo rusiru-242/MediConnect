@@ -1450,6 +1450,9 @@ class BookingAgent:
             "serviceFee": service_fee,
             "totalAmount": fee + service_fee,
             "currency": "lkr",
+            # A03-BUG-015: MediConnect appointments are in-person clinic visits (Phase 02, BUG-056); the summary the
+            # patient accepts says so.
+            "visitType": "IN_PERSON",
         }
 
     # -------------------------------------------------------------------------
@@ -1641,6 +1644,8 @@ class BookingAgent:
         fee = summary.get("totalAmount", 0.0)
 
         if lang == "si":
-            return f"නියමයි! {name} සමඟ {date} ({time}) වේලාව තහවුරු කිරීමට පහත 'Confirm Booking' ඔබන්න."
+            return f"නියමයි! {name} සමඟ {date} ({time}) වේලාව සඳහා පහත සාරාංශය පරීක්ෂා කර 'Accept & Continue' ඔබන්න."
 
-        return f"Great! Please tap 'Confirm Booking' below to reserve your slot with {name} on {date} ({time})." 
+        # A03-BUG-016: the button on the summary card is "Accept & Continue" (it said "Confirm Booking").
+        return (f"Review the summary below and tap 'Accept & Continue' to reserve your slot with {name} on {date} "
+                f"({time}). Nothing is reserved or charged before that.")

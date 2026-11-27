@@ -53,4 +53,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(opened, ['/patient/my-appointments']);
   });
+
+  test('A03-BUG-017: a summary without the server fee is not shown (no invented LKR 2,500)', () {
+    final base = {'doctorName': 'Dr. X', 'specialty': 'Cardiology', 'appointmentDate': '2026-12-01',
+        'startTime': '09:00', 'endTime': '09:30'};
+    expect(BookingSummary.tryFromJson(base), isNull);
+    final ok = BookingSummary.tryFromJson({...base, 'consultationFee': 3500, 'totalAmount': 3500});
+    expect(ok!.totalAmount, 3500);
+    expect(ok.visitType, 'IN_PERSON');
+  });
+
+  testWidgets('A03-BUG-015: the booking summary states an in-person clinic visit', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 2400);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final service = FakeAiBookingService();
+    service.currentSession = BookingSession.fromJson({
+      ...service.currentSession.toJson(),
+      'state': 'AWAITING_BOOKING_CONFIRMATION',
+      'bookingSummary': {
+        'proposalId': 'p1', 'doctorName': 'Dr. A03', 'specialty': 'Cardiology', 'appointmentDate': '2026-12-01',
+        'startTime': '10:30', 'endTime': '11:00', 'consultationFee': 3500, 'totalAmount': 3500, 'visitType': 'IN_PERSON',
+      },
+    });
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: AiCareAssistantScreen(bookingService: service)));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Visit type'), findsOneWidget);
+    expect(find.text('In-person at the clinic'), findsOneWidget);
+    expect(find.textContaining('Video'), findsNothing);
+  });
 }

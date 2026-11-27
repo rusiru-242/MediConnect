@@ -313,7 +313,18 @@ class BookingSummary {
     this.serviceFee = 0.0,
     required this.totalAmount,
     this.currency = 'lkr',
+    this.visitType = 'IN_PERSON',
   });
+
+  /// A03-BUG-015: appointments are in-person clinic visits.
+  final String visitType;
+
+  /// A03-BUG-017: a summary without the server-owned fee and total is not shown (it used to fall back to an invented
+  /// LKR 2,500, BUG-028).
+  static BookingSummary? tryFromJson(Map<String, dynamic> json) {
+    if (json['consultationFee'] is! num || json['totalAmount'] is! num) return null;
+    return BookingSummary.fromJson(json);
+  }
 
   factory BookingSummary.fromJson(Map<String, dynamic> json) {
     return BookingSummary(
@@ -329,10 +340,11 @@ class BookingSummary {
       appointmentDate: json['appointmentDate'] as String? ?? '',
       startTime: json['startTime'] as String? ?? '',
       endTime: json['endTime'] as String? ?? '',
-      consultationFee: (json['consultationFee'] as num?)?.toDouble() ?? 2500.0,
+      consultationFee: (json['consultationFee'] as num).toDouble(),
       serviceFee: (json['serviceFee'] as num?)?.toDouble() ?? 0.0,
-      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 2500.0,
+      totalAmount: (json['totalAmount'] as num).toDouble(),
       currency: json['currency'] as String? ?? 'lkr',
+      visitType: json['visitType'] as String? ?? 'IN_PERSON',
     );
   }
 
@@ -354,6 +366,7 @@ class BookingSummary {
       'serviceFee': serviceFee,
       'totalAmount': totalAmount,
       'currency': currency,
+      'visitType': visitType,
     };
   }
 }
@@ -618,7 +631,7 @@ class BookingSession {
           ? SlotCardSummary.fromJson(json['selectedSlot'] as Map<String, dynamic>)
           : null,
       bookingSummary: json['bookingSummary'] is Map<String, dynamic>
-          ? BookingSummary.fromJson(json['bookingSummary'] as Map<String, dynamic>)
+          ? BookingSummary.tryFromJson(json['bookingSummary'] as Map<String, dynamic>)
           : null,
       candidateDoctors: (json['candidateDoctors'] is List)
           ? (json['candidateDoctors'] as List)
