@@ -170,6 +170,27 @@ def notification_entries(now):
             for channel in ("email", "sms", "doctor")}
 
 
+def _notify_patient_confirmed(db, payment, appointment):
+    """A03-BUG-020: the patient's in-app confirmation of an AI booking (the doctor's comes from the outbox).
+
+    Before, only a decline produced an in-app notice, so after a decline and a successful retry the patient's latest
+    payment notice still said "Payment Failed". Same idempotency key as the standard booking path (exactly once).
+    """
+    try:
+        from app.models.notification import NotificationType
+        from app.services.notification_service import NotificationService
+        minor = appointment.get("acceptedAmountMinor")
+        paid = f"Your payment of LKR {minor / 100:,.0f} was successful." if isinstance(minor, int) and minor > 0             else "Your payment was successful."
+        NotificationService.create_notification(
+            db=db, recipient_user_id=str(payment["patientUserId"]), type=NotificationType.PAYMENT_SUCCESS,
+            title="Payment Successful", body=f"{paid} Your appointment has been confirmed.",
+            related_appointment_id=str(payment["appointmentId"]), related_payment_id=str(payment["_id"]),
+            idempotency_key=f"pay_success_{payment['_id']}",
+        )
+    except Exception:  # the confirmation itself is stored; the notice is best effort
+        pass
+
+
 def settle_ai_payment(db, payment, intent, now):
     """Confirm atomically or leave a durable record for authorized reconciliation."""
     def get(key):
@@ -201,6 +222,7 @@ def settle_ai_payment(db, payment, intent, now):
             already = current.get("stripePaymentIntentId") == intent_id and current.get("paymentStatus") == "PAID"
         else:
             already = True
+            _notify_patient_confirmed(db, payment, updated)
     if valid and already:
         payments.update_one({"_id": payment["_id"]}, {"$set": {
             "status": "SUCCEEDED", "paidAt": now, "updatedAt": now, "reconciliationState": "CONFIRMED",

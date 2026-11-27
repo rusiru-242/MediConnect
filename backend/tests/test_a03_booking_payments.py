@@ -361,3 +361,26 @@ def test_a03_bug009_uncertain_refund_is_listed_as_being_checked(db):
     assert [d["type"] for d in mine] == ["REFUND_OUTCOME_UNCERTAIN"]
     listed = RefundService.list_refund_requests(db, status_filter="processing", page_size=500)["items"]
     assert next(i for i in listed if i["refundId"] == refund["refundId"])["stripeOutcome"] == "uncertain"
+
+
+# ------------------------------------------------------------------------------- A03-BUG-020 AI booking notice
+def test_a03_bug020_ai_booking_confirmation_reaches_the_patient_in_app_once(db):
+    from app.services.ai_booking_proposal import settle_ai_payment
+    patient, doctor = _make_test_patient(db, "A03N1"), _make_test_doctor(db, "A03N1Doc")
+    appt_id, pay_id = ObjectId(), ObjectId()
+    intent_id = f"pi_a03_ai_{uuid.uuid4().hex[:12]}"
+    db["appointments"].insert_one({
+        "_id": appt_id, "bookingSource": "ai_agent", "acceptedAmountMinor": 350000, "bookingCurrency": "lkr",
+        "status": "PENDING", "paymentStatus": "FAILED", "patientUserId": patient["id"], "doctorUserId": doctor["id"],
+        "appointmentDate": "2099-01-05", "startTime": "11:00", "holdExpiresAt": utc_now() + timedelta(minutes=8),
+        "createdAt": utc_now(), "updatedAt": utc_now()})
+    db["payments"].insert_one({"_id": pay_id, "appointmentId": str(appt_id), "patientUserId": patient["id"],
+                               "doctorUserId": doctor["id"], "stripePaymentIntentId": intent_id, "amount": 3500.0,
+                               "currency": "lkr", "status": "FAILED", "createdAt": utc_now(), "updatedAt": utc_now()})
+    payment = db["payments"].find_one({"_id": pay_id})
+    intent = {"id": intent_id, "amount_received": 350000, "currency": "lkr", "livemode": False}
+    assert settle_ai_payment(db, payment, intent, utc_now()) == "success"
+    assert settle_ai_payment(db, payment, intent, utc_now()) == "success"      # redelivery
+    notices = list(db["notifications"].find({"recipientUserId": patient["id"], "relatedAppointmentId": str(appt_id)}))
+    assert [n["type"] for n in notices] == ["PAYMENT_SUCCESS"]
+    assert "LKR 3,500" in notices[0]["body"]
