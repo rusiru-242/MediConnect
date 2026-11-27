@@ -78,6 +78,21 @@ class _DoctorPrescriptionRenewalQueueScreenState extends State<DoctorPrescriptio
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Medication: ${renewal.medicationName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              // A04: the doctor sees what an approval will issue. The renewal copies the original instructions
+              // exactly; nothing is filled in or changed by the app.
+              for (final field in const ['strength', 'dose', 'route', 'frequency', 'duration', 'quantity'])
+                Text(
+                  '${field[0].toUpperCase()}${field.substring(1)}: '
+                  '${(renewal.medicationDetails[field]?.toString().trim().isNotEmpty ?? false) ? renewal.medicationDetails[field] : 'not stated'}',
+                  key: Key('renewal_detail_$field'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              if (decision == 'approve')
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text('Approving issues a new prescription with exactly these instructions from the original.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ),
               const SizedBox(height: 12),
               TextField(
                 controller: reasonController,
@@ -224,19 +239,21 @@ class _DoctorPrescriptionRenewalQueueScreenState extends State<DoctorPrescriptio
                                         ],
                                         if (isPending) ...[
                                           const SizedBox(height: 16),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.end,
+                                          // A04-BUG-014: a Row overflowed by ~200 px on a phone (Approve was
+                                          // cut off in release builds and the list failed to draw in debug).
+                                          Wrap(
+                                            alignment: WrapAlignment.end,
+                                            spacing: 8,
+                                            runSpacing: 8,
                                             children: [
                                               OutlinedButton(
                                                 onPressed: () => _handleReviewDecision(r, 'reject'),
                                                 child: const Text('Reject', style: TextStyle(color: Colors.red)),
                                               ),
-                                              const SizedBox(width: 8),
                                               OutlinedButton(
                                                 onPressed: () => _handleReviewDecision(r, 'needs_consultation'),
                                                 child: const Text('Require Consult'),
                                               ),
-                                              const SizedBox(width: 8),
                                               ElevatedButton(
                                                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                                                 onPressed: () => _handleReviewDecision(r, 'approve'),

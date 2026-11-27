@@ -142,6 +142,14 @@ def requested_range(query):
 async def assistant(request: Chat, user=Depends(require_doctor), db=Depends(get_database)):
     workflow.ConsultationService._verify_approved_doctor(db, user)
     query = request.message.casefold()
+    # A04 (Agent 17): prescription requests are recognised before the keyword branches below, which sent them to
+    # the generic menu. Refusals for prescribe/approve/change; reads go through the role-checked prescription tool.
+    from app.agents.intent_router import classify
+    from app.agents.prescription_assistant import doctor_reply
+    prescription = await doctor_reply(db, user, classify("DOCTOR", request.message).intent, request.message,
+                                      request.appointmentId, workflow.owned_appointment)
+    if prescription is not None:
+        return prescription
     day, end = requested_range(query)
     orch = AIOrchestrator(db, user, None)
     if any(word in query for word in ("follow-up", "follow up", "followup")) and any(

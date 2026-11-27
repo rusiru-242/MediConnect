@@ -211,10 +211,13 @@ class ApiErrorMapper {
       return invalidEmailMessage;
     }
 
-    // 4. Duplicate email / account already exists
-    if (lower.contains('already exists') ||
-        lower.contains('duplicate') ||
-        lower.contains('email is already registered')) {
+    // 4. Duplicate email / account already exists. A04-BUG-013: only for account messages. Every "already exists"
+    //    or "duplicate" used to become the account message, so "An active reminder already exists for <medicine>"
+    //    told a signed-in patient that an account with their email already exists.
+    if (lower.contains('email is already registered') ||
+        ((lower.contains('already exists') || lower.contains('duplicate')) &&
+            (lower.contains('email') || lower.contains('account') || lower.contains('user') ||
+                lower.contains('registered')))) {
       return duplicateEmailMessage;
     }
 

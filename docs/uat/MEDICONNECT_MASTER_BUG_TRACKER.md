@@ -1,4 +1,4 @@
-# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A03)
+# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A04)
 
 For: the project owner, reviewers and future maintainers. Generated 2026-11-27 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
 
@@ -13,15 +13,15 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-27 b
 
 | Measure | Count |
 |---|---|
-| Unique tracked items | 258 |
-| Confirmed defects | 218 |
-| Defects fixed (automated regression) | 217 |
+| Unique tracked items | 282 |
+| Confirmed defects | 234 |
+| Defects fixed (automated regression) | 233 |
 | Defects open | 1 (BUG-039) |
 | …of the fixed: manual device retest still pending | 7 |
 | …of the fixed: external verification blocked | 1 |
 | Improvements / requirements delivered | 21 |
 | Regression guards (not defects) | 1 |
-| Observations (unconfirmed) | 17 |
+| Observations (unconfirmed) | 25 |
 | Security incidents (owner) | 1 |
 
 | Source | Defects | Improvements |
@@ -35,6 +35,7 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-27 b
 | Agent Completion A01 | 17 | 0 |
 | Agent Completion A02 | 21 | 0 |
 | Agent Completion A03 | 20 | 0 |
+| Agent Completion A04 | 16 | 0 |
 
 Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not defects; see `PHASE_05_REMAINING_BLOCKERS.md`.
 
@@ -300,3 +301,27 @@ Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not def
 | A03-O5 |  | observation | Low | A03 | "Show me my upcoming appointments" (care agenda) lists times and "Confirmed appointment" without doctor names | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
 | A03-O6 |  | observation | Low | A03 | A payment that succeeds after holdExpiresAt but before the worker releases the hold goes to refund review, not confirmation (existing rule;  | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
 | A03-O7 |  | observation | Low | A03 | "most experienced kenawa select karanna" (Romanized) is not recognised as a selection request; with one candidate the result is the same | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A04-BUG-001 |  | defect | Medium | Clinical sign API | A whitespace-only strength, dose, frequency, duration, quantity or name on POST /clinical/prescriptions/sign returned HTTP 500 (baseline pro | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-002 |  | defect | Medium | Prescription validation | The same medicine listed twice in one prescription (two different dose instructions) | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-003 |  | defect | High | Prescription issuing | 4 simultaneous identical sign requests stored 3 prescriptions (probe P08c). | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-004 |  | defect | High | Prescription assistant review | A medicine matching a documented allergy produced no allergy warning (probe A03a) | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-005 |  | defect | Medium | Renewal request | A patient could request renewal of a medicine not on the prescription (stored with empty details and sent to the doctor), or of a cancelled  | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-006 |  | defect | Medium | Renewal request | A second open request for the same medicine with different letter case was accepted (probe R04b); simultaneous requests also duplicated | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-007 |  | defect | High | AI tools, safety check | Amended and dispensed prescriptions were invisible to the assistant's prescription tools and to the duplicate-medication check; the tools re | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-008 |  | defect | High | Reminders after amendment | After a doctor amended a prescription, reminders the patient had set from the old instructions kept running with the old frequency (doctor-a | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-009 |  | defect | High | Doctor prescription form (mobile) | Every new medication item was pre-filled with dose "1 tablet", frequency "Twice daily (BD)", duration "5 days", quantity "10 tablets" and "T | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-010 |  | defect | Medium | Doctor prescription form (mobile) | If issuing the prescription failed after the consultation record was saved, a retry tried to create the record again ("already exists"), and | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-011 |  | defect | High | Doctor documentation list (mobile) | "Consultations & Prescriptions" always showed "No Consultations Pending Documentation", so the prescription form could not be reached in the | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-012 |  | defect | Medium | Patient notification | A prescription or consultation record issued from the app (the consultation path) | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-013 |  | defect | Low | Error messages (mobile) | A refused duplicate reminder showed "An account with this email already exists." to a signed-in patient (emulator) | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-014 |  | defect | High | Doctor renewal queue (mobile) | On a phone the queue was blank (debug build); the Reject, Require Consult and Approve row overflowed by 207 px, which in a release build cut | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-015 |  | defect | Medium | Patient renewals (mobile) | Patients had no way to open their renewal list (the route existed, nothing linked to it), and requesting a renewal meant typing the prescrip | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-BUG-016 |  | defect | Medium | AI assistant (patient chat, doctor assistant) | Patient "Show my current prescriptions", "Request a prescription renewal" and "Show another patient's prescriptions" got a doctor-search que | FIXED (A04) | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-O1 |  | observation | Low | A04 | The patient reminder form starts its time pickers at 8:00 AM and 8:00 PM for "twice daily" | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-O2 |  | observation | Low | A04 | The backend still defaults route to "Oral" when an API client omits it (MedicationItem.route) | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-O3 |  | observation | Low | A04 | A renewal issues a new prescription and leaves the original ISSUED, so the patient and the assistant see both as current until the original' | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-O4 |  | observation | Low | A04 | The new prescription replies of the assistant are English only (Sinhala and Tamil not written); added to the native-language review gate (B1 | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-O5 |  | observation | Low | A04 | During the emulator run, my new renewal dialog crashed in the debug build (its text controller was disposed during the closing animation) | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-O6 |  | observation | Low | A04 | UAT data contains the renewal requests created by the baseline probe on the old code (a medicine not on the prescription, a case-variant dup | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-O7 |  | observation | Low | A04 | Drug-interaction checking is still unavailable (P3-B9) | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A04-O8 |  | observation | Low | A04 | A03 webhook figures clarified from the A03 evidence (see the final report): 51 deliveries = 48 events + 3 resends; of the 5 refused during t | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |

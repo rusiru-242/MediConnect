@@ -405,3 +405,16 @@ Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER
 - **A03-BUG-010:** after "select the most experienced doctor", the agent proposed a different (cheaper) doctor for "this doctor".
 
 Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (218 confirmed defects: 217 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a03/A03_BUG_FIX_REPORT.md](uat/agent-completion/a03/A03_BUG_FIX_REPORT.md).
+
+## Agent Completion A04 (2026-11-27, branch `fix/agents-a04-prescription-assistant`)
+
+16 new defects (A04-BUG-001 to 016) in the prescription workflow and Agent 17, all fixed with automated tests. Several were found only by the live probe or on the emulator. The most serious:
+- **A04-BUG-009:** the doctor's prescription form pre-filled dose, frequency, duration, quantity and instructions (quantity had no field), so prescriptions could carry dosing the doctor never entered.
+- **A04-BUG-004:** documented-allergy matches were computed and then dropped from the assistant's review.
+- **A04-BUG-003:** simultaneous identical submissions stored several prescriptions (3 of 4 in the probe).
+- **A04-BUG-011:** the doctor's documentation list was always empty, so the prescription form could not be reached in the app.
+- **A04-BUG-014:** the renewal queue was unusable on phones (Approve cut off).
+- **A04-BUG-008:** reminders built on old instructions kept running after an amendment.
+- **A04-BUG-007:** amended prescriptions were invisible to the assistant and to the duplicate check.
+
+Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (234 confirmed defects: 233 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a04/A04_BUG_FIX_REPORT.md](uat/agent-completion/a04/A04_BUG_FIX_REPORT.md).

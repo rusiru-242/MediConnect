@@ -275,6 +275,12 @@ class BookingAgent:
         if not has_real_image:
             from app.agents.intent_router import classify as classify_intent_p05
             patient_intent = classify_intent_p05("PATIENT", clean_text).intent
+            # A04 (Agent 17): own prescriptions and renewal help are read from the records; another patient's
+            # prescriptions and approve/finalize requests are refused. Nothing is created or changed here.
+            from app.agents.prescription_assistant import patient_reply as prescription_reply
+            prescription = await prescription_reply(db, patient_user, patient_intent)
+            if prescription is not None:
+                return reply(prescription[0], prescription[1], intent_value="PRESCRIPTIONS")
             if patient_intent == "medication_change_request":
                 return reply(medication_change_message(reply_lang),
                              {"type": "medication_change_requires_clinician", "scheduleChanged": False,

@@ -50,6 +50,14 @@ void main() {
       );
     });
 
+    test('A04-BUG-013: a non-account "already exists" message is not turned into the account message', () {
+      final body = {'detail': 'An active reminder already exists for Synthocillin-A04 from this prescription.'};
+      expect(ApiErrorMapper.fromResponseBody(body, 400),
+          'An active reminder already exists for Synthocillin-A04 from this prescription.');
+      expect(ApiErrorMapper.fromResponseBody({'detail': 'A user with this email already exists'}, 400),
+          'An account with this email already exists.');
+    });
+
     test('4. Maps phone validation errors to friendly message', () {
       final pydanticPhoneBody = {
         'detail': [

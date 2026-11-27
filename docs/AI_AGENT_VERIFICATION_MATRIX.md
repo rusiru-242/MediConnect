@@ -160,3 +160,14 @@ The final matrix covering all 38 components is in [uat/MEDICONNECT_ALL_38_AGENT_
   - Emulator and browser end-to-end runs passed.
   - Remaining gates: refund policy (B6), physical phone (B10), Sinhala review (B12), and a staging webhook endpoint. Production delivery was not tested.
 - **Totals:** 27 VERIFIED (local), 11 PARTIAL, 0 BLOCKED.
+
+## Agent Completion A04 update (2026-11-27, `fix/agents-a04-prescription-assistant`)
+
+- **17 Prescription Assistant: stays PARTIAL (engineering verified; clinical gates open).**
+  - Classified as deterministic, tool-orchestrated assistance: no generative AI on prescription paths, no provider call.
+  - Patient chat and doctor assistant now answer prescription requests from the role-checked tools and refuse prescribe, approve, finalize, change and other-patient requests (18 of 18 probe requests).
+  - The doctor form no longer pre-fills dosing; the review shows allergy and active-medication findings and states that interaction checking is unavailable.
+  - Issuing and renewals are race-safe; amendments stop outdated reminders.
+  - Emulator end-to-end: doctor issue → patient view → reminder → renewal → doctor approval.
+  - Remaining gates: drug-interaction source (P3-B9), pharmacist review (B2), clinical validation (B1), physical phone (B10), language review (B12).
+- **Totals:** 27 VERIFIED (local), 11 PARTIAL, 0 BLOCKED (unchanged).

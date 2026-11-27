@@ -17,9 +17,48 @@ class PrescriptionStatus(str, Enum):
     AMENDED = "AMENDED"
 
 
+# A04-BUG-007: an amended or dispensed prescription is still the patient's current prescription. Several readers
+# (AI tools, the allergy/duplicate check) only looked at ISSUED and missed it. "ACTIVE"/"signed" are legacy values.
+CURRENT_PRESCRIPTION_STATUSES = ("ISSUED", "AMENDED", "DISPENSED", "ACTIVE", "signed")
+
+
 def utc_now() -> datetime:
     """Return current UTC timestamp."""
     return datetime.now(timezone.utc)
+
+
+def submission_key(doctor_id: str, patient_id: str, visit_ref: Optional[str], items: List[Dict[str, Any]]) -> str:
+    """Stable key of one prescription submission: same doctor, patient, visit and medication items."""
+    import hashlib
+    import json
+    canonical = json.dumps([doctor_id, patient_id, visit_ref or "", items], sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def claim_submission(db: Database, key: str, window_minutes: int = 10) -> bool:
+    """Atomically claim a submission key across processes (A04-BUG-003).
+
+    The duplicate checks read and then insert, so simultaneous identical submissions all passed the read. The claim
+    is a document whose ``_id`` is the key: the first request inserts it, an identical request within the window hits
+    the unique ``_id`` and is refused. An older claim is taken over (a deliberate re-issue later is allowed).
+    Returns False when another request holds the claim.
+    """
+    from datetime import timedelta
+    from pymongo.errors import DuplicateKeyError
+    now = utc_now()
+    try:
+        db["prescription_submission_claims"].find_one_and_update(
+            {"_id": key, "claimedAt": {"$lt": now - timedelta(minutes=window_minutes)}},
+            {"$set": {"claimedAt": now}}, upsert=True,
+        )
+        return True
+    except DuplicateKeyError:
+        return False
+
+
+def release_submission(db: Database, key: str) -> None:
+    """Release a claim whose prescription was not stored, so a corrected retry is not refused."""
+    db["prescription_submission_claims"].delete_one({"_id": key})
 
 
 class MedicationItem(BaseModel):
@@ -103,3 +142,5 @@ def create_prescription_indexes(db: Database) -> None:
         [("doctorUserId", ASCENDING), ("issuedAt", DESCENDING)],
         name="idx_prescription_doctor_issued",
     )
+    claims = db["prescription_submission_claims"]
+    claims.create_index([("claimedAt", ASCENDING)], expireAfterSeconds=24 * 3600, name="idx_rx_claim_ttl")

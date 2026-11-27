@@ -2,20 +2,26 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/prescription.dart';
+import '../../services/clinical_api_service.dart';
 import '../../services/medical_record_service.dart';
 import 'create_medication_reminder_screen.dart';
+
+/// A04: an absent prescribed value is shown as absent, never filled in.
+String shownOrNotStated(String value) => value.trim().isEmpty ? 'not stated' : value.trim();
 
 /// Screen displaying structured digital prescription and official PDF download action.
 class PrescriptionDetailScreen extends StatefulWidget {
   final String prescriptionId;
   final Prescription? initialPrescription;
   final MedicalRecordService? service;
+  final ClinicalApiService? renewalService;
 
   const PrescriptionDetailScreen({
     super.key,
     required this.prescriptionId,
     this.initialPrescription,
     this.service,
+    this.renewalService,
   });
 
   @override
@@ -24,6 +30,7 @@ class PrescriptionDetailScreen extends StatefulWidget {
 
 class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
   late final MedicalRecordService _service;
+  late final ClinicalApiService _renewals;
   Prescription? _prescription;
   bool _isLoading = false;
   bool _isDownloadingPdf = false;
@@ -33,6 +40,7 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
   void initState() {
     super.initState();
     _service = widget.service ?? MedicalRecordService();
+    _renewals = widget.renewalService ?? ClinicalApiService();
     _prescription = widget.initialPrescription;
     if (_prescription == null) {
       _loadPrescription();
@@ -416,7 +424,7 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '${item.medicationName} (${item.strength})',
+                    '${shownOrNotStated(item.medicationName)} (${item.strength.trim().isEmpty ? 'strength not stated' : item.strength})',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                 ),
@@ -427,7 +435,7 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    item.route,
+                    item.route.trim().isEmpty ? 'Route not stated' : item.route,
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueAccent),
                   ),
                 ),
@@ -438,10 +446,12 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
               spacing: 12,
               runSpacing: 6,
               children: [
-                _buildTag(Icons.medication_liquid_rounded, 'Dose: ${item.dose}'),
-                _buildTag(Icons.schedule_rounded, item.frequency),
-                _buildTag(Icons.timelapse_rounded, item.duration),
-                _buildTag(Icons.inventory_2_outlined, 'Qty: ${item.quantity}'),
+                _buildTag(Icons.medication_liquid_rounded, 'Dose: ${shownOrNotStated(item.dose)}'),
+                _buildTag(Icons.schedule_rounded,
+                    item.frequency.trim().isEmpty ? 'Frequency not stated' : item.frequency),
+                _buildTag(Icons.timelapse_rounded,
+                    item.duration.trim().isEmpty ? 'Duration not stated' : item.duration),
+                _buildTag(Icons.inventory_2_outlined, 'Qty: ${shownOrNotStated(item.quantity)}'),
               ],
             ),
             if (item.additionalInstructions != null && item.additionalInstructions!.isNotEmpty) ...[
@@ -467,9 +477,23 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
               ),
             ],
             const Divider(height: 18.0),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 4,
+              children: [
+                if (const {'ISSUED', 'AMENDED', 'DISPENSED'}.contains(presc.status.toUpperCase()))
+                  TextButton.icon(
+                    key: Key('rx_request_renewal_$itemIndex'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      minimumSize: const Size(50, 32),
+                    ),
+                    onPressed: () => _requestRenewal(presc, item),
+                    icon: const Icon(Icons.autorenew_rounded, size: 16),
+                    label: const Text('Request renewal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
+                TextButton.icon(
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.primary,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -488,11 +512,46 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
                 icon: const Icon(Icons.alarm_add_rounded, size: 16),
                 label: const Text('Set Reminder', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               ),
+              ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// A04: the renewal names exactly this prescription and medicine (the patient no longer types them). The
+  /// prescribing doctor decides; nothing about the medicine changes until they approve.
+  Future<void> _requestRenewal(Prescription presc, MedicationItem item) async {
+    // The dialog owns its text controller and disposes it when it is removed (disposing it here, while the dialog
+    // was still animating out, failed a framework assertion in debug builds).
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _RenewalRequestDialog(
+        title: '${item.medicationName} ${item.strength} from ${presc.prescriptionId}',
+      ),
+    );
+    if (reason == null || !mounted) return;
+    try {
+      await _renewals.requestPrescriptionRenewal(
+        originalPrescriptionId: presc.prescriptionId,
+        medicationName: item.medicationName,
+        patientReason: reason.isEmpty ? null : reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        key: Key('rx_renewal_sent'),
+        content: Text('Renewal request sent to your doctor for review.'),
+        backgroundColor: AppTheme.success,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        key: const Key('rx_renewal_failed'),
+        content: Text('Renewal request not sent: $e'),
+        backgroundColor: AppTheme.error,
+      ));
+    }
   }
 
   Widget _buildTag(IconData icon, String label) {
@@ -505,6 +564,55 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
           label,
           style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
         ),
+      ],
+    );
+  }
+}
+
+
+/// Confirmation for a renewal request; returns the optional reason ('' when none) or null when cancelled.
+class _RenewalRequestDialog extends StatefulWidget {
+  final String title;
+
+  const _RenewalRequestDialog({required this.title});
+
+  @override
+  State<_RenewalRequestDialog> createState() => _RenewalRequestDialogState();
+}
+
+class _RenewalRequestDialogState extends State<_RenewalRequestDialog> {
+  final _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('rx_renewal_dialog'),
+      title: const Text('Request renewal'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.title),
+          const SizedBox(height: 6),
+          const Text('Your prescribing doctor reviews the request and approves or declines it. '
+              'Keep following your current instructions until then.', style: TextStyle(fontSize: 12)),
+          TextField(
+            key: const Key('rx_renewal_reason'),
+            controller: _reason,
+            maxLines: 2,
+            decoration: const InputDecoration(labelText: 'Reason (optional)'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(onPressed: () => Navigator.pop(context, _reason.text.trim()), child: const Text('Send request')),
       ],
     );
   }
