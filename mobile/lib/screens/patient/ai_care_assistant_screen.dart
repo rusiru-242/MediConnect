@@ -1472,6 +1472,21 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                     onTap: () => Navigator.pushNamed(context, '/patient/my-appointments'),
                   ),
                 ),
+              // A03-BUG-012: cancel / reschedule requests are answered with the patient's upcoming appointments; the
+              // change itself happens only in My Appointments (cancellation preview and refund rules first).
+              if (msg.metadata?['type'] == 'appointment_management' && index == messages.length - 1)
+                Card(
+                  key: const ValueKey('manage_appointments_action'),
+                  child: ListTile(
+                    leading: const Icon(Icons.event_note),
+                    title: const Text('Open My Appointments'),
+                    subtitle: Text(msg.metadata?['action'] == 'reschedule'
+                        ? 'Choose the appointment, then Reschedule'
+                        : 'Choose the appointment, then Cancel Appointment'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pushNamed(context, '/patient/my-appointments'),
+                  ),
+                ),
               if (doctors != null)
                 ...doctors.map((doc) => _buildDoctorCandidateCard(
                   DoctorCardSummary.fromJson(Map<String, dynamic>.from(doc as Map)),
