@@ -110,3 +110,14 @@ def create_prescription_renewal_indexes(db: Database) -> None:
         [("originalPrescriptionId", ASCENDING)],
         name="idx_renewal_orig_prescription",
     )
+    # A04-BUG-006: one open request per patient, prescription and medicine. ``pendingKey`` exists only while the
+    # request awaits review (it is removed when the doctor decides), so the unique index refuses a second open
+    # request even when two arrive at once, in different processes.
+    coll.create_index(
+        [("pendingKey", ASCENDING)], unique=True, name="idx_renewal_pending_unique",
+        partialFilterExpression={"pendingKey": {"$exists": True}},
+    )
+
+
+def renewal_pending_key(patient_id: str, prescription_ref: str, medication_name: str) -> str:
+    return f"{patient_id}:{prescription_ref}:{' '.join(medication_name.split()).casefold()}"

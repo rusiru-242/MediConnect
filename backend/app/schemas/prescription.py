@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class MedicationItemSchema(BaseModel):
@@ -29,6 +29,12 @@ class CreatePrescriptionRequest(BaseModel):
     medicationItems: List[MedicationItemSchema] = Field(..., min_length=1)
     instructions: Optional[str] = Field(default=None, max_length=2000)
 
+    @field_validator("medicationItems")
+    @classmethod
+    def _no_repeats(cls, value):
+        from app.schemas.clinical_workflow import reject_repeated_medicines  # A04-BUG-002
+        return reject_repeated_medicines(value)
+
 
 class AmendPrescriptionRequest(BaseModel):
     """Doctor request to safely amend an issued prescription with audit trail."""
@@ -36,6 +42,12 @@ class AmendPrescriptionRequest(BaseModel):
     amendmentReason: str = Field(..., min_length=3, max_length=500, description="Mandatory clinical reason for amendment")
     medicationItems: List[MedicationItemSchema] = Field(..., min_length=1)
     instructions: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("medicationItems")
+    @classmethod
+    def _no_repeats(cls, value):
+        from app.schemas.clinical_workflow import reject_repeated_medicines  # A04-BUG-002
+        return reject_repeated_medicines(value)
 
 
 class PrescriptionResponseSchema(BaseModel):

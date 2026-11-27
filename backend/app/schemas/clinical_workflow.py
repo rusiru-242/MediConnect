@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class StrictBase(BaseModel):
@@ -143,7 +143,22 @@ class ClinicalNoteListResponse(StrictBase):
 # Prescription Schemas & Assistant
 # ---------------------------------------------------------------------------
 
+def reject_repeated_medicines(items: List[Any]) -> List[Any]:
+    """A04-BUG-002: the same medicine listed twice in one prescription gives two conflicting sets of instructions."""
+    seen = set()
+    for item in items:
+        name = " ".join(str(getattr(item, "medicationName", "")).split()).casefold()
+        if name in seen:
+            raise ValueError(f"'{item.medicationName}' is listed more than once. Combine it into one medication item.")
+        seen.add(name)
+    return items
+
+
 class PrescriptionMedicationDraftItem(StrictBase):
+    # A04-BUG-001: whitespace-only values ("   ") passed min_length here (the P03-N13 fix covered only the older
+    # schema) and then failed inside the service as an unhandled validation error (HTTP 500).
+    model_config = ConfigDict(populate_by_name=True, extra="ignore", str_strip_whitespace=True)
+
     medicationName: str = Field(..., min_length=1, max_length=200)
     strength: str = Field(..., min_length=1, max_length=100)
     dose: str = Field(..., min_length=1, max_length=100)
@@ -160,9 +175,20 @@ class CreatePrescriptionDraftRequest(StrictBase):
     medicationItems: List[PrescriptionMedicationDraftItem]
     instructions: Optional[str] = Field(default=None, max_length=2000)
 
+    @field_validator("medicationItems")
+    @classmethod
+    def _no_repeats(cls, value):
+        return reject_repeated_medicines(value)
+
 
 class SignPrescriptionRequest(StrictBase):
     confirmSign: Literal[True]
+
+
+INTERACTION_CHECK_NOTICE = (
+    "Drug-interaction checking is not available: MediConnect has no clinically validated interaction source. "
+    "No interaction result is implied. Check interactions with a pharmacist or a validated reference before signing."
+)
 
 
 class PrescriptionAssistantReviewResponse(StrictBase):
@@ -170,8 +196,50 @@ class PrescriptionAssistantReviewResponse(StrictBase):
     documentedAllergies: List[str]
     activeMedications: List[str]
     potentialDuplicates: List[str]
+    # A04-BUG-004: the allergy match was computed by the safety service but this response had no field for it,
+    # so a doctor never saw "POSSIBLE ALLERGY CONTRAINDICATION".
+    allergyWarnings: List[str] = Field(default_factory=list)
     missingFieldsWarnings: List[str]
+    interactionCheck: Literal["unavailable"] = "unavailable"
+    interactionCheckNotice: str = INTERACTION_CHECK_NOTICE
     safetyGuidance: str
+
+
+class DraftReviewItem(StrictBase):
+    """A clinician-entered item as typed so far: every field may still be empty."""
+    model_config = ConfigDict(populate_by_name=True, extra="ignore", str_strip_whitespace=True)
+
+    medicationName: str = Field(default="", max_length=200)
+    strength: str = Field(default="", max_length=100)
+    dose: str = Field(default="", max_length=100)
+    route: str = Field(default="", max_length=100)
+    frequency: str = Field(default="", max_length=100)
+    duration: str = Field(default="", max_length=100)
+    quantity: str = Field(default="", max_length=100)
+    additionalInstructions: Optional[str] = Field(default=None, max_length=500)
+
+
+class PrescriptionDraftReviewRequest(StrictBase):
+    patientUserId: str = Field(..., min_length=1, max_length=64)
+    medicationItems: List[DraftReviewItem] = Field(..., min_length=1, max_length=20)
+
+
+class DraftItemFinding(StrictBase):
+    index: int
+    medicationName: str
+    missingFields: List[str]
+    notes: List[str]
+
+
+class PrescriptionDraftReviewResponse(PrescriptionAssistantReviewResponse):
+    """Structured check of a draft. Nothing is stored or signed; the items are returned exactly as entered."""
+    status: Literal["unapproved_draft"] = "unapproved_draft"
+    approved: Literal[False] = False
+    readyToSign: bool
+    items: List[DraftItemFinding]
+    repeatedMedicines: List[str]
+    draft: List[DraftReviewItem]
+    source: Literal["deterministic"] = "deterministic"
 
 
 # ---------------------------------------------------------------------------

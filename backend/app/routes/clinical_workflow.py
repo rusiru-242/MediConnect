@@ -25,6 +25,8 @@ from app.schemas.clinical_workflow import (
     PatientMedicalRecordListResponse,
     PatientMedicalRecordResponse,
     PrescriptionAssistantReviewResponse,
+    PrescriptionDraftReviewRequest,
+    PrescriptionDraftReviewResponse,
     PrescriptionRenewalListResponse,
     PrescriptionRenewalResponse,
     RecordHealthMeasurementRequest,
@@ -272,6 +274,20 @@ def review_prescription_assistant(
         patient_user_id=patientUserId,
         medication_names=medications,
     )
+
+
+@clinical_workflow_router.post(
+    "/prescriptions/assistant-review/draft",
+    response_model=PrescriptionDraftReviewResponse,
+    summary="Structural check of a prescription draft before signing (Doctor only; nothing is stored)",
+)
+def review_prescription_draft_items(
+    req: PrescriptionDraftReviewRequest,
+    doctor_user: UserResponseSchema = Depends(require_doctor),
+    db: Database = Depends(get_database),
+) -> PrescriptionDraftReviewResponse:
+    """Missing fields, repeated medicines, allergy and active-medication matches. The draft stays unapproved."""
+    return PrescriptionWorkflowService.review_draft_items(db=db, doctor_user=doctor_user, req=req)
 
 
 @clinical_workflow_router.post(

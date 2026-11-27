@@ -21,7 +21,10 @@ from app.models.prescription import (
     MedicationItem,
     PrescriptionDocument,
     PrescriptionStatus,
+    claim_submission,
     get_prescription_collection,
+    release_submission,
+    submission_key,
 )
 from app.models.user import AccountStatus, UserRole
 from app.schemas.medical_record import (
@@ -205,16 +208,16 @@ class MedicalRecordService:
 
         # Patient notification
         try:
-            doc_name = doctor_user.fullName
-            if not doc_name.startswith("Dr."):
-                doc_name = f"Dr. {doc_name}"
-            NotificationService.create_and_send_notification(
+            # A04-BUG-012: this called NotificationService.create_and_send_notification, which does not exist, so the
+            # patient was never told (the AttributeError was logged and swallowed). Generic text on the lock screen.
+            NotificationService.create_notification(
                 db=db,
                 recipient_user_id=patient_user_id,
-                notification_type=NotificationType.CONSULTATION_RECORD_AVAILABLE,
+                type=NotificationType.CONSULTATION_RECORD_AVAILABLE,
                 title="Consultation Summary Available",
-                body=f"Your consultation summary from {doc_name} is now available in your Medical Records.",
-                data={"recordId": record_id, "appointmentId": req.appointmentId},
+                body="Your consultation summary is now available in Medical Records in MediConnect.",
+                related_appointment_id=str(req.appointmentId),
+                idempotency_key=f"consultation_record_{record_id}",
             )
         except Exception as exc:
             logger.warning("Could not dispatch patient consultation record notification: %s", exc)
@@ -548,7 +551,18 @@ class MedicalRecordService:
         if duplicate:
             # A repeated submission of the same prescription (double tap, retry) must not issue it twice (P03-N13).
             raise HTTPException(status_code=409, detail=f"This prescription was already issued ({duplicate['prescriptionId']}).")
+        # A04-BUG-003: the read above cannot see a simultaneous identical submission; the claim can.
+        claim = submission_key(str(doctor_user.id), record["patientUserId"], str(record["_id"]), med_items_dicts)
+        if not claim_submission(db, claim):
+            raise HTTPException(status_code=409, detail="This prescription was just submitted.")
+        try:
+            return await cls._store_prescription(db, doctor_user, doc_prof, req, record, med_items_dicts)
+        except Exception:
+            release_submission(db, claim)
+            raise
 
+    @classmethod
+    async def _store_prescription(cls, db, doctor_user, doc_prof, req, record, med_items_dicts):
         # Generate prescription ID
         date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
         rand_suffix = uuid.uuid4().hex[:6].upper()
@@ -587,16 +601,15 @@ class MedicalRecordService:
 
         # Patient notification
         try:
-            doc_name = doctor_user.fullName or "Your doctor"
-            if not doc_name.startswith("Dr"):
-                doc_name = f"Dr. {doc_name}"
-            NotificationService.create_and_send_notification(
+            # A04-BUG-012: same missing method as above; the same generic wording as the clinical-workflow path.
+            NotificationService.create_notification(
                 db=db,
                 recipient_user_id=patient_user_id,
-                notification_type=NotificationType.PRESCRIPTION_ISSUED,
-                title="Digital Prescription Issued",
-                body=f"{doc_name} has issued an official digital prescription ({presc_id}) for your recent consultation.",
-                data={"prescriptionId": presc_id, "recordId": str(record["_id"])},
+                type=NotificationType.PRESCRIPTION_ISSUED,
+                title="New prescription available",
+                body="Your doctor issued a prescription. Open Medical Records in MediConnect to view it.",
+                related_appointment_id=str(record.get("appointmentId")) if record.get("appointmentId") else None,
+                idempotency_key=f"prescription_issued_{result.inserted_id}",
             )
         except Exception as exc:
             logger.warning("Could not dispatch patient digital prescription notification: %s", exc)
@@ -702,6 +715,8 @@ class MedicalRecordService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only the issuing doctor may amend this prescription.",
             )
+        if doc.get("status") == PrescriptionStatus.CANCELLED.value:
+            raise HTTPException(status_code=409, detail="A cancelled prescription cannot be amended. Issue a new one.")
 
         now = utc_now()
         amend_entry = {
@@ -738,8 +753,43 @@ class MedicalRecordService:
                 },
             },
         )
+        cls._retire_outdated_patient_reminders(db, doc, new_items, now)
 
         return await cls.get_prescription(db, doctor_user, str(doc["_id"]))
+
+    @classmethod
+    def _retire_outdated_patient_reminders(cls, db: Database, doc: Dict[str, Any], new_items: List[Dict[str, Any]],
+                                           now: datetime) -> None:
+        """A04-BUG-008: reminders the patient set from the old instructions stop when those instructions change.
+
+        A patient-created reminder copies the medicine, dose and frequency at creation and kept firing after an
+        amendment (doctor-approved schedules already stop: the scheduler compares the prescription revision). A
+        reminder whose item changed or disappeared is cancelled, and the patient is told to set it again from the
+        updated prescription. Nothing is rescheduled automatically.
+        """
+        fields = ("medicationName", "strength", "dose", "route", "frequency", "duration", "additionalInstructions")
+        old_items = doc.get("medicationItems") or []
+        changed = [index for index, old in enumerate(old_items)
+                   if index >= len(new_items) or any(old.get(k) != new_items[index].get(k) for k in fields)]
+        if not changed:
+            return
+        result = db["medication_reminders"].update_many(
+            {"prescriptionDbId": str(doc["_id"]), "prescriptionMedicationIndex": {"$in": changed},
+             "approvedBy": {"$exists": False}, "status": "ACTIVE"},
+            {"$set": {"status": "CANCELLED", "enabled": False, "updatedAt": now,
+                      "cancelReason": "prescription_amended"}},
+        )
+        try:
+            NotificationService.create_notification(
+                db=db, recipient_user_id=str(doc["patientUserId"]), type=NotificationType.PRESCRIPTION_ISSUED,
+                title="Prescription updated",
+                body=("Your doctor updated a prescription. Open Medical Records to see the new instructions."
+                      + (" Reminders set from the old instructions were stopped; set them again from the updated "
+                         "prescription." if result.modified_count else "")),
+                idempotency_key=f"prescription_amended_{doc['_id']}_{now.isoformat()}", send_push=True,
+            )
+        except Exception as exc:
+            logger.warning("Prescription amendment notification failed (%s)", type(exc).__name__)
 
     @classmethod
     async def list_patient_prescriptions(

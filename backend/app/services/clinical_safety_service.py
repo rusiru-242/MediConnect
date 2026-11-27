@@ -17,6 +17,7 @@ from fastapi import HTTPException, status
 from pymongo.database import Database
 
 from app.models.health_measurement import MeasurementMetric
+from app.models.prescription import CURRENT_PRESCRIPTION_STATUSES
 
 # Emergency trigger words requiring immediate emergency response advisory
 EMERGENCY_KEYWORDS: Set[str] = {
@@ -224,7 +225,8 @@ class ClinicalSafetyService:
 
         # 2. Fetch active prescriptions
         presc_cursor = db["prescriptions"].find(
-            {"patientUserId": patient_user_id, "status": {"$in": ["ISSUED", "ACTIVE", "signed"]}},
+            # A04-BUG-007: amended and dispensed prescriptions are current too.
+            {"patientUserId": patient_user_id, "status": {"$in": list(CURRENT_PRESCRIPTION_STATUSES)}},
             {"medicationItems": 1},
         )
         for p in presc_cursor:

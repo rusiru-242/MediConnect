@@ -12,30 +12,40 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 import uuid
 import logging
+import re
 
 
 from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
+from pymongo.errors import DuplicateKeyError
 
 from app.models.doctor_profile import DoctorVerificationStatus
 from app.models.prescription import (
+    CURRENT_PRESCRIPTION_STATUSES,
     MedicationItem,
     PrescriptionDocument,
     PrescriptionStatus,
+    claim_submission,
     get_prescription_collection,
+    release_submission,
+    submission_key,
 )
 from app.models.prescription_renewal import (
     PrescriptionRenewalDocument,
     RenewalStatus,
     get_prescription_renewal_collection,
+    renewal_pending_key,
     utc_now,
 )
 from app.models.user import UserRole
 from app.schemas.clinical_workflow import (
     CreatePrescriptionDraftRequest,
     CreatePrescriptionRenewalRequest,
+    DraftItemFinding,
     PrescriptionAssistantReviewResponse,
+    PrescriptionDraftReviewRequest,
+    PrescriptionDraftReviewResponse,
     PrescriptionRenewalListResponse,
     PrescriptionRenewalResponse,
     ReviewPrescriptionRenewalRequest,
@@ -44,6 +54,15 @@ from app.schemas.user import UserResponseSchema
 from app.services.clinical_safety_service import ClinicalSafetyService
 
 logger = logging.getLogger(__name__)
+
+SAFETY_GUIDANCE = (
+    "PRESCRIPTION SAFETY GUIDANCE: Always confirm patient dosage, renal function, "
+    "and contraindications before signing. MediConnect assistant highlights known records but "
+    "does not replace formal clinical pharmacovigilance."
+)
+# A number followed by a unit, e.g. "500 mg", "250mg/5ml", "2%", "100 mcg/dose", "40 IU".
+STRENGTH_UNIT = re.compile(r"\d\s*(?:mg|mcg|µg|ug|g|kg|ml|l|%|iu|units?|mmol|meq|mg/ml|puffs?|drops?)\b|\d\s*%",
+                           re.I)
 
 
 class PrescriptionWorkflowService:
@@ -94,12 +113,68 @@ class PrescriptionWorkflowService:
             documentedAllergies=safety_eval["documentedAllergies"],
             activeMedications=safety_eval["activeMedications"],
             potentialDuplicates=safety_eval["potentialDuplicates"],
+            allergyWarnings=safety_eval["allergyWarnings"],
             missingFieldsWarnings=missing_fields,
-            safetyGuidance=(
-                "PRESCRIPTION SAFETY GUIDANCE: Always confirm patient dosage, renal function, "
-                "and contraindications before signing. MediConnect assistant highlights known records but "
-                "does not replace formal clinical pharmacovigilance."
-            ),
+            safetyGuidance=SAFETY_GUIDANCE,
+        )
+
+    @classmethod
+    def review_draft_items(
+        cls,
+        db: Database,
+        doctor_user: UserResponseSchema,
+        req: PrescriptionDraftReviewRequest,
+    ) -> PrescriptionDraftReviewResponse:
+        """Structural check of clinician-entered items before signing (A04, deterministic).
+
+        Reports missing required fields, repeated medicines, and frequency/duration/strength text the app cannot
+        read for reminders. Nothing is added, completed, stored or signed: the draft is returned exactly as entered
+        and stays unapproved. These are structural checks, not clinical dose or interaction checks.
+        """
+        from app.services.medication_reminder_service import prescribed_doses_per_day, prescribed_duration_days
+        cls._assert_approved_doctor(db, doctor_user)
+        ClinicalSafetyService.verify_doctor_patient_care_relationship(db, str(doctor_user.id), req.patientUserId)
+        labels = {"medicationName": "medicine name", "strength": "strength", "dose": "dose",
+                  "frequency": "frequency", "duration": "duration", "quantity": "quantity"}
+        findings: List[DraftItemFinding] = []
+        seen: Dict[str, str] = {}
+        repeated: List[str] = []
+        for index, item in enumerate(req.medicationItems):
+            missing = [label for field, label in labels.items() if not getattr(item, field)]
+            notes: List[str] = []
+            if item.strength and not STRENGTH_UNIT.search(item.strength):
+                notes.append(f"Strength '{item.strength}' has no unit the app recognises (for example mg, mcg, g, "
+                             "ml, %, IU or units). Check it is complete.")
+            if item.frequency and prescribed_doses_per_day(item.frequency) is None:
+                notes.append(f"Frequency '{item.frequency}' does not state a fixed number of doses per day, so "
+                             "medicine reminders cannot be scheduled from it. This is allowed (for example 'as "
+                             "needed') but the patient will need clear instructions.")
+            if item.duration and prescribed_duration_days(item.duration) is None:
+                notes.append(f"Duration '{item.duration}' is not stated in days or weeks, so reminders cannot "
+                             "be limited to the course automatically.")
+            key = " ".join(item.medicationName.split()).casefold()
+            if key and key in seen:
+                repeated.append(item.medicationName)
+            elif key:
+                seen[key] = item.medicationName
+            findings.append(DraftItemFinding(index=index, medicationName=item.medicationName,
+                                             missingFields=missing, notes=notes))
+        names = [item.medicationName for item in req.medicationItems if item.medicationName]
+        safety_eval = ClinicalSafetyService.check_prescription_safety(db, req.patientUserId, names)
+        missing_text = [f"Item {f.index + 1} ({f.medicationName or 'unnamed'}): missing " + ", ".join(f.missingFields)
+                        for f in findings if f.missingFields]
+        return PrescriptionDraftReviewResponse(
+            patientUserId=req.patientUserId,
+            documentedAllergies=safety_eval["documentedAllergies"],
+            activeMedications=safety_eval["activeMedications"],
+            potentialDuplicates=safety_eval["potentialDuplicates"],
+            allergyWarnings=safety_eval["allergyWarnings"],
+            missingFieldsWarnings=missing_text,
+            safetyGuidance=SAFETY_GUIDANCE,
+            readyToSign=not missing_text and not repeated,
+            items=findings,
+            repeatedMedicines=repeated,
+            draft=req.medicationItems,
         )
 
     # -----------------------------------------------------------------------
@@ -139,6 +214,18 @@ class PrescriptionWorkflowService:
         appointment = cls._validated_visit(db, doc_user_id, req.patientUserId, req.appointmentId)
         item_dicts = [item.model_dump(by_alias=True, exclude_none=True) for item in med_items]  # as stored
         cls._reject_duplicate(db, doc_user_id, req.patientUserId, req.appointmentId, item_dicts)
+        claim = submission_key(doc_user_id, req.patientUserId, req.appointmentId, item_dicts)
+        if not claim_submission(db, claim):  # A04-BUG-003: a simultaneous identical submission
+            raise HTTPException(status_code=409, detail="An identical prescription was just submitted.")
+        try:
+            return cls._store_signed(db, doctor_user, profile, req, appointment, med_items)
+        except Exception:
+            release_submission(db, claim)
+            raise
+
+    @classmethod
+    def _store_signed(cls, db, doctor_user, profile, req, appointment, med_items) -> Dict[str, Any]:
+        doc_user_id = str(doctor_user.id)
         record = db["medical_records"].find_one({"appointmentId": req.appointmentId}, {"_id": 1}) if appointment else None
 
         now = utc_now()
@@ -246,26 +333,33 @@ class PrescriptionWorkflowService:
                 detail="Original prescription not found in your patient record.",
             )
 
-        # Check existing pending renewal for this medication
+        # A04-BUG-005: a cancelled prescription cannot be renewed, and only a medicine that is on the prescription
+        # can be. A request naming any other medicine used to be stored (with empty details) and sent to the doctor.
+        if rx.get("status") not in CURRENT_PRESCRIPTION_STATUSES:
+            raise HTTPException(status_code=409, detail="This prescription is no longer current and cannot be renewed. "
+                                                        "Ask your doctor for a new prescription.")
+        wanted = " ".join(req.medicationName.split()).casefold()
+        med_details = next((item for item in rx.get("medicationItems", [])
+                            if " ".join(str(item.get("medicationName", "")).split()).casefold() == wanted), None)
+        if med_details is None:
+            raise HTTPException(status_code=422, detail="That medicine is not on this prescription. Choose a medicine "
+                                                        "your doctor prescribed on it.")
+        medication_name = med_details["medicationName"]  # the prescribed spelling, not the typed one
+
+        # Existing pending renewal for this medication (case-insensitive, A04-BUG-006)
         renewal_coll = get_prescription_renewal_collection(db)
+        pending_statuses = [RenewalStatus.REQUESTED.value, RenewalStatus.AWAITING_REVIEW.value]
         existing_pending = renewal_coll.find_one({
             "patientUserId": patient_id,
             "originalPrescriptionId": rx["prescriptionId"],
-            "medicationName": req.medicationName.strip(),
-            "status": {"$in": [RenewalStatus.REQUESTED.value, RenewalStatus.AWAITING_REVIEW.value]},
+            "medicationName": {"$regex": f"^{re.escape(medication_name)}$", "$options": "i"},
+            "status": {"$in": pending_statuses},
         })
         if existing_pending:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"A renewal request for '{req.medicationName}' is already pending clinician review.",
+                detail=f"A renewal request for '{medication_name}' is already pending clinician review.",
             )
-
-        # Extract item details from prescription
-        med_details = {}
-        for item in rx.get("medicationItems", []):
-            if item.get("medicationName", "").lower() == req.medicationName.strip().lower():
-                med_details = item
-                break
 
         now = utc_now()
         renewal_id = f"REN-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
@@ -274,7 +368,7 @@ class PrescriptionWorkflowService:
             renewalId=renewal_id,
             patientUserId=patient_id,
             originalPrescriptionId=rx["prescriptionId"],
-            medicationName=req.medicationName.strip(),
+            medicationName=medication_name,
             medicationDetails=med_details,
             doctorUserId=rx["doctorUserId"],
             doctorProfileId=rx.get("doctorProfileId"),
@@ -285,7 +379,13 @@ class PrescriptionWorkflowService:
             updatedAt=now,
         )
 
-        inserted = renewal_coll.insert_one(renewal_doc.model_dump(by_alias=True, exclude_none=True))
+        row = renewal_doc.model_dump(by_alias=True, exclude_none=True)
+        row["pendingKey"] = renewal_pending_key(patient_id, rx["prescriptionId"], medication_name)
+        try:
+            inserted = renewal_coll.insert_one(row)
+        except DuplicateKeyError:  # a simultaneous identical request (unique pendingKey)
+            raise HTTPException(status_code=409, detail=f"A renewal request for '{medication_name}' is already "
+                                                        "pending clinician review.")
         try:  # Phase 02: the prescribing doctor is told a review is waiting (no medicine name in the push text)
             from app.models.notification import NotificationType
             from app.services.notification_service import NotificationService
@@ -396,7 +496,7 @@ class PrescriptionWorkflowService:
         coll.update_one(
             {"_id": doc["_id"], "reviewLock": lock},
             {
-                "$unset": {"reviewLock": "", "reviewLockAt": ""},
+                "$unset": {"reviewLock": "", "reviewLockAt": "", "pendingKey": ""},
                 "$set": {
                     "status": new_status,
                     "doctorDecisionReason": req.reason.strip(),
