@@ -178,8 +178,17 @@ def test_p06_p07_p09_failure_categories_and_bounded_retry(providers, status, bod
 
 
 def test_p09_retry_after_is_honoured_but_capped(providers):
+    import threading
     sleeps = []
-    with patch.object(settings, "AI_SECONDARY_PROVIDER", "none"), patch.object(gw.time, "sleep", sleeps.append), \
+    caller = threading.current_thread()
+
+    def record(seconds):
+        # gw.time is the global time module: record only this thread's waits. pymongo's monitor threads also call
+        # time.sleep(0.5) and, with sleep patched to a no-op, made this test flaky (A03 final run).
+        if threading.current_thread() is caller:
+            sleeps.append(seconds)
+
+    with patch.object(settings, "AI_SECONDARY_PROVIDER", "none"), patch.object(gw.time, "sleep", record), \
             patch.object(gw.requests, "post", return_value=_Resp(429, {}, {"Retry-After": "30"})):
         with pytest.raises(llm.LLMUnavailable):
             call()
