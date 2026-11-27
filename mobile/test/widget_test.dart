@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mediconnect/main.dart';
 
@@ -8,7 +9,8 @@ void main() {
 
     // Verify splash branding is visible immediately on launch
     expect(find.text('MediConnect'), findsOneWidget);
-    expect(find.text('Your Health, Connected.'), findsOneWidget);
+    expect(find.text('Intelligent Healthcare. Connected Workflows.'), findsOneWidget);
+    expect(find.byKey(const Key('mediconnect_logo_symbol')), findsOneWidget);
 
     // Advance clock past the splash delay to complete timer
     await tester.pump(const Duration(milliseconds: 1500));

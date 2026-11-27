@@ -1,0 +1,299 @@
+{
+  "phase": "R01 Branding, Logo and Splash Screen",
+  "date": "2026-11-28",
+  "startingMain": "96e6fe7dce0578f4387a161c606aa8c6c39006d3",
+  "a05Merge": {
+    "pr": 27,
+    "mergeCommit": "96e6fe7",
+    "ciOnMergeCommit": {
+      "Backend CI": "success",
+      "Mobile CI": "success",
+      "Admin Web CI": "success"
+    }
+  },
+  "branch": "feat/mediconnect-branding",
+  "sourceLogo": {
+    "path": "branding/source/mediconnect_logo_source.png",
+    "size": [
+      2172,
+      724
+    ],
+    "mode": "RGBA",
+    "sha256": "b350a5055dbb1463f440c43fd084e3d882763bbcd52c99ff324dc690ed07485a",
+    "symbolCrop": [
+      509,
+      398
+    ],
+    "fullTrim": [
+      1786,
+      398
+    ]
+  },
+  "assetsGenerator": "branding/generate_brand_assets.py",
+  "placements": {
+    "mobile": [
+      "launcher icon (adaptive + legacy + monochrome)",
+      "Android 12+ system splash",
+      "pre-12 launch window",
+      "Flutter splash/loading",
+      "welcome",
+      "login (patient and doctor tabs)",
+      "create account",
+      "forgot/reset password",
+      "reset OTP",
+      "email verification",
+      "admin-access-blocked",
+      "patient dashboard header",
+      "doctor dashboard header",
+      "patient profile header",
+      "doctor registration header",
+      "iOS AppIcon + LaunchImage (not runtime verified)"
+    ],
+    "admin": [
+      "login card",
+      "sidebar brand area",
+      "full-screen route loading",
+      "auth verification loading",
+      "favicon.ico + 16/32 png + apple-touch-icon",
+      "application-name meta"
+    ]
+  },
+  "labels": {
+    "androidLauncher": {
+      "before": "mediconnect",
+      "after": "MediConnect"
+    },
+    "iosDisplayName": {
+      "before": "Mediconnect",
+      "after": "MediConnect"
+    },
+    "packageIdChanged": false,
+    "signingChanged": false
+  },
+  "splashTagline": "Intelligent Healthcare. Connected Workflows.",
+  "tests": {
+    "flutter": {
+      "passed": 342,
+      "failed": 0,
+      "baseline": 333,
+      "new": {
+        "test/screens/r01_branding_test.dart": 9
+      },
+      "analyze": "no issues",
+      "debugApk": "built (--dart-define=API_BASE_URL=http://10.0.2.2:8001)"
+    },
+    "adminWeb": {
+      "passed": 47,
+      "failed": 0,
+      "baseline": 44,
+      "new": {
+        "src/test/r01Branding.test.tsx": 3
+      },
+      "tsc": "ok",
+      "lint": "ok",
+      "build": "ok"
+    },
+    "backend": {
+      "modified": false,
+      "focusedSmoke": {
+        "tests/test_a05_fraud_support.py": {
+          "passed": 27,
+          "failed": 0
+        }
+      },
+      "previousFullSuite": {
+        "passed": 1003,
+        "phase": "A05",
+        "rerunInR01": false
+      }
+    },
+    "executedInR01": {
+      "passed": 416,
+      "failed": 0
+    },
+    "changedExpectations": [
+      "mobile/test/widget_test.dart: splash tagline text (+1 logo assertion)"
+    ]
+  },
+  "browser": {
+    "before": {
+      "steps": [
+        {
+          "id": "B01",
+          "status": "PASS"
+        },
+        {
+          "id": "B02",
+          "status": "FAIL"
+        },
+        {
+          "id": "B03",
+          "status": "PASS"
+        },
+        {
+          "id": "B03b",
+          "status": "PASS"
+        },
+        {
+          "id": "B04",
+          "status": "PASS"
+        },
+        {
+          "id": "B05",
+          "status": "PASS"
+        }
+      ],
+      "blockedRequests": 0,
+      "pageErrors": 0,
+      "icons": [
+        {
+          "href": "vite.svg",
+          "status": 200,
+          "contentType": "text/html"
+        }
+      ]
+    },
+    "after": {
+      "steps": [
+        {
+          "id": "B01",
+          "status": "PASS"
+        },
+        {
+          "id": "B02",
+          "status": "PASS"
+        },
+        {
+          "id": "B03",
+          "status": "PASS"
+        },
+        {
+          "id": "B03b",
+          "status": "PASS"
+        },
+        {
+          "id": "B04",
+          "status": "PASS"
+        },
+        {
+          "id": "B05",
+          "status": "PASS"
+        }
+      ],
+      "blockedRequests": 0,
+      "pageErrors": 0,
+      "icons": [
+        {
+          "href": "favicon.ico",
+          "status": 200,
+          "contentType": "image/x-icon"
+        },
+        {
+          "href": "favicon-32x32.png",
+          "status": 200,
+          "contentType": "image/png"
+        },
+        {
+          "href": "favicon-16x16.png",
+          "status": 200,
+          "contentType": "image/png"
+        },
+        {
+          "href": "apple-touch-icon.png",
+          "status": 200,
+          "contentType": "image/png"
+        }
+      ]
+    }
+  },
+  "screenshots": {
+    "emulator": [
+      "r01_after_e01_launcher_drawer.png",
+      "r01_after_e01b_launcher_icon_zoom.png",
+      "r01_after_e02_native_splash.png",
+      "r01_after_e03_flutter_splash.png",
+      "r01_after_e04_welcome.png",
+      "r01_after_e05_patient_dashboard.png",
+      "r01_after_e06_patient_login.png",
+      "r01_after_e07_doctor_login.png",
+      "r01_after_e08_doctor_dashboard.png",
+      "r01_after_e09_patient_profile_header.png",
+      "r01_after_e10_settings_dark_toggle.png",
+      "r01_after_e11_patient_dashboard_dark.png",
+      "r01_after_e12_flutter_splash_dark.png",
+      "r01_after_e13_small_native_splash.png",
+      "r01_after_e14_small_patient_dashboard_dark.png",
+      "r01_after_e15_small_welcome_dark.png",
+      "r01_after_e16_small_login_dark.png",
+      "r01_after_e17_doctor_registration.png",
+      "r01_before_e01_launcher_drawer.png",
+      "r01_before_e01b_launcher_icon_zoom.png",
+      "r01_before_e02_native_splash.png",
+      "r01_before_e03_flutter_splash.png",
+      "r01_before_e04_welcome.png",
+      "r01_before_e05_patient_dashboard.png",
+      "r01_before_e06_patient_login.png",
+      "r01_before_e07_doctor_login.png",
+      "r01_before_e08_doctor_dashboard.png"
+    ],
+    "browser": [
+      "r01_after_b01_admin_login.png",
+      "r01_after_b02_favicon_render.png",
+      "r01_after_b03_admin_module_loading.png",
+      "r01_after_b03b_admin_route_loading.png",
+      "r01_after_b04_admin_dashboard.png",
+      "r01_after_b05_admin_sidebar_brand_zoom.png",
+      "r01_after_b06_admin_login_mobile.png",
+      "r01_after_b07_admin_sidebar_mobile.png",
+      "r01_after_b08_chrome_tab_favicon.png",
+      "r01_before_b01_admin_login.png",
+      "r01_before_b02_favicon_render.png",
+      "r01_before_b03_admin_module_loading.png",
+      "r01_before_b03b_admin_route_loading.png",
+      "r01_before_b04_admin_dashboard.png",
+      "r01_before_b05_admin_sidebar_brand_zoom.png",
+      "r01_before_b06_admin_login_mobile.png",
+      "r01_before_b07_admin_sidebar_mobile.png"
+    ]
+  },
+  "findings": {
+    "R01-BUG-001": {
+      "type": "defect, pre-existing",
+      "status": "fixed",
+      "summary": "admin favicon referenced missing /vite.svg (served as text/html)"
+    },
+    "R01-O1": "patient bottom navigation 'Profile' overflows 15 px at 360 dp width (pre-existing, not R01)",
+    "R01-O2": "welcome/login use fixed light colours; not dark-theme ready (pre-existing)",
+    "R01-O3": "splash keeps pre-existing 1.2 s minimum display (not introduced by R01)",
+    "R01-O4": "native splash is white in both system modes by design (app theme is an in-app setting)",
+    "R01-O5": "raster source: 1024 iOS icon and Android 12 splash icon are upscaled; vector master recommended",
+    "R01-O6": "16 px favicon low contrast on dark tab strips",
+    "R01-O7": "iOS assets updated but not built or run (no macOS)",
+    "R01-O8": "process: first APK built without the UAT dart-define could not reach the backend; rebuilt"
+  },
+  "carriedForward": [
+    "A05-O1 hard-coded patient Profile health data (mandatory in R02)",
+    "MongoDB credential rotation P5-C1 and other A05 blockers (unchanged by branding)"
+  ],
+  "environment": {
+    "backend": "127.0.0.1:8001 mediconnect_uat (synthetic)",
+    "emulatorApi": 37,
+    "remoteDatabaseAccessed": false,
+    "credentialsChanged": false,
+    "liveAiRequests": 0,
+    "payments": 0,
+    "deployed": false
+  },
+  "integration": {
+    "branchCi": {
+      "commit": "eb5010c",
+      "Mobile CI": "success",
+      "Admin Web CI": "success",
+      "Backend CI": "not triggered"
+    },
+    "pr": "not opened (gh not authenticated)",
+    "merge": "not performed",
+    "originMain": "96e6fe7"
+  },
+  "productionReady": false
+}

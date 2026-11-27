@@ -497,7 +497,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         titleSpacing: 16,
         title: Row(
           children: [
-            const MediConnectLogo(size: 28),
+            const MediConnectLogo(size: 34),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,

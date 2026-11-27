@@ -56,42 +56,47 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.background,
       body: SafeArea(
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              const MediConnectLogo(size: 88),
-              const SizedBox(height: 24),
-              const Text(
+              const MediConnectLogo(size: 112),
+              const SizedBox(height: 20),
+              Text(
                 'MediConnect',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
-                  color: AppTheme.textPrimary,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Your Health, Connected.',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                  letterSpacing: 0.1,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Intelligent Healthcare. Connected Workflows.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    letterSpacing: 0.1,
+                  ),
                 ),
               ),
               const Spacer(),
-              const SizedBox(
+              SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                  valueColor: AlwaysStoppedAnimation<Color>(isDark ? AppTheme.darkPrimaryBlue : AppTheme.primary),
                 ),
               ),
               const SizedBox(height: 48),

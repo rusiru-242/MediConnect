@@ -1,0 +1,96 @@
+{
+  "label": "before",
+  "steps": [
+    {
+      "id": "B01",
+      "scenario": "Admin login page renders with title and brand",
+      "actual": {
+        "title": "MediConnect — Administration Portal",
+        "icons": [
+          {
+            "rel": "icon",
+            "type": "image/svg+xml",
+            "sizes": null,
+            "href": "http://127.0.0.1:5174/vite.svg"
+          }
+        ],
+        "brandImgs": []
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02",
+      "scenario": "Declared favicons resolve",
+      "actual": [
+        {
+          "rel": "icon",
+          "type": "image/svg+xml",
+          "sizes": null,
+          "href": "http://127.0.0.1:5174/vite.svg",
+          "status": 200,
+          "contentType": "text/html",
+          "bytes": 861
+        }
+      ],
+      "status": "FAIL"
+    },
+    {
+      "id": "B03",
+      "scenario": "In-layout module loading state captured (sidebar brand visible)",
+      "actual": "Admin\nDashboard\n\nLoading administrative module...",
+      "status": "PASS"
+    },
+    {
+      "id": "B03b",
+      "scenario": "Full-screen route loading state captured",
+      "actual": "Loading MediConnect Admin...",
+      "status": "PASS"
+    },
+    {
+      "id": "B04",
+      "scenario": "Dashboard sidebar brand renders",
+      "actual": {
+        "sidebarText": "MediConnect\nADMINISTRATION\n\nOPERATIONS M",
+        "img": null
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B05",
+      "scenario": "Mobile width: sidebar opens, no horizontal overflow",
+      "actual": {
+        "overflow": 0
+      },
+      "status": "PASS"
+    }
+  ],
+  "meta": {
+    "title": "MediConnect — Administration Portal",
+    "icons": [
+      {
+        "rel": "icon",
+        "type": "image/svg+xml",
+        "sizes": null,
+        "href": "http://127.0.0.1:5174/vite.svg"
+      }
+    ],
+    "brandImgs": []
+  },
+  "icons": [
+    {
+      "rel": "icon",
+      "type": "image/svg+xml",
+      "sizes": null,
+      "href": "http://127.0.0.1:5174/vite.svg",
+      "status": 200,
+      "contentType": "text/html",
+      "bytes": 861
+    }
+  ],
+  "brand": {
+    "sidebarText": "MediConnect\nADMINISTRATION\n\nOPERATIONS M",
+    "img": null
+  },
+  "blockedRequests": [],
+  "pageErrors": []
+}

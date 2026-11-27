@@ -73,6 +73,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # R01 branding: MediConnect symbol (1x, with 3.0x/4.0x density variants picked up automatically)
+  assets:
+    - assets/branding/
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
