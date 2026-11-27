@@ -349,7 +349,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
         titleSpacing: 16,
         title: Row(
           children: [
-            const MediConnectLogo(size: 26),
+            const MediConnectLogo(size: 34),
             const SizedBox(width: 8),
             Expanded(
               child: Column(

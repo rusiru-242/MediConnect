@@ -12,7 +12,6 @@ import {
   BookOpen,
   BarChart3,
   Settings,
-  ShieldCheck,
   X,
   ShieldAlert,
   LifeBuoy,
@@ -22,6 +21,7 @@ import {
   Activity,
   AlertTriangle,
 } from 'lucide-react';
+import { BrandMark } from '../common/BrandMark';
 
 export interface SidebarProps {
   isOpen: boolean;
@@ -92,9 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-600/20">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
+            <BrandMark className="h-9 w-10" />
             <div>
               <span className="text-base font-bold tracking-tight text-slate-900">MediConnect</span>
               <span className="block text-[10px] font-semibold uppercase tracking-wider text-brand-600">

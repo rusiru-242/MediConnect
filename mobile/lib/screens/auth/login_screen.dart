@@ -196,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 // 1. MediConnect Logo & Title
                 const Center(
-                  child: MediConnectLogo(size: 48),
+                  child: MediConnectLogo(size: 64),
                 ),
                 const SizedBox(height: 10),
                 const Center(

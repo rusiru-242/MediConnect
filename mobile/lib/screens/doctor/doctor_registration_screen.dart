@@ -14,6 +14,7 @@ import '../../core/utils/validators.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/language_selector_sheet.dart';
+import '../../widgets/mediconnect_logo.dart';
 import '../auth/email_verification_screen.dart';
 
 /// Concrete [PlatformFile] wrapper for locally generated sample and test documents.
@@ -468,7 +469,18 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text(l10n?.doctorRegistrationTitle ?? 'Doctor Registration'),
+        title: Row(
+          children: [
+            const MediConnectLogo(size: 30),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                l10n?.doctorRegistrationTitle ?? 'Doctor Registration',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: isLoading ? null : _previousStep,

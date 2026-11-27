@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ShieldCheck, Lock, Mail, AlertCircle } from 'lucide-react';
+import { Lock, Mail, AlertCircle } from 'lucide-react';
+import { BrandMark } from '../components/common/BrandMark';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/authApi';
 import { getErrorMessage } from '../api/client';
@@ -65,9 +66,7 @@ export const LoginPage: React.FC = () => {
       <div className="relative w-full max-w-md space-y-8 rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl sm:p-10">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30">
-            <ShieldCheck className="h-8 w-8" />
-          </div>
+          <BrandMark className="mx-auto h-16 w-20" />
           <h2 className="mt-5 text-2xl font-bold tracking-tight text-white">MediConnect Admin</h2>
           <p className="mt-2 text-xs text-slate-400">
             Secure clinical administration and operations console

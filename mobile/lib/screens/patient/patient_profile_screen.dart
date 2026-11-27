@@ -126,7 +126,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         scrolledUnderElevation: 1,
         title: Row(
           children: [
-            const MediConnectLogo(size: 26),
+            const MediConnectLogo(size: 34),
             const SizedBox(width: 8),
             Text(
               l10n?.profile ?? 'Patient Profile',
