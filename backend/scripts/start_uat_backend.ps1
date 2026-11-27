@@ -11,6 +11,9 @@
     - Email: SMTP disabled (synthetic accounts are never emailed) unless -EnableEmail is passed.
     - Push: Firebase disabled unless -EnablePush is passed with FIREBASE_CREDENTIALS_PATH pointing to a UAT-only
       service-account file kept outside the repository (A02). Twilio SMS is always disabled in UAT.
+    - Stripe webhooks (A03): -StripeWebhookSecretFile <path> reads the signing secret printed by
+      `stripe listen --print-secret` from a file outside the repository, so locally forwarded Stripe CLI test
+      events verify. Without it, STRIPE_WEBHOOK_SECRET from .env is used. The secret is never printed.
     - JWT: a dedicated random UAT secret stored in the git-ignored backend/uat.env.
     - AI provider: deterministic engine by default. -AiProvider gemini|openai|both enables providers
       (both = Gemini primary, OpenAI secondary). Live calls are capped by -AiDailyLimit (default 150), counted
@@ -33,7 +36,8 @@ param(
   [switch] $SeedOnly,
   [switch] $SkipSeed,
   [switch] $EnableEmail,
-  [switch] $EnablePush
+  [switch] $EnablePush,
+  [string] $StripeWebhookSecretFile = ''
 )
 $ErrorActionPreference = 'Stop'
 $backend = Split-Path -Parent $PSScriptRoot
@@ -104,6 +108,13 @@ $env:TWILIO_ACCOUNT_SID = ' '
 $env:TWILIO_AUTH_TOKEN = ' '
 $env:TWILIO_MESSAGING_SERVICE_SID = ' '
 if (-not $EnableEmail) { $env:SMTP_HOST = ' ' }
+$webhookSource = '.env'
+if ($StripeWebhookSecretFile) {
+  $whsec = (Get-Content -Raw -Path $StripeWebhookSecretFile).Trim()
+  if (-not $whsec.StartsWith('whsec_')) { throw 'Refusing to start UAT: the webhook secret file does not hold a whsec_ secret.' }
+  $env:STRIPE_WEBHOOK_SECRET = $whsec
+  $webhookSource = 'stripe-cli file'
+}
 switch ($AiProvider) {
   'deterministic' { $env:GEMINI_API_KEY = ' '; $env:OPENAI_API_KEY = ' ' }
   'openai'        { $env:GEMINI_API_KEY = ' ' }
@@ -112,7 +123,7 @@ switch ($AiProvider) {
 }
 
 $python = Join-Path $backend 'venv\Scripts\python.exe'
-Write-Host "UAT backend: database=mediconnect_uat (local), documents=encrypted, AI=$AiProvider, image analysis=$(if ($EnableVision) {'enabled'} else {'disabled'}), AI daily limit=$AiDailyLimit, email=$(if ($EnableEmail) {'enabled'} else {'disabled'}), push=$(if ($EnablePush) {'enabled'} else {'disabled'}), sms=disabled, Stripe=test mode"
+Write-Host "UAT backend: database=mediconnect_uat (local), documents=encrypted, AI=$AiProvider, image analysis=$(if ($EnableVision) {'enabled'} else {'disabled'}), AI daily limit=$AiDailyLimit, email=$(if ($EnableEmail) {'enabled'} else {'disabled'}), push=$(if ($EnablePush) {'enabled'} else {'disabled'}), sms=disabled, Stripe=test mode, webhook secret=$webhookSource"
 
 if (-not $SkipSeed) {
   & $python -m scripts.seed_uat_data
