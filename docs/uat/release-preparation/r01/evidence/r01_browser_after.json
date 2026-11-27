@@ -1,0 +1,224 @@
+{
+  "label": "after",
+  "steps": [
+    {
+      "id": "B01",
+      "scenario": "Admin login page renders with title and brand",
+      "actual": {
+        "title": "MediConnect — Administration Portal",
+        "icons": [
+          {
+            "rel": "icon",
+            "type": "",
+            "sizes": "48x48",
+            "href": "http://127.0.0.1:5174/favicon.ico"
+          },
+          {
+            "rel": "icon",
+            "type": "image/png",
+            "sizes": "32x32",
+            "href": "http://127.0.0.1:5174/favicon-32x32.png"
+          },
+          {
+            "rel": "icon",
+            "type": "image/png",
+            "sizes": "16x16",
+            "href": "http://127.0.0.1:5174/favicon-16x16.png"
+          },
+          {
+            "rel": "apple-touch-icon",
+            "type": "",
+            "sizes": "180x180",
+            "href": "http://127.0.0.1:5174/apple-touch-icon.png"
+          }
+        ],
+        "brandImgs": [
+          {
+            "alt": "",
+            "w": 80,
+            "h": 64,
+            "natural": [
+              168,
+              131
+            ],
+            "complete": true
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B02",
+      "scenario": "Declared favicons resolve",
+      "actual": [
+        {
+          "rel": "icon",
+          "type": "",
+          "sizes": "48x48",
+          "href": "http://127.0.0.1:5174/favicon.ico",
+          "status": 200,
+          "contentType": "image/x-icon",
+          "bytes": 6901
+        },
+        {
+          "rel": "icon",
+          "type": "image/png",
+          "sizes": "32x32",
+          "href": "http://127.0.0.1:5174/favicon-32x32.png",
+          "status": 200,
+          "contentType": "image/png",
+          "bytes": 2015
+        },
+        {
+          "rel": "icon",
+          "type": "image/png",
+          "sizes": "16x16",
+          "href": "http://127.0.0.1:5174/favicon-16x16.png",
+          "status": 200,
+          "contentType": "image/png",
+          "bytes": 752
+        },
+        {
+          "rel": "apple-touch-icon",
+          "type": "",
+          "sizes": "180x180",
+          "href": "http://127.0.0.1:5174/apple-touch-icon.png",
+          "status": 200,
+          "contentType": "image/png",
+          "bytes": 14890
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "B03",
+      "scenario": "In-layout module loading state captured (sidebar brand visible)",
+      "actual": "Admin\nDashboard\n\nLoading administrative module...",
+      "status": "PASS"
+    },
+    {
+      "id": "B03b",
+      "scenario": "Full-screen route loading state captured",
+      "actual": "Loading MediConnect Admin...",
+      "status": "PASS"
+    },
+    {
+      "id": "B04",
+      "scenario": "Dashboard sidebar brand renders",
+      "actual": {
+        "sidebarText": "MediConnect\nADMINISTRATION\n\nOPERATIONS M",
+        "img": {
+          "alt": "",
+          "w": 40,
+          "h": 36,
+          "natural": [
+            168,
+            131
+          ]
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "B05",
+      "scenario": "Mobile width: sidebar opens, no horizontal overflow",
+      "actual": {
+        "overflow": 0
+      },
+      "status": "PASS"
+    }
+  ],
+  "meta": {
+    "title": "MediConnect — Administration Portal",
+    "icons": [
+      {
+        "rel": "icon",
+        "type": "",
+        "sizes": "48x48",
+        "href": "http://127.0.0.1:5174/favicon.ico"
+      },
+      {
+        "rel": "icon",
+        "type": "image/png",
+        "sizes": "32x32",
+        "href": "http://127.0.0.1:5174/favicon-32x32.png"
+      },
+      {
+        "rel": "icon",
+        "type": "image/png",
+        "sizes": "16x16",
+        "href": "http://127.0.0.1:5174/favicon-16x16.png"
+      },
+      {
+        "rel": "apple-touch-icon",
+        "type": "",
+        "sizes": "180x180",
+        "href": "http://127.0.0.1:5174/apple-touch-icon.png"
+      }
+    ],
+    "brandImgs": [
+      {
+        "alt": "",
+        "w": 80,
+        "h": 64,
+        "natural": [
+          168,
+          131
+        ],
+        "complete": true
+      }
+    ]
+  },
+  "icons": [
+    {
+      "rel": "icon",
+      "type": "",
+      "sizes": "48x48",
+      "href": "http://127.0.0.1:5174/favicon.ico",
+      "status": 200,
+      "contentType": "image/x-icon",
+      "bytes": 6901
+    },
+    {
+      "rel": "icon",
+      "type": "image/png",
+      "sizes": "32x32",
+      "href": "http://127.0.0.1:5174/favicon-32x32.png",
+      "status": 200,
+      "contentType": "image/png",
+      "bytes": 2015
+    },
+    {
+      "rel": "icon",
+      "type": "image/png",
+      "sizes": "16x16",
+      "href": "http://127.0.0.1:5174/favicon-16x16.png",
+      "status": 200,
+      "contentType": "image/png",
+      "bytes": 752
+    },
+    {
+      "rel": "apple-touch-icon",
+      "type": "",
+      "sizes": "180x180",
+      "href": "http://127.0.0.1:5174/apple-touch-icon.png",
+      "status": 200,
+      "contentType": "image/png",
+      "bytes": 14890
+    }
+  ],
+  "brand": {
+    "sidebarText": "MediConnect\nADMINISTRATION\n\nOPERATIONS M",
+    "img": {
+      "alt": "",
+      "w": 40,
+      "h": 36,
+      "natural": [
+        168,
+        131
+      ]
+    }
+  },
+  "blockedRequests": [],
+  "pageErrors": []
+}
