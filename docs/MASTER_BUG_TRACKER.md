@@ -369,3 +369,39 @@ The owner's BUG-049 to BUG-063 descriptions are now recorded and mapped to the P
 - **Critical owner item:** P5-C1. The live MongoDB credentials are in public git history (commit `a41b659`); rotate them.
 - **Reconciled tracker for all phases:** [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md). It lists 160 unique confirmed defects (159 fixed, 1 open: BUG-039).
 - **Details:** [uat/phase-05/PHASE_05_BUG_FIX_REPORT.md](uat/phase-05/PHASE_05_BUG_FIX_REPORT.md).
+
+## Agent Completion A01 (2026-11-26, branch `fix/agents-a01-ai-intelligence-vision`)
+
+17 new defects (A01-N01 to N17), all fixed with automated tests. The most serious:
+- **A01-N01:** a child swallowing a whole strip of tablets was not detected as an emergency.
+- **A01-N09:** text a live model reconstructed from a blurry photo was presented as read.
+- **A01-N06:** the test suite inherited the real provider keys and made live calls.
+- **A01-N05:** the Health Assistant answered medicine, sleep, dose-change and injection messages with one generic paragraph.
+- **A01-N10 / N11:** no secondary provider; retired or shutting-down model ids.
+
+Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (177 confirmed defects: 176 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a01/A01_BUG_FIX_REPORT.md](uat/agent-completion/a01/A01_BUG_FIX_REPORT.md).
+
+## Agent Completion A02 (2026-11-26, branch `fix/agents-a02-reminders-notifications`)
+
+21 new defects (A02-BUG-001 to 021), all fixed with automated tests or emulator evidence. The most serious:
+- **A02-BUG-001:** SMTP TLS certificates were never verified.
+- **A02-BUG-002:** the backend test suite submitted real e-mail through the SMTP account in `backend/.env` (13 attempts per local run).
+- **A02-BUG-011:** patient-set reminders for as-needed medicines and an invented 7-day course.
+- **A02-BUG-016/017/019/020:** device reminders never shown on Android 13+, endless after the course, and still firing after logout.
+- **A02-BUG-005:** a worker crash before the in-app write lost the reminder.
+- **A02-BUG-006:** push previews exposed names, dates and specialties on the lock screen.
+
+Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md). Details: [uat/agent-completion/a02/A02_BUG_FIX_REPORT.md](uat/agent-completion/a02/A02_BUG_FIX_REPORT.md).
+
+## Agent Completion A03 (2026-11-27, branch `fix/agents-a03-booking-payments`)
+
+20 new defects (A03-BUG-001 to 020) in AI booking, Stripe payments, webhooks and refunds, all fixed with automated tests. Several were found only with real Stripe test-mode objects or on the emulator. The most serious:
+- **A03-BUG-002:** every real `payment_intent.payment_failed` webhook returned 500. The stripe-python 16 objects are not dicts, and the old test mocked the event as a dict.
+- **A03-BUG-006:** refund webhooks and the polling fallback never matched a real refund request (uppercase and lowercase status mismatch).
+- **A03-BUG-007:** a lost refund response was marked failed with no Stripe id; a later re-approval could refund twice.
+- **A03-BUG-005:** an expired hold's PaymentIntent stayed payable; three such test-mode intents were open in UAT.
+- **A03-BUG-001:** in-progress or crashed webhook deliveries were acknowledged with 200, so Stripe stopped retrying.
+- **A03-BUG-009:** a refund Stripe failed after success was invisible to administrators.
+- **A03-BUG-010:** after "select the most experienced doctor", the agent proposed a different (cheaper) doctor for "this doctor".
+
+Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (218 confirmed defects: 217 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a03/A03_BUG_FIX_REPORT.md](uat/agent-completion/a03/A03_BUG_FIX_REPORT.md).

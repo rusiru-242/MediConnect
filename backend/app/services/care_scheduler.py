@@ -13,7 +13,7 @@ import requests
 from app.config.settings import settings
 from app.models.notification import NotificationType
 from app.services.booking_notifications import normalize_phone, phone_fingerprint, twilio_config, sms_status
-from app.services.email_service import EmailService
+from app.services.email_service import EmailService, outcome_of
 from app.services.notification_service import NotificationService
 
 COLOMBO = ZoneInfo("Asia/Colombo")
@@ -211,21 +211,25 @@ def deliver(db, row, channel):
         result = NotificationService._send_fcm_push(
             db, patient_id, title, body, {"type": "CARE_REMINDER", "careEventId": row["_id"]},
         )
-        return result or "uncertain", None
+        # A02-BUG-004: Firebase not configured is "disabled", not a delivery outcome.
+        return {"unavailable": "disabled"}.get(result, result or "uncertain"), None
     if row["kind"] == "medication":
         return "skipped", None
     if channel == "email":
         if not prefs.get("careEmail") or not user.get("emailVerified") or not user.get("email"):
             return "skipped", None
-        if not settings.SMTP_HOST:
-            return "failed", None
-        return ("accepted", None) if EmailService._send_email(user["email"], title, body, body) else ("uncertain", None)
+        if not (settings.SMTP_HOST or "").strip():
+            return "disabled", None
+        # A02-BUG-003: "accepted" = accepted by the SMTP server; a failure before transmission is retried.
+        outcome = outcome_of(EmailService._send_email(user["email"], title, body, body))
+        return {"accepted": "accepted", "retry": "retry", "rejected": "failed",
+                "disabled": "disabled"}.get(outcome.status, "uncertain"), None
     phone = normalize_phone(user.get("phone"))
     if not prefs.get("careSms") or not phone or prefs.get("careSmsPhoneHash") != phone_fingerprint(phone):
         return "skipped", None
     account, token, service = twilio_config()
     if not all((account, token, service)):
-        return "failed", None
+        return "disabled", None
     response = requests.post(
         f"https://api.twilio.com/2010-04-01/Accounts/{account}/Messages.json",
         auth=(account, token), timeout=10,
@@ -257,8 +261,7 @@ def run_scheduler(db, now=None):
                     continue
             materialize(db, row)
     events = db["care_reminder_events"]
-    events.update_many({"state": "sending", "leaseUntil": {"$lte": now}},
-                       {"$set": {"state": "uncertain"}})
+    recover_interrupted(events, now)
     events.update_many({"state": "pending", "expiresAt": {"$lte": now}},
                        {"$set": {"state": "expired"}})
     for _ in range(30):
@@ -282,6 +285,10 @@ def run_scheduler(db, now=None):
         for channel in CHANNELS:
             if (row.get("channels") or {}).get(channel, {}).get("status") not in {None, "retry"}:
                 continue
+            # A02-BUG-005: record that this channel is in flight, so a crash is recovered per channel.
+            if not events.update_one(key, {"$set": {f"channels.{channel}": {
+                    "status": "sending", "providerId": None, "attemptedAt": now}}}).matched_count:
+                break
             try:
                 outcome, provider = deliver(db, row, channel)
             except requests.ConnectTimeout:
@@ -303,6 +310,25 @@ def run_scheduler(db, now=None):
         }})
     poll_sms(db, now)
     return sent
+
+
+def recover_interrupted(events, now):
+    """Recover events whose worker stopped while delivering (lease expired).
+
+    A02-BUG-005: these events used to become "uncertain" as a whole, so a crash before the in-app write meant the
+    patient never got the reminder. Now each channel is judged separately: a channel that never started is still
+    delivered; the in-app channel is idempotent (unique key) and is re-run; an external channel that was in flight
+    stays "uncertain" and is never sent again, because the provider may already have accepted it.
+    """
+    for row in events.find({"state": "sending", "leaseUntil": {"$lte": now}}).limit(100):
+        sets = {}
+        for channel, info in (row.get("channels") or {}).items():
+            if (info or {}).get("status") == "sending":
+                sets[f"channels.{channel}.status"] = None if channel == "inApp" else "uncertain"
+        resumable = row.get("attempts", 0) < 4 and utc(row["expiresAt"]) > now
+        sets.update(state="pending" if resumable else "uncertain", nextAttemptAt=now)
+        events.update_one({"_id": row["_id"], "state": "sending", "leaseUntil": row["leaseUntil"]},
+                          {"$set": sets, "$inc": {"recoveries": 1}})
 
 
 def poll_sms(db, now):

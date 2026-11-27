@@ -1,0 +1,757 @@
+{
+ "label": "gemini",
+ "colomboDate": "2026-11-27",
+ "patient": "uat.p02.patientb",
+ "threads": {
+  "EN": [
+   {
+    "user": "Find me a good cardiologist in Colombo.",
+    "http": 200,
+    "reply": "I found verified doctors matching your search.",
+    "type": "doctor_options",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     },
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #2 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   },
+   {
+    "user": "Select the most experienced doctor.",
+    "http": 200,
+    "reply": "From 2 verified doctors that meet all your requirements, I selected **Dr. UAT Cardio Two**.\n\n**Why this doctor (from their profile data):**\n- Specialty: Cardiology\n- Location: Colombo\n- Consultation fee LKR 3,500\n- No published patient reviews yet\n- 20 years of experience (as listed on the profile)\n\n**Other eligible doctors:**\n- Dr. UAT Cardio One: 12 years\n\nRanking basis: most years of experience",
+    "type": "doctor_auto_selected",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "sortBy": "experience_desc",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by most years of experience."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   },
+   {
+    "user": "Show me the available slots for this doctor tomorrow.",
+    "http": 200,
+    "reply": "Please select an available appointment slot for Dr. UAT Cardio Two on 2026-11-28:",
+    "type": "slot_selection",
+    "state": "AWAITING_SLOT_SELECTION",
+    "intent": "BOOK_APPOINTMENT",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "date": "2026-11-28",
+     "sortBy": "experience_desc",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by most years of experience."
+     },
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #2 by most years of experience."
+     }
+    ],
+    "selectedDoctor": "Dr. UAT Cardio Two",
+    "slots": [
+     "2026-11-28 09:00",
+     "2026-11-28 09:30",
+     "2026-11-28 10:00",
+     "2026-11-28 10:30",
+     "2026-11-28 11:00",
+     "2026-11-28 11:30",
+     "2026-11-28 14:00",
+     "2026-11-28 14:30"
+    ],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 0
+   },
+   {
+    "user": "Book an appointment with this doctor next Monday morning.",
+    "http": 200,
+    "reply": "Please select an available appointment slot for Dr. UAT Cardio Two on 2026-11-30:",
+    "type": "slot_selection",
+    "state": "AWAITING_SLOT_SELECTION",
+    "intent": "BOOK_APPOINTMENT",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "date": "2026-11-30",
+     "timeRange": "morning",
+     "sortBy": "experience_desc",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by most years of experience."
+     },
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #2 by most years of experience."
+     }
+    ],
+    "selectedDoctor": "Dr. UAT Cardio Two",
+    "slots": [
+     "2026-11-30 09:00",
+     "2026-11-30 09:30",
+     "2026-11-30 10:00",
+     "2026-11-30 10:30",
+     "2026-11-30 11:00",
+     "2026-11-30 11:30",
+     "2026-11-30 14:00",
+     "2026-11-30 14:30"
+    ],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 0
+   },
+   {
+    "user": "Change the appointment time to 10:30 AM.",
+    "http": 200,
+    "reply": "Review the proposed appointment below. Your booking requires your acceptance.",
+    "type": "booking_proposal",
+    "state": "AWAITING_BOOKING_CONFIRMATION",
+    "intent": "BOOK_APPOINTMENT",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "date": "2026-11-30",
+     "timeRange": "morning",
+     "sortBy": "experience_desc",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by most years of experience."
+     },
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #2 by most years of experience."
+     }
+    ],
+    "selectedDoctor": "Dr. UAT Cardio Two",
+    "slots": [
+     "2026-11-30 09:00",
+     "2026-11-30 09:30",
+     "2026-11-30 10:00",
+     "2026-11-30 10:30",
+     "2026-11-30 11:00",
+     "2026-11-30 11:30",
+     "2026-11-30 14:00",
+     "2026-11-30 14:30"
+    ],
+    "proposal": {
+     "doctorName": "Dr. UAT Cardio Two",
+     "appointmentDate": "2026-11-30",
+     "startTime": "10:30",
+     "totalAmount": 3500.0,
+     "selectionReason": "Selected by you."
+    },
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 0
+   },
+   {
+    "user": "Show me another available time on the same date.",
+    "http": 200,
+    "reply": "Other open times with Dr. UAT Cardio Two on 2026-11-30: 09:00, 09:30, 10:00, 11:00, 11:30, 14:00, 14:30, 15:00. Tell me the time you want and I will update the proposal. Your current proposal (10:30) is unchanged.",
+    "type": "alternative_times",
+    "state": "AWAITING_BOOKING_CONFIRMATION",
+    "intent": "FOLLOW_UP",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "date": "2026-11-30",
+     "timeRange": "morning",
+     "sortBy": "experience_desc",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by most years of experience."
+     },
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #2 by most years of experience."
+     }
+    ],
+    "selectedDoctor": "Dr. UAT Cardio Two",
+    "slots": [
+     "2026-11-30 09:00",
+     "2026-11-30 09:30",
+     "2026-11-30 10:00",
+     "2026-11-30 11:00",
+     "2026-11-30 11:30",
+     "2026-11-30 14:00",
+     "2026-11-30 14:30",
+     "2026-11-30 15:00"
+    ],
+    "proposal": {
+     "doctorName": "Dr. UAT Cardio Two",
+     "appointmentDate": "2026-11-30",
+     "startTime": "10:30",
+     "totalAmount": 3500.0,
+     "selectionReason": "Selected by you."
+    },
+    "understandingSource": "provider_unavailable",
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 1
+   },
+   {
+    "user": "Yes, confirm it and charge my card.",
+    "http": 200,
+    "reply": "Could you please share your symptoms, preferred doctor specialty (e.g., Cardiologist), or city?",
+    "type": "clarification_needed",
+    "state": "AWAITING_BOOKING_CONFIRMATION",
+    "intent": "FOLLOW_UP",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "date": "2026-11-30",
+     "timeRange": "morning",
+     "sortBy": "experience_desc",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by most years of experience."
+     },
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #2 by most years of experience."
+     }
+    ],
+    "selectedDoctor": "Dr. UAT Cardio Two",
+    "slots": [
+     "2026-11-30 09:00",
+     "2026-11-30 09:30",
+     "2026-11-30 10:00",
+     "2026-11-30 11:00",
+     "2026-11-30 11:30",
+     "2026-11-30 14:00",
+     "2026-11-30 14:30",
+     "2026-11-30 15:00"
+    ],
+    "proposal": {
+     "doctorName": "Dr. UAT Cardio Two",
+     "appointmentDate": "2026-11-30",
+     "startTime": "10:30",
+     "totalAmount": 3500.0,
+     "selectionReason": "Selected by you."
+    },
+    "understandingSource": "provider_unavailable",
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 1
+   }
+  ],
+  "SI": [
+   {
+    "user": "මට කොළඹින් හොඳ හෘද රෝග විශේෂඥ වෛද්‍යවරයෙක් හොයලා දෙන්න.",
+    "http": 200,
+    "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 2 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න.\n\nහෘද රෝග විශේෂඥ වෛද්‍යවරු හෘද ස්පන්දන ගැටලු, අධි රුධිර පීඩනය වැනි හදවත හා රුධිර නාල ආශ්‍රිත ගැටලු පරීක්ෂා කරනවා. මෙය රෝග විනිශ්චයක් නොවෙයි; නිවැරදි තක්සේරුව වෛද්‍යවරයා කරනු ඇත.",
+    "type": "doctor_options",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "language": "si"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     },
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #2 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   },
+   {
+    "user": "රුපියල් 3000ට අඩු කෙනෙක් හොයලා දෙන්න.",
+    "http": 200,
+    "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 1 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න.\n\nහෘද රෝග විශේෂඥ වෛද්‍යවරු හෘද ස්පන්දන ගැටලු, අධි රුධිර පීඩනය වැනි හදවත හා රුධිර නාල ආශ්‍රිත ගැටලු පරීක්ෂා කරනවා. මෙය රෝග විනිශ්චයක් නොවෙයි; නිවැරදි තක්සේරුව වෛද්‍යවරයා කරනු ඇත.",
+    "type": "doctor_options",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "maxFee": 3000.0,
+     "language": "si"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   }
+  ],
+  "ROM": [
+   {
+    "user": "mata Colombo walin hoda cardiologist kenek hoyala denna.",
+    "http": 200,
+    "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 2 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න.",
+    "type": "doctor_options",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "language": "si"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     },
+     {
+      "name": "Dr. UAT Cardio Two",
+      "fee": 3500.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 20,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #2 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   },
+   {
+    "user": "mata 3000ta aduwen kenek hoyala denna.",
+    "http": 200,
+    "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 1 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න.",
+    "type": "doctor_options",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "maxFee": 3000.0,
+     "language": "si"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   }
+  ],
+  "MIX": [
+   {
+    "user": "Colombo eke cardiologist kenek one, budget 3000 wage",
+    "http": 200,
+    "reply": "I found verified doctors matching your search.",
+    "type": "doctor_options",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "maxFee": 3000.0,
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   },
+   {
+    "user": "most experienced kenawa select karanna",
+    "http": 200,
+    "reply": "I found verified doctors matching your search.",
+    "type": "doctor_options",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "maxFee": 3000.0,
+     "sortBy": "experience_desc",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by most years of experience."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   },
+   {
+    "user": "heta udee slots pennanna",
+    "http": 200,
+    "reply": "Please select an available appointment slot for Dr. UAT Cardio One on 2026-11-28:",
+    "type": "slot_selection",
+    "state": "AWAITING_SLOT_SELECTION",
+    "intent": "BOOK_APPOINTMENT",
+    "preferences": {
+     "specialty": "Cardiologist",
+     "city": "Colombo",
+     "date": "2026-11-28",
+     "maxFee": 3000.0,
+     "sortBy": "experience_desc",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. UAT Cardio One",
+      "fee": 2000.0,
+      "rating": 4.7,
+      "reviews": 3,
+      "years": 12,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by most years of experience."
+     }
+    ],
+    "selectedDoctor": "Dr. UAT Cardio One",
+    "slots": [
+     "2026-11-28 09:00",
+     "2026-11-28 09:30",
+     "2026-11-28 10:00",
+     "2026-11-28 10:30",
+     "2026-11-28 11:00",
+     "2026-11-28 11:30",
+     "2026-11-28 14:00",
+     "2026-11-28 14:30"
+    ],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 0
+   }
+  ],
+  "MANAGE": [
+   {
+    "user": "Show me my upcoming appointments.",
+    "http": 200,
+    "reply": "03 Dec 09:00 · Confirmed appointment\n03 Dec 09:30 · Confirmed appointment\n03 Dec 10:00 · Confirmed appointment\n03 Dec 10:30 · Confirmed appointment\nTimes are in Asia/Colombo. Open My Care Plan for details.",
+    "type": "care_agenda",
+    "state": "COLLECTING_PREFERENCES",
+    "intent": "PATIENT_CARE",
+    "preferences": {
+     "language": "en"
+    },
+    "doctors": [],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 0
+   },
+   {
+    "user": "I want to cancel my appointment.",
+    "http": 200,
+    "reply": "I can't cancel an appointment from the chat. Your upcoming appointments:\n• 2026-12-03 at 09:00 with Dr. P02 Ortho (confirmed)\n• 2026-12-03 at 09:30 with Dr. P02 Ortho (confirmed)\n• 2026-12-03 at 10:00 with Dr. P02 Ortho (confirmed)\n• 2026-12-03 at 10:30 with Dr. P02 Ortho (confirmed)\n• 2026-12-04 at 09:00 with Dr. P02 Ortho (confirmed)\n\nOpen My Appointments, choose the appointment and tap Cancel A",
+    "type": "appointment_management",
+    "state": "COLLECTING_PREFERENCES",
+    "intent": "BOOK_APPOINTMENT",
+    "preferences": {
+     "language": "en"
+    },
+    "doctors": [],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 0
+   },
+   {
+    "user": "I want to reschedule my appointment.",
+    "http": 200,
+    "reply": "I can't move an appointment from the chat. Your upcoming appointments:\n• 2026-12-03 at 09:00 with Dr. P02 Ortho (confirmed)\n• 2026-12-03 at 09:30 with Dr. P02 Ortho (confirmed)\n• 2026-12-03 at 10:00 with Dr. P02 Ortho (confirmed)\n• 2026-12-03 at 10:30 with Dr. P02 Ortho (confirmed)\n• 2026-12-04 at 09:00 with Dr. P02 Ortho (confirmed)\n\nOpen My Appointments, choose the appointment and tap Reschedule",
+    "type": "appointment_management",
+    "state": "COLLECTING_PREFERENCES",
+    "intent": "BOOK_APPOINTMENT",
+    "preferences": {
+     "language": "en"
+    },
+    "doctors": [],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 0
+   }
+  ],
+  "CONFLICT": [
+   {
+    "user": "Find Dr. P03 Alpha in Colombo.",
+    "http": 200,
+    "reply": "I found verified doctors matching your search.",
+    "type": "doctor_options",
+    "state": "AWAITING_DOCTOR_SELECTION",
+    "intent": "FIND_DOCTOR",
+    "preferences": {
+     "city": "Colombo",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. P03 Alpha",
+      "fee": 2000.0,
+      "rating": 0.0,
+      "reviews": 0,
+      "years": 8,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": "Ranked #1 by published patient rating (few-review ratings weighted toward a neutral 3.5/5), then years of experience, then lower fee."
+     }
+    ],
+    "selectedDoctor": null,
+    "slots": [],
+    "proposal": null,
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   },
+   {
+    "user": "Book Dr. P03 Alpha on 2026-11-28 at 07:00.",
+    "http": 200,
+    "reply": "07:00 was unavailable. The closest option is 06:30 on 2026-11-28. Review it below.",
+    "type": "booking_proposal",
+    "state": "AWAITING_BOOKING_CONFIRMATION",
+    "intent": "BOOK_APPOINTMENT",
+    "preferences": {
+     "city": "Colombo",
+     "date": "2026-11-28",
+     "language": "en"
+    },
+    "doctors": [
+     {
+      "name": "Dr. P03 Alpha",
+      "fee": 2000.0,
+      "rating": 0.0,
+      "reviews": null,
+      "years": 8,
+      "city": "Colombo",
+      "check": "ok",
+      "reason": ""
+     }
+    ],
+    "selectedDoctor": "Dr. P03 Alpha",
+    "slots": [],
+    "proposal": {
+     "doctorName": "Dr. P03 Alpha",
+     "appointmentDate": "2026-11-28",
+     "startTime": "06:30",
+     "totalAmount": 2000.0,
+     "selectionReason": "Closest available time on the requested date."
+    },
+    "understandingSource": null,
+    "holdsCreatedByThisTurn": 0,
+    "geminiRequests": 2
+   }
+  ]
+ },
+ "conflictFixture": {
+  "doctor": "Dr. P03 Alpha",
+  "date": "2026-11-28",
+  "time": "07:00"
+ },
+ "geminiUsageDelta": 22,
+ "anyHoldFromConversation": false,
+ "anyUnverifiedCard": []
+}

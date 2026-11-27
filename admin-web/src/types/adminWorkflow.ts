@@ -23,6 +23,8 @@ export interface ReconciliationDiscrepancy {
   paymentId?: string;
   appointmentId?: string;
   stripePaymentIntentId?: string;
+  /** A03-BUG-009: refund-review discrepancies name the refund request. */
+  refundId?: string;
   description: string;
   recommendation: string;
   detectedAt: string;
@@ -120,6 +122,11 @@ export interface RefundRequest {
   approvedAmount?: number | null;
   refundedAmount?: number | null;
   stripeRefundStatus?: string | null;
+  /** A03: Stripe reported a failure after the refund had succeeded; a human must review it. */
+  requiresReview?: boolean | null;
+  reviewReason?: string | null;
+  /** A03: "uncertain" while the provider's answer to the refund request is unknown. */
+  stripeOutcome?: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;

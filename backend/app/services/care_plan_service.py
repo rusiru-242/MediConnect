@@ -420,7 +420,9 @@ class CarePlanService:
         }
 
         # Date updates
-        if req.followUpDate:
+        # A02-BUG-015: an unchanged date is not a change. It used to reset remindersSent (so date-based reminders
+        # were sent again) and, with the A02 patient notice, would have messaged the patient twice.
+        if req.followUpDate and req.followUpDate != doc.get("followUpDate"):
             if req.followUpDate < today_sl:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Follow-up date cannot be in the past.")
             update_fields["followUpDate"] = req.followUpDate
@@ -513,8 +515,26 @@ class CarePlanService:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail="This care plan was changed by another update. Reload it and try again.")
 
+        # A02-BUG-014: a changed follow-up date, instruction or test/task was not communicated to the patient.
+        # The notice is generic (no clinical content) and sent once per plan version.
+        if audit_notes:
+            cls._notify_plan_change(db, doc, f"care_plan_updated_{plan_id}_v{new_version}",
+                                    "Care plan updated",
+                                    "Your doctor updated your follow-up care plan. Open MediConnect to view the changes.")
+
         updated_doc = coll.find_one({"_id": ObjectId(plan_id)})
         return _doc_to_response(db, updated_doc)
+
+    @staticmethod
+    def _notify_plan_change(db: Database, doc: Dict[str, Any], key: str, title: str, body: str) -> None:
+        try:
+            NotificationService.create_notification(
+                db=db, recipient_user_id=str(doc["patientUserId"]), type=NotificationType.FOLLOW_UP_CARE_PLAN_CREATED,
+                title=title, body=body, related_appointment_id=str(doc.get("appointmentId") or "") or None,
+                idempotency_key=key, send_push=True,
+            )
+        except Exception as exc:  # the clinical change itself is already saved
+            logger.warning("Care plan change notification failed (%s)", type(exc).__name__)
 
     @classmethod
     async def cancel_care_plan(
@@ -565,6 +585,8 @@ class CarePlanService:
                 "$push": {"auditLog": audit_entry},
             },
         )
+        cls._notify_plan_change(db, doc, f"care_plan_cancelled_{plan_id}", "Care plan closed",
+                                "Your doctor closed a follow-up care plan. Open MediConnect for details.")
 
         updated_doc = coll.find_one({"_id": ObjectId(plan_id)})
         return _doc_to_response(db, updated_doc)

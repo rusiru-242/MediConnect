@@ -692,7 +692,49 @@ void main() {
 
       expect(find.byKey(const Key('ai_image_analysis_card')), findsOneWidget);
       expect(find.text('Label & Packaging Analysis'), findsOneWidget);
-      expect(find.text('High Confidence'), findsOneWidget);
+      // A01 changed expectation: the card no longer claims "High Confidence" (the backend never sends it and a
+      // photo cannot establish a medicine's identity), and it no longer repeats the text already in the reply.
+      expect(find.text('High Confidence'), findsNothing);
+      expect(find.text('Label read — verify with pharmacist'), findsOneWidget);
+      expect(find.text('PANADOL 500mg Tablets Paracetamol'), findsNothing);
+      expect(find.byKey(const Key('ai_image_library_match')), findsOneWidget);
+    });
+
+    testWidgets('12. A01 image card: several packages, unreadable fields, ignored text, reader shown', (tester) async {
+      final session = BookingSession(
+        id: 'image_session_a01',
+        patientUserId: 'patient_img',
+        state: 'COLLECTING_PREFERENCES',
+        preferences: const BookingPreferences(),
+        activeIntent: 'MEDICINE_IMAGE_ANALYSIS',
+        activeImageAnalysis: ImageAnalysisSummary.fromJson(const {
+          'status': 'multiple_packages',
+          'detectedText': 'Brand name: Synthopar 500, Synthocet 10',
+          'identifiedMedicine': null,
+          'confidenceLevel': 'low',
+          'uncertaintyExplanation': 'Printed label text was read from the image.',
+          'safetyAdvice': 'Confirm with a pharmacist.',
+          'provider': 'gemini',
+          'model': 'gemini-3.8-flash',
+          'packageCount': 2,
+          'embeddedTextIgnored': true,
+          'extracted': {'unreadableFields': ['expiry date']},
+        }),
+        messages: [
+          ChatMessage(id: 'i1', sender: 'assistant', content: 'Text read from your photo', timestamp: DateTime.now()),
+        ],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(minutes: 30)),
+      );
+      await tester.pumpWidget(createTestWidget(service: FakeAiBookingService(initialSession: session)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Several packages'), findsOneWidget);
+      expect(find.byKey(const Key('ai_image_library_match')), findsNothing);
+      expect(find.text('Not readable in this photo: expiry date'), findsOneWidget);
+      expect(find.byKey(const Key('ai_image_embedded_text_ignored')), findsOneWidget);
+      expect(find.text('Read by Google Gemini (gemini-3.8-flash) — automated reading, not verified'), findsOneWidget);
     });
   });
 }

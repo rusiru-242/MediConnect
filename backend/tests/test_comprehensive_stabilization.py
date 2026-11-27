@@ -556,7 +556,9 @@ def test_bug023_no_provider_configured_is_unavailable(monkeypatch):
 
 def test_bug023_retired_model_names_are_mapped(monkeypatch):
     monkeypatch.setattr(medicine_image_agent.settings, "GEMINI_MODEL", "gemini-1.5-flash")
-    assert medicine_image_agent._gemini_model_name() == "gemini-flash-latest"
+    # A01: retired ids map to the pinned stable gemini-3.8-flash (Phase 05 used the alias gemini-flash-latest, whose
+    # target is no longer documented); the vision model now comes from the shared resolver.
+    assert medicine_image_agent._gemini_model_name() == "gemini-3.8-flash"
 
 
 def test_bug026_image_endpoint_records_attachment_and_status(env, monkeypatch):

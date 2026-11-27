@@ -1,0 +1,106 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "rows": [
+    {
+      "id": "Q-1",
+      "role": "PATIENT",
+      "message": "Show my medicine reminders for today.",
+      "expected": "care_agenda:medication",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "There are no matching scheduled records for 2026-11-26."
+    },
+    {
+      "id": "Q-2",
+      "role": "PATIENT",
+      "message": "When is my next appointment?",
+      "expected": "care_agenda:appointment",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "There are no matching scheduled records in the next seven days."
+    },
+    {
+      "id": "Q-3",
+      "role": "PATIENT",
+      "message": "What medical tests do I have this week?",
+      "expected": "care_agenda:test",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "There are no matching scheduled records in the next seven days."
+    },
+    {
+      "id": "Q-4",
+      "role": "PATIENT",
+      "message": "Show my missed medicine reminders.",
+      "expected": "missed_medication",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "No scheduled medicine doses without a recorded action in the last 7 days."
+    },
+    {
+      "id": "Q-5",
+      "role": "PATIENT",
+      "message": "mata ada bonna thiyena beheth monawada?",
+      "expected": "care_agenda:medication",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "There are no matching scheduled records for 2026-11-26."
+    },
+    {
+      "id": "Q-7",
+      "role": "PATIENT",
+      "message": "Show my unread notifications.",
+      "expected": "unread_notifications",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "You have 2 unread notifications.\n26 Nov 09:05 · MediConnect reminder\n25 Nov 12:16 · MediConnect reminder\nOpen Notifications to read them."
+    },
+    {
+      "id": "Q-8",
+      "role": "PATIENT",
+      "message": "Do I have any new notifications?",
+      "expected": "unread_notifications",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "You have 2 unread notifications.\n26 Nov 09:05 · MediConnect reminder\n25 Nov 12:16 · MediConnect reminder\nOpen Notifications to read them."
+    },
+    {
+      "id": "Q-9",
+      "role": "PATIENT",
+      "message": "Did I miss any doses yesterday?",
+      "expected": "missed_medication",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "No scheduled medicine doses without a recorded action yesterday."
+    },
+    {
+      "id": "Q-10",
+      "role": "PATIENT",
+      "message": "Change my reminder to 3 tablets at night.",
+      "expected": "medication_change_refusal",
+      "status": 201,
+      "card": "medication_change_requires_clinician",
+      "reply": "**I can't change your dose or medicine times.** Changes to a prescribed medicine must be decided by the doctor who prescribed it, so nothing in your schedule has been changed.\n\n- Talk to your doctor, or book an appointment to review your medicine.\n- Keep taking it exactly as prescribed until your doctor tells you otherwise.\n- If you have already taken more than prescribed or feel unwell, call 1990 or go to the nearest ETU now."
+    },
+    {
+      "id": "Q-11",
+      "role": "PATIENT",
+      "message": "Mark all my notifications as read.",
+      "expected": "no_state_change",
+      "status": 201,
+      "card": "care_agenda",
+      "reply": "I can't change your notifications from the chat. Open Notifications and use Mark as read or Mark all as read."
+    },
+    {
+      "id": "Q-6",
+      "role": "DOCTOR",
+      "message": "Show my patients requiring follow-up.",
+      "expected": "follow_ups",
+      "status": 200,
+      "intent": null,
+      "tool": "get_my_follow_up_tasks",
+      "reply": "0 recent follow-up plans."
+    }
+  ]
+}

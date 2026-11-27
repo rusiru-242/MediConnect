@@ -1472,6 +1472,21 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                     onTap: () => Navigator.pushNamed(context, '/patient/my-appointments'),
                   ),
                 ),
+              // A03-BUG-012: cancel / reschedule requests are answered with the patient's upcoming appointments; the
+              // change itself happens only in My Appointments (cancellation preview and refund rules first).
+              if (msg.metadata?['type'] == 'appointment_management' && index == messages.length - 1)
+                Card(
+                  key: const ValueKey('manage_appointments_action'),
+                  child: ListTile(
+                    leading: const Icon(Icons.event_note),
+                    title: const Text('Open My Appointments'),
+                    subtitle: Text(msg.metadata?['action'] == 'reschedule'
+                        ? 'Choose the appointment, then Reschedule'
+                        : 'Choose the appointment, then Cancel Appointment'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pushNamed(context, '/patient/my-appointments'),
+                  ),
+                ),
               if (doctors != null)
                 ...doctors.map((doc) => _buildDoctorCandidateCard(
                   DoctorCardSummary.fromJson(Map<String, dynamic>.from(doc as Map)),
@@ -2134,20 +2149,18 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         badgeColor = Colors.deepOrange;
         badgeText = 'Text not readable';
         break;
+      case 'multiple_packages':
+        badgeColor = Colors.deepOrange;
+        badgeText = 'Several packages';
+        break;
       default:
-        switch (analysis.confidenceLevel.toUpperCase()) {
-          case 'HIGH':
-            badgeColor = Colors.green;
-            badgeText = 'High Confidence';
-            break;
-          case 'MEDIUM':
-          case 'MODERATE':
-            badgeColor = Colors.amber.shade800;
-            badgeText = 'Label read — verify with pharmacist';
-            break;
-          default:
-            badgeColor = Colors.deepOrange;
-            badgeText = 'Uncertain';
+        // A01: a photo reading never earns a "high confidence" claim; the badge says what was done, not how sure.
+        if (analysis.identifiedMedicine != null) {
+          badgeColor = Colors.amber.shade800;
+          badgeText = 'Label read — verify with pharmacist';
+        } else {
+          badgeColor = Colors.deepOrange;
+          badgeText = 'Label read — not in library';
         }
     }
 
@@ -2204,42 +2217,37 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            if (analysis.detectedText.isNotEmpty) ...[
-              const Text(
-                'Detected Packaging Text:',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.background,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Text(
-                  analysis.detectedText,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: AppTheme.textPrimary),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
+            // A01: the text read from the photo is already listed in the chat reply above, so the card no longer
+            // repeats it; it shows only the library match, what could not be read, and who read the photo.
             if (analysis.identifiedMedicine != null) ...[
               Row(
                 children: [
-                  const Text('Identified Medicine: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  Text(
-                    analysis.identifiedMedicine!,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primary),
+                  const Text('Library match: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Flexible(
+                    child: Text(
+                      analysis.identifiedMedicine!,
+                      key: const Key('ai_image_library_match'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primary),
+                    ),
                   ),
                 ],
               ),
-              if (analysis.activeIngredient != null)
-                Text(
-                  'Active Ingredient: ${analysis.activeIngredient}',
-                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
-                ),
+              const SizedBox(height: 8),
+            ],
+            if (analysis.unreadableFields.isNotEmpty) ...[
+              Text(
+                'Not readable in this photo: ${analysis.unreadableFields.join(', ')}',
+                key: const Key('ai_image_unreadable_fields'),
+                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (analysis.embeddedTextIgnored) ...[
+              const Text(
+                'Text in the photo that looked like instructions to the assistant was ignored.',
+                key: Key('ai_image_embedded_text_ignored'),
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+              ),
               const SizedBox(height: 8),
             ],
             if (analysis.uncertaintyExplanation != null) ...[
@@ -2273,6 +2281,15 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
                 style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 8),
+            ],
+            if (analysis.provider != null) ...[
+              Text(
+                'Read by ${analysis.provider == 'gemini' ? 'Google Gemini' : analysis.provider == 'openai' ? 'OpenAI' : analysis.provider}'
+                '${analysis.model != null ? ' (${analysis.model})' : ''} — automated reading, not verified',
+                key: const Key('ai_image_read_by'),
+                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 6),
             ],
             if (analysis.requiresClearerPhoto) ...[
               const SizedBox(height: 4),
@@ -2572,6 +2589,8 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
             if (s.hospitalOrClinic != null)
               _buildSummaryRow('Location', s.hospitalOrClinic!),
             if (s.city != null) _buildSummaryRow('City', s.city!),
+            // A03-BUG-015: the patient accepts an in-person clinic visit (no video consultation exists).
+            _buildSummaryRow('Visit type', s.visitType == 'IN_PERSON' ? 'In-person at the clinic' : s.visitType),
             if (s.patientName != null) _buildSummaryRow('Patient', s.patientName!),
             if (s.proposalId != null) ...[
               _buildSummaryRow('Email', s.maskedEmail ?? 'Add a verified email in your account'),
@@ -2671,6 +2690,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         return 'accepted by provider';
       case 'skipped':
         return 'not requested';
+      case 'disabled':
+        // A03-BUG-018: the provider is not set up, so nothing will be sent (it used to read "pending").
+        return 'not sent (service not available)';
       case 'failed':
         return 'not sent';
       case 'uncertain':

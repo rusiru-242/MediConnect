@@ -57,6 +57,8 @@ async def _run_reminder_worker():
                 t0 = asyncio.get_event_loop().time()
                 await asyncio.to_thread(run_scheduler, db)
                 await asyncio.to_thread(AppointmentService.release_expired_holds, db)
+                # A03-BUG-005: a released hold's open PaymentIntent must not be payable any more.
+                await asyncio.to_thread(AppointmentService.stop_intents_of_released_holds, db)
                 await asyncio.to_thread(run_confirmation_outbox, db)
                 await asyncio.to_thread(run_communications, db)
                 # B3 fallback (Phase 05): refunds that stayed pending are re-read from Stripe until webhooks are

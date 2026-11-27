@@ -1957,7 +1957,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
 
   Widget _buildPaymentActionCard() {
 
-    final total = _session?.bookingSummary?.totalAmount ?? 2500.0;
+    final total = _session?.bookingSummary?.totalAmount; // A03-BUG-017: no invented LKR 2,500
 
     return Card(
 
@@ -2071,7 +2071,7 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
 
                 label: Text(
 
-                  _isPaymentProcessing ? 'Opening Stripe...' : 'Pay Now (LKR ${total.toStringAsFixed(0)})',
+                  _isPaymentProcessing ? 'Opening Stripe...' : (total == null ? 'Pay Now' : 'Pay Now (LKR ${total.toStringAsFixed(0)})'),
 
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
 

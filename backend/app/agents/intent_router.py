@@ -112,7 +112,20 @@ PATIENT_INTENTS: Sequence[Tuple[str, str]] = (
      r"double)|(?:take|use)\s+(?:two|2|three|3|more|extra|double)\s+(?:tablets?|pills?|doses?)\s+instead|"
      r"dose eka (?:wenas|adu|wadi)|beheth (?:nawattanna|wenas)|මාත්‍රාව.{0,15}(?:වෙනස්|වැඩි|අඩු)|"
      r"அளவை.{0,10}மாற்ற"),
+    # A02-BUG-012: reminder and notification questions were routed to the medicine library ("Show my medicine
+    # reminders for today") or to a doctor-search clarification ("Show my unread notifications").
+    ("missed_medication",
+     r"\bmiss(?:ed)?\b.{0,30}\b(?:medicines?|medications?|doses?|tablets?|pills?|reminders?)|"
+     r"(?:medicines?|medications?|doses?|reminders?)\b.{0,20}\b(?:i )?missed|beheth.{0,20}amathaka|"
+     r"බෙහෙත්.{0,20}(?:අමතක|මඟ හැර)"),
+    ("notification_action",
+     r"\b(?:mark|clear|delete|dismiss|remove)\b.{0,30}\bnotifications?"),
+    ("unread_notifications",
+     r"(?:unread|new|my|any)\s+(?:\w+\s+)?notifications?|notifications?\s+(?:do i have|for me)|"
+     r"notifications? (?:monawada|mokakda|thiyenawada|tiyenawada)|දැනුම්දීම්"),
     ("medication_schedule",
+     r"(?:medicine|medication|pill|tablet)\s+reminders?|reminders? for (?:my )?(?:medicines?|medications?)|"
+     r"beheth.{0,25}(?:monawada|mokakda|mokadda|thiyenawada)|bonna thiyena beheth|"
      r"when (?:should|do|can|must) i take|what time .{0,30}(?:medicine|medication|tablet|pill)|"
      r"(?:my|prescribed)\s+(?:medicine|medication)s?\s+(?:schedule|times?|timetable)|medicine schedule|"
      r"medication schedule|beheth (?:bonna|ganna) (?:one )?welawa|බෙහෙත් බොන්න ඕනේ වෙලාව|மருந்து எப்போது"),
@@ -128,6 +141,8 @@ ROLE_INTENTS: Dict[str, Sequence[Tuple[str, str]]] = {
 }
 # Intents that may share a message without making it ambiguous (the first one wins).
 COMPATIBLE = {
+    frozenset({"missed_medication", "medication_schedule"}), frozenset({"notification_action", "unread_notifications"}),
+    frozenset({"medication_change_request", "medication_schedule"}),
     frozenset({"payment_summary", "revenue"}), frozenset({"payment_summary", "booking_analytics"}),
     frozenset({"failed_payments", "payment_summary"}), frozenset({"refunds_attention", "payment_summary"}),
     frozenset({"payment_reconciliation", "failed_payments"}), frozenset({"booking_analytics", "revenue"}),

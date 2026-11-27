@@ -147,7 +147,8 @@ export const ReconciliationPage: React.FC = () => {
                   <th className="px-6 py-3.5">Severity</th>
                   <th className="px-6 py-3.5">Type & Reference</th>
                   <th className="px-6 py-3.5">Description</th>
-                  <th className="px-6 py-3.5">AI Recommendation</th>
+                  {/* A03-BUG-019: these recommendations are fixed rules, not AI output. */}
+                  <th className="px-6 py-3.5">Recommended action (rule-based)</th>
                   <th className="px-6 py-3.5 text-right">Action</th>
                 </tr>
               </thead>
@@ -169,7 +170,7 @@ export const ReconciliationPage: React.FC = () => {
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">{disc.type}</div>
                       <div className="font-mono text-xs text-slate-400 mt-0.5">
-                        {disc.stripePaymentIntentId || disc.appointmentId || disc.discrepancyId}
+                        {disc.refundId || disc.stripePaymentIntentId || disc.appointmentId || disc.discrepancyId}
                       </div>
                     </td>
                     <td className="px-6 py-4 max-w-md">

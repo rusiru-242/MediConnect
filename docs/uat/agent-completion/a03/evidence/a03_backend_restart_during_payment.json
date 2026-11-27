@@ -1,0 +1,12 @@
+{
+ "paidWhileBackendDown": "succeeded",
+ "appointmentWhileDown": "PENDING",
+ "appointmentAfterRestartBeforeRefresh": "PENDING",
+ "statusRefreshHttp": 200,
+ "paymentStatus": "SUCCEEDED",
+ "appointmentAfterRefresh": "CONFIRMED",
+ "stripeEvent": "evt_3UgK\u2026Db6A",
+ "eventReachedBackend": false,
+ "note": "The Stripe CLI does not redeliver an event that failed while the backend was down; the patient's status refresh (Stripe read) recovers it. Production Stripe retries for up to 3 days.",
+ "result": "PASS"
+}

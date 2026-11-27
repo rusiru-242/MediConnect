@@ -83,16 +83,27 @@ def test_s06c_crash_after_claim_is_not_resent_and_is_visible(sdb):
     row = next(scheduler.occurrences(sdb, "appointments", sdb["appointments"].find_one({"_id": appt}),
                                      DUE, DUE + timedelta(seconds=1)))
     scheduler.materialize(sdb, row)
-    # A worker claimed it and crashed (possibly after the provider accepted the message): the lease runs out.
+    # A worker claimed it and crashed while the push request was in flight (the provider may have accepted it):
+    # the lease runs out.
+    # A02 changed expectation (A02-BUG-005): the whole event used to become "uncertain", so the in-app reminder,
+    # which had not been written yet, was never delivered. Since A02 each channel records "sending" before its
+    # provider call: the in-flight external channel stays "uncertain" and is never re-sent, and the idempotent
+    # in-app channel is still delivered exactly once.
     sdb["care_reminder_events"].update_one({"_id": row["_id"]}, {"$set": {
-        "state": "sending", "leaseUntil": NOW - timedelta(minutes=1), "attempts": 1}})
-    assert scheduler.run_scheduler(sdb, NOW) == 0
+        "state": "sending", "leaseUntil": NOW - timedelta(minutes=1), "attempts": 1,
+        "channels": {"push": {"status": "sending", "providerId": None, "attemptedAt": NOW}}}})
+    from unittest.mock import patch
+    with patch.object(scheduler.NotificationService, "_send_fcm_push") as push:
+        assert scheduler.run_scheduler(sdb, NOW) == 1
+        assert scheduler.run_scheduler(sdb, NOW + timedelta(minutes=20)) == 0
+        push.assert_not_called()  # never blindly re-sent
     (event,) = _events(sdb, appt)
-    assert event["state"] == "uncertain"  # never blindly re-sent; shown in notification monitoring
-    assert sdb["notifications"].count_documents({"recipientUserId": pid}) == 0
+    assert event["channels"]["push"]["status"] == "uncertain" and event["channels"]["inApp"]["status"] == "stored"
+    assert sdb["notifications"].count_documents({"recipientUserId": pid}) == 1
     from app.services.notification_monitoring_service import NotificationMonitoringService
-    states = NotificationMonitoringService.get_notification_metrics(sdb)["careReminderEvents"]
-    assert states.get("uncertain") == 1
+    push_row = next(c for c in NotificationMonitoringService.get_notification_metrics(sdb)["byChannel"]
+                    if c["channel"] == "push")
+    assert push_row["uncertain"] == 1  # shown in notification monitoring
 
 
 def test_s06f_cancellation_before_delivery_cancels_the_reminder(sdb):

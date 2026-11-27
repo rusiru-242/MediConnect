@@ -132,16 +132,41 @@ class CareAgenda(Arguments):
     day: date
     days: int = Field(default=1, ge=1, le=7)
     kind: Literal["all", "medication", "appointment", "test", "follow_up", "measurement"] = "all"
+    # A02: only past occurrences with no patient-reported action ("no action recorded"; never called "missed" as a
+    # fact, because the patient may have taken the medicine without recording it).
+    unrecorded_only: bool = False
+    # A02: "next appointment" means from now on, not earlier today.
+    upcoming_only: bool = False
 
 
 async def care_agenda(ctx, args):
+    from datetime import datetime, timezone
     from app.routes.care_automation import get_agenda
 
+    now = datetime.now(timezone.utc)
     rows = get_agenda(ctx.db, str(ctx.user.id), args.day, args.days)
-    return {"items": [
-        {**row, "scheduledAt": row["scheduledAt"].isoformat()}
-        for row in rows if args.kind == "all" or row["kind"] == args.kind
-    ][:20]}
+    rows = [row for row in rows if args.kind == "all" or row["kind"] == args.kind]
+    if args.unrecorded_only:
+        rows = [row for row in rows if row["scheduledAt"] <= now and not row.get("action")]
+    if args.upcoming_only:
+        rows = [row for row in rows if row["scheduledAt"] >= now]
+    return {"items": [{**row, "scheduledAt": row["scheduledAt"].isoformat()} for row in rows][:20]}
+
+
+class MyNotifications(Arguments):
+    unread_only: bool = True
+
+
+async def my_notifications(ctx, args):
+    """Read-only: the signed-in user's own in-app notifications (A02, section 15)."""
+    query = {"recipientUserId": str(ctx.user.id)}
+    if args.unread_only:
+        query["isRead"] = False
+    collection = ctx.db["notifications"]
+    rows = collection.find(query, {"title": 1, "type": 1, "createdAt": 1, "isRead": 1}).sort("createdAt", -1).limit(5)
+    return {"unreadCount": collection.count_documents({"recipientUserId": str(ctx.user.id), "isRead": False}),
+            "items": [{"title": r.get("title"), "type": r.get("type"), "isRead": bool(r.get("isRead")),
+                       "createdAt": r["createdAt"].isoformat() if r.get("createdAt") else None} for r in rows]}
 
 
 async def tracking_summary(ctx, args):
@@ -153,6 +178,8 @@ async def tracking_summary(ctx, args):
 
 TOOLS = {
     "get_my_care_agenda": Tool("Read the signed-in patient's scheduled care tasks.", CareAgenda, care_agenda),
+    "get_my_notifications": Tool("Read the signed-in user's own in-app notifications (read-only).", MyNotifications,
+                                 my_notifications, roles=frozenset({"PATIENT", "DOCTOR"})),
     "get_my_health_tracking_summary": Tool("Read the signed-in patient's recent self-reported readings.", Arguments, tracking_summary),
     "search_verified_doctors": Tool("Find approved active doctors with matching public filters.", Search, search_doctors),
     "get_doctor_profile": Tool("Read an approved doctor's public profile.", Doctor, doctor_profile),

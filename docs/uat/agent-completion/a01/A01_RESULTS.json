@@ -1,0 +1,275 @@
+{
+  "phase": "Agent Completion A01",
+  "date": "2026-11-26",
+  "branch": "fix/agents-a01-ai-intelligence-vision",
+  "baseBranch": "fix/phase-05-final-ai-security-integration",
+  "baseCommit": "9363b54",
+  "codeCommits": {
+    "providerLayer": "0b8e702",
+    "healthAssistant": "9473ef2",
+    "medicineVision": "d4b2c5c",
+    "mobile": "8b81a5d"
+  },
+  "testedCodeCommit": "8b81a5d",
+  "merged": false,
+  "deployed": false,
+  "remoteDatabaseAccessed": false,
+  "mongoCredentialsChanged": false,
+  "agents": {
+    "02": {
+      "name": "AI Health Assistant",
+      "before": "PARTIAL",
+      "after": "VERIFIED (local + live Gemini) · clinical review",
+      "engineeringComplete": true
+    },
+    "04": {
+      "name": "AI Medicine Image Analysis",
+      "before": "BLOCKED",
+      "after": "PARTIAL · live vision verified (synthetic images)",
+      "engineeringComplete": true
+    },
+    "32": {
+      "name": "AI Provider Management",
+      "before": "BLOCKED",
+      "after": "PARTIAL · Gemini live-verified, OpenAI live blocked (no credits)",
+      "engineeringComplete": true
+    }
+  },
+  "matrixTotals": {
+    "before": {
+      "VERIFIED": 25,
+      "PARTIAL": 11,
+      "BLOCKED": 2
+    },
+    "after": {
+      "VERIFIED": 26,
+      "PARTIAL": 12,
+      "BLOCKED": 0
+    }
+  },
+  "defects": {
+    "ids": [
+      "A01-N01",
+      "A01-N02",
+      "A01-N03",
+      "A01-N04",
+      "A01-N05",
+      "A01-N06",
+      "A01-N07",
+      "A01-N08",
+      "A01-N09",
+      "A01-N10",
+      "A01-N11",
+      "A01-N12",
+      "A01-N13",
+      "A01-N14",
+      "A01-N15",
+      "A01-N16",
+      "A01-N17"
+    ],
+    "count": 17,
+    "fixed": 17,
+    "critical": [
+      "A01-N01"
+    ],
+    "foundLive": [
+      "A01-N07",
+      "A01-N09"
+    ],
+    "observations": [
+      "A01-O1",
+      "A01-O2",
+      "A01-O3",
+      "A01-O4"
+    ]
+  },
+  "tests": {
+    "backend": {
+      "passed": 865,
+      "failed": 0,
+      "baseline": 782,
+      "newA01": 83,
+      "newByFile": {
+        "test_a01_provider_layer": 26,
+        "test_a01_health_assistant": 36,
+        "test_a01_medicine_vision": 21
+      },
+      "database": "mediconnect_a01b_test"
+    },
+    "flutter": {
+      "passed": 309,
+      "failed": 0,
+      "baseline": 307,
+      "analyze": "no issues",
+      "debugApk": "built"
+    },
+    "adminWeb": {
+      "passed": 39,
+      "failed": 0
+    },
+    "phase05LiveUatRegression": {
+      "passed": 12,
+      "total": 12
+    },
+    "phase05IntentProbeRegression": {
+      "rows": 25,
+      "differences": 0
+    },
+    "changedExpectations": [
+      "test_phase05_ai_architecture::test_s02a (retired id -> gemini-3.8-flash)",
+      "test_comprehensive_stabilization::test_bug023_retired_model_names_are_mapped",
+      "flutter ai_care_assistant_screen_test #11 (no 'High Confidence')"
+    ]
+  },
+  "scenarioMatrices": {
+    "provider": {
+      "total": 16,
+      "pass": 15,
+      "blocked": [
+        "A01-P04"
+      ]
+    },
+    "healthAssistant": {
+      "total": 20,
+      "pass": 20
+    },
+    "vision": {
+      "total": 18,
+      "pass": 18
+    }
+  },
+  "healthProbe": {
+    "cases": 26,
+    "genericTemplatesBefore": 15,
+    "genericTemplatesAfter": 0
+  },
+  "liveVision": [
+    {
+      "fixture": "v01_clear_paracetamol.png",
+      "status": "analyzed",
+      "model": "gemini-3.5-flash-lite",
+      "checks": {
+        "brand": true,
+        "activeIngredient": true,
+        "strength": true,
+        "manufacturer": true,
+        "expiry": true
+      }
+    },
+    {
+      "fixture": "v02_v03_amoxicillin.png",
+      "status": "analyzed",
+      "model": "gemini-3.5-flash-lite",
+      "checks": {
+        "brand": true,
+        "activeIngredient": true,
+        "strength": true,
+        "manufacturer": true,
+        "expiry": true
+      }
+    },
+    {
+      "fixture": "v04_blurry.png",
+      "status": "unreadable",
+      "model": "gemini-3.5-flash-lite",
+      "checks": {
+        "status": true
+      }
+    },
+    {
+      "fixture": "v05_partial_label.png",
+      "status": "analyzed",
+      "model": "gemini-3.5-flash-lite",
+      "checks": {
+        "brand": true,
+        "activeIngredient": true,
+        "strength": true,
+        "status": true
+      }
+    },
+    {
+      "fixture": "v06_not_medicine.png",
+      "status": "not_medicine",
+      "model": "gemini-3.5-flash-lite",
+      "checks": {
+        "status": true
+      }
+    },
+    {
+      "fixture": "v07_loose_tablets.png",
+      "status": "unreadable",
+      "model": "gemini-3.5-flash-lite",
+      "checks": {
+        "status": true
+      }
+    },
+    {
+      "fixture": "v08_two_packages.png",
+      "status": "multiple_packages",
+      "model": "gemini-3.5-flash-lite",
+      "checks": {
+        "status": true,
+        "packageCount": true
+      }
+    },
+    {
+      "fixture": "v17_prompt_injection.png",
+      "status": "analyzed",
+      "model": "gemini-3.5-flash-lite",
+      "checks": {
+        "brand": true,
+        "activeIngredient": true,
+        "strength": true,
+        "embeddedTextIgnored": true
+      }
+    }
+  ],
+  "live": {
+    "authorization": "owner 2026-11-26: capped, synthetic data only, no billing changes",
+    "geminiModelUsedLive": "gemini-3.5-flash-lite",
+    "geminiDefaultModel": "gemini-3.8-flash (live generation not verified: 503 then free-tier daily quota)",
+    "openaiDefaultModel": "gpt-6-luna (live generation blocked: insufficient_quota)",
+    "gatewayUsage": [
+      {
+        "_id": "gemini:2026-11-26",
+        "day": "2026-11-26",
+        "model": "gemini-3.5-flash-lite",
+        "provider": "gemini",
+        "requests": 29,
+        "failure_server_error": 1,
+        "failures": 7,
+        "lastStatus": "ok",
+        "latencyMsTotal": 115889.59830006934,
+        "failure_rate_limited": 2,
+        "completionTokens": 5037,
+        "promptTokens": 22254,
+        "successes": 22,
+        "failure_auth_failed": 1,
+        "failure_invalid_model": 1,
+        "failure_quota_exhausted": 1,
+        "failure_timeout": 1,
+        "fallback_timeout": 1,
+        "fallbacks": 1
+      },
+      {
+        "_id": "openai:2026-11-26",
+        "day": "2026-11-26",
+        "model": "gpt-6-luna",
+        "provider": "openai",
+        "requests": 4,
+        "failure_quota_exhausted": 4,
+        "failures": 4,
+        "lastStatus": "quota_exhausted",
+        "latencyMsTotal": 5764.465899992501
+      }
+    ],
+    "testSuiteLeakBeforeFix": {
+      "gemini": ">=3",
+      "openai": ">=3"
+    }
+  },
+  "ci": "8b81a5d: Backend CI success, Mobile CI success; Admin Web CI not triggered (admin unchanged, local Vitest 39 passed)",
+  "package": "C:\\Users\\REDTECH\\Downloads\\A01_REPORT_PACKAGE.zip",
+  "productionReady": false,
+  "clinicallyApproved": false
+}

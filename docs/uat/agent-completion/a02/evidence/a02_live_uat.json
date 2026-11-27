@@ -1,0 +1,405 @@
+{
+  "backend": "127.0.0.1:8001",
+  "database": "mediconnect_uat",
+  "stripe": "test_mode",
+  "workerIntervalSeconds": 60,
+  "steps": [
+    {
+      "id": "A02-M01",
+      "scenario": "Only the prescribing approved doctor can approve a schedule that matches the prescription",
+      "expected": "sign 201; approve 200; unrelated 404; patient 403; pending 403; 1 time 422; 10 days 422",
+      "actual": {
+        "sign": 201,
+        "approve": 200,
+        "unrelatedDoctor": 404,
+        "patient": 403,
+        "pendingDoctor": 403,
+        "wrongTimeCount": 422,
+        "longerThanPrescribed": 422
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:29:15+05:30"
+    },
+    {
+      "id": "A02-M02",
+      "scenario": "Stored schedule carries the prescribed medicine, dose and frequency; times are the approved ones",
+      "expected": "name/strength/dose/frequency equal the prescription; times as approved; approvedBy = prescriber",
+      "actual": {
+        "medicationName": "Synthomox A02 085d94",
+        "strength": "250 mg",
+        "dose": "1 capsule",
+        "frequency": "Twice daily",
+        "duration": "5 days",
+        "scheduledTimes": [
+          "19:32",
+          "19:33"
+        ],
+        "approvedBySelf": true
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:29:15+05:30"
+    },
+    {
+      "id": "A02-M01b",
+      "scenario": "An as-needed (PRN) medicine gets no fixed reminder times; a patient cannot outlast the course",
+      "expected": "doctor 422; patient PRN 422 (was 201 before A02); patient 60-day end date 422",
+      "actual": {
+        "doctorPRN": 422,
+        "patientPRN": 422,
+        "patientPRNdetail": "This prescription does not state a fixed daily schedule and duration, so the app cannot set reminder times for it. Ask y",
+        "patient60days": 422
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:29:15+05:30"
+    },
+    {
+      "id": "A02-F01",
+      "scenario": "Doctor-authored follow-up plan with a test task; the patient is notified without clinical text",
+      "expected": "201; patient notification; body has no instruction text; patient B cannot read the plan",
+      "actual": {
+        "create": 201,
+        "notified": true,
+        "body": "Your doctor has created a follow-up plan. Open MediConnect to view the details.",
+        "patientBRead": 403
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:29:15+05:30"
+    },
+    {
+      "id": "A02-T01/T02",
+      "scenario": "Assigned test appears for the right patient with the clinician-entered instructions, verbatim",
+      "expected": "agenda item kind test; instructions and location exactly as entered; not in patient B agenda",
+      "actual": {
+        "title": "A02 synthetic fasting blood test 085d94",
+        "instructions": "Synthetic instruction: no food after 22:00 the evening before.",
+        "location": "UAT synthetic lab",
+        "inPatientB": false
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:29:15+05:30"
+    },
+    {
+      "id": "A02-A05",
+      "scenario": "An unpaid reservation produces no reminder",
+      "expected": "patient B reservation not CONFIRMED; not in B agenda",
+      "actual": {
+        "availability": 200,
+        "bStatus": "PENDING",
+        "inBAgenda": false
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:29:21+05:30"
+    },
+    {
+      "id": "A02-N08/N09",
+      "scenario": "Token refresh, account switch on one device, logout removal; nobody removes another user's token",
+      "expected": "register 200 x3; token owned only by B after B signs in; bad type 422; logout removes 1; A cannot remove B's",
+      "actual": {
+        "registerA": 200,
+        "refresh": 200,
+        "registerB": 200,
+        "ownerIsB": true,
+        "badType": 422,
+        "logoutRemoved": 1,
+        "aRemovesB": 0
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:29:21+05:30"
+    },
+    {
+      "id": "A02-C01/C02/C04",
+      "scenario": "Doctor previews a fixed reminder draft and approves it explicitly; others cannot",
+      "expected": "preview lists consenting confirmed patients; patient 403; pending 403; confirm=false 422; forged token 409; assistant returns a draft that still needs approval",
+      "actual": {
+        "count": 1,
+        "body": "You have an upcoming MediConnect appointment. Open the app to review the details.",
+        "patient": 403,
+        "pending": 403,
+        "noConfirm": 422,
+        "forgedToken": 409,
+        "approve": 200,
+        "assistant": "Draft ready for 1 eligible appointments. Review it before approving."
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:29:21+05:30"
+    },
+    {
+      "id": "A02-M03/S01",
+      "scenario": "The backend worker executes the medication reminder at the approved Asia/Colombo time",
+      "expected": "event processed; scheduledAt = approved time; in-app stored within 2 worker cycles; push/email/sms not \"accepted\"",
+      "actual": {
+        "scheduledAtColombo": "19:32",
+        "approvedTime": "19:32",
+        "channels": {
+          "inApp": "stored",
+          "push": "disabled",
+          "email": "skipped",
+          "sms": "skipped"
+        },
+        "secondsLate": 46.775,
+        "notificationBody": "It’s time for your scheduled medication. Open MediConnect for details."
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:32:51+05:30"
+    },
+    {
+      "id": "A02-I08",
+      "scenario": "With no provider configured, external channels are reported disabled/skipped, never delivered",
+      "expected": "push \"disabled\" (Firebase not configured); email/sms \"skipped\" (no consent) or \"disabled\"",
+      "actual": {
+        "inApp": "stored",
+        "push": "disabled",
+        "email": "skipped",
+        "sms": "skipped"
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:32:51+05:30"
+    },
+    {
+      "id": "A02-M04",
+      "scenario": "Taken is recorded once (idempotent request id); another patient cannot act on it",
+      "expected": "taken 200; repeat 200 with one audit entry; patient B 404",
+      "actual": {
+        "taken": 200,
+        "repeat": 200,
+        "patientB": 404,
+        "audit": 1
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:32:51+05:30"
+    },
+    {
+      "id": "A02-M05",
+      "scenario": "Snooze re-delivers the same occurrence after the chosen interval, once",
+      "expected": "snooze 200; a second in-app reminder after ~5 min; exactly 2 notifications for this occurrence",
+      "actual": {
+        "snooze": 200,
+        "notifications": 2,
+        "minutesAfterSnooze": 6.0
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:39:52+05:30"
+    },
+    {
+      "id": "A02-M06",
+      "scenario": "Skip is recorded; the prescribing doctor sees patient-reported history; another doctor cannot",
+      "expected": "skip 200; activity shows taken and skipped, source patient_reported; unrelated doctor 404",
+      "actual": {
+        "skip": 200,
+        "actions": [
+          "skipped",
+          "taken"
+        ],
+        "beta": 404
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:39:52+05:30"
+    },
+    {
+      "id": "A02-M06b",
+      "scenario": "Assistant lists the dose with no recorded action from the database; does not change state",
+      "expected": "reply names the un-acted once-daily medicine and not the taken one; unread list from DB; mark-all refused",
+      "actual": {
+        "missed": "Scheduled doses with no action recorded:\n26 Nov 19:31 · Synthomox A02 2342f2\n26 Nov 19:31 · Synthocet A02 2342f2\n26 Nov 19:32 · Synthomox A02 2342f2\n26 Nov 19:32 · Synthocet A02 085d94\nIf you took a dose but did not record it, open My Care Plan to record it. For what to do about a missed dose, ask y",
+        "unread": "You have 71 unread notifications.\n26 Nov 19:39 · MediConnect reminder\n26 Nov 19:34 · MediConnect reminder\n26 Nov 19:33 · MediConnect reminder\n26 Nov 19:33 · MediConnect reminder\n26 Nov 19:32 · MediCon",
+        "markAll": "I can't change your notifications from the chat. Open Notifications and use Mark as read or Mark all as read.",
+        "unreadCount": 71
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:41:59+05:30",
+      "originalStatus": "FAIL",
+      "reevaluated": "Script check corrected: it rejected any 'Synthomox' in the reply, but the reply correctly listed un-acted doses of an earlier aborted run (2342f2). Corrected condition: this run's un-acted once-daily dose listed, this run's taken/skipped doses not listed."
+    },
+    {
+      "id": "A02-M07",
+      "scenario": "Doctor changes the times: new version; today's agenda shows old (history) and new times only",
+      "expected": "update 200; scheduleVersion +1; agenda = 2 recorded old occurrences + 2 new times",
+      "actual": {
+        "update": 200,
+        "version": 2,
+        "times": [
+          "21:10",
+          "21:40"
+        ],
+        "agendaTimes": [
+          "21:10",
+          "21:40"
+        ]
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:41:59+05:30"
+    },
+    {
+      "id": "A02-M08",
+      "scenario": "Discontinued schedule disappears from the agenda; an unrelated doctor cannot discontinue",
+      "expected": "discontinue 200; once-daily medicine absent from agenda; unrelated doctor 404",
+      "actual": {
+        "discontinue": 200,
+        "unrelated": 404,
+        "stillListed": false
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:41:59+05:30"
+    },
+    {
+      "id": "A02-T03",
+      "scenario": "The worker delivers the test reminder at its due time (in-app); private text only",
+      "expected": "event kind test processed; in-app stored; body has no test name or instruction",
+      "actual": {
+        "channels": {
+          "inApp": "stored",
+          "push": "disabled",
+          "email": "skipped",
+          "sms": "skipped"
+        },
+        "body": "You have an upcoming care task. Open MediConnect for details."
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:41:59+05:30"
+    },
+    {
+      "id": "A02-T04/F03",
+      "scenario": "Test completion recorded; date change moves the reminder; patient told once; unrelated doctor refused",
+      "expected": "completed 200; update 200; unchanged re-save 200 without a 2nd notice; urine test at new time; beta 403",
+      "actual": {
+        "completed": 200,
+        "update": 200,
+        "resave": 200,
+        "updateNotices": 1,
+        "urineTimes": [
+          "20:24"
+        ],
+        "beta": 403
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:41:59+05:30"
+    },
+    {
+      "id": "A02-F04",
+      "scenario": "Closing the plan removes its remaining reminders and tells the patient once",
+      "expected": "cancel 200; no task of this plan in the agenda; 1 \"Care plan closed\" notice",
+      "actual": {
+        "cancel": 200,
+        "remaining": [
+          "Synthomox A02 085d94",
+          "Synthomox A02 085d94"
+        ],
+        "closedNotices": 1
+      },
+      "status": "PASS",
+      "at": "2026-11-26T19:41:59+05:30",
+      "originalStatus": "FAIL",
+      "reevaluated": "Script check corrected: 'remaining' matched this run's still-active medication schedule (its name contains the run id), not plan tasks. No plan task (titles '... test <run>') remains."
+    },
+    {
+      "id": "A02-A01/A02",
+      "scenario": "Confirmed paid appointment: 2-hour reminder at the configured time (Asia/Colombo), right patient",
+      "expected": "event for this appointment; scheduledAt = slot time; due 2 h before; recipient = patient A only",
+      "actual": {
+        "slot": "22:00",
+        "scheduledAt": "22:00",
+        "hoursBefore": 2.0,
+        "recipient": true,
+        "channels": {
+          "inApp": "stored",
+          "push": "disabled",
+          "email": "skipped",
+          "sms": "skipped"
+        },
+        "body": "You have an upcoming appointment. Open MediConnect for details."
+      },
+      "status": "PASS",
+      "at": "2026-11-26T20:00:59+05:30"
+    },
+    {
+      "id": "A02-A06",
+      "scenario": "Tapping the reminder resolves to the appointment (deep-link target)",
+      "expected": "event detail 200 with appointmentId = booked appointment; patient B 404",
+      "actual": {
+        "detail": 200,
+        "appointmentId": true,
+        "patientB": 404
+      },
+      "status": "PASS",
+      "at": "2026-11-26T20:00:59+05:30"
+    },
+    {
+      "id": "A02-A03/A04",
+      "scenario": "Rescheduled and then cancelled appointment never produces a reminder for either time",
+      "expected": "reschedule 200 (new version); cancel 200; no reminder event for this appointment",
+      "actual": {
+        "reschedule": 200,
+        "newStart": "23:00",
+        "cancel": 200,
+        "events": 0
+      },
+      "status": "PASS",
+      "at": "2026-11-26T20:00:59+05:30"
+    },
+    {
+      "id": "A02-N01/N06/N07/N10",
+      "scenario": "In-app list, unread count and mark-as-read are per recipient",
+      "expected": "unread grew from baseline; mark own 200 and count -1; patient B 403 and sees none of A's",
+      "actual": {
+        "unreadBefore": 56,
+        "unreadPeak": 74,
+        "markByB": 403,
+        "mark": 200,
+        "afterMark": 73,
+        "bSeesA": false
+      },
+      "status": "PASS",
+      "at": "2026-11-26T20:00:59+05:30"
+    },
+    {
+      "id": "A02-N07b",
+      "scenario": "Mark all as read",
+      "expected": "unread count 0",
+      "actual": {
+        "modified": 73,
+        "unread": 0
+      },
+      "status": "PASS",
+      "at": "2026-11-26T20:01:00+05:30"
+    },
+    {
+      "id": "A02-S05",
+      "scenario": "No duplicate notification for any occurrence or idempotency key in this run",
+      "expected": "0 duplicate groups (the snoozed occurrence has 2 distinct keys by design)",
+      "actual": {
+        "duplicateGroups": 0
+      },
+      "status": "PASS",
+      "at": "2026-11-26T20:01:00+05:30"
+    },
+    {
+      "id": "A02-C05",
+      "scenario": "Approving the same communication batch twice queues it once",
+      "expected": "second approve 200; batch status counts unchanged",
+      "actual": {
+        "approve2": 200,
+        "statuses": {
+          "stored_in_app": 1
+        }
+      },
+      "status": "PASS",
+      "at": "2026-11-26T20:01:00+05:30"
+    }
+  ],
+  "run": "085d94",
+  "startedAt": "2026-11-26T19:29:15+05:30",
+  "appointmentSlots": [
+    "22:00",
+    "22:30",
+    "23:00"
+  ],
+  "finishedAt": "2026-11-26T20:01:00+05:30",
+  "summary": {
+    "PASS": 26,
+    "FAIL": 0
+  },
+  "summaryBeforeReevaluation": {
+    "PASS": 24,
+    "FAIL": 2
+  }
+}

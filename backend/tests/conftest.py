@@ -20,6 +20,18 @@ os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_mock_secret_key")
 os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test_mock_webhook_secret")
 # Phase 05: the test session never inherits the JWT secret, environment or provider keys from backend/.env.
 os.environ.setdefault("ENVIRONMENT", "test")
+# A01-N06: the comment above was not true for provider keys. load_dotenv() filled GEMINI_API_KEY / OPENAI_API_KEY from
+# backend/.env, so tests that did not patch the network made real provider calls. An empty value set here wins over
+# .env (load_dotenv never overrides an existing variable), so every test runs with no provider unless it patches one.
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["OPENAI_API_KEY"] = ""
+# A02-BUG-002: the same applied to e-mail. SMTP_HOST/SMTP_USERNAME/SMTP_PASSWORD came from backend/.env, so five
+# doctor-approval tests submitted real messages through the owner's SMTP account on every local run (13 connection
+# attempts per run, measured on the A02 baseline). Delivery providers are blank unless a test sets them.
+for _name in ("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM_EMAIL", "TWILIO_ACCOUNT_SID",
+              "TWILIO_AUTH_TOKEN", "TWILIO_MESSAGING_SERVICE_SID", "FIREBASE_CREDENTIALS_PATH",
+              "FIREBASE_SERVICE_ACCOUNT_JSON", "GOOGLE_APPLICATION_CREDENTIALS"):
+    os.environ[_name] = ""
 if not os.environ.get("DOCUMENT_ENCRYPTION_KEYS"):  # a throwaway per-session test key (never a deployment key)
     import base64 as _b64
     os.environ["DOCUMENT_ENCRYPTION_KEYS"] = "test-session:" + _b64.b64encode(os.urandom(32)).decode()
@@ -63,4 +75,62 @@ def _fresh_rate_limit_counters():
         DatabaseManager.get_database()[COLLECTION].delete_many({})
     except Exception:
         pass
+    # A03 (A02-O4): the application's indexes exist from the first test, exactly as after a real backend start.
+    # Before, they were created only when some earlier test happened to start the app's lifespan, so a test of the
+    # database-level double-booking protection could run without the unique slot index and see two winners.
+    from app.config.database import ensure_indexes
+    assert ensure_indexes(DatabaseManager.get_database()), "MongoDB indexes could not be created"
     yield
+
+
+_LIVE_AI_HOSTS = ("generativelanguage.googleapis.com", "api.openai.com")
+
+
+@pytest.fixture(autouse=True)
+def _no_live_ai_provider_calls(monkeypatch):
+    """A01-N06 second guard: a request that reaches the transport for a live AI provider host fails as a network
+    error. Tests that patch requests.post never reach the transport, so test doubles keep working."""
+    import requests
+    import requests.adapters
+
+    real_send = requests.adapters.HTTPAdapter.send
+
+    def guarded(self, request, *args, **kwargs):
+        if any(host in (request.url or "") for host in _LIVE_AI_HOSTS):
+            raise requests.ConnectionError("live AI provider call blocked in tests")
+        return real_send(self, request, *args, **kwargs)
+
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", guarded)
+
+
+# Real delivery providers (A02-BUG-002) and the payment provider (A03). Loopback hosts stay reachable for the local
+# SMTP test server.
+_DELIVERY_HOSTS = ("smtp.gmail.com", "api.twilio.com", "fcm.googleapis.com", "oauth2.googleapis.com",
+                   "smtp.sendgrid.net", "email-smtp.", "api.stripe.com", "files.stripe.com")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_delivery_provider_calls(monkeypatch):
+    """No test can open a connection to a real e-mail, SMS or push provider, whatever settings it patches."""
+    import socket
+
+    real_create = socket.create_connection
+    real_getaddrinfo = socket.getaddrinfo
+
+    def blocked(host):
+        host = str(host).lower()
+        return any(host == h or host.startswith(h) or host.endswith("." + h) for h in _DELIVERY_HOSTS)
+
+    def guarded(address, *args, **kwargs):
+        if blocked(address[0]):
+            raise ConnectionRefusedError("real delivery provider blocked in tests")
+        return real_create(address, *args, **kwargs)
+
+    def guarded_getaddrinfo(host, *args, **kwargs):
+        # urllib3 (used by the Stripe library) resolves names itself instead of calling create_connection.
+        if blocked(host):
+            raise socket.gaierror("real payment or delivery provider blocked in tests")
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "create_connection", guarded)
+    monkeypatch.setattr(socket, "getaddrinfo", guarded_getaddrinfo)

@@ -313,7 +313,18 @@ class BookingSummary {
     this.serviceFee = 0.0,
     required this.totalAmount,
     this.currency = 'lkr',
+    this.visitType = 'IN_PERSON',
   });
+
+  /// A03-BUG-015: appointments are in-person clinic visits.
+  final String visitType;
+
+  /// A03-BUG-017: a summary without the server-owned fee and total is not shown (it used to fall back to an invented
+  /// LKR 2,500, BUG-028).
+  static BookingSummary? tryFromJson(Map<String, dynamic> json) {
+    if (json['consultationFee'] is! num || json['totalAmount'] is! num) return null;
+    return BookingSummary.fromJson(json);
+  }
 
   factory BookingSummary.fromJson(Map<String, dynamic> json) {
     return BookingSummary(
@@ -329,10 +340,11 @@ class BookingSummary {
       appointmentDate: json['appointmentDate'] as String? ?? '',
       startTime: json['startTime'] as String? ?? '',
       endTime: json['endTime'] as String? ?? '',
-      consultationFee: (json['consultationFee'] as num?)?.toDouble() ?? 2500.0,
+      consultationFee: (json['consultationFee'] as num).toDouble(),
       serviceFee: (json['serviceFee'] as num?)?.toDouble() ?? 0.0,
-      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 2500.0,
+      totalAmount: (json['totalAmount'] as num).toDouble(),
       currency: json['currency'] as String? ?? 'lkr',
+      visitType: json['visitType'] as String? ?? 'IN_PERSON',
     );
   }
 
@@ -354,6 +366,7 @@ class BookingSummary {
       'serviceFee': serviceFee,
       'totalAmount': totalAmount,
       'currency': currency,
+      'visitType': visitType,
     };
   }
 }
@@ -472,8 +485,15 @@ class ImageAnalysisSummary {
   final String? uncertaintyExplanation;
   final String? safetyAdvice;
   final bool requiresClearerPhoto;
-  /// 'analyzed' | 'unreadable' | 'not_medicine' | 'provider_unavailable' | 'invalid_file'
+  /// 'analyzed' | 'multiple_packages' | 'unreadable' | 'not_medicine' | 'provider_unavailable' | 'invalid_file'
   final String? status;
+  /// A01: which provider/model read the photo (null when no provider read it).
+  final String? provider;
+  final String? model;
+  /// Fields the provider reported as present on the pack but not legible (for example "expiry date").
+  final List<String> unreadableFields;
+  final int? packageCount;
+  final bool embeddedTextIgnored;
 
   const ImageAnalysisSummary({
     this.status,
@@ -484,9 +504,15 @@ class ImageAnalysisSummary {
     this.uncertaintyExplanation,
     this.safetyAdvice,
     this.requiresClearerPhoto = false,
+    this.provider,
+    this.model,
+    this.unreadableFields = const [],
+    this.packageCount,
+    this.embeddedTextIgnored = false,
   });
 
   factory ImageAnalysisSummary.fromJson(Map<String, dynamic> json) {
+    final extracted = json['extracted'] is Map<String, dynamic> ? json['extracted'] as Map<String, dynamic> : const {};
     return ImageAnalysisSummary(
       status: json['status'] as String?,
       detectedText: json['detectedText'] as String? ?? '',
@@ -496,6 +522,11 @@ class ImageAnalysisSummary {
       uncertaintyExplanation: json['uncertaintyExplanation'] as String?,
       safetyAdvice: json['safetyAdvice'] as String?,
       requiresClearerPhoto: json['requiresClearerPhoto'] as bool? ?? false,
+      provider: json['provider'] as String?,
+      model: json['model'] as String?,
+      unreadableFields: (extracted['unreadableFields'] as List?)?.whereType<String>().toList() ?? const [],
+      packageCount: (json['packageCount'] as num?)?.toInt(),
+      embeddedTextIgnored: json['embeddedTextIgnored'] as bool? ?? false,
     );
   }
 
@@ -509,6 +540,11 @@ class ImageAnalysisSummary {
       'uncertaintyExplanation': uncertaintyExplanation,
       'safetyAdvice': safetyAdvice,
       'requiresClearerPhoto': requiresClearerPhoto,
+      'provider': provider,
+      'model': model,
+      'extracted': {'unreadableFields': unreadableFields},
+      'packageCount': packageCount,
+      'embeddedTextIgnored': embeddedTextIgnored,
     };
   }
 }
@@ -595,7 +631,7 @@ class BookingSession {
           ? SlotCardSummary.fromJson(json['selectedSlot'] as Map<String, dynamic>)
           : null,
       bookingSummary: json['bookingSummary'] is Map<String, dynamic>
-          ? BookingSummary.fromJson(json['bookingSummary'] as Map<String, dynamic>)
+          ? BookingSummary.tryFromJson(json['bookingSummary'] as Map<String, dynamic>)
           : null,
       candidateDoctors: (json['candidateDoctors'] is List)
           ? (json['candidateDoctors'] as List)

@@ -1,0 +1,42 @@
+{
+ "scenario": "A03-A11 provider unavailable (daily cap reached): deterministic fallback",
+ "dailyLimit": 44,
+ "geminiRequestsBefore": 46,
+ "geminiRequestsAfter": 48,
+ "counters": {
+  "day": "2026-11-27",
+  "model": "gemini-3.5-flash-lite",
+  "provider": "gemini",
+  "requests": 48,
+  "completionTokens": 1170,
+  "lastStatus": "ok",
+  "latencyMsTotal": 53131.41369994264,
+  "promptTokens": 30698,
+  "successes": 44,
+  "refusedUsageLimit": 4
+ },
+ "turns": [
+  {
+   "user": "Find me a good cardiologist in Colombo.",
+   "http": 200,
+   "type": "doctor_options",
+   "doctors": [
+    "Dr. UAT Cardio One",
+    "Dr. UAT Cardio Two"
+   ],
+   "maxFee": null,
+   "reply": "I found 2 verified doctors in Colombo matching your search. Select a doctor to view their profile or check appointment slots."
+  },
+  {
+   "user": "mata 3000ta aduwen kenek hoyala denna.",
+   "http": 200,
+   "type": "doctor_options",
+   "doctors": [
+    "Dr. UAT Cardio One"
+   ],
+   "maxFee": 3000.0,
+   "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 1 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න."
+  }
+ ],
+ "interpretation": "requests is a reservation counter (provider_gateway.send increments it before the limit check). refusedUsageLimit calls never left the backend. Live Gemini calls on 2026-11-27 = successes (44), failures 0; all within the owner's cap of 60."
+}

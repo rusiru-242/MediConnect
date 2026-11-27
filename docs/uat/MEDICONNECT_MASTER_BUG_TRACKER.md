@@ -1,6 +1,6 @@
-# MediConnect — Master Bug Tracker (reconciled, Phases 00–05)
+# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A03)
 
-For: the project owner, reviewers and future maintainers. Generated 2026-11-26 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
+For: the project owner, reviewers and future maintainers. Generated 2026-11-27 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
 
 ## How to read it
 
@@ -13,15 +13,15 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-26 b
 
 | Measure | Count |
 |---|---|
-| Unique tracked items | 184 |
-| Confirmed defects | 160 |
-| Defects fixed (automated regression) | 159 |
+| Unique tracked items | 258 |
+| Confirmed defects | 218 |
+| Defects fixed (automated regression) | 217 |
 | Defects open | 1 (BUG-039) |
 | …of the fixed: manual device retest still pending | 7 |
 | …of the fixed: external verification blocked | 1 |
 | Improvements / requirements delivered | 21 |
 | Regression guards (not defects) | 1 |
-| Observations (unconfirmed) | 1 |
+| Observations (unconfirmed) | 17 |
 | Security incidents (owner) | 1 |
 
 | Source | Defects | Improvements |
@@ -32,6 +32,9 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-26 b
 | Phase 03 | 21 | 3 |
 | Phase 04 | 23 | 0 |
 | Phase 05 | 25 | 13 |
+| Agent Completion A01 | 17 | 0 |
+| Agent Completion A02 | 21 | 0 |
+| Agent Completion A03 | 20 | 0 |
 
 Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not defects; see `PHASE_05_REMAINING_BLOCKERS.md`.
 
@@ -223,3 +226,77 @@ Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not def
 | P05-I12 | P4-B6 | improvement | — | — | Read-only P4-B6 reconciliation report (UAT) | IMPLEMENTED | phase-05/PHASE_05_BUG_FIX_REPORT.md |
 | P05-O1 |  | observation | Low | Tests | Intermittent test_phase3_care failure (6 reminder rows once) | OPEN (not reproduced) | phase-05/PHASE_05_BUG_FIX_REPORT.md |
 | P5-C1 |  | security incident | Critical | Repository / credentials | Live MongoDB URI with credentials in public git history (a41b659) | OPEN — owner rotation required | phase-05/PHASE_05_SECURITY_AND_PRIVACY_REPORT.md |
+| A01-N01 |  | defect | Critical (safety) | Emergency triage (02, shared) | "My child swallowed a whole strip of my blood pressure tablets." was not detected as an emergency. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N02 |  | defect | High | Provider gateway (32) | OpenAI 429 insufficient_quota (no credits) | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N03 |  | defect | High | Provider monitoring (32) | A 200 response whose JSON was unusable still counted as a success, so monitoring could show "available" while every answer was discarded. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N04 |  | defect | Medium | Provider gateway (32) | The single retry happened immediately; Retry-After was ignored. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N05 |  | defect | High | Health Assistant (02) | With no working provider, 11 of 26 probe messages got the same paragraph ("Balanced nutrition, adequate hydration…"): paracetamol, sleep, ex | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N06 |  | defect | High (cost/privacy) | Test suite (32) | The suite inherited the real GEMINI_API_KEY/OPENAI_API_KEY from backend/.env, so tests that did not patch the network made live provider cal | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N07 |  | defect | Medium | Provider gateway (32) | Gemini's free-tier daily quota 429 ("requests per day … retry in 21h") | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N08 |  | defect | Medium | Image upload (04) | Both image routes read the whole upload into memory before the 5 MB check. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N09 |  | defect | High (safety) | Medicine vision (04) | For the blurred fixture the live model returned exact label text ("Synthopar 500", "Paracetamol 500 mg", the storage line) | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N10 |  | defect | High | Provider architecture (32) | No secondary provider anywhere: the Health Assistant called only Gemini, vision and the doctor-search parser never fell back to the other pr | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N11 |  | defect | High | Model selection (32) | backend/.env names gemini-1.5-flash (live: 404, shut down). | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N12 |  | defect | High | Health Assistant (02) | Provider output was accepted after json.loads with no schema, language check or grounding check. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N13 |  | defect | Medium | Vision UI (04) | The image card repeated the field list already in the chat reply ("Detected Packaging Text"), and showed a "High Confidence" badge that the  | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N14 |  | defect | Medium (safety) | Medicine vision (04) | A photo with two packages was matched to one library card (the first name found). | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N15 |  | defect | Medium | Health Assistant (02) | A 3-day headache was referred to a Neurologist and a cold to an ENT specialist. | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N16 |  | defect | Medium | Shared NLU (02) | "mata dawas thunak thisse …" and "දවස් තුනක්" (three days) | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-N17 |  | defect | Medium | Shared NLU (02) | "How many paracetamol tablets can I take at once…? Give me an exact number." was not recognised as a dose request (generic answer). | FIXED (A01) | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-O1 |  | observation | Low | A01 | A foreign patient gets **403** (not 404) for another patient's conversation | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-O2 |  | observation | Low | A01 | Live V17: the model listed fields that are simply absent (expiry, manufacturer) as "not readable" | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-O3 |  | observation | Low | A01 | "since yesterday" is not parsed as a duration (H04) | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A01-O4 |  | observation | Low | A01 | The Gemini free tier allows 20 generation requests per day for `gemini-3.8-flash`; that quota ran out during A01 | OPEN | agent-completion/a01/A01_BUG_FIX_REPORT.md |
+| A02-BUG-001 |  | defect | High | E-mail (13) | SMTP over STARTTLS/SMTPS accepted any certificate (found by reading the code; confirmed with a self-signed local server) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-002 |  | defect | High | Tests | The backend test suite sent real e-mail through the owner's SMTP account on every local run. | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-003 |  | defect | Medium | E-mail | Every SMTP exception became uncertain and was never retried, including "connection refused" (nothing sent). | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-004 |  | defect | Medium | Monitoring (13) | An unconfigured provider was reported as failed, and provider acceptance (sent/accepted) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-005 |  | defect | High | Scheduler | A worker crash after claiming a reminder but before the in-app write meant the patient never received it (whole event → uncertain) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-006 |  | defect | High | Push (13) | Push notifications put the full in-app text on the lock screen: doctor and patient names, dates and specialty (for example "Your appointment | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-007 |  | defect | Medium | Push | A quota, server or bad-payload FCM error could delete every device token of the user | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-008 |  | defect | Low | Device tokens | Unbounded device list per user, unchecked deviceType, and the first 10 characters of a raw token logged | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-009 |  | defect | Medium | Delivery tracking | No transactional notification (booking, cancellation, payment, renewal) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-010 |  | defect | Low | Monitoring | cleanup_invalid_device_tokens never removed anything | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-011 |  | defect | High | Medication reminder (05) | A patient could create reminders for an as-needed (PRN) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-012 |  | defect | Medium | Assistant (05/13) | "Show my medicine reminders for today" got a medicine-library lookup ("could not locate … medication name"). | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-013 |  | defect | Low | Assistant | "What medical tests do I have this week?" read only today, and "When is my next appointment?" listed one that had already started | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-014 |  | defect | Medium | Patient communication (19) | A doctor changing a follow-up date, instructions or test tasks, or closing the plan, did not tell the patient | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-015 |  | defect | Medium | Follow-up (08) | Re-saving a care plan with the same follow-up date was treated as a change: remindersSent was reset (date-based reminders could repeat) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-016 |  | defect | High | Mobile medication reminders | Device-local reminders were open-ended daily repeats. | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-017 |  | defect | High | Mobile logout | After logout, the previous account's device reminders kept firing for the next user. | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-018 |  | defect | Medium | Mobile sync | The device was never synchronised after a reinstall, a new phone or a sign-in. | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-019 |  | defect | High | Mobile Android manifest | Scheduled device reminders were never shown and were lost on reboot | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-020 |  | defect | High | Mobile Android 13+ permission | The notification permission was never requested while Firebase is unconfigured, so Android suppressed every device reminder (POST_NOTIFICATI | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-BUG-021 |  | defect | Medium | Patient communication (19) | A prescription issued from the clinical workflow (POST /clinical/prescriptions/sign) | FIXED (A02) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O1 |  | observation | Low | A02 | NotificationService.check_and_send_appointment_reminders (24 h / 1 h) is legacy code that no worker calls | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O2 |  | observation | Low | A02 | Device-local reminders use Android inexact alarms (inexactAllowWhileIdle) | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O3 |  | observation | Low | A02 | normalize_phone accepts only 07XXXXXXXX and +947XXXXXXXX; 94…/0094… forms are refused (safe, but strict) | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O4 |  | observation | Low | A02 | Two test_phase02_booking_payment / test_production_security_audit tests fail when run **alone on an empty database**, because they depend on | RESOLVED (A03) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O5 |  | observation | Low | A02 | The "AI" patient-communication drafting is a fixed template (appointment reminder batch) with an HMAC approval token | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A03-BUG-001 |  | defect | High | Stripe webhooks | A redelivery that arrived while the first delivery was still processing, or after its processing raised, got 200 "already_processed". | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-002 |  | defect | High | Stripe webhooks | Every real payment_intent.payment_failed webhook returned 500 (a locally signed event verified by the real stripe library) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-003 |  | defect | Medium | Stripe webhooks | A failure event delivered after the success sent the patient "Payment Failed. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-004 |  | defect | Medium | Payment status | After a recorded decline, a later success with another card (same intent) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-005 |  | defect | High | Reservation holds | An expired hold was released without cancelling its PaymentIntent, so an open PaymentSheet could still charge for a booking that no longer e | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-006 |  | defect | High | Refund reconciliation | Webhook and polling reconciliation never matched a real refund request. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-007 |  | defect | High | Refund execution | A network or 5xx error from Refund.create marked the request failed with no Stripe id, although Stripe may have created the refund. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-008 |  | defect | Low | Refund polling | The polling fallback always read the same first 20 processing refunds; refunds pending for days would starve newer ones | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-009 |  | defect | High | Admin / reconciliation | A refund Stripe failed after reporting success (seen live with pm_card_refundFail) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-010 |  | defect | High | AI booking memory | After "Select the most experienced doctor", "Show me the available slots for this doctor tomorrow" asked "Which doctor do you mean?". | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-011 |  | defect | Medium | AI booking | "Show me another available time on the same date" asked for symptoms | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-012 |  | defect | Medium | AI booking (read-only management) | "I want to cancel my appointment" answered "Your booking selection has been reset"; "I want to reschedule my appointment" asked for symptoms | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-013 |  | defect | Low | NLP | Romanized Sinhala time words "udee/udeta" (morning), "dawal" (afternoon), "hawasa" (evening) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-014 |  | defect | Low | AI booking | "Yes, confirm it and charge my card" (no hold was ever created) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-015 |  | defect | Medium | Booking summary | The AI booking summary never stated the visit type (emulator) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-016 |  | defect | Low | AI booking | The assistant said "tap 'Confirm Booking'" while the card's button is "Accept & Continue" (emulator) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-017 |  | defect | Low | Money display | The session response, the hold message and the Flutter summary model fell back to an invented LKR 2,500 when the server fee was missing. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-018 |  | defect | Low | App booking result | An e-mail provider that is not configured (disabled, the A02 vocabulary) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-019 |  | defect | Low | Admin reconciliation | The fixed rule-based recommendations were headed "AI Recommendation" | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-020 |  | defect | Medium | AI booking notices | A paid AI booking gave the patient no in-app confirmation, while a decline did. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O1 |  | observation | Low | A03 | My Appointments "Upcoming" lists 2026-12-04 before 2026-12-01 (not chronological) | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O2 |  | observation | Low | A03 | On current Stripe API versions charge.refunded events carry no refund list, so they reconcile nothing (no_refunds) | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O3 |  | observation | Low | A03 | On the emulator, Android raised a system ANR ("system using pending focus request") while the Stripe PaymentSheet opened | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O4 |  | observation | Low | A03 | The payment-failure notice uses one idempotency key per payment, so a second decline on the same intent is not notified again (the first not | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O5 |  | observation | Low | A03 | "Show me my upcoming appointments" (care agenda) lists times and "Confirmed appointment" without doctor names | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O6 |  | observation | Low | A03 | A payment that succeeds after holdExpiresAt but before the worker releases the hold goes to refund review, not confirmation (existing rule;  | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O7 |  | observation | Low | A03 | "most experienced kenawa select karanna" (Romanized) is not recognised as a selection request; with one candidate the result is the same | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |

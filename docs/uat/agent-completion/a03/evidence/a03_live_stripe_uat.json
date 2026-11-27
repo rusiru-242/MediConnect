@@ -1,0 +1,438 @@
+{
+ "mode": "stripe_test_mode",
+ "backend": "127.0.0.1:8001",
+ "database": "mediconnect_uat",
+ "webhookDelivery": "stripe listen (Stripe CLI 1.50.1) -> 127.0.0.1:8001/api/payments/webhook",
+ "colomboDate": "2026-11-27",
+ "run": "140525",
+ "steps": [
+  {
+   "id": "fixture",
+   "result": "PASS",
+   "date": "2026-12-02",
+   "freeSlots": 10,
+   "doctor": "UAT-P02-ORTHO"
+  },
+  {
+   "id": "A03-R01_atomic_reservation",
+   "result": "PASS",
+   "http": 201,
+   "status": "PENDING",
+   "holdSeconds": 600.0
+  },
+  {
+   "id": "A03-R03_server_owned_10_minute_hold",
+   "result": "PASS",
+   "holdSeconds": 600.0
+  },
+  {
+   "id": "A03-P06_amount_and_currency_server_owned",
+   "result": "PASS",
+   "http": 201,
+   "clientSentAmount": 1,
+   "consultationFee": 3000.0,
+   "stripeAmountMinor": 300000,
+   "currency": "lkr",
+   "livemode": false
+  },
+  {
+   "id": "A03-P05a_duplicate_intent_request_reuses_intent",
+   "result": "PASS",
+   "http": 201
+  },
+  {
+   "id": "A03-P01_test_payment_success_via_cli_webhook",
+   "result": "PASS",
+   "stripeStatus": "succeeded",
+   "appointment": "CONFIRMED",
+   "confirmedBeforeAnyStatusCall": true,
+   "stripeEventId": "evt_3UgK\u2026t4wg",
+   "backendOutcome": "success"
+  },
+  {
+   "id": "A03-W05_actual_stripe_test_webhook_delivery",
+   "result": "PASS",
+   "eventType": "payment_intent.succeeded",
+   "livemode": false,
+   "attempts": 1
+  },
+  {
+   "id": "A03-W06_payment_success_reconciliation",
+   "result": "PASS",
+   "payment": "SUCCEEDED",
+   "reconciliation": "CONFIRMED",
+   "successNotices": 1
+  },
+  {
+   "id": "A03-P05_duplicate_charge_prevention",
+   "result": "PASS",
+   "http": 400,
+   "detail": "This appointment has already been paid for and confirmed.",
+   "intentsForAppointment": 0,
+   "recordedResult": "FAIL",
+   "reevaluated": "Script-check defect: Stripe's PaymentIntent search index is eventually consistent and returned 0 intents seconds after creation. Re-checked by retrieving every payment record's intent for the appointment: 1 intent, status 'succeeded' (1 charge). The backend itself answered the duplicate request with 400 'already paid'.",
+   "recheck": {
+    "intentsForAppointment": 1,
+    "succeeded": 1
+   }
+  },
+  {
+   "id": "A03-P01b_repeated_status_refresh",
+   "result": "PASS",
+   "paymentConfirmedEvents": 1
+  },
+  {
+   "id": "A03-P07_payment_ownership",
+   "result": "PASS",
+   "statusAsOtherPatient": 403,
+   "intentAsOtherPatient": 403
+  },
+  {
+   "id": "A03-P02_declined_payment",
+   "result": "PASS",
+   "stripe": "card_error:card_declined",
+   "payment": "FAILED",
+   "appointment": "PENDING",
+   "failedEventOutcome": "failed_recorded",
+   "failureNotices": 1
+  },
+  {
+   "id": "A03-P04a_retry_reuses_intent",
+   "result": "PASS",
+   "http": 201
+  },
+  {
+   "id": "A03-P04_payment_retry_after_decline",
+   "result": "PASS",
+   "stripe": "succeeded",
+   "appointment": "CONFIRMED",
+   "payment": "SUCCEEDED",
+   "failureNoticesAfterSuccess": 1
+  },
+  {
+   "id": "A03-P03_cancelled_payment",
+   "result": "PASS",
+   "release": 200,
+   "stripe": "canceled",
+   "payAfterRelease": "invalid_request:payment_intent_unexpected_state",
+   "canceledEventOutcome": "no_change",
+   "payment": "CANCELLED"
+  },
+  {
+   "id": "A03-R05_manual_release",
+   "result": "PASS",
+   "status": "CANCELLED"
+  },
+  {
+   "id": "A03-R06_released_slot_available",
+   "result": "PASS",
+   "slot": "11:00"
+  },
+  {
+   "id": "A03-R04_automatic_expiry",
+   "result": "PASS",
+   "note": "hold expiry simulated by moving holdExpiresAt into the past; released by the backend worker",
+   "status": "CANCELLED"
+  },
+  {
+   "id": "A03-P08_expired_hold_payment",
+   "result": "PASS",
+   "stripeIntent": "canceled",
+   "payAfterExpiry": "invalid_request:payment_intent_unexpected_state",
+   "payment": "CANCELLED"
+  },
+  {
+   "id": "A03-P08b_new_intent_for_expired_hold_rejected",
+   "result": "PASS",
+   "http": 400,
+   "detail": "Cannot initiate payment for appointment in 'CANCELLED' status."
+  },
+  {
+   "id": "A03-BUG-005_preexisting_open_intents_cancelled",
+   "result": "PASS",
+   "after": [
+    {
+     "paymentId": "6b05c54055fc82dec4b0e83c",
+     "stripeStatus": "canceled",
+     "payment": "CANCELLED"
+    },
+    {
+     "paymentId": "6b068cf3cc345d412f2d7927",
+     "stripeStatus": "canceled",
+     "payment": "CANCELLED"
+    },
+    {
+     "paymentId": "6b06f11310993f4410e9bab0",
+     "stripeStatus": "canceled",
+     "payment": "CANCELLED"
+    }
+   ]
+  },
+  {
+   "id": "A03-P09_cancelled_appointment_payment",
+   "result": "PASS",
+   "cancel": 200,
+   "payAfterCancel": "invalid_request:payment_intent_unexpected_state"
+  },
+  {
+   "id": "A03-R08_duplicate_reservation_request",
+   "result": "PASS",
+   "first": 201,
+   "second": 409,
+   "secondDetail": "This time slot is no longer available."
+  },
+  {
+   "id": "A03-R02_concurrent_reservation_two_patients_two_processes",
+   "result": "PASS",
+   "rounds": [
+    {
+     "slot": "11:00",
+     "codes": [
+      201,
+      409,
+      409,
+      409
+     ],
+     "winners": 1
+    },
+    {
+     "slot": "11:30",
+     "codes": [
+      409,
+      409,
+      201,
+      409
+     ],
+     "winners": 1
+    },
+    {
+     "slot": "14:00",
+     "codes": [
+      409,
+      201,
+      409,
+      409
+     ],
+     "winners": 1
+    },
+    {
+     "slot": "14:30",
+     "codes": [
+      201,
+      409,
+      409,
+      409
+     ],
+     "winners": 1
+    },
+    {
+     "slot": "15:00",
+     "codes": [
+      409,
+      201,
+      409,
+      409
+     ],
+     "winners": 1
+    },
+    {
+     "slot": "15:30",
+     "codes": [
+      409,
+      409,
+      409,
+      201
+     ],
+     "winners": 1
+    }
+   ],
+   "processes": [
+    "127.0.0.1:8001",
+    "127.0.0.1:8002"
+   ],
+   "index": true
+  },
+  {
+   "id": "A03-C01_patient_cancellation",
+   "result": "PASS",
+   "cancel": 200,
+   "preview": 200
+  },
+  {
+   "id": "A03-C05_refund_request",
+   "result": "PASS",
+   "refundId": "REF-6121295B64",
+   "rule": "Cancelled with more than 24 hours notice; 100% full refund eligible.",
+   "eligibleAmount": 3000.0,
+   "paid": 3000.0
+  },
+  {
+   "id": "A03-C09_concurrent_refund_approval",
+   "result": "PASS",
+   "httpCodes": [
+    400,
+    200,
+    400,
+    400
+   ],
+   "stripeRefunds": 1
+  },
+  {
+   "id": "A03-C06_admin_refund_approval",
+   "result": "PASS",
+   "status": "succeeded",
+   "stripeRefund": "succeeded",
+   "metadataRefundId": "REF-6121295B64"
+  },
+  {
+   "id": "A03-C08_duplicate_refund_prevention",
+   "result": "PASS",
+   "reapprove": 400,
+   "recancel": 400
+  },
+  {
+   "id": "A03-C10_stripe_test_refund_reconciliation",
+   "result": "PASS",
+   "payment": "REFUNDED",
+   "refunded": 3000.0,
+   "captured": 3000.0,
+   "refundWebhooks": [
+    {
+     "type": "charge.refunded",
+     "outcome": "no_refunds"
+    },
+    {
+     "type": "refund.created",
+     "outcome": "no_change"
+    }
+   ],
+   "requestStatusAfterWebhooks": "succeeded"
+  },
+  {
+   "id": "A03-W07_refund_status_reconciliation_via_cli",
+   "result": "PASS",
+   "outcomes": [
+    "no_refunds",
+    "no_change"
+   ]
+  },
+  {
+   "id": "A03-C07_admin_refund_rejection",
+   "result": "PASS",
+   "http": 200
+  },
+  {
+   "id": "A03-C02_doctor_cancellation",
+   "result": "PASS",
+   "http": 200,
+   "rule": "Appointment was cancelled by the doctor; 100% full refund guaranteed.",
+   "paymentMethod": "pm_card_refundFail"
+  },
+  {
+   "id": "A03-C10b_refund_failure_after_success_flagged_for_review",
+   "result": "PASS",
+   "approve": 200,
+   "status": "succeeded",
+   "requiresReview": null,
+   "stripe": [
+    "succeeded"
+   ],
+   "recordedResult": "FAIL",
+   "reevaluated": "Timing: Stripe moved the pm_card_refundFail refund to 'failed' after the 90 s window, while the backend was stopped for the restart test, so the CLI could not deliver refund.updated / refund.failed. After the restart the events were resent with `stripe events resend` and processed: refund.failed -> flagged_for_review (requiresReview true, audit REVIEW_REQUIRED); the money records were not changed automatically (by design).",
+   "recheck": {
+    "refundFailedEvent": "flagged_for_review",
+    "stripeRefund": "failed",
+    "requiresReview": true,
+    "paymentRecord": "REFUNDED (unchanged, human review)"
+   }
+  },
+  {
+   "id": "A03-C04_failed_reschedule_preserves_booking",
+   "result": "PASS",
+   "http": 409,
+   "detail": "The doctor is not available at the selected date and time."
+  },
+  {
+   "id": "A03-C03_rescheduling",
+   "result": "PASS",
+   "http": 200,
+   "version": 2,
+   "remindersSent": []
+  },
+  {
+   "id": "A03-W01_valid_locally_signed_event",
+   "result": "PASS",
+   "http": 200,
+   "outcome": "ignored_unknown_payment"
+  },
+  {
+   "id": "A03-W02_invalid_signature",
+   "result": "PASS",
+   "wrongSecret": 400,
+   "tamperedBody": 400
+  },
+  {
+   "id": "A03-W03_duplicate_event",
+   "result": "PASS",
+   "http": 200,
+   "outcome": "already_processed"
+  },
+  {
+   "id": "A03-W04_out_of_order_event",
+   "result": "PASS",
+   "http": 200,
+   "outcome": "ignored_out_of_order"
+  },
+  {
+   "id": "A03-W08_webhook_retry_and_recovery",
+   "result": "PASS",
+   "lostWhileBackendDown": [
+    "refund.updated",
+    "charge.refund.updated",
+    "payment_intent.succeeded",
+    "refund.failed",
+    "charge.refund.updated"
+   ],
+   "resentWith": "stripe events resend <evt> (refund.updated, refund.failed, payment_intent.succeeded)",
+   "afterResend": {
+    "refund.updated": "no_change",
+    "refund.failed": "flagged_for_review",
+    "payment_intent.succeeded": "already_processed (settled earlier by the status refresh)"
+   },
+   "note": "The Stripe CLI does not retry; Stripe's own retry of a dashboard endpoint is not exercised (no public endpoint). In-progress and crashed-delivery handling (409 / retry) is covered by locally signed tests (A03-BUG-001)."
+  },
+  {
+   "id": "A03-R07_backend_restart_recovery",
+   "result": "PASS",
+   "paidWhileBackendDown": "succeeded",
+   "appointmentAfterRestartBeforeRefresh": "PENDING",
+   "appointmentAfterRefresh": "CONFIRMED",
+   "paymentStatus": "SUCCEEDED"
+  },
+  {
+   "id": "A03-P10_network_failure_recovery",
+   "result": "PASS",
+   "note": "Payment succeeded at Stripe while the backend was unreachable (the webhook delivery failed); the patient's status refresh after the restart read Stripe and confirmed the booking once."
+  }
+ ],
+ "paidAppointment": "6b0940ce745cbcf7b0a02c97",
+ "refundFailureCard": {
+  "approve": 200,
+  "status": "succeeded",
+  "requiresReview": null,
+  "stripe": [
+   "succeeded"
+  ]
+ },
+ "rescheduledAppointment": "6b09415e745cbcf7b0a02cf0",
+ "occupiedAppointment": "6b094161745cbcf7b0a02cf6",
+ "summary": {
+  "steps": 43,
+  "pass": 43,
+  "fail": [],
+  "recordedFailsReevaluated": [
+   "A03-P05_duplicate_charge_prevention",
+   "A03-C10b_refund_failure_after_success_flagged_for_review"
+  ]
+ }
+}

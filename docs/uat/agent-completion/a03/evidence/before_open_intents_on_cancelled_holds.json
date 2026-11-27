@@ -1,0 +1,35 @@
+[
+ {
+  "paymentId": "6b05c54055fc82dec4b0e83c",
+  "intent": "pi_3UfNFdDuvPb\u2026",
+  "stripeStatus": "requires_payment_method",
+  "livemode": false,
+  "amount": 150000,
+  "currency": "lkr",
+  "appointmentCancelledBy": "PATIENT",
+  "cancellationReason": "UAT preparation check",
+  "holdExpiresAt": "2026-11-24 17:21:27.226000"
+ },
+ {
+  "paymentId": "6b068cf3cc345d412f2d7927",
+  "intent": "pi_3UfaYCDuvPb\u2026",
+  "stripeStatus": "requires_payment_method",
+  "livemode": false,
+  "amount": 250000,
+  "currency": "lkr",
+  "appointmentCancelledBy": "SYSTEM",
+  "cancellationReason": "Booking hold expired",
+  "holdExpiresAt": "2026-11-25 07:33:29.547000"
+ },
+ {
+  "paymentId": "6b06f11310993f4410e9bab0",
+  "intent": "pi_3UfhDcDuvPb\u2026",
+  "stripeStatus": "requires_payment_method",
+  "livemode": false,
+  "amount": 200000,
+  "currency": "lkr",
+  "appointmentCancelledBy": "DOCTOR",
+  "cancellationReason": "UAT",
+  "holdExpiresAt": "2026-11-25 14:40:42.594000"
+ }
+]

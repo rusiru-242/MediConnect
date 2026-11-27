@@ -127,3 +127,36 @@ No `NotImplementedError`, `UnimplementedError` or TODO/FIXME was found in produc
 ## Phase 05 update (2026-11-26)
 
 The final matrix covering all 38 components is in [uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md](uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md): 25 VERIFIED (local), 11 PARTIAL and 2 BLOCKED. It supersedes the statuses above, which are kept as history. No component is verified against a live LLM, a clinician or a physical device.
+
+## Agent Completion A01 update (2026-11-26, `fix/agents-a01-ai-intelligence-vision`)
+
+- **02 Health Assistant:** PARTIAL → VERIFIED (local + live Gemini) · clinical review.
+  - Grounded answers replace the three generic templates.
+  - A provider may only rephrase non-authoritative answers, and every rewrite is validated.
+- **04 Medicine Image Analysis:** BLOCKED → PARTIAL.
+  - Live vision verified with 8 synthetic packaging images.
+  - Not yet covered: real photographed packaging, pharmacist review, and a data-processing agreement.
+- **32 Provider Management:** BLOCKED → PARTIAL.
+  - Gemini verified live: success, invalid key, invalid model, daily quota, fallback.
+  - OpenAI live generation is blocked because the account has no credits.
+- **New totals:** 26 VERIFIED (local), 12 PARTIAL, 0 BLOCKED. See [uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md](uat/MEDICONNECT_ALL_38_AGENT_VERIFICATION_MATRIX.md).
+
+## Agent Completion A02 update (2026-11-26, `fix/agents-a02-reminders-notifications`)
+
+- **05, 07, 08, 09, 13, 19 stay PARTIAL:**
+  - Engineering is complete and the in-app path is verified live with the real 60-second worker. This covers medication, appointment, test-task and plan reminders, read state, isolation and doctor-approved batches.
+  - Device-local reminders are verified on the Android emulator.
+  - Not yet available: push (no Firebase project), external e-mail (owner chose local SMTP testing only) and SMS (no provider). No external delivery is claimed.
+- **Scheduler (36):** exactly-once delivery re-verified live across a backend restart and three competing workers. A real worker crash is now recovered (A02-BUG-005).
+- **Totals unchanged:** 26 VERIFIED (local), 12 PARTIAL, 0 BLOCKED.
+
+## Agent Completion A03 update (2026-11-27, `fix/agents-a03-booking-payments`)
+
+- **01 Appointment Booking Agent: PARTIAL → VERIFIED (test mode + live Gemini).**
+  - Natural-language booking was verified in English, Sinhala, Romanized Sinhala and mixed language, deterministically and with 44 live Gemini calls.
+  - The selected-doctor memory, same-date alternatives and read-only cancel/reschedule help were fixed.
+  - Stripe test-mode payments, declines, retries, expiry, refunds and a race between two backend processes were verified live (43/43).
+  - Stripe-generated test webhooks were delivered with the Stripe CLI (51 events).
+  - Emulator and browser end-to-end runs passed.
+  - Remaining gates: refund policy (B6), physical phone (B10), Sinhala review (B12), and a staging webhook endpoint. Production delivery was not tested.
+- **Totals:** 27 VERIFIED (local), 11 PARTIAL, 0 BLOCKED.

@@ -1,6 +1,11 @@
-"""Conversational AI Health Assistant Agent with safety-first triage and doctor referrals."""
+"""Conversational AI Health Assistant Agent with safety-first triage and doctor referrals.
 
-import json
+A01: non-emergency answers come from the source-grounded composer in :mod:`app.agents.health_guidance`; a configured
+provider (primary, then secondary) may only rephrase them, and every reply records whether it came from a provider
+or from the deterministic engine ("responseSource").
+"""
+
+import asyncio
 import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -20,24 +25,6 @@ from app.models.user import AccountStatus, UserRole
 from app.services.doctor_service import DoctorService
 
 logger = logging.getLogger(__name__)
-
-HEALTH_ASSISTANT_SYSTEM_PROMPT = """You are MediConnect AI Health Assistant, an educational and patient-triage guidance assistant for Sri Lanka.
-Your job is to provide safe, objective, and empathetic general symptom education and help patients navigate to qualified doctors.
-
-CRITICAL MEDICAL SAFETY & CLINICAL RULES:
-1. You are NOT a doctor. You MUST NOT diagnose illnesses, name confirmed conditions for the user ("You have X"), or prescribe medications or specific dosages.
-2. If symptoms suggest emergency (e.g. chest pain, breathing difficulty, stroke symptoms, loss of consciousness), you MUST recommend immediate emergency care (1990 ambulance or hospital ETU).
-3. For non-emergencies, explain potential general causes objectively without certainty, discuss general self-care or lifestyle considerations, and advise an in-person medical evaluation.
-4. Output MUST be a valid JSON object matching this schema:
-{
-  "triage_level": "emergency" | "prompt_care" | "routine_care" | "general_info",
-  "response_text": string,
-  "clarifying_questions": string[],
-  "recommended_specialty": string | null
-}
-Do NOT produce text outside the JSON object.
-"""
-
 
 class HealthAssistantAgent:
     """Conversational health agent with safety-first triage and doctor referral integration."""
@@ -77,7 +64,8 @@ class HealthAssistantAgent:
         )
         # Multilingual, context-aware red-flag detection (BUG-013) supplements the legacy patterns.
         from app.agents.emergency_detector import (
-            crisis_metadata, detect_emergency, emergency_message, informational_message, recent_user_texts,
+            crisis_metadata, detect_emergency, emergency_message, informational_message, normalize,
+            recent_user_texts,
         )
 
         history = recent_user_texts({"messages": session_data["messages"][:-1]})
@@ -149,29 +137,32 @@ class HealthAssistantAgent:
             return session_data
 
         # -----------------------------------------------------------------
-        # STEP 2: Response Generation (LLM or Deterministic Fallback)
+        # STEP 2: Source-grounded answer (A01). The deterministic composer decides what may be said; a configured
+        # provider may only rephrase non-authoritative answers, and its output is validated before use.
         # -----------------------------------------------------------------
-        ai_response_dict = await cls._generate_guidance_response(
-            clean_text=clean_text,
-            lang=lang,
-            triage_level=triage_level,
-            detected_spec=detected_spec,
-        )
+        from app.agents.health_guidance import compose
 
-        # Determine effective triage level (pre-check takes precedence if more severe)
-        effective_triage = triage_level
-        if effective_triage == TriageLevel.GENERAL_INFO and ai_response_dict.get("triage_level") in [
-            TriageLevel.PROMPT_CARE.value,
-            TriageLevel.ROUTINE_CARE.value,
-        ]:
-            effective_triage = TriageLevel(ai_response_dict["triage_level"])
-
-        spec_to_recommend = ai_response_dict.get("recommended_specialty") or detected_spec
+        draft = compose(clean_text, lang, triage_level, detected_spec, history)
+        effective_triage = draft.triage_level
+        if triage_level == TriageLevel.PROMPT_CARE and effective_triage != TriageLevel.PROMPT_CARE and \
+                draft.kind in {"symptom_guidance", "clarification", "prescription_refusal"}:
+            effective_triage = TriageLevel.PROMPT_CARE
+        raw_response_text = draft.text
+        clarifying_questions = list(draft.clarifying_questions)
+        spec_to_recommend = draft.specialty
+        source = await cls._rephrase(draft, clean_text, lang, session_data["messages"][:-1])
+        if source.get("reply") is not None:
+            reply = source.pop("reply")
+            raw_response_text = reply.response_text
+            clarifying_questions = reply.clarifying_questions or clarifying_questions
+            # A provider may refine a specialty only when the grounded answer recommends one (live A01: a sleep
+            # question came back with "General Practitioner").
+            if spec_to_recommend and reply.recommended_specialty:
+                spec_to_recommend = reply.recommended_specialty
+            if reply.triage_level == TriageLevel.PROMPT_CARE.value:
+                effective_triage = TriageLevel.PROMPT_CARE
         if spec_to_recommend and spec_to_recommend not in SUPPORTED_SPECIALTIES:
             spec_to_recommend = DoctorSpecialty.GENERAL_PHYSICIAN.value
-
-        raw_response_text = ai_response_dict.get("response_text", "")
-        clarifying_questions = ai_response_dict.get("clarifying_questions", [])
 
         # -----------------------------------------------------------------
         # STEP 3: Deterministic Post-generation Safety Filter
@@ -182,13 +173,27 @@ class HealthAssistantAgent:
         if was_modified:
             logger.info("Safety filter sanitized assistant response. Violations: %s", violations)
 
+        # Duplicate prevention (A01-H19): the same question again gets a short pointer, not the same long answer.
+        previous = next((m for m in reversed(session_data["messages"][:-1]) if m.get("sender") == "assistant"), None)
+        previous_user = next((m for m in reversed(session_data["messages"][:-1]) if m.get("sender") == "user"), None)
+        if previous and (previous.get("content") == sanitized_text or (
+                previous_user and normalize(previous_user.get("content", "")) == normalize(clean_text))):
+            sanitized_text = (
+                "ඔබ මේ ප්‍රශ්නය දැන් ඇසුවා — ඉහත පිළිතුර තවමත් අදාළයි. ඒ පිළිතුරේ කිසියම් කොටසක් ගැන වැඩි විස්තර, නැත්නම් "
+                "වෛද්‍යවරයෙකු සොයා දීම අවශ්‍යද?" if lang == "si" else
+                "You asked this just now — my answer above still applies. Would you like more detail on any part of it, "
+                "or help finding a doctor?")
+            clarifying_questions = []
+            source["duplicateOfPrevious"] = True
+
         disclaimer_text = SymptomTriageEngine.get_disclaimer(lang)
 
         # -----------------------------------------------------------------
         # STEP 4: Doctor Referral Resolution (Real Verified Doctors Only)
         # -----------------------------------------------------------------
         doctor_referrals: List[Dict[str, Any]] = []
-        if effective_triage in [TriageLevel.ROUTINE_CARE, TriageLevel.PROMPT_CARE]:
+        if effective_triage in [TriageLevel.ROUTINE_CARE, TriageLevel.PROMPT_CARE] and not source.get(
+                "duplicateOfPrevious"):
             target_specialty = spec_to_recommend or DoctorSpecialty.GENERAL_PHYSICIAN.value
             doctor_referrals = await cls._fetch_verified_doctor_referrals(db, target_specialty)
 
@@ -212,150 +217,58 @@ class HealthAssistantAgent:
                 "clarifyingQuestions": clarifying_questions[:2],
                 "recommendedSpecialty": spec_to_recommend,
                 "doctorReferrals": doctor_referrals,
+                "answerKind": draft.kind,
+                **source,
             },
         })
 
         return session_data
 
     @classmethod
-    async def _generate_guidance_response(
-        cls,
-        clean_text: str,
-        lang: str,
-        triage_level: TriageLevel,
-        detected_spec: Optional[str],
-    ) -> Dict[str, Any]:
-        """Generate guidance via configured AI Provider with deterministic fallback."""
-        # Check if an LLM is configured
-        if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip():
-            try:
-                llm_res = await cls._call_gemini_health_model(clean_text, lang)
-                if llm_res:
-                    return llm_res
-            except Exception as e:
-                logger.warning("Gemini health assistant call failed: %s. Using deterministic fallback.", type(e).__name__)
+    async def _rephrase(cls, draft, clean_text: str, lang: str, previous_messages) -> Dict[str, Any]:
+        """Optional provider rephrasing. Returns source metadata, plus "reply" when a validated rewrite was produced.
 
-        # Use robust deterministic fallback
-        return cls._generate_deterministic_fallback(clean_text, lang, triage_level, detected_spec)
+        Authoritative answers (refusals, medicine library facts) are never sent to a provider. Any provider failure,
+        timeout or rejected output keeps the deterministic answer, and the reason is recorded (never the content).
+        """
+        from app.agents.health_guidance import health_timeout, llm_rewrite
+        from app.agents.llm_client import LLMUnavailable, provider_order
+        from app.agents.provider_gateway import record_fallback
 
-    @classmethod
-    async def _call_gemini_health_model(cls, text: str, lang: str) -> Optional[Dict[str, Any]]:
-        """Call Gemini for health guidance generation."""
-        from app.agents.provider_gateway import ProviderCallError, record_fallback, resolve_gemini_model, send
-        api_key = settings.GEMINI_API_KEY.strip()
-        # Phase 05: the configured model is resolved through the retired-model map (it used to map to the retired
-        # gemini-1.5-flash), and the key travels in a header instead of the URL.
-        model_name = resolve_gemini_model(settings.GEMINI_MODEL)
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": f"{HEALTH_ASSISTANT_SYSTEM_PROMPT}\n\nPatient Query ({lang}): {text}"}
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.2,
-                "responseMimeType": "application/json",
-            },
-        }
-
+        meta: Dict[str, Any] = {"responseSource": "deterministic", "provider": None, "model": None}
+        order = provider_order()
+        if draft.authoritative:
+            meta["providerSkipped"] = "authoritative_answer"
+            return meta
+        if not order:
+            meta["providerSkipped"] = "not_configured"
+            return meta
+        conversation = [{"sender": m.get("sender"), "content": str(m.get("content") or "")}
+                        for m in previous_messages if m.get("sender") in {"user", "assistant"}]
         try:
-            data = send("gemini", model_name, url, {"x-goog-api-key": api_key}, payload, settings.AI_TIMEOUT_SECONDS)
-        except ProviderCallError as exc:
-            record_fallback("gemini", exc.category)
-            return None
-        raw_json = data["candidates"][0]["content"]["parts"][0]["text"]
-        return json.loads(raw_json)
-
-    @classmethod
-    def _generate_deterministic_fallback(
-        cls,
-        text: str,
-        lang: str,
-        triage_level: TriageLevel,
-        detected_spec: Optional[str],
-    ) -> Dict[str, Any]:
-        """Produce safe, high-quality rule-based responses in English and Sinhala."""
-        spec = detected_spec or DoctorSpecialty.GENERAL_PHYSICIAN.value
-
-        if lang == "si":
-            if triage_level == TriageLevel.PROMPT_CARE:
-                return {
-                    "triage_level": TriageLevel.PROMPT_CARE.value,
-                    "response_text": (
-                        f"ඔබ සඳහන් කළ රෝග ලක්ෂණ අනුව, කඩිනම් වෛද්‍ය පරීක්ෂාවක් (Prompt Medical Evaluation) "
-                        f"ලබා ගැනීම වඩාත් සුදුසුය. මෙම තත්ත්වය පිළිබඳව {spec} හෝ සාමාන්‍ය වෛද්‍යවරයකු හමුවී "
-                        "පරීක්ෂා කරවා ගැනීම රෙකමදාරු කරනු ලැබේ. කිසිවිටෙකත් වෛද්‍ය උපදෙස් නොමැතිව ඖෂධ ගැනීමෙන් වළකින්න."
-                    ),
-                    "clarifying_questions": [
-                        "මෙම රෝග ලක්ෂණ කොපමණ වේලාවක් හෝ දින කීයක් පවතීද?",
-                        "වෙනත් අමතර අපහසුතා (උදා: වමනය, ක්ලාන්තය) තිබේද?",
-                    ],
-                    "recommended_specialty": spec,
-                }
-            elif triage_level == TriageLevel.ROUTINE_CARE:
-                return {
-                    "triage_level": TriageLevel.ROUTINE_CARE.value,
-                    "response_text": (
-                        f"ඔබ දක්වන රෝග ලක්ෂණ සාමාන්‍යයෙන් විවේකය, ප්‍රමාණවත් ජලය පානය සහ සුවදායී ජීවන රටාවක් මගින් "
-                        f"පාලනය කළ හැකි වුවද, නිසි තක්සේරුවක් සඳහා {spec} වෛද්‍යවරයකු සමඟ සායනික උපදේශනයක් වෙන්කරවා ගැනීම සුදුසුය."
-                    ),
-                    "clarifying_questions": [
-                        "මෙම අපහසුතාවය උග්‍රවන හෝ අඩුවන විශේෂ අවස්ථා තිබේද?",
-                    ],
-                    "recommended_specialty": spec,
-                }
-            else:
-                return {
-                    "triage_level": TriageLevel.GENERAL_INFO.value,
-                    "response_text": (
-                        "මෙය සාමාන්‍ය සෞඛ්‍ය අධ්‍යාපනික තොරතුරකි: සෞඛ්‍ය සම්පන්න ආහාර වේලක්, නිසි නින්ද සහ විජලනයෙන් "
-                        "වැළකීම සමස්ත යහපැවැත්මට උපකාරී වේ. කිසියම් අපහසුතාවක් ඇත්නම් සුදුසුකම් ලත් වෛද්‍යවරයකු හමුවන්න."
-                    ),
-                    "clarifying_questions": [],
-                    "recommended_specialty": spec,
-                }
-
-        # English Fallback
-        if triage_level == TriageLevel.PROMPT_CARE:
-            return {
-                "triage_level": TriageLevel.PROMPT_CARE.value,
-                "response_text": (
-                    f"Based on the symptoms described, prompt medical attention is recommended within the next 12 to 24 hours. "
-                    f"These signs warrant an in-person clinical assessment by a {spec} or at an outpatient clinic to prevent complications. "
-                    "Please do not start self-prescribed antibiotics or medications without clinical guidance."
-                ),
-                "clarifying_questions": [
-                    "How long have you been experiencing these symptoms?",
-                    "Are you experiencing any other symptoms such as chills, vomiting, or dizziness?",
-                ],
-                "recommended_specialty": spec,
-            }
-        elif triage_level == TriageLevel.ROUTINE_CARE:
-            return {
-                "triage_level": TriageLevel.ROUTINE_CARE.value,
-                "response_text": (
-                    f"Your symptoms can be associated with several common factors. While general self-care measures like hydration and rest "
-                    f"may provide comfort, scheduling a routine consultation with a verified {spec} is recommended for a personalized evaluation."
-                ),
-                "clarifying_questions": [
-                    "Does anything specific seem to trigger or worsen these symptoms?",
-                ],
-                "recommended_specialty": spec,
-            }
-        else:
-            return {
-                "triage_level": TriageLevel.GENERAL_INFO.value,
-                "response_text": (
-                    "Here is general health information: Balanced nutrition, adequate hydration, regular rest, and stress management "
-                    "are vital components of maintaining wellness. If you have personal health concerns, a consultation with a licensed practitioner is always advisable."
-                ),
-                "clarifying_questions": [],
-                "recommended_specialty": spec,
-            }
+            reply, result = await asyncio.wait_for(
+                asyncio.to_thread(llm_rewrite, draft, clean_text, lang, conversation),
+                timeout=2 * health_timeout(lang) + 6)
+        except LLMUnavailable as exc:
+            meta["providerFallbackReason"] = exc.reason
+            meta["attempts"] = [{k: a.get(k) for k in ("provider", "model", "category")} for a in exc.attempts]
+            for attempt in exc.attempts:
+                if attempt.get("provider"):
+                    record_fallback(attempt["provider"], attempt.get("category") or "unknown")
+            return meta
+        except asyncio.TimeoutError:
+            meta["providerFallbackReason"] = "timeout"
+            record_fallback(order[0], "timeout")
+            return meta
+        except ValueError as exc:  # validated but rejected (language, dropped danger signs, new numbers, ...)
+            meta["providerFallbackReason"] = f"rejected:{str(exc)[:40]}"
+            record_fallback(order[0], "rejected_output")
+            return meta
+        except Exception as exc:  # never let a provider problem fail the turn
+            logger.warning("Health assistant rephrasing failed (%s).", type(exc).__name__)
+            meta["providerFallbackReason"] = "error"
+            return meta
+        return {**result.meta(), "reply": reply}
 
     @classmethod
     async def _fetch_verified_doctor_referrals(

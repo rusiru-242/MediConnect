@@ -296,7 +296,45 @@ class PaymentMonitoringService:
                 "detectedAt": now,
             })
 
-        total_checked = len(succeeded_payments) + len(paid_appts) + len(delayed_pending)
+        # Check 5 (A03-BUG-009): refund states only a human can resolve. Each was recorded but shown nowhere.
+        review_refunds = list(db["refund_requests"].find({"$or": [
+            {"requiresReview": True},
+            {"status": "processing", "stripeOutcome": "uncertain"},
+        ]}).limit(100))
+        for r in review_refunds:
+            if r.get("requiresReview"):
+                discrepancies.append({
+                    "discrepancyId": f"DISC-REFUNDREVIEW-{r['refundId']}", "type": "REFUND_FAILED_AFTER_SUCCESS",
+                    "severity": "HIGH", "refundId": r["refundId"], "paymentId": r.get("paymentId"),
+                    "appointmentId": r.get("appointmentId"),
+                    "description": f"Stripe reported refund {r.get('stripeRefundId')} as {r.get('stripeRefundStatus')} after it "
+                                   "had succeeded. MediConnect still records the money as returned and the patient was told so.",
+                    "recommendation": "Check the refund in Stripe test mode and contact the patient. Records are not changed "
+                                      "automatically; do not approve a second refund before checking Stripe.",
+                    "detectedAt": now,
+                })
+            else:
+                discrepancies.append({
+                    "discrepancyId": f"DISC-REFUNDUNKNOWN-{r['refundId']}", "type": "REFUND_OUTCOME_UNCERTAIN",
+                    "severity": "MEDIUM", "refundId": r["refundId"], "paymentId": r.get("paymentId"),
+                    "appointmentId": r.get("appointmentId"),
+                    "description": "The payment provider did not confirm this refund (network or provider error). It is "
+                                   "being looked up in Stripe automatically.",
+                    "recommendation": "Wait for the automatic check. Do not approve the refund again.",
+                    "detectedAt": now,
+                })
+        for p in db["payments"].find({"$or": [{"refundEventMismatch": True}, {"refundRequiresReview": True}]}).limit(100):
+            discrepancies.append({
+                "discrepancyId": f"DISC-REFUNDEVENT-{p['_id']}", "type": "REFUND_EVENT_NEEDS_REVIEW",
+                "severity": "HIGH", "paymentId": str(p["_id"]), "appointmentId": p.get("appointmentId"),
+                "stripePaymentIntentId": p.get("stripePaymentIntentId"),
+                "description": "A Stripe refund event did not match this payment, or reported a failure after a "
+                               "reconciliation refund succeeded. Nothing was changed.",
+                "recommendation": "Compare the refund with the PaymentIntent in Stripe test mode.",
+                "detectedAt": now,
+            })
+
+        total_checked = len(succeeded_payments) + len(paid_appts) + len(delayed_pending) + len(review_refunds)
         return {
             "discrepancies": discrepancies,
             "totalChecked": total_checked,

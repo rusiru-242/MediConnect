@@ -429,11 +429,18 @@ class PaymentService:
         # Phase 05 (B3): persist and de-duplicate by Stripe event id before any record changes.
         from app.services import stripe_webhook_service as hooks
         skip = hooks.begin_event(db, event)
-        if skip:
+        if skip == "duplicate":
             # Same response the per-record idempotency checks have always given for a redelivery.
             return {"status": "already_processed", "reason": "duplicate_event"}
-        # An exception leaves the event "processing"; a Stripe redelivery after five minutes retries it.
-        result = await PaymentService._dispatch_event(db, event, event_type, data_object, now, payment_col)
+        if skip == "in_progress":
+            # A 2xx would make Stripe stop redelivering an event that may never finish (A03-BUG-001).
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail="This event is already being processed. Stripe will redeliver it.")
+        try:
+            result = await PaymentService._dispatch_event(db, event, event_type, data_object, now, payment_col)
+        except Exception as exc:
+            hooks.fail_event(db, event, exc)   # the 500 makes Stripe redeliver; the redelivery is processed again
+            raise
         hooks.finish_event(db, event, str(result.get("status")))
         return result
 
@@ -470,11 +477,15 @@ class PaymentService:
             if not payment:
                 return {"status": "ignored", "reason": "Payment record not found"}
 
-            error_msg = (data_object.get("last_payment_error") or {}).get("message", "Payment failed")
-            payment_col.update_one(
+            # A real Stripe event object is not a dict: .get() raised AttributeError on every decline (A03-BUG-002).
+            last_error = _intent_value(data_object, "last_payment_error")
+            error_msg = (_intent_value(last_error, "message") if last_error else None) or "Payment failed"
+            recorded = payment_col.update_one(
                 {
                     "_id": payment["_id"],
-                    "status": {"$ne": PaymentStatus.SUCCEEDED.value},
+                    # Only an open payment can fail. A failure event delivered after the success (or after a
+                    # cancellation) changes nothing and tells the patient nothing (A03-BUG-003).
+                    "status": {"$in": [PaymentStatus.PENDING.value, PaymentStatus.FAILED.value]},
                 },
                 {
                     "$set": {
@@ -484,6 +495,8 @@ class PaymentService:
                     }
                 },
             )
+            if not recorded.matched_count:
+                return {"status": "ignored_out_of_order", "appointmentId": payment["appointmentId"]}
 
             appt_id_str = payment["appointmentId"]
             if ObjectId.is_valid(appt_id_str):
@@ -558,8 +571,9 @@ class PaymentService:
                 detail="You do not have permission to access this payment.",
             )
 
-        # Fallback sync: if status is PENDING, verify with Stripe directly
-        if payment.get("status") == PaymentStatus.PENDING.value and payment.get("stripePaymentIntentId"):
+        # Fallback sync with Stripe while the payment is open. A recorded decline is included: the patient can pay
+        # the same intent with another card, and the success webhook may never arrive (A03-BUG-004).
+        if payment.get("status") in {PaymentStatus.PENDING.value, PaymentStatus.FAILED.value}                 and payment.get("stripePaymentIntentId"):
             try:
                 intent = stripe.PaymentIntent.retrieve(payment["stripePaymentIntentId"])
                 now = utc_now()
@@ -571,8 +585,9 @@ class PaymentService:
                     payment = payment_col.find_one({"_id": payment["_id"]}) or payment
                 elif intent.status in ["canceled", "requires_payment_method"]:
                     if intent.last_payment_error:
+                        # Conditional: a webhook may have settled the payment after Stripe was read (A03-BUG-004).
                         payment_col.update_one(
-                            {"_id": payment["_id"]},
+                            {"_id": payment["_id"], "status": PaymentStatus.PENDING.value},
                             {
                                 "$set": {
                                     "status": PaymentStatus.FAILED.value,
@@ -581,7 +596,7 @@ class PaymentService:
                                 }
                             },
                         )
-                        payment["status"] = PaymentStatus.FAILED.value
+                    payment = payment_col.find_one({"_id": payment["_id"]}) or payment
             except Exception as e:
                 logger.warning("Fallback Stripe status sync failed (%s)", type(e).__name__)
 

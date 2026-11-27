@@ -152,7 +152,9 @@ def test_s02a_gemini_adapter_key_in_header_and_metrics_recorded(fresh_metrics):
     url, kwargs = post.call_args[0][0], post.call_args[1]
     assert "key=" not in url and "test-key-not-real" not in url
     assert kwargs["headers"]["x-goog-api-key"] == "test-key-not-real"
-    assert "gemini-flash-latest" in url  # retired id remapped, and reported (below)
+    # Retired id remapped, and reported. A01 changed the target from the alias gemini-flash-latest (whose target the
+    # Gemini docs no longer state) to the pinned stable gemini-3.8-flash, confirmed with a live model lookup.
+    assert "gemini-3.8-flash" in url
     today = gw._db()[gw.COLLECTION].find_one({"_id": gw._day_key("gemini")})
     assert today["successes"] == 1 and today["promptTokens"] == 40 and today["completionTokens"] == 9
     assert "heart doctor" not in json.dumps(today, default=str)  # no prompt text stored

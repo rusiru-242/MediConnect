@@ -1,5 +1,6 @@
 """Notification service: in-app notifications, FCM push messaging, and scheduled reminders."""
 
+import hashlib
 import json
 import logging
 import math
@@ -83,6 +84,50 @@ def _init_firebase() -> bool:
         return False
 
 
+MAX_DEVICES_PER_USER = 10
+
+
+def token_ref(token: str) -> str:
+    """A non-reversible reference for logs; raw device tokens are never logged (A02-BUG-008)."""
+    return hashlib.sha256((token or "").encode()).hexdigest()[:12]
+
+
+# A02-BUG-006: lock screens show only a generic preview. The in-app text (doctor names, patient names, dates,
+# specialties) stays inside the authenticated app.
+_PUSH_PREVIEWS = {
+    "appointment": ("Appointment update", "You have an appointment update. Open MediConnect for details."),
+    "payment": ("Payment update", "You have a payment update. Open MediConnect for details."),
+    "care": ("Care update", "You have a care update. Open MediConnect for details."),
+}
+
+
+def push_preview(notification_type: str) -> tuple:
+    kind = str(notification_type or "")
+    if kind.startswith(("APPOINTMENT", "BOOKING")):
+        return _PUSH_PREVIEWS["appointment"]
+    if kind.startswith("PAYMENT"):
+        return _PUSH_PREVIEWS["payment"]
+    if kind.startswith(("FOLLOW_UP", "CARE", "PRESCRIPTION", "CONSULTATION")):
+        return _PUSH_PREVIEWS["care"]
+    return ("MediConnect", "You have a new notification. Open MediConnect for details.")
+
+
+def _permanent_token_error(exc) -> bool:
+    """True only when FCM says this registration token can never receive messages (A02-BUG-007)."""
+    try:
+        from firebase_admin import messaging
+        if isinstance(exc, (messaging.UnregisteredError, messaging.SenderIdMismatchError)):
+            return True
+    except Exception:  # pragma: no cover - firebase_admin is a project dependency
+        pass
+    code = str(getattr(exc, "code", "") or "").lower()
+    text = str(exc).lower()
+    if code in {"registration-token-not-registered", "unregistered", "notregistered"}:
+        return True
+    # INVALID_ARGUMENT is also returned for a bad payload; only a message that names the token removes it.
+    return code in {"invalid-argument", "invalid_argument"} and "registration token" in text
+
+
 def _doc_to_response(doc: Dict[str, Any]) -> NotificationResponse:
     """Format raw notification MongoDB document into NotificationResponse schema."""
     created_at = doc.get("createdAt")
@@ -128,6 +173,9 @@ class NotificationService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="FCM token cannot be empty.",
             )
+        kind = (device_type or "android").lower()
+        if kind not in {"android", "ios", "web"}:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported device type.")
 
         col = get_device_token_collection(db)
         now = utc_now()
@@ -140,7 +188,7 @@ class NotificationService:
             {"userId": str(user_id), "fcmToken": token},
             {
                 "$set": {
-                    "deviceType": (device_type or "android").lower(),
+                    "deviceType": kind,
                     "updatedAt": now,
                 },
                 "$setOnInsert": {
@@ -149,6 +197,11 @@ class NotificationService:
             },
             upsert=True,
         )
+        # A02-BUG-008: a user's device list is bounded; the least recently refreshed tokens are dropped.
+        stale = [d["_id"] for d in col.find({"userId": str(user_id)}, {"_id": 1})
+                 .sort("updatedAt", DESCENDING).skip(MAX_DEVICES_PER_USER)]
+        if stale:
+            col.delete_many({"_id": {"$in": stale}})
         return NotificationActionResponse(
             success=True,
             message="Device token registered successfully.",
@@ -177,7 +230,7 @@ class NotificationService:
         try:
             col = get_device_token_collection(db)
             col.delete_many({"fcmToken": fcm_token})
-            logger.info("Removed stale FCM token: %s...", fcm_token[:10])
+            logger.info("Removed stale FCM token ref=%s", token_ref(fcm_token))
         except Exception as exc:
             logger.warning("Failed to remove stale FCM token: %s", exc)
 
@@ -222,6 +275,7 @@ class NotificationService:
                     title=title,
                     body=body,
                 ),
+                apns=messaging.APNSConfig(payload=messaging.APNSPayload(aps=messaging.Aps(sound="default"))),
                 data=payload_data,
                 android=messaging.AndroidConfig(
                     priority="high",
@@ -234,25 +288,19 @@ class NotificationService:
 
             response = messaging.send_each_for_multicast(message)
             logger.info(
-                "FCM multicast sent for user %s: %d success, %d failure",
+                "FCM multicast for user %s: %d accepted, %d failed",
                 recipient_user_id,
                 response.success_count,
                 response.failure_count,
             )
 
-            # Clean up invalid/unregistered tokens
+            # Remove only tokens FCM reports as permanently invalid (A02-BUG-007). A quota, server or payload error
+            # used to delete every token whose error text contained "invalid-argument".
             if response.failure_count > 0:
                 for idx, item in enumerate(response.responses):
-                    if not item.success and item.exception:
-                        err_code = getattr(item.exception, "code", "") or str(item.exception)
-                        # Detect unregistered/invalid token
-                        if (
-                            "registration-token-not-registered" in err_code.lower()
-                            or "invalid-argument" in err_code.lower()
-                            or "notregistered" in err_code.lower()
-                        ):
-                            bad_token = tokens[idx]
-                            cls.clean_stale_token(db, bad_token)
+                    if not item.success and item.exception and _permanent_token_error(item.exception):
+                        cls.clean_stale_token(db, tokens[idx])
+            # "accepted" = FCM accepted the message for at least one device. It is not proof that a device showed it.
             return "accepted" if response.success_count else "failed"
         except Exception as exc:
             logger.warning("FCM submission outcome unavailable (%s)", type(exc).__name__)
@@ -318,6 +366,7 @@ class NotificationService:
                 return None
 
             # Dispatch push notification safely without risking in-app creation
+            requested_push = send_push
             if send_push:
                 # Check recipient's push notification preference
                 try:
@@ -330,6 +379,7 @@ class NotificationService:
                 except Exception:
                     pass
 
+            push_status = "not_requested" if not requested_push else "skipped"
             if send_push:
                 try:
                     push_data = {
@@ -338,15 +388,26 @@ class NotificationService:
                         "relatedAppointmentId": doc_data.get("relatedAppointmentId") or "",
                         "relatedPaymentId": doc_data.get("relatedPaymentId") or "",
                     }
-                    cls._send_fcm_push(
+                    preview_title, preview_body = push_preview(doc_data["type"])
+                    push_status = cls._send_fcm_push(
                         db=db,
                         recipient_user_id=str(recipient_user_id),
-                        title=title,
-                        body=body,
+                        title=preview_title,
+                        body=preview_body,
                         data=push_data,
                     )
+                    push_status = {"unavailable": "disabled"}.get(push_status, push_status or "uncertain")
                 except Exception as push_exc:
-                    logger.warning("FCM push delivery failed: %s", push_exc)
+                    # (``type`` is a parameter of this method, so the builtin is not available here.)
+                    logger.warning("FCM push delivery failed (%s)", push_exc.__class__.__name__)
+                    push_status = "uncertain"
+            # A02-BUG-009: the push outcome was discarded, so no transactional notification had delivery tracking.
+            # "accepted" means FCM accepted it; device receipt is not reported by FCM.
+            try:
+                notif_col.update_one({"_id": doc_data["_id"]}, {"$set": {"channels.push": {
+                    "status": push_status, "attemptedAt": utc_now()}}})
+            except Exception:
+                pass
 
             return _doc_to_response(doc_data)
         except Exception as exc:

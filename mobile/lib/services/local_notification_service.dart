@@ -15,6 +15,9 @@ class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
+
+  /// True once the plugin initialised on a real device (never in widget tests).
+  bool get isInitialized => _isInitialized;
   NotificationTapCallback? onNotificationTap;
 
   static const String _channelId = 'mediconnect_medication_reminders';
@@ -176,6 +179,60 @@ class LocalNotificationService {
       debugPrint('[Notification] Error scheduling notification: $e');
       return false;
     }
+  }
+
+  /// Schedule one medication reminder occurrence at an exact instant (A02-BUG-016).
+  ///
+  /// Occurrences are scheduled individually (never as an open-ended daily repeat), so nothing fires after the
+  /// prescribed end date even if the app is not opened again. Same privacy-preserving copy as before.
+  Future<bool> scheduleMedicationOccurrence({
+    required int notificationId,
+    required DateTime whenUtc,
+    required String payload,
+  }) async {
+    try {
+      const notificationDetails = NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          _channelName,
+          channelDescription: _channelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+          ticker: 'Medication reminder',
+        ),
+        iOS: DarwinNotificationDetails(),
+      );
+      await _notificationsPlugin.zonedSchedule(
+        id: notificationId,
+        title: 'Medication Schedule Reminder',
+        body: "It's time to check your medication schedule.",
+        scheduledDate: tz.TZDateTime.from(whenUtc.toUtc(), tz.local),
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[Notification] Error scheduling occurrence: $e');
+      return false;
+    }
+  }
+
+  /// Cancel every pending medication reminder whose payload starts with [prefix] (A02-BUG-016).
+  Future<int> cancelPendingWithPayloadPrefix(String prefix) async {
+    var cancelled = 0;
+    try {
+      final pending = await _notificationsPlugin.pendingNotificationRequests();
+      for (final request in pending) {
+        if ((request.payload ?? '').startsWith(prefix)) {
+          await _notificationsPlugin.cancel(id: request.id);
+          cancelled++;
+        }
+      }
+    } catch (e) {
+      debugPrint('[Notification] Error cancelling pending reminders: $e');
+    }
+    return cancelled;
   }
 
   /// Cancel a specific scheduled notification by ID.

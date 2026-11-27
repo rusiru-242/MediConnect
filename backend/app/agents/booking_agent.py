@@ -54,6 +54,41 @@ from app.services.doctor_service import (
 
 logger = logging.getLogger(__name__)
 
+# A03-BUG-012: an existing appointment the patient wants to cancel or move ("my appointment", "mage appointment eka").
+_MY_BOOKING = (r"(?:\b(?:my|existing|booked|upcoming|current)\s+(?:appointment|booking)s?\b"
+               r"|\bmage\s+(?:appointment|booking)\b|\b(?:appointment|booking)\s+eka\b|මගේ\s*(?:appointment|හමුවීම|වෙන්කිරීම))")
+_CANCEL_WORDS = r"(?:\bcancel\w*|\bawalangu\w*|අවලංගු)"
+_RESCHEDULE_WORDS = r"(?:\bre-?schedul\w*|\bpostpone\w*|\bmove\b|\bchange\b|\bwenas\w*|වෙනස්|කල්\s*දා)"
+
+
+def manage_existing_request(text: str) -> Optional[str]:
+    """'cancel' or 'reschedule' when the patient asks to change a booking they already have, else None."""
+    if not re.search(_MY_BOOKING, text, re.IGNORECASE):
+        return None
+    if re.search(_CANCEL_WORDS, text, re.IGNORECASE):
+        return "cancel"
+    if re.search(_RESCHEDULE_WORDS, text, re.IGNORECASE):
+        return "reschedule"
+    return None
+
+
+# A03-BUG-011: "Show me another available time on the same date", "wena welawak", "වෙනත් වේලාවක්".
+_OTHER_TIME = (r"\b(?:another|other|different|more|next)\s+(?:available\s+|open\s+|free\s+)?(?:time|slot|timing)s?\b"
+               r"|\bwena\s+(?:welawak|welawal|time\w*|slot\w*)\b|වෙනත්\s*වේලාව")
+
+
+def other_time_request(text: str) -> bool:
+    return bool(re.search(_OTHER_TIME, text, re.IGNORECASE))
+
+
+# A03-BUG-014: "yes, confirm it", "pay now", "ow book karanna" while a proposal is shown (no time in the message).
+_CONFIRM_CHAT = (r"\b(?:confirm\w*|yes|yeah|ok(?:ay)?|book\s+it|go\s+ahead|proceed|pay\w*|charge\w*|accept\w*|ow|hari|"
+                 r"salli\s+gew\w*)\b|තහවුරු|ගෙවන්න|හරි")
+
+
+def confirm_by_chat_request(text: str) -> bool:
+    return bool(re.search(_CONFIRM_CHAT, text, re.IGNORECASE)) and not re.search(r"\d{1,2}[:.]\d{2}", text)
+
 # "Recommend a good doctor" shows the most suitable one or two by default (Phase 01 requirement).
 RECOMMENDATION_LIMIT = 2
 
@@ -245,12 +280,17 @@ class BookingAgent:
                              {"type": "medication_change_requires_clinician", "scheduleChanged": False,
                               "ambulanceCall": AMBULANCE_NUMBER},
                              intent_value="MEDICATION_CHANGE_REQUEST")
-            if patient_intent in {"medication_schedule", "medical_tests"}:
+            if patient_intent in {"medication_schedule", "medical_tests", "missed_medication", "unread_notifications",
+                                  "notification_action"}:
                 if patient_user:
                     from app.agents.patient_care import respond_to_care
                     care = await respond_to_care(db, patient_user, get_ai_provider(), session_data, clean_text,
-                                                 category="medication" if patient_intent == "medication_schedule"
-                                                 else "test")
+                                                 category={"medication_schedule": "medication",
+                                                           "medical_tests": "test",
+                                                           "missed_medication": "missed",
+                                                           "unread_notifications": "notifications",
+                                                           "notification_action": "notification_action",
+                                                           }[patient_intent])
                     if care is not None:
                         return care
                 return reply(
@@ -642,6 +682,16 @@ class BookingAgent:
         session_data["activeMedicineCard"] = None
         session_data["activeImageAnalysis"] = None
 
+        # A03-BUG-012: "I want to cancel / reschedule my appointment" is about an existing booking, not about this chat's
+        # selection. The assistant never cancels or moves a booking itself; it lists the patient's upcoming
+        # appointments and points to the explicit actions (which show the cancellation and refund rules first).
+        manage = manage_existing_request(clean_text)
+        # Also after this chat's own booking is confirmed (it answered with a generic "use My Appointments" before).
+        if manage and patient_user and (
+                not (session_data.get("appointmentId") or session_data.get("bookingSummary"))
+                or session_data.get("state") == BookingAgentState.BOOKING_CONFIRMED.value):
+            return await cls._manage_existing_turn(db, patient_user, session_data, manage, lang)
+
         # 3. Handle explicit cancel / reset commands
         if re.search(r"\b(?:cancel|abort|start\s+over|reset|අවලංගු)\b", clean_text, re.IGNORECASE):
             if session_data.get("appointmentId"):
@@ -691,6 +741,21 @@ class BookingAgent:
         # Dr. UAT Neuro on November 26, 2026") is a new search, not a follow-up about an earlier result
         # (Phase 01: it used to ask "Which doctor should I look up?").
         names_new_doctor = bool(parsed_delta.get("doctorName")) and not named
+        # A03-BUG-010: the doctor the agent selected at the patient's request ("select the most experienced doctor") is
+        # the doctor of the following turns ("this doctor", "book next Monday") until the patient names another doctor,
+        # picks one by position, asks for a new selection or changes a hard constraint. Before, only the id was stored:
+        # "this doctor" asked "Which doctor do you mean?" and an automatic proposal picked the cheapest doctor instead.
+        auto_id = session_data.get("autoSelectedDoctorId")
+        constraint_change = any(parsed_delta.get(key) not in (None, "")
+                                for key in ("specialty", "city", "maxFee", "hospital"))
+        if auto_id and (named or ordinal is not None or names_new_doctor or constraint_change or selection_request):
+            session_data.pop("autoSelectedDoctorId", None)
+        elif auto_id and not selected_doctor:
+            focus = next((d for d in candidate_doctors if d.get("doctorId") == auto_id), None)
+            if focus and focus.get("consultationFee") is not None:
+                session_data["selectedDoctor"] = selected_doctor = focus
+                session_data["activeIntent"] = CompanionIntent.BOOK_APPOINTMENT.value
+            session_data.pop("autoSelectedDoctorId", None)
         if not names_new_doctor and (greeting or follow_up or (pending_action and (ordinal is not None or named))):
             session_data["preferences"] = {**previous_preferences, "language": lang}
             metadata = {"type": "clarification_needed"}
@@ -726,6 +791,21 @@ class BookingAgent:
                             current = profile.model_dump()
                             metadata = {"type": "doctor_details", "doctors": [{**doctor, **current}]}
                             reply = f"Here are the profile details for {profile.fullName}."
+                    elif action in {"slot", "slots", "availability", "වේලාව"} and doctor.get("consultationFee") is not None:
+                        # A03: "Show me the available slots for this doctor tomorrow" shows them (read-only; no hold).
+                        wanted = parsed_delta.get("date") or previous_preferences.get("date")
+                        slots = await cls._fetch_available_slots(db, doctor["doctorId"], wanted)
+                        session_data["selectedDoctor"] = doctor
+                        session_data["selectedSlot"] = None
+                        session_data["bookingSummary"] = None
+                        session_data["candidateSlots"] = slots
+                        session_data["activeIntent"] = CompanionIntent.BOOK_APPOINTMENT.value
+                        if wanted:
+                            session_data["preferences"]["date"] = wanted
+                        if validate_state_transition(current_state, BookingAgentState.AWAITING_SLOT_SELECTION.value):
+                            session_data["state"] = BookingAgentState.AWAITING_SLOT_SELECTION.value
+                        metadata = {"type": "slot_selection", "doctorId": doctor["doctorId"]}
+                        reply = cls._build_slot_selection_message(doctor, slots, lang)
                     else:
                         metadata = {"type": "doctor_details", "doctors": pool}
                         reply = f"Choose View Available Slots for {doctor['fullName']} to check times by date."
@@ -752,6 +832,56 @@ class BookingAgent:
                 "timestamp": utc_now(), "metadata": {"type": "booking_status"},
             })
             return session_data
+
+        # A03-BUG-014: a chat message never accepts a proposal or authorizes a charge. "Yes, confirm it and charge my card"
+        # got a request for symptoms; it now says how the explicit acceptance and the secure payment screen work.
+        if (session_data.get("bookingSummary") and not session_data.get("appointmentId")
+                and confirm_by_chat_request(clean_text)):
+            reply = ("චැට් පණිවිඩයකින් හමුවීම තහවුරු කිරීම හෝ ගෙවීම කළ නොහැක. පහත යෝජනාව පරීක්ෂා කර Accept booking "
+                     "ඔබන්න. ඉන්පසු ආරක්ෂිත Stripe ගෙවීම් තිරයේ පමණක් ගෙවීම සිදු වේ."
+                     if lang == "si" else
+                     "I can't confirm a booking or take a payment from a chat message. Review the proposal below and tap "
+                     "Accept booking; the slot is then held for 10 minutes and you pay only on the secure Stripe payment "
+                     "screen.")
+            session_data["messages"].append({
+                "id": str(ObjectId()), "sender": "assistant", "content": reply, "timestamp": utc_now(),
+                "metadata": {"type": "confirmation_required",
+                             "proposalId": (session_data.get("bookingSummary") or {}).get("proposalId")},
+            })
+            session_data["updatedAt"] = utc_now()
+            return session_data
+
+        # A03-BUG-011: other open times with the same doctor on the same date (read-only). The current proposal is kept;
+        # naming one of the listed times updates it through the normal time-change path.
+        summary_now = session_data.get("bookingSummary") or {}
+        if (selected_doctor or summary_now.get("doctorId")) and other_time_request(clean_text):
+            doctor = selected_doctor or next((d for d in candidate_doctors if d.get("doctorId") == summary_now.get("doctorId")), None)
+            date = ((selected_slot or {}).get("date") or summary_now.get("appointmentDate")
+                    or parsed_delta.get("date") or prefs.get("date"))
+            current_time = (selected_slot or {}).get("startTime") or summary_now.get("startTime")
+            if doctor and date:
+                options = [s for s in await cls._fetch_available_slots(db, doctor["doctorId"], date)
+                           if s.get("date") == date and s.get("startTime") != current_time]
+                name = doctor.get("fullName", "the doctor")
+                if options:
+                    session_data["candidateSlots"] = options
+                    times = ", ".join(s["startTime"] for s in options[:8])
+                    reply = (f"{name} ට {date} දින ඇති වෙනත් වේලාවන්: {times}. ඔබට අවශ්‍ය වේලාව කියන්න."
+                             if lang == "si" else
+                             f"Other open times with {name} on {date}: {times}. Tell me the time you want and I will "
+                             "update the proposal." + (f" Your current proposal ({current_time}) is unchanged."
+                                                       if current_time else ""))
+                else:
+                    reply = (f"{name} ට {date} දින වෙනත් විවෘත වේලාවක් නැත. වෙනත් දිනයක් ඉල්ලන්න."
+                             if lang == "si" else
+                             f"{name} has no other open time on {date}. Ask for another date, or keep the proposed time.")
+                session_data["messages"].append({
+                    "id": str(ObjectId()), "sender": "assistant", "content": reply, "timestamp": utc_now(),
+                    "metadata": {"type": "alternative_times", "doctorId": doctor["doctorId"], "date": date,
+                                 "slots": options[:8]},
+                })
+                session_data["updatedAt"] = utc_now()
+                return session_data
 
         # 4. Handle "compare" / "compare doctors" request
         if candidate_doctors and re.search(r"\b(?:compare|comparison|සසඳන්න)\b", clean_text, re.IGNORECASE):
@@ -1040,6 +1170,62 @@ class BookingAgent:
     # DATABASE SEARCH HELPERS
     # -------------------------------------------------------------------------
     @classmethod
+    async def _manage_existing_turn(cls, db, user, session, action, lang):
+        """List the patient's upcoming appointments and point to the explicit Cancel / Reschedule actions.
+
+        Read-only: a cancellation shows the refund that applies under the existing policy before the patient confirms
+        it, and a reschedule keeps the booking until a real open slot is accepted. The chat never does either.
+        """
+        from datetime import datetime as _dt
+        from app.services.appointment_service import SL_TIMEZONE
+        today = _dt.now(SL_TIMEZONE).strftime("%Y-%m-%d")
+        rows = list(db["appointments"].find(
+            {"patientUserId": str(user.id), "status": {"$in": ["CONFIRMED", "PENDING", "HOLD"]},
+             "appointmentDate": {"$gte": today}},
+            {"appointmentDate": 1, "startTime": 1, "status": 1, "paymentStatus": 1, "doctorUserId": 1,
+             "bookingDoctorName": 1, "holdExpiresAt": 1},
+        ).sort([("appointmentDate", 1), ("startTime", 1)]).limit(5))
+        names = {}
+        for row in rows:
+            doctor_id = str(row.get("doctorUserId") or "")
+            if doctor_id not in names and ObjectId.is_valid(doctor_id):
+                names[doctor_id] = (db["users"].find_one({"_id": ObjectId(doctor_id)}, {"fullName": 1}) or {}).get("fullName")
+        items = [{"appointmentId": str(r["_id"]), "date": r["appointmentDate"], "startTime": r["startTime"],
+                  "status": r["status"], "paymentStatus": r.get("paymentStatus"),
+                  "doctorName": r.get("bookingDoctorName") or names.get(str(r.get("doctorUserId") or "")) or "Doctor"}
+                 for r in rows]
+        if lang == "si":
+            lines = "\n".join(f"• {i['date']} {i['startTime']} – {i['doctorName']}" for i in items)
+            if not items:
+                reply = "ඔබට ඉදිරියට ඇති හමුවීම් කිසිවක් නැත."
+            elif action == "cancel":
+                reply = (f"චැට් එකෙන් හමුවීමක් අවලංගු කළ නොහැක. ඔබගේ ඉදිරි හමුවීම්:\n{lines}\n\n"
+                         "My Appointments වෙත ගොස් හමුවීම තෝරා Cancel Appointment ඔබන්න. තහවුරු කිරීමට පෙර අදාළ "
+                         "මුදල් ආපසු ගෙවීම පෙන්වයි.")
+            else:
+                reply = (f"චැට් එකෙන් හමුවීමක් වෙනස් කළ නොහැක. ඔබගේ ඉදිරි හමුවීම්:\n{lines}\n\n"
+                         "My Appointments වෙත ගොස් Reschedule ඔබා වෛද්‍යවරයාගේ විවෘත වේලාවක් තෝරන්න.")
+        else:
+            lines = "\n".join(f"• {i['date']} at {i['startTime']} with {i['doctorName']} ({i['status'].lower()})"
+                              for i in items)
+            if not items:
+                reply = "You have no upcoming appointments to change."
+            elif action == "cancel":
+                reply = (f"I can't cancel an appointment from the chat. Your upcoming appointments:\n{lines}\n\n"
+                         "Open My Appointments, choose the appointment and tap Cancel Appointment. Before you confirm, it "
+                         "shows the refund that applies under the cancellation policy.")
+            else:
+                reply = (f"I can't move an appointment from the chat. Your upcoming appointments:\n{lines}\n\n"
+                         "Open My Appointments, choose the appointment and tap Reschedule to pick one of the doctor's "
+                         "open times. Your appointment stays as it is until you confirm a new time.")
+        session.setdefault("messages", []).append({
+            "id": str(ObjectId()), "sender": "assistant", "content": reply, "timestamp": utc_now(),
+            "metadata": {"type": "appointment_management", "action": action, "appointments": items},
+        })
+        session["updatedAt"] = utc_now()
+        return session
+
+    @classmethod
     async def _patient_status_turn(cls, db, user, provider, session, text):
         appointment_query = bool(re.search(r"\b(?:heta mata appointment|my appointments)\b", text, re.I))
         care_query = "my care tasks" in text.casefold()
@@ -1267,6 +1453,9 @@ class BookingAgent:
             "serviceFee": service_fee,
             "totalAmount": fee + service_fee,
             "currency": "lkr",
+            # A03-BUG-015: MediConnect appointments are in-person clinic visits (Phase 02, BUG-056); the summary the
+            # patient accepts says so.
+            "visitType": "IN_PERSON",
         }
 
     # -------------------------------------------------------------------------
@@ -1458,6 +1647,8 @@ class BookingAgent:
         fee = summary.get("totalAmount", 0.0)
 
         if lang == "si":
-            return f"නියමයි! {name} සමඟ {date} ({time}) වේලාව තහවුරු කිරීමට පහත 'Confirm Booking' ඔබන්න."
+            return f"නියමයි! {name} සමඟ {date} ({time}) වේලාව සඳහා පහත සාරාංශය පරීක්ෂා කර 'Accept & Continue' ඔබන්න."
 
-        return f"Great! Please tap 'Confirm Booking' below to reserve your slot with {name} on {date} ({time})." 
+        # A03-BUG-016: the button on the summary card is "Accept & Continue" (it said "Confirm Booking").
+        return (f"Review the summary below and tap 'Accept & Continue' to reserve your slot with {name} on {date} "
+                f"({time}). Nothing is reserved or charged before that.")

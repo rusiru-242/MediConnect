@@ -13,6 +13,8 @@ import '../models/user_model.dart';
 import '../services/auth_api_service.dart';
 import '../services/fcm_service.dart';
 import '../services/google_auth_service.dart';
+import '../services/local_notification_service.dart';
+import '../services/medication_reminder_service.dart';
 
 enum AuthStatus {
   initial,
@@ -111,6 +113,7 @@ class AuthProvider extends ChangeNotifier {
       _status = AuthStatus.authenticated;
       await _storageService.saveUserJson(jsonEncode(user.toJson()));
       FcmService().syncTokenWithBackend().catchError((_) {});
+      if (_user?.role == 'PATIENT') MedicationReminderService().syncFromServer();
       notifyListeners();
     } on AuthException {
       // Token is invalid/expired and refresh failed
@@ -190,6 +193,7 @@ class AuthProvider extends ChangeNotifier {
       _user = session.user;
       _status = AuthStatus.authenticated;
       FcmService().syncTokenWithBackend().catchError((_) {});
+      if (_user?.role == 'PATIENT') MedicationReminderService().syncFromServer();
 
       if (_user?.role == 'DOCTOR') {
         try {
@@ -271,6 +275,7 @@ class AuthProvider extends ChangeNotifier {
       _user = session.user;
       _status = AuthStatus.authenticated;
       FcmService().syncTokenWithBackend().catchError((_) {});
+      if (_user?.role == 'PATIENT') MedicationReminderService().syncFromServer();
       _isLoading = false;
       notifyListeners();
       return true;
@@ -557,6 +562,10 @@ class AuthProvider extends ChangeNotifier {
           }),
         FcmService().removeTokenOnLogout().catchError((e) {
           debugPrint('[AuthProvider] FCM token removal failed gracefully: $e');
+        }),
+        // A02-BUG-017: this account's device-local medication reminders must not keep firing for the next user.
+        LocalNotificationService().cancelAllReminders().catchError((e) {
+          debugPrint('[AuthProvider] Local reminder cleanup failed gracefully: $e');
         }),
         _googleAuthService.signOut().catchError((e) {
           debugPrint('[AuthProvider] Google sign-out failed gracefully: $e');

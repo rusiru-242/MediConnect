@@ -107,6 +107,11 @@ class ImageAnalysisResult(BaseModel):
     status: Optional[str] = Field(default=None, description="'analyzed' | 'unreadable' | 'not_medicine' | 'provider_unavailable' | 'invalid_file'")
     extracted: Optional[Dict[str, Any]] = Field(default=None, description="Text read from the image; not verified")
     provider: Optional[str] = None
+    # A01: which model read the photo, and whether the result came from a vision provider at all.
+    model: Optional[str] = None
+    responseSource: Optional[str] = Field(default=None, description="'vision_provider' | 'none'")
+    packageCount: Optional[int] = None
+    embeddedTextIgnored: bool = False
 
 
 class BookingSummary(BaseModel):
@@ -131,6 +136,7 @@ class BookingSummary(BaseModel):
     serviceFee: float = 0.0
     totalAmount: float
     currency: str = "lkr"
+    visitType: str = "IN_PERSON"  # A03-BUG-015: the only supported visit type
 
 
 class AssistantResponse(BaseModel):

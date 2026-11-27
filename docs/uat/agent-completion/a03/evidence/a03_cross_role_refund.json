@@ -1,0 +1,39 @@
+{
+ "refund": {
+  "status": "succeeded",
+  "stripeRefundStatus": "succeeded",
+  "refundedAmount": 3500.0
+ },
+ "payment": {
+  "status": "REFUNDED",
+  "refundedAmount": 3500.0
+ },
+ "webhooks": [
+  [
+   "refund.created",
+   "no_change"
+  ],
+  [
+   "charge.refunded",
+   "no_refunds"
+  ],
+  [
+   "refund.updated",
+   "no_change"
+  ],
+  [
+   "charge.refund.updated",
+   "no_change"
+  ]
+ ],
+ "doctorView": {
+  "http": 200,
+  "status": "CANCELLED",
+  "paymentStatus": "REFUNDED",
+  "visitType": "IN_PERSON",
+  "bookingReference": "6b094d4462b83a37c5d00c2f",
+  "amountPaid": 3500.0,
+  "refundStatus": "succeeded",
+  "cancelledBy": "PATIENT"
+ }
+}

@@ -557,7 +557,8 @@ export const MonitoringPage: React.FC = () => {
           <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs" data-testid="notification-channels">
             <h3 className="text-base font-semibold text-slate-900 mb-2">Delivery by channel</h3>
             <p className="text-xs text-slate-500 mb-4">
-              Counts come from stored delivery records. A channel whose provider is not configured sends nothing.
+              Counts come from stored delivery records. &ldquo;Provider accepted&rdquo; is not proof of delivery; a channel
+              whose provider is not configured is shown as disabled and sends nothing.
             </p>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
@@ -566,9 +567,11 @@ export const MonitoringPage: React.FC = () => {
                     <th className="py-2 px-3">Channel</th>
                     <th className="py-2 px-3">Provider</th>
                     <th className="py-2 px-3">Delivered / stored</th>
+                    <th className="py-2 px-3">Provider accepted</th>
                     <th className="py-2 px-3">Pending</th>
                     <th className="py-2 px-3">Failed</th>
                     <th className="py-2 px-3">Skipped</th>
+                    <th className="py-2 px-3">Disabled</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -577,9 +580,11 @@ export const MonitoringPage: React.FC = () => {
                       <td className="py-2 px-3 font-medium text-slate-800">{ch.channel.replace('_', '-')}</td>
                       <td className="py-2 px-3 text-xs text-slate-600">{(ch.providerStatus || 'unknown').replace(/_/g, ' ')}</td>
                       <td className="py-2 px-3">{ch.delivered}</td>
+                      <td className="py-2 px-3">{ch.accepted ?? 0}</td>
                       <td className="py-2 px-3">{ch.pending}</td>
                       <td className="py-2 px-3">{ch.failed}</td>
                       <td className="py-2 px-3">{ch.skipped ?? 0}</td>
+                      <td className="py-2 px-3">{ch.disabled ?? 0}</td>
                     </tr>
                   ))}
                 </tbody>

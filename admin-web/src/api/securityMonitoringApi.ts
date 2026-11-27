@@ -90,7 +90,12 @@ export interface NotificationMetrics {
   byChannel: Array<{
     channel: string;
     pending: number;
+    /** Delivery evidence only: an in-app record stored, or a provider delivery receipt (A02). */
     delivered: number;
+    /** Accepted by the provider (SMTP/FCM/SMS gateway); not proof of delivery (A02). */
+    accepted?: number;
+    /** Provider not configured: nothing was sent (A02). */
+    disabled?: number;
     failed: number;
     retryScheduled: number;
     deadLettered: number;
