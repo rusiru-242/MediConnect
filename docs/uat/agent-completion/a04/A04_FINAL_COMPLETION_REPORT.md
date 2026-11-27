@@ -75,4 +75,12 @@ No generative AI runs on prescription paths, and nothing is labelled AI-generate
 
 ## Integration
 
-The PR, CI and merge results are recorded in `A04_GIT_INTEGRATION_REPORT.md` and `A04_RESULTS.json` once they happen.
+| Item | Value |
+|---|---|
+| PR | **#26** (opened and merged by the owner; GitHub CLI could not be logged in for the agent) |
+| Merge commit | `18e8a3272e5079e5a2afd303734479a4abd0c1e1` = `origin/main` |
+| CI on `main` | Backend and Mobile success. Admin Web was not triggered because no admin-web change |
+| Post-merge smoke | 31 of 31 A04 tests; live probe unchanged from after-fix |
+| Deployment | None |
+
+The PR was merged 9 seconds after it was opened, before its Backend check finished; that check then passed, as it already had for the same code (`51bdaa3`). Details: `A04_GIT_INTEGRATION_REPORT.md`.
