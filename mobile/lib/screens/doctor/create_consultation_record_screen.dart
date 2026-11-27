@@ -19,15 +19,40 @@ class CreateConsultationRecordScreen extends StatefulWidget {
   State<CreateConsultationRecordScreen> createState() => _CreateConsultationRecordScreenState();
 }
 
+/// A04-BUG-009: every field starts empty. The dose, frequency, duration, quantity and instructions used to be
+/// pre-filled ("1 tablet", "Twice daily (BD)", "5 days", "10 tablets", "Take after meals"), and quantity had no field
+/// at all, so a prescription could be issued with dosing the doctor never entered. Examples are hints only.
 class _MedicationItemEntry {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController strengthController = TextEditingController();
-  final TextEditingController doseController = TextEditingController(text: '1 tablet');
-  final TextEditingController frequencyController = TextEditingController(text: 'Twice daily (BD)');
-  final TextEditingController durationController = TextEditingController(text: '5 days');
-  final TextEditingController quantityController = TextEditingController(text: '10 tablets');
-  final TextEditingController instructionsController = TextEditingController(text: 'Take after meals');
+  final TextEditingController doseController = TextEditingController();
+  final TextEditingController frequencyController = TextEditingController();
+  final TextEditingController durationController = TextEditingController();
+  final TextEditingController quantityController = TextEditingController();
+  final TextEditingController instructionsController = TextEditingController();
   String route = 'Oral';
+
+  /// Required fields left empty, in the order shown on the form.
+  List<String> missing() => [
+        if (nameController.text.trim().isEmpty) 'drug name',
+        if (strengthController.text.trim().isEmpty) 'strength',
+        if (doseController.text.trim().isEmpty) 'dose',
+        if (frequencyController.text.trim().isEmpty) 'frequency',
+        if (durationController.text.trim().isEmpty) 'duration',
+        if (quantityController.text.trim().isEmpty) 'quantity',
+      ];
+
+  MedicationItem toItem() => MedicationItem(
+        medicationName: nameController.text.trim(),
+        strength: strengthController.text.trim(),
+        dose: doseController.text.trim(),
+        route: route,
+        frequency: frequencyController.text.trim(),
+        duration: durationController.text.trim(),
+        quantity: quantityController.text.trim(),
+        additionalInstructions:
+            instructionsController.text.trim().isEmpty ? null : instructionsController.text.trim(),
+      );
 
   void dispose() {
     nameController.dispose();
@@ -53,6 +78,10 @@ class _CreateConsultationRecordScreenState extends State<CreateConsultationRecor
   bool _includePrescription = true;
   final List<_MedicationItemEntry> _medications = [];
   bool _isSubmitting = false;
+
+  /// A04-BUG-010: the consultation record saved by an earlier attempt. If the prescription then failed, a retry used
+  /// to create the record again ("already exists") and the visit could never receive its prescription here.
+  String? _savedRecordId;
 
   @override
   void initState() {
@@ -101,25 +130,71 @@ class _CreateConsultationRecordScreenState extends State<CreateConsultationRecor
 
     if (_includePrescription) {
       for (int i = 0; i < _medications.length; i++) {
-        final med = _medications[i];
-        if (med.nameController.text.trim().isEmpty || med.strengthController.text.trim().isEmpty) {
+        final missing = _medications[i].missing();
+        if (missing.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Please fill in medication name and strength for item #${i + 1}.')),
+            SnackBar(
+              key: const Key('rx_missing_fields_message'),
+              content: Text('Medication #${i + 1}: enter the ${missing.join(', ')}. Nothing is filled in for you.'),
+            ),
           );
           return;
         }
       }
     }
 
-    // Confirmation dialog before final issuance
+    final items = _includePrescription ? _medications.map((m) => m.toItem()).toList() : <MedicationItem>[];
+    // Structural check of exactly what was typed (missing fields, repeats, allergies, active prescriptions).
+    // It never changes the items and never signs; if it cannot run, the dialog says so.
+    Map<String, dynamic>? review;
+    String? reviewError;
+    final patientId = (widget.appointment['patientUserId'] ?? widget.appointment['patientId'])?.toString();
+    if (_includePrescription && patientId != null && patientId.isNotEmpty) {
+      try {
+        review = await _service.reviewPrescriptionDraft(patientUserId: patientId, medicationItems: items);
+      } catch (_) {
+        reviewError = 'The allergy and active-medication check could not run. Review the patient record yourself.';
+      }
+    } else if (_includePrescription) {
+      reviewError = 'The allergy and active-medication check could not run for this visit.';
+    }
+    if (!mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Record & Prescription'),
-        content: Text(
-          'Are you sure you want to officially issue this clinical consultation record'
-          '${_includePrescription ? " and digital prescription (${_medications.length} items)" : ""}?'
-          '\n\nThis will be permanently attached to the patient\'s health record and is tamper-evident.',
+        key: const Key('rx_review_dialog'),
+        title: Text(_savedRecordId == null ? 'Confirm Record & Prescription' : 'Confirm Prescription'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _savedRecordId == null
+                    ? 'Issue this clinical consultation record'
+                        '${_includePrescription ? " and digital prescription (${items.length} items)" : ""}?'
+                    : 'The consultation record is already saved. Issue the prescription (${items.length} items)?',
+              ),
+              if (_includePrescription) ...[
+                const SizedBox(height: 10),
+                const Text('Review what you entered:', style: TextStyle(fontWeight: FontWeight.bold)),
+                for (var i = 0; i < items.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${i + 1}. ${items[i].medicationName} ${items[i].strength} — ${items[i].dose}, ${items[i].route}, '
+                      '${items[i].frequency}, ${items[i].duration}, quantity ${items[i].quantity}'
+                      '${items[i].additionalInstructions != null ? '. ${items[i].additionalInstructions}' : ''}',
+                      key: Key('rx_review_item_$i'),
+                    ),
+                  ),
+                ..._reviewFindings(review, reviewError),
+              ],
+              const SizedBox(height: 10),
+              const Text('This will be permanently attached to the patient\'s health record and is tamper-evident.'),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
@@ -135,65 +210,103 @@ class _CreateConsultationRecordScreenState extends State<CreateConsultationRecor
     if (confirmed != true) return;
 
     setState(() => _isSubmitting = true);
+    final apptId = widget.appointment['id']?.toString() ?? widget.appointment['_id']?.toString() ?? '';
 
     try {
-      final apptId = widget.appointment['id']?.toString() ?? widget.appointment['_id']?.toString() ?? '';
-
-      // 1. Create Consultation Medical Record
-      final record = await _service.createMedicalRecord(
-        appointmentId: apptId,
-        clinicalNotes: _clinicalNotesController.text,
-        assessment: _assessmentController.text,
-        treatmentPlan: _treatmentPlanController.text,
-        followUpInstructions: _followUpController.text,
-      );
-
-      // 2. Issue Digital Prescription if checked
-      if (_includePrescription) {
-        final medItems = _medications.map((m) {
-          return MedicationItem(
-            medicationName: m.nameController.text.trim(),
-            strength: m.strengthController.text.trim(),
-            dose: m.doseController.text.trim(),
-            route: m.route,
-            frequency: m.frequencyController.text.trim(),
-            duration: m.durationController.text.trim(),
-            quantity: m.quantityController.text.trim(),
-            additionalInstructions: m.instructionsController.text.trim(),
-          );
-        }).toList();
-
-        await _service.createPrescription(
-          medicalRecordId: record.id,
+      // 1. Create the consultation record once; a retry after a failed prescription reuses it.
+      if (_savedRecordId == null) {
+        final record = await _service.createMedicalRecord(
           appointmentId: apptId,
-          medicationItems: medItems,
-          instructions: _prescInstructionsController.text,
+          clinicalNotes: _clinicalNotesController.text,
+          assessment: _assessmentController.text,
+          treatmentPlan: _treatmentPlanController.text,
+          followUpInstructions: _followUpController.text,
         );
+        _savedRecordId = record.id;
       }
-
-      if (!mounted) return;
-
-      setState(() => _isSubmitting = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Consultation documented and prescription issued successfully.'),
-          backgroundColor: AppTheme.success,
-        ),
-      );
-
-      Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save record: $e'), backgroundColor: AppTheme.error),
+      );
+      return;
+    }
 
+    try {
+      // 2. Issue the digital prescription exactly as reviewed.
+      if (_includePrescription) {
+        await _service.createPrescription(
+          medicalRecordId: _savedRecordId!,
+          appointmentId: apptId,
+          medicationItems: items,
+          instructions: _prescInstructionsController.text,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save record: $e'),
+          key: const Key('rx_issue_failed_message'),
+          content: Text('The consultation record was saved, but the prescription was not issued: $e. '
+              'Correct it and tap the button again; the record will not be created twice.'),
           backgroundColor: AppTheme.error,
+          duration: const Duration(seconds: 8),
         ),
       );
+      return;
     }
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_includePrescription
+            ? 'Consultation documented and prescription issued successfully.'
+            : 'Consultation documented successfully.'),
+        backgroundColor: AppTheme.success,
+      ),
+    );
+    Navigator.of(context).pop(true);
+  }
+
+  List<Widget> _reviewFindings(Map<String, dynamic>? review, String? reviewError) {
+    if (reviewError != null) {
+      return [
+        const SizedBox(height: 8),
+        Text(reviewError, key: const Key('rx_review_unavailable'), style: const TextStyle(color: AppTheme.error)),
+      ];
+    }
+    if (review == null) return const [];
+    List<String> strings(String key) => (review[key] as List? ?? const []).map((e) => e.toString()).toList();
+    final notes = (review['items'] as List? ?? const [])
+        .expand((e) => ((e as Map)['notes'] as List? ?? const []).map((n) => n.toString()))
+        .toList();
+    final allergies = strings('allergyWarnings');
+    final duplicates = strings('potentialDuplicates');
+    final repeated = strings('repeatedMedicines');
+    final missing = strings('missingFieldsWarnings');
+    return [
+      const SizedBox(height: 8),
+      for (final text in allergies)
+        Text(text,
+            key: const Key('rx_review_allergy_warning'),
+            style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold)),
+      for (final text in duplicates) Text(text, style: const TextStyle(color: Colors.orange)),
+      for (final text in repeated) Text('Entered more than once: $text', style: const TextStyle(color: Colors.orange)),
+      for (final text in missing) Text(text, style: const TextStyle(color: Colors.orange)),
+      for (final text in notes) Text(text, style: const TextStyle(fontSize: 12)),
+      if (allergies.isEmpty && duplicates.isEmpty)
+        const Text('No match with documented allergies or active MediConnect prescriptions.',
+            key: Key('rx_review_no_match'), style: TextStyle(fontSize: 12)),
+      const SizedBox(height: 4),
+      Text(
+        review['interactionCheckNotice']?.toString() ?? 'Drug-interaction checking is not available.',
+        key: const Key('rx_review_interaction_notice'),
+        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+      ),
+    ];
   }
 
   @override
@@ -476,10 +589,11 @@ class _CreateConsultationRecordScreenState extends State<CreateConsultationRecor
               children: [
                 Expanded(
                   child: TextFormField(
+                    key: Key('med_dose_$index'),
                     controller: med.doseController,
                     decoration: InputDecoration(
-                      labelText: 'Dose',
-                      hintText: '1 tablet',
+                      labelText: 'Dose *',
+                      hintText: 'e.g. 1 tablet',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       isDense: true,
                     ),
@@ -512,10 +626,11 @@ class _CreateConsultationRecordScreenState extends State<CreateConsultationRecor
               children: [
                 Expanded(
                   child: TextFormField(
+                    key: Key('med_frequency_$index'),
                     controller: med.frequencyController,
                     decoration: InputDecoration(
-                      labelText: 'Frequency',
-                      hintText: 'Twice daily',
+                      labelText: 'Frequency *',
+                      hintText: 'e.g. Twice daily',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       isDense: true,
                     ),
@@ -524,10 +639,11 @@ class _CreateConsultationRecordScreenState extends State<CreateConsultationRecor
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextFormField(
+                    key: Key('med_duration_$index'),
                     controller: med.durationController,
                     decoration: InputDecoration(
-                      labelText: 'Duration',
-                      hintText: '5 days',
+                      labelText: 'Duration *',
+                      hintText: 'e.g. 5 days',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       isDense: true,
                     ),
@@ -537,10 +653,22 @@ class _CreateConsultationRecordScreenState extends State<CreateConsultationRecor
             ),
             const SizedBox(height: 10),
             TextFormField(
+              key: Key('med_quantity_$index'),
+              controller: med.quantityController,
+              decoration: InputDecoration(
+                labelText: 'Quantity *',
+                hintText: 'e.g. 10 tablets',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              key: Key('med_instructions_$index'),
               controller: med.instructionsController,
               decoration: InputDecoration(
-                labelText: 'Instructions',
-                hintText: 'Take after meals with water',
+                labelText: 'Instructions (optional)',
+                hintText: 'e.g. Take after meals with water',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 isDense: true,
               ),

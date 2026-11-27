@@ -26,7 +26,8 @@ class MedicationItem {
       medicationName: json['medicationName']?.toString() ?? '',
       strength: json['strength']?.toString() ?? '',
       dose: json['dose']?.toString() ?? '',
-      route: json['route']?.toString() ?? 'Oral',
+      // A04: a missing route is shown as not stated, not as 'Oral'.
+      route: json['route']?.toString() ?? '',
       frequency: json['frequency']?.toString() ?? '',
       duration: json['duration']?.toString() ?? '',
       quantity: json['quantity']?.toString() ?? '',

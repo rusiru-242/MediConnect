@@ -131,5 +131,16 @@ void main() {
       expect(fakeService.downloadPdfCalled, isTrue);
       expect(find.text('PDF Download Ready'), findsOneWidget);
     });
+
+    testWidgets('A04-BUG-015: the prescription renewals list can be opened from Medical Records', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: MedicalRecordsScreen(service: FakeMedicalRecordService()),
+        routes: {'/patient/prescription-renewals': (_) => const Scaffold(body: Text('renewals route'))},
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('patient_records_renewals_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('renewals route'), findsOneWidget);
+    });
   });
 }

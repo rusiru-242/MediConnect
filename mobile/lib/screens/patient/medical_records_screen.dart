@@ -158,6 +158,16 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> with Single
               Navigator.of(context).pushNamed('/patient/care-plans');
             },
           ),
+          // A04-BUG-015: the renewal list existed (route /patient/prescription-renewals) but nothing opened it, so
+          // patients could not see whether a renewal was approved, declined or waiting.
+          IconButton(
+            key: const Key('patient_records_renewals_button'),
+            icon: const Icon(Icons.autorenew_rounded),
+            tooltip: 'Prescription renewals',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/patient/prescription-renewals');
+            },
+          ),
         ],
         bottom: TabBar(
           controller: _tabController,

@@ -77,7 +77,10 @@ class _PrescriptionRenewalsScreenState extends State<PrescriptionRenewalsScreen>
                   controller: medNameController,
                   decoration: const InputDecoration(
                     labelText: 'Medication Name *',
-                    hintText: 'e.g. Losartan 50mg',
+                    // A04: the name as written on the prescription (the strength is not part of it). Easier: open
+                    // the prescription and choose Request renewal next to the medicine.
+                    hintText: 'Exactly as on the prescription, e.g. Losartan',
+                    helperText: 'Or open the prescription and tap Request renewal.',
                   ),
                 ),
                 const SizedBox(height: 12),

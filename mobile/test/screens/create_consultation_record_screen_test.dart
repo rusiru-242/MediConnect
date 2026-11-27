@@ -112,9 +112,19 @@ void main() {
         'Avoid trigger foods, maintain sleep hygiene.',
       );
 
-      // Fill in medication item
+      // Fill in medication item. A04-BUG-009: name and strength alone used to be enough because dose, frequency,
+      // duration and quantity were pre-filled; the doctor must now enter them.
       await tester.enterText(find.byKey(const Key('med_name_0')), 'Sumatriptan');
       await tester.enterText(find.byKey(const Key('med_strength_0')), '50mg');
+      await tester.tap(submitButton);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('rx_missing_fields_message')), findsOneWidget);
+      expect(fakeService.createRecordCalled, isFalse);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.enterText(find.byKey(const Key('med_dose_0')), '1 tablet');
+      await tester.enterText(find.byKey(const Key('med_frequency_0')), 'Once at onset');
+      await tester.enterText(find.byKey(const Key('med_duration_0')), '3 days');
+      await tester.enterText(find.byKey(const Key('med_quantity_0')), '3 tablets');
 
       // Tap submit button
       await tester.tap(submitButton);
