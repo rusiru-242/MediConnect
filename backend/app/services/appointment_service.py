@@ -833,6 +833,36 @@ class AppointmentService:
                                      idempotency_key=f"hold_expired_{doc['_id']}")
         return released
 
+    @staticmethod
+    def stop_intents_of_released_holds(db: Database, now=None, *, limit: int = 20) -> Dict[str, int]:
+        """Make the PaymentIntents of released (cancelled) unpaid reservations unpayable (A03-BUG-005).
+
+        ``release_expired_holds`` frees the slot without calling Stripe (expiry must never wait for the payment
+        provider), so the patient's open PaymentSheet could still charge the card for a booking that no longer
+        exists. This step cancels those intents through the same path as Release Reservation (BUG-063). An intent
+        that already succeeded is settled exactly once and, because the booking is gone, kept for refund review.
+        A Stripe failure leaves the payment open and it is retried on the next worker cycle.
+        """
+        now = now or utc_now()
+        stats: Dict[str, int] = {"checked": 0}
+        pipeline = [
+            {"$match": {"status": {"$in": ["PENDING", "FAILED"]}, "stripePaymentIntentId": {"$type": "string"}}},
+            {"$addFields": {"_appt": {"$convert": {"input": "$appointmentId", "to": "objectId",
+                                                    "onError": None, "onNull": None}}}},
+            {"$lookup": {"from": "appointments", "localField": "_appt", "foreignField": "_id", "as": "appt"}},
+            {"$match": {"appt.status": AppointmentStatus.CANCELLED.value}},
+            {"$group": {"_id": "$appointmentId"}},
+            {"$limit": limit},
+        ]
+        for row in db["payments"].aggregate(pipeline):
+            stats["checked"] += 1
+            try:
+                outcome = stop_open_payment_intents(db, row["_id"], now)
+            except HTTPException as exc:   # 502 Stripe unreachable, 409 processing, 503 no gateway: retry later
+                outcome = f"retry_{exc.status_code}"
+            stats[outcome] = stats.get(outcome, 0) + 1
+        return stats
+
     # -------------------------------------------------------------------------
     # PATIENT: Release an unpaid reservation hold (BUG-063)
     # -------------------------------------------------------------------------

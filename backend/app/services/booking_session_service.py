@@ -837,7 +837,7 @@ class BookingSessionService:
                 {"appointmentId": doc["appointmentId"], "patientUserId": str(patient_user.id)},
                 sort=[("createdAt", -1)],
             )
-            if payment and payment.get("status") == "PENDING":
+            if payment and payment.get("status") in {"PENDING", "FAILED"}:  # a decline can be followed by a success (A03-BUG-004)
                 from app.services.payment_service import PaymentService
                 await PaymentService.get_payment_status(db, str(payment["_id"]), patient_user)
         cls._sync_hold_and_payment_status(db, doc)
