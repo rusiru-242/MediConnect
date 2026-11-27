@@ -437,7 +437,44 @@
       }
     }
   },
-  "integration": "pending",
+  "integration": {
+    "pr": {
+      "number": 26,
+      "url": "https://github.com/rusiru-242/MediConnect/pull/26",
+      "openedBy": "owner",
+      "openedAt": "2026-11-27T16:50:58Z",
+      "mergedAt": "2026-11-27T16:51:07Z",
+      "head": "c36b705",
+      "extraOwnerCommit": "c36b705 adds docs/uat/agent-completion.zip (scanned: no secrets)"
+    },
+    "mergeCommit": "18e8a3272e5079e5a2afd303734479a4abd0c1e1",
+    "originMain": "18e8a3272e5079e5a2afd303734479a4abd0c1e1",
+    "mergedTreeEqualsTestedCode": true,
+    "ci": {
+      "51bdaa3": {
+        "backend": "success",
+        "mobile": "success",
+        "adminWeb": "not triggered (no admin-web change)"
+      },
+      "c36b705": {
+        "backend": "success (finished after the merge)",
+        "mobile": "success"
+      },
+      "18e8a32 main": {
+        "backend": "success",
+        "mobile": "success"
+      }
+    },
+    "mergedWhileCheckPending": true,
+    "deployments": 0,
+    "postMerge": {
+      "a01ToA04InMain": true,
+      "localMainFastForwarded": "18e8a32",
+      "smokeA04Tests": "31 passed",
+      "smokeProbe": "evidence/a04_probe_post_merge.json: unchanged from after-fix"
+    },
+    "agentGhLogin": "not available; PR opened and merged by the owner"
+  },
   "productionReady": false,
   "clinicallyApproved": false
 }
