@@ -400,9 +400,10 @@ LOCATION_PATTERNS: List[Tuple[str, List[str]]] = [
 # TIME RANGE PATTERNS
 # ---------------------------------------------------------------------------
 TIME_RANGE_PATTERNS: List[Tuple[str, List[str]]] = [
-    ("morning", [r"\bmorning\b", r"\bam\b", r"\bearly\b", "උදේ", "උදෑසන"]),
-    ("afternoon", [r"\bafternoon\b", r"\bmidday\b", r"\bnoon\b", "දවල්", "සවස"]),
-    ("evening", [r"\bevening\b", r"\bnight\b", r"\bpm\b", "හවස", "රෑ", "රාත්‍රී"]),
+    # A03: Romanized Sinhala ("heta udee", "dawal", "hawasa") as well (A03-BUG-013).
+    ("morning", [r"\bmorning\b", r"\bam\b", r"\bearly\b", r"\bude+(?:ta|sana)?\b", r"\budaasana\b", "උදේ", "උදෑසන"]),
+    ("afternoon", [r"\bafternoon\b", r"\bmidday\b", r"\bnoon\b", r"\bdawal(?:ata|ta)?\b", "දවල්", "සවස"]),
+    ("evening", [r"\bevening\b", r"\bnight\b", r"\bpm\b", r"\bhawas(?:a|e|ata)?\b", r"\breeta\b", "හවස", "රෑ", "රාත්‍රී"]),
 ]
 
 # ---------------------------------------------------------------------------
