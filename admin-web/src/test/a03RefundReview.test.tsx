@@ -62,7 +62,7 @@ describe('A03 refund review states', () => {
 
   it('tells the administrator not to approve again while the outcome is uncertain', async () => {
     vi.mocked(adminWorkflowApi.listRefunds).mockResolvedValue({
-      items: [{ ...base, status: 'processing', requiresReview: null, stripeRefundId: null, stripeRefundStatus: null,
+      items: [{ ...base, status: 'processing', requiresReview: null, stripeRefundId: undefined, stripeRefundStatus: null,
                 refundedAmount: null, stripeOutcome: 'uncertain', failureReason: 'APIConnectionError' }],
       total: 1, page: 1, pageSize: 50,
     });

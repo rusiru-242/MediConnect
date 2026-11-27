@@ -23,6 +23,8 @@ export interface ReconciliationDiscrepancy {
   paymentId?: string;
   appointmentId?: string;
   stripePaymentIntentId?: string;
+  /** A03-BUG-009: refund-review discrepancies name the refund request. */
+  refundId?: string;
   description: string;
   recommendation: string;
   detectedAt: string;
