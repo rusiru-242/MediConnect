@@ -75,6 +75,11 @@ def _fresh_rate_limit_counters():
         DatabaseManager.get_database()[COLLECTION].delete_many({})
     except Exception:
         pass
+    # A03 (A02-O4): the application's indexes exist from the first test, exactly as after a real backend start.
+    # Before, they were created only when some earlier test happened to start the app's lifespan, so a test of the
+    # database-level double-booking protection could run without the unique slot index and see two winners.
+    from app.config.database import ensure_indexes
+    assert ensure_indexes(DatabaseManager.get_database()), "MongoDB indexes could not be created"
     yield
 
 
@@ -98,9 +103,10 @@ def _no_live_ai_provider_calls(monkeypatch):
     monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", guarded)
 
 
-# Real delivery providers (A02-BUG-002). Loopback hosts stay reachable for the local SMTP test server.
+# Real delivery providers (A02-BUG-002) and the payment provider (A03). Loopback hosts stay reachable for the local
+# SMTP test server.
 _DELIVERY_HOSTS = ("smtp.gmail.com", "api.twilio.com", "fcm.googleapis.com", "oauth2.googleapis.com",
-                   "smtp.sendgrid.net", "email-smtp.")
+                   "smtp.sendgrid.net", "email-smtp.", "api.stripe.com", "files.stripe.com")
 
 
 @pytest.fixture(autouse=True)
@@ -109,11 +115,22 @@ def _no_real_delivery_provider_calls(monkeypatch):
     import socket
 
     real_create = socket.create_connection
+    real_getaddrinfo = socket.getaddrinfo
+
+    def blocked(host):
+        host = str(host).lower()
+        return any(host == h or host.startswith(h) or host.endswith("." + h) for h in _DELIVERY_HOSTS)
 
     def guarded(address, *args, **kwargs):
-        host = str(address[0]).lower()
-        if any(host == h or host.startswith(h) or host.endswith("." + h) for h in _DELIVERY_HOSTS):
+        if blocked(address[0]):
             raise ConnectionRefusedError("real delivery provider blocked in tests")
         return real_create(address, *args, **kwargs)
 
+    def guarded_getaddrinfo(host, *args, **kwargs):
+        # urllib3 (used by the Stripe library) resolves names itself instead of calling create_connection.
+        if blocked(host):
+            raise socket.gaierror("real payment or delivery provider blocked in tests")
+        return real_getaddrinfo(host, *args, **kwargs)
+
     monkeypatch.setattr(socket, "create_connection", guarded)
+    monkeypatch.setattr(socket, "getaddrinfo", guarded_getaddrinfo)
