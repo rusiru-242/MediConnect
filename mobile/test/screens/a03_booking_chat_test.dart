@@ -83,4 +83,26 @@ void main() {
     expect(find.text('In-person at the clinic'), findsOneWidget);
     expect(find.textContaining('Video'), findsNothing);
   });
+
+  testWidgets('A03-BUG-018: a disabled e-mail provider is not shown as "pending"', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 2400);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final service = FakeAiBookingService();
+    service.currentSession = BookingSession.fromJson({
+      ...service.currentSession.toJson(),
+      'state': 'BOOKING_CONFIRMED',
+      'appointmentId': 'b'.padRight(24, '0'),
+      'bookingResult': {
+        'reference': 'b'.padRight(24, '0'), 'status': 'CONFIRMED', 'paymentStatus': 'PAID', 'doctor': 'Dr. A03',
+        'clinic': 'A03 Clinic', 'date': '2026-12-01', 'time': '11:00',
+        'notifications': {'email': 'disabled', 'sms': 'skipped', 'doctor': 'delivered'},
+      },
+    });
+    await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: AiCareAssistantScreen(bookingService: service)));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Email: not sent (service not available)'), findsOneWidget);
+    expect(find.textContaining('Email: pending'), findsNothing);
+  });
 }

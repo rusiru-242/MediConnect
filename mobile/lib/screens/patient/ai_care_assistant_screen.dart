@@ -2690,6 +2690,9 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
         return 'accepted by provider';
       case 'skipped':
         return 'not requested';
+      case 'disabled':
+        // A03-BUG-018: the provider is not set up, so nothing will be sent (it used to read "pending").
+        return 'not sent (service not available)';
       case 'failed':
         return 'not sent';
       case 'uncertain':

@@ -223,3 +223,16 @@ def test_a03_bug017_summary_without_server_fee_is_not_presented():
     assert _to_response_schema(doc).bookingSummary is None          # was LKR 2,500 invented
     doc["bookingSummary"].update(consultationFee=3500.0, totalAmount=3500.0)
     assert _to_response_schema(doc).bookingSummary.totalAmount == 3500.0
+
+
+def test_a03_bug012_cancel_after_this_chats_booking_is_confirmed_lists_appointments(db, env):
+    appt_id, _ = _confirmed(db, env, day=6, start="11:00")
+    cid = chat(env)
+    updated = db["booking_sessions"].update_one({"_id": ObjectId(cid)}, {"$set": {
+        "state": "BOOKING_CONFIRMED", "appointmentId": appt_id,
+        "bookingSummary": {"doctorName": "Dr. A03 Cardio Senior", "consultationFee": 3500.0, "totalAmount": 3500.0}}})
+    assert updated.matched_count == 1
+    data = say(env, cid, "I want to cancel my appointment.")
+    meta = last(data)["metadata"]
+    assert meta["type"] == "appointment_management" and appt_id in [a["appointmentId"] for a in meta["appointments"]]
+    assert db["appointments"].find_one({"_id": ObjectId(appt_id)})["status"] == "CONFIRMED"

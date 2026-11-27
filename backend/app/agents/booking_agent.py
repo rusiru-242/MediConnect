@@ -686,7 +686,10 @@ class BookingAgent:
         # selection. The assistant never cancels or moves a booking itself; it lists the patient's upcoming
         # appointments and points to the explicit actions (which show the cancellation and refund rules first).
         manage = manage_existing_request(clean_text)
-        if manage and patient_user and not (session_data.get("appointmentId") or session_data.get("bookingSummary")):
+        # Also after this chat's own booking is confirmed (it answered with a generic "use My Appointments" before).
+        if manage and patient_user and (
+                not (session_data.get("appointmentId") or session_data.get("bookingSummary"))
+                or session_data.get("state") == BookingAgentState.BOOKING_CONFIRMED.value):
             return await cls._manage_existing_turn(db, patient_user, session_data, manage, lang)
 
         # 3. Handle explicit cancel / reset commands
