@@ -81,7 +81,29 @@ ADMIN_INTENTS: Sequence[Tuple[str, str]] = (
      r"bookings?|appointments?|analytics|conversion|cancellations?|හමුවීම්|වෙන්කිරීම්|சந்திப்பு"),
 )
 
+PRESCRIPTION_AUTHORIZATION = (
+    r"(?:approve|finali[sz]e|sign(?: off)?|authori[sz]e|issue|auto(?:matically)?[- ]?(?:approve|renew|sign))\b"
+    r".{0,30}\b(?:prescriptions?|renewals?)|(?:prescriptions?|renewals?)\b.{0,20}\b(?:approved?|finali[sz]ed?|"
+    r"signed)\s+(?:automatically|now|without)")
+OTHER_PATIENT_RX = (
+    r"(?:another|other|someone else'?s?|different|a different)\s+patient'?s?\b.{0,40}\b(?:prescriptions?|medicines?|"
+    r"medications?|dos(?:e|age)s?)")
+
 DOCTOR_INTENTS: Sequence[Tuple[str, str]] = (
+    # A04 (Agent 17): prescribing, approving or changing is the doctor's own act and is refused; reading and
+    # summarising use the role-checked prescription tool. Before A04 all of these got the generic menu.
+    ("prescription_action_request",
+     PRESCRIPTION_AUTHORIZATION + r"|\bprescribe\b|(?:increase|reduce|decrease|change|double|halve|adjust)\b.{0,40}\b"
+     r"(?:dose|dosage|medication|medicine)|ignore (?:the |all |any )?(?:previous|prior|earlier|above) "
+     r"(?:restrictions|instructions|rules)"),
+    ("prescription_draft_help",
+     r"(?:prepare|create|make|write|fill)\b.{0,15}\bdraft|draft\b.{0,30}\b(?:prescription|medication)|"
+     r"(?:missing|required)\b.{0,30}\bfields?|fields?\b.{0,20}\bmissing"),
+    ("prescription_summary",
+     r"summari[sz]e\b.{0,30}\bprescription|prescription\b.{0,20}\bsummary|\brx-(?:ren-)?\d{8}-[a-f0-9]{6}\b"),
+    ("patient_prescriptions",
+     r"(?:patient'?s?|existing|current|active)\b.{0,30}\bprescriptions?|prescriptions? (?:of|for) (?:this|the) "
+     r"patient|prescription history"),
     ("renewal_queue",
      r"renewal|refill|renew|repeat prescription|prescription request|අලුත් කිරීම|புதுப்பித்தல்"),
     ("follow_up_create",
@@ -105,6 +127,9 @@ DOCTOR_INTENTS: Sequence[Tuple[str, str]] = (
 )
 
 PATIENT_INTENTS: Sequence[Tuple[str, str]] = (
+    # A04: another patient's prescriptions are never shown or changed; approving/finalizing is the doctor's act.
+    ("other_patient_prescriptions", OTHER_PATIENT_RX),
+    ("prescription_authorization_request", PRESCRIPTION_AUTHORIZATION),
     # B16: a change to a clinician-approved medicine or dose is never made by the assistant.
     ("medication_change_request",
      r"(?:change|increase|reduce|decrease|lower|raise|double|halve|adjust|stop|skip)\b.{0,25}\b(?:my\s+)?"
@@ -134,6 +159,12 @@ PATIENT_INTENTS: Sequence[Tuple[str, str]] = (
      r"investigations?|pariksha|පරීක්ෂණ|பரிசோதனை"),
     ("appointments",
      r"(?:next|upcoming|my)\s+appointments?|when is my appointment|ඊළඟ හමුව|mage appointment"),
+    # A04: "Show my current prescriptions" and "Request a prescription renewal" were answered as a doctor search.
+    ("my_prescriptions",
+     r"(?:my|current|active)\s+(?:current\s+|active\s+)?prescriptions?|prescriptions? (?:do i have|i have)|"
+     r"show (?:me )?(?:my )?prescriptions?|mage (?:prescription|beheth wattoru)|මගේ බෙහෙත් වට්ටෝරු"),
+    ("renewal_request",
+     r"renew|refill|repeat prescription|wattoruwa alut|බෙහෙත් වට්ටෝරුව අලුත්"),
 )
 
 ROLE_INTENTS: Dict[str, Sequence[Tuple[str, str]]] = {
@@ -156,6 +187,23 @@ COMPATIBLE = {
     frozenset({"notification_failures", "failed_payments"}), frozenset({"system_health", "notification_failures"}),
     frozenset({"fraud_explanation", "failed_payments"}), frozenset({"analytics", "follow_ups"}),
     frozenset({"refunds_attention", "booking_analytics"}),
+    # A04 prescription intents: the first (most restrictive) one wins.
+    frozenset({"other_patient_prescriptions", "medication_change_request"}),
+    frozenset({"other_patient_prescriptions", "my_prescriptions"}),
+    frozenset({"other_patient_prescriptions", "prescription_authorization_request"}),
+    frozenset({"prescription_authorization_request", "my_prescriptions"}),
+    frozenset({"prescription_authorization_request", "renewal_request"}),
+    frozenset({"prescription_authorization_request", "medication_change_request"}),
+    frozenset({"medication_change_request", "my_prescriptions"}), frozenset({"my_prescriptions", "renewal_request"}),
+    frozenset({"medication_schedule", "my_prescriptions"}),
+    frozenset({"prescription_action_request", "patient_prescriptions"}),
+    frozenset({"prescription_action_request", "renewal_queue"}),
+    frozenset({"prescription_action_request", "prescription_summary"}),
+    frozenset({"prescription_action_request", "prescription_draft_help"}),
+    frozenset({"prescription_summary", "patient_prescriptions"}),
+    frozenset({"prescription_draft_help", "patient_prescriptions"}),
+    frozenset({"prescription_draft_help", "consultation_preparation"}),
+    frozenset({"patient_prescriptions", "renewal_queue"}),
 }
 
 TIMEFRAMES = (

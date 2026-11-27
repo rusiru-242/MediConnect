@@ -439,13 +439,38 @@ async def patient_medical_records(ctx, args):
     return res.model_dump(mode="json")
 
 
+def _prescription_rows(db, patient_id):
+    """Current prescriptions as the prescriber wrote them (A04-BUG-007).
+
+    Amended and dispensed prescriptions were missing (only ISSUED was read), and whole documents were returned,
+    including audit logs and amendment history. Only the prescribed fields and the prescriber's name are returned.
+    """
+    from bson import ObjectId
+    from app.models.prescription import CURRENT_PRESCRIPTION_STATUSES
+    rows = []
+    names = {}
+    for rx in db["prescriptions"].find(
+        {"patientUserId": patient_id, "status": {"$in": list(CURRENT_PRESCRIPTION_STATUSES)}},
+        {"prescriptionId": 1, "status": 1, "issuedAt": 1, "doctorUserId": 1, "medicationItems": 1, "instructions": 1},
+    ).sort("issuedAt", -1).limit(20):
+        doctor_id = rx.get("doctorUserId")
+        if doctor_id not in names:
+            user = db["users"].find_one({"_id": ObjectId(doctor_id)}, {"fullName": 1}) if ObjectId.is_valid(
+                str(doctor_id)) else None
+            names[doctor_id] = (user or {}).get("fullName")
+        rows.append({
+            "_id": str(rx["_id"]), "prescriptionId": rx.get("prescriptionId"), "status": rx.get("status"),
+            "issuedAt": rx.get("issuedAt"), "doctorUserId": doctor_id, "doctorName": names[doctor_id],
+            "instructions": rx.get("instructions"),
+            "medicationItems": [{k: item.get(k) for k in ("medicationName", "strength", "dose", "route", "frequency",
+                                                         "duration", "quantity", "additionalInstructions")
+                                 if item.get(k) not in (None, "")} for item in rx.get("medicationItems", [])],
+        })
+    return rows
+
+
 async def patient_prescriptions(ctx, args):
-    rows = list(ctx.db["prescriptions"].find(
-        {"patientUserId": str(ctx.user.id), "status": {"$in": ["ISSUED", "ACTIVE", "signed"]}}
-    ).sort("issuedAt", -1).limit(20))
-    for r in rows:
-        r["_id"] = str(r["_id"])
-    return {"prescriptions": rows}
+    return {"prescriptions": _prescription_rows(ctx.db, str(ctx.user.id))}
 
 
 async def patient_measurements(ctx, args):
@@ -481,12 +506,7 @@ async def doctor_patient_measurements(ctx, args):
 async def doctor_patient_prescriptions(ctx, args):
     from app.services.clinical_safety_service import ClinicalSafetyService
     ClinicalSafetyService.verify_doctor_patient_care_relationship(ctx.db, str(ctx.user.id), args.patient_id)
-    rows = list(ctx.db["prescriptions"].find(
-        {"patientUserId": args.patient_id, "status": {"$in": ["ISSUED", "ACTIVE", "signed"]}}
-    ).sort("issuedAt", -1).limit(20))
-    for r in rows:
-        r["_id"] = str(r["_id"])
-    return {"prescriptions": rows}
+    return {"prescriptions": _prescription_rows(ctx.db, args.patient_id)}
 
 
 async def doctor_consultation_note_draft(ctx, args):
