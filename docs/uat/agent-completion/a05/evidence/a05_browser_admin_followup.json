@@ -1,0 +1,32 @@
+{
+ "at": "2026-11-27T19:04:13.980Z",
+ "mode": "followup",
+ "ref": "TCK-8B612CA6",
+ "steps": [
+  {
+   "id": "A05-C12",
+   "scenario": "Admin sees the patient follow-up in the same ticket, flagged as awaiting support",
+   "actual": {
+    "flagged": true,
+    "hasFollowUp": true
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A05-NET",
+   "scenario": "No request left 127.0.0.1:5174 / 127.0.0.1:8001",
+   "actual": {
+    "blocked": []
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A05-ERR",
+   "scenario": "No uncaught page error",
+   "actual": {
+    "pageErrors": []
+   },
+   "status": "PASS"
+  }
+ ]
+}

@@ -418,3 +418,17 @@ Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER
 - **A04-BUG-007:** amended prescriptions were invisible to the assistant and to the duplicate check.
 
 Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (234 confirmed defects: 233 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a04/A04_BUG_FIX_REPORT.md](uat/agent-completion/a04/A04_BUG_FIX_REPORT.md).
+
+## Agent Completion A05 (2026-11-28, branch `fix/agents-a05-fraud-support`)
+
+14 new defects (A05-BUG-001 to 014) in Agent 25 (fraud detection) and Agent 26 (customer support), all fixed with automated tests. The most serious:
+- **A05-BUG-004:** patients received the internal admin draft for their own ticket, including handling notes with the linked booking's status and payment state.
+- **A05-BUG-002:** simultaneous evaluations of one account stored one fraud alert each (6 of 6 in the reproduction).
+- **A05-BUG-001:** the fraud rules ran only when an administrator typed in an account id, so no signal appeared unless the account was already suspected.
+- **A05-BUG-010:** a patient retrying a failed card payment on one slot raised a "rapid cancellation" signal.
+- **A05-BUG-009:** the refund reply template stated "No refund has been approved yet" without checking.
+- **A05-BUG-012:** rule-based reply templates were labelled as AI output in the admin app.
+
+Observation A05-O1, outside A05 scope: the patient Profile screen shows hard-coded health data, including "Allergies: Penicillin".
+
+Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (248 confirmed defects: 247 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a05/A05_BUG_FIX_REPORT.md](uat/agent-completion/a05/A05_BUG_FIX_REPORT.md).

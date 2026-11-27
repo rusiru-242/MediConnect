@@ -1,0 +1,17 @@
+{
+ "at": "2026-11-27T18:56:02.077011+00:00",
+ "candidates": [
+  {
+   "account": "uat.patient2",
+   "bookingsLast24h": 0
+  }
+ ],
+ "account": "uat.patient2",
+ "release": 200,
+ "evaluate": {
+  "http": 200,
+  "result": null
+ },
+ "openAssessments": 0,
+ "accountStatus": "ACTIVE"
+}

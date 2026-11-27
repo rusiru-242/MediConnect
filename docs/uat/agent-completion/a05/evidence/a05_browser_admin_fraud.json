@@ -1,0 +1,49 @@
+{
+ "at": "2026-11-27T18:57:27.086Z",
+ "mode": "fraud",
+ "ref": "FRAUD-40B71481D8",
+ "steps": [
+  {
+   "id": "A05-F10/F11",
+   "scenario": "Admin sees the worker-raised signal with rule, threshold, observed value and slot evidence",
+   "actual": {
+    "rowHasRule": true,
+    "disclaimer": "Raised by fixed rules over stored booking, payment and sign-in records. A signal is a reason to review an account, not p",
+    "evidenceHasThreshold": true,
+    "evidenceSlots": 6,
+    "historyShown": true
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A05-F12/F14",
+   "scenario": "Only human review decisions are offered; none changes an account",
+   "actual": {
+    "buttons": [
+     "Cancel",
+     "Dismiss (not suspicious)",
+     "Investigate",
+     "Resolve",
+     "Confirm finding (human decision)"
+    ]
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A05-NET",
+   "scenario": "No request left 127.0.0.1:5174 / 127.0.0.1:8001",
+   "actual": {
+    "blocked": []
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A05-ERR",
+   "scenario": "No uncaught page error",
+   "actual": {
+    "pageErrors": []
+   },
+   "status": "PASS"
+  }
+ ]
+}

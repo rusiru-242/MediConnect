@@ -182,6 +182,24 @@ if a04.exists():
             add(c[0], '', 'Low', 'A04', _re.sub(r'`', '', c[1]).split('. ')[0][:140], 'observation', 'OPEN',
                 'agent-completion/a04/A04_BUG_FIX_REPORT.md')
 
+# ---- Agent Completion A05 (2026-11-28, branch fix/agents-a05-fraud-support)
+a05 = U / 'agent-completion' / 'a05' / 'A05_BUG_FIX_REPORT.md'
+if a05.exists():
+    import re as _re
+    a05_text = a05.read_text(encoding='utf-8')
+    for line in a05_text.split('## Defects')[1].split('## Changed files')[0].splitlines():
+        if line.startswith('| A05-BUG-'):
+            c = [x.strip() for x in line.strip('|').split('|')]
+            title = _re.sub(r'\*\*|`', '', c[3])
+            title = _re.split(r'(?<=[.)])\s', title)[0][:140]
+            add(c[0], '', _re.sub(r'\s*\(.*\)', '', c[1]), c[2], title, 'defect', 'FIXED (A05)',
+                'agent-completion/a05/A05_BUG_FIX_REPORT.md')
+    for line in a05_text.split('## Observations')[1].splitlines():
+        if line.startswith('| A05-O'):
+            c = [x.strip() for x in line.strip('|').split('|')]
+            add(c[0], '', 'Low', 'A05', _re.sub(r'`', '', c[1]).split('. ')[0][:140], 'observation', 'OPEN',
+                'agent-completion/a05/A05_BUG_FIX_REPORT.md')
+
 # ---- counts
 def is_open(r):
     return r['status'].upper().startswith('OPEN')
@@ -203,7 +221,8 @@ counts = {
 for prefix, label in (('BUG-0', 'historical BUG-001..063 (unaliased)'), ('P01-', 'Phase 01'), ('P02-', 'Phase 02'),
                       ('P03-', 'Phase 03'), ('P04-', 'Phase 04'), ('P05-', 'Phase 05'),
                       ('A01-', 'Agent Completion A01'), ('A02-', 'Agent Completion A02'),
-                      ('A03-', 'Agent Completion A03'), ('A04-', 'Agent Completion A04')):
+                      ('A03-', 'Agent Completion A03'), ('A04-', 'Agent Completion A04'),
+                      ('A05-', 'Agent Completion A05')):
     sel = [r for r in rows if r['id'].startswith(prefix)]
     counts['byPhase'][label] = {'defects': sum(r['kind'] == 'defect' for r in sel),
                                 'improvements': sum(r['kind'] == 'improvement' for r in sel)}
@@ -211,8 +230,8 @@ for prefix, label in (('BUG-0', 'historical BUG-001..063 (unaliased)'), ('P01-',
 (U / 'phase-05' / 'evidence' / 'master-tracker-counts.json').write_text(json.dumps(counts, indent=2), encoding='utf-8')
 
 lines = [
-    '# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A04)', '',
-    'For: the project owner, reviewers and future maintainers. Generated 2026-11-27 by '
+    '# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A05)', '',
+    'For: the project owner, reviewers and future maintainers. Generated 2026-11-28 by '
     '`docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).', '',
     '## How to read it', '',
     '- One row per **unique** issue. Owner IDs BUG-049 to BUG-063 that describe a Phase 01 item are listed once, under '

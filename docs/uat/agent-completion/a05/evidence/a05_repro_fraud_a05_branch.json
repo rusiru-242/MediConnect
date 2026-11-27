@@ -1,0 +1,11 @@
+{
+ "label": "a05_branch",
+ "backend": "backend",
+ "at": "2026-11-27T19:13:05.558400+00:00",
+ "BUG-002_assessmentsStoredFor6ParallelEvaluations": 1,
+ "BUG-003_newAlertFromSameEvidenceAfterDismissal": false,
+ "BUG-010_rulesForFourRetriesOnOneSlot": [],
+ "N12_rulesForFourDistinctUnpaidSlots": [
+  "SLOT_HOARDING_ATTEMPT"
+ ]
+}

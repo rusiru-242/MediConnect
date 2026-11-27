@@ -1,6 +1,6 @@
-# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A04)
+# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A05)
 
-For: the project owner, reviewers and future maintainers. Generated 2026-11-27 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
+For: the project owner, reviewers and future maintainers. Generated 2026-11-28 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
 
 ## How to read it
 
@@ -13,15 +13,15 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-27 b
 
 | Measure | Count |
 |---|---|
-| Unique tracked items | 282 |
-| Confirmed defects | 234 |
-| Defects fixed (automated regression) | 233 |
+| Unique tracked items | 306 |
+| Confirmed defects | 248 |
+| Defects fixed (automated regression) | 247 |
 | Defects open | 1 (BUG-039) |
 | …of the fixed: manual device retest still pending | 7 |
 | …of the fixed: external verification blocked | 1 |
 | Improvements / requirements delivered | 21 |
 | Regression guards (not defects) | 1 |
-| Observations (unconfirmed) | 25 |
+| Observations (unconfirmed) | 35 |
 | Security incidents (owner) | 1 |
 
 | Source | Defects | Improvements |
@@ -36,6 +36,7 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-27 b
 | Agent Completion A02 | 21 | 0 |
 | Agent Completion A03 | 20 | 0 |
 | Agent Completion A04 | 16 | 0 |
+| Agent Completion A05 | 14 | 0 |
 
 Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not defects; see `PHASE_05_REMAINING_BLOCKERS.md`.
 
@@ -325,3 +326,27 @@ Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not def
 | A04-O6 |  | observation | Low | A04 | UAT data contains the renewal requests created by the baseline probe on the old code (a medicine not on the prescription, a case-variant dup | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
 | A04-O7 |  | observation | Low | A04 | Drug-interaction checking is still unavailable (P3-B9) | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
 | A04-O8 |  | observation | Low | A04 | A03 webhook figures clarified from the A03 evidence (see the final report): 51 deliveries = 48 events + 3 resends; of the 5 refused during t | OPEN | agent-completion/a04/A04_BUG_FIX_REPORT.md |
+| A05-BUG-001 |  | defect | High | Agent 25 detection | Fraud rules ran only when an administrator called POST /security/fraud/assessments/evaluate with an account id, so no signal appeared unless | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-002 |  | defect | High | Agent 25 alerts | Simultaneous evaluations of one account stored one alert each. | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-003 |  | defect | Medium | Agent 25 alerts | A dismissed alert came straight back from the same evidence on the next evaluation (Repro: true → false), so every sweep would re-raise what | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-004 |  | defect | High | Agent 26 privacy | Patients received the internal admin draft in their ticket responses. | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-005 |  | defect | Medium | Agent 26 tickets | The category the patient chose was overwritten by the keyword guess (a "payment" ticket about a password became "account access"), and any s | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-006 |  | defect | Medium | Agent 26 tickets | A double tap or a retry after a timeout created duplicate tickets (5 simultaneous identical submissions → 5 tickets on main) | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-007 |  | defect | Medium | Agent 26 messages | A repeated admin reply was stored twice and notified the patient twice; the same was possible for requester messages | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-008 |  | defect | Medium | Agent 26 notifications | The "Support ticket update" notification could not open the ticket: it carried no ticket reference, so tapping it did nothing | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-009 |  | defect | Medium | Agent 26 templates | The refund template stated a financial fact it never checked: "No refund has been approved yet". | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-010 |  | defect | Medium | Agent 25 rules | Ordinary payment retries raised a review signal. | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-011 |  | defect | Low | Admin web | A double-click on "Send reply" sent two requests (Browser UAT: 2 POSTs; the server stored one). | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-012 |  | defect | Medium | Admin web | Rule-based templates were presented as AI output: "AI-Assisted", "AI Support Intelligence", "AI draft response generated", "AI-classified …  | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-013 |  | defect | Low | Agent 26 status | After an admin replied, the ticket said "in progress", so the patient could not tell that support had answered. | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-BUG-014 |  | defect | Medium | Admin web, Agent 25 | The fraud review screen showed no evidence or history. | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O1 |  | observation | Low | A05 | The patient Profile screen shows hard-coded health data that is not the patient's: height 5'7", weight 134 lbs, BMI 21.0, **"Allergies: Peni | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O2 |  | observation | Low | A05 | In UAT the slot-hoarding rule flagged uat.p02.patientb, whose earlier A03 test session had released four unpaid holds that day | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O3 |  | observation | Low | A05 | The explanation counts supporting references with at most 5 per rule ("Supported by 5 event reference(s)") while the evidence can show 6 obs | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O4 |  | observation | Low | A05 | The pre-existing BRUTE_FORCE security event uses check-then-insert, so two simultaneous failed logins could record it twice | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O5 |  | observation | Low | A05 | Administrators get no in-app notification for a requester's follow-up | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O6 |  | observation | Low | A05 | Doctors can create tickets through the API but have no support screen in the doctor app | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O7 |  | observation | Low | A05 | Support screens, templates and chat answers are English only (native-language review B12) | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O8 |  | observation | Low | A05 | The admin ticket queue loads the 50 most recently active tickets and has no paging controls | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O9 |  | observation | Low | A05 | Text an admin appends to the template appears after the template's signature unless the admin moves it; editing convenience only | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O10 |  | observation | Low | A05 | The mobile ticket thread does not refresh by itself; pull to refresh or reopen it (a notification opens the current state) | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
