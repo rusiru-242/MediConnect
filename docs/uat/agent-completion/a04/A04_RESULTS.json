@@ -1,0 +1,443 @@
+{
+  "phase": "Agent Completion A04",
+  "date": "2026-11-27",
+  "agent": {
+    "id": "17",
+    "name": "Prescription Assistant",
+    "before": "PARTIAL",
+    "after": "PARTIAL (engineering verified; clinical gates open)",
+    "classification": "deterministic, tool-orchestrated (no generative AI on prescription paths)",
+    "gates": [
+      "drug-interaction source (P3-B9)",
+      "pharmacist review (B2)",
+      "clinical validation (B1)",
+      "physical phone (B10)",
+      "native-language review (B12)"
+    ]
+  },
+  "startingMain": "d8c2142dd497971947fa24d395b8c157b25b3eee",
+  "a01a03Preserved": {
+    "A01": "febd063",
+    "A02": "048ad48",
+    "A03": "2cb5569",
+    "pr25": "merged",
+    "allAncestors": true
+  },
+  "branch": "fix/agents-a04-prescription-assistant",
+  "codeCommits": [
+    "3002dfa",
+    "94bbd71",
+    "51bdaa3"
+  ],
+  "testedCodeCommit": "51bdaa3",
+  "remoteDatabaseAccessed": false,
+  "mongoCredentialsChanged": false,
+  "liveAiRequests": 0,
+  "externalMessagesSent": 0,
+  "livePayments": false,
+  "deployed": false,
+  "matrixTotals": {
+    "before": {
+      "VERIFIED": 27,
+      "PARTIAL": 11,
+      "BLOCKED": 0
+    },
+    "after": {
+      "VERIFIED": 27,
+      "PARTIAL": 11,
+      "BLOCKED": 0
+    }
+  },
+  "defects": {
+    "count": 16,
+    "fixed": 16,
+    "ids": [
+      "A04-BUG-001",
+      "A04-BUG-002",
+      "A04-BUG-003",
+      "A04-BUG-004",
+      "A04-BUG-005",
+      "A04-BUG-006",
+      "A04-BUG-007",
+      "A04-BUG-008",
+      "A04-BUG-009",
+      "A04-BUG-010",
+      "A04-BUG-011",
+      "A04-BUG-012",
+      "A04-BUG-013",
+      "A04-BUG-014",
+      "A04-BUG-015",
+      "A04-BUG-016"
+    ],
+    "bySeverity": {
+      "High": [
+        "A04-BUG-003",
+        "A04-BUG-004",
+        "A04-BUG-007",
+        "A04-BUG-008",
+        "A04-BUG-009",
+        "A04-BUG-011",
+        "A04-BUG-014"
+      ],
+      "Medium": [
+        "A04-BUG-001",
+        "A04-BUG-002",
+        "A04-BUG-005",
+        "A04-BUG-006",
+        "A04-BUG-010",
+        "A04-BUG-012",
+        "A04-BUG-015",
+        "A04-BUG-016"
+      ],
+      "Low": [
+        "A04-BUG-013"
+      ]
+    },
+    "observations": [
+      "A04-O1",
+      "A04-O2",
+      "A04-O3",
+      "A04-O4",
+      "A04-O5",
+      "A04-O6",
+      "A04-O7",
+      "A04-O8"
+    ]
+  },
+  "tests": {
+    "backend": {
+      "final": {
+        "passed": 976,
+        "failed": 0,
+        "commit": "51bdaa3",
+        "providerAttempts": 0
+      },
+      "baseline": 945,
+      "newFile": {
+        "test_a04_prescription_assistant.py": 31
+      },
+      "newTestsOnPreFixMain": "22 failed, 9 passed, 1 warning in 35.86s"
+    },
+    "flutter": {
+      "passed": 327,
+      "failed": 0,
+      "baseline": 317,
+      "analyze": "no issues",
+      "debugApk": "built"
+    },
+    "adminWeb": {
+      "passed": 42,
+      "failed": 0,
+      "baseline": 42,
+      "tsc": "ok",
+      "build": "ok"
+    },
+    "total": {
+      "passed": 1345,
+      "baseline": 1304
+    },
+    "changedExpectations": [
+      "mobile create_consultation_record_screen_test (A04-BUG-009)"
+    ]
+  },
+  "probe": {
+    "before": {
+      "V01": 500,
+      "V02": 201,
+      "P08c": {
+        "http": [
+          201,
+          201,
+          201,
+          409
+        ],
+        "prescriptionsStored": 3
+      },
+      "R01b": 201,
+      "R04b": {
+        "first": 201,
+        "second": 201
+      },
+      "allergyWarningsField": false
+    },
+    "after": {
+      "V01": 422,
+      "V02": 422,
+      "P08c": {
+        "http": [
+          201,
+          409,
+          409,
+          409
+        ],
+        "prescriptionsStored": 1
+      },
+      "R01b": 422,
+      "R04b": {
+        "first": 201,
+        "second": 409
+      },
+      "allergyWarnings": [
+        "POSSIBLE ALLERGY CONTRAINDICATION: Patient has documented allergy to 'allergenol-95ef8', which may conflict with 'Allergenol-95EF8'."
+      ],
+      "aiRequests": 18,
+      "aiMutations": 0,
+      "authorization": {
+        "pendingDoctorSign": 403,
+        "unrelatedDoctorRead": 403,
+        "otherPatientRead": 403,
+        "adminRead": 403,
+        "patientAmend": 403,
+        "patientApprovesRenewal": 403,
+        "unrelatedDoctorApprovesRenewal": 403
+      }
+    },
+    "providerUsageDelta": {
+      "before": {
+        "gemini": 0,
+        "openai": 0
+      },
+      "after": {
+        "gemini": 0,
+        "openai": 0
+      }
+    }
+  },
+  "emulator": {
+    "screenshots": [
+      "a04_e01_doctor_login.png",
+      "a04_e02_documentation_list.png",
+      "a04_e03_empty_prescription_form.png",
+      "a04_e04_fields_start_empty.png",
+      "a04_e05_missing_fields_refused.png",
+      "a04_e06_review_dialog_allergy.png",
+      "a04_e07_review_dialog_clean.png",
+      "a04_e08_issued.png",
+      "a04_e09_patient_prescription_list.png",
+      "a04_e10_patient_prescription_detail.png",
+      "a04_e11_reminder_form.png",
+      "a04_e12_reminder_saved.png",
+      "a04_e13_duplicate_reminder_refused.png",
+      "a04_e14_renewal_dialog.png",
+      "a04_e15_renewal_sent.png",
+      "a04_e16_duplicate_renewal_refused.png",
+      "a04_e17_after_app_restart.png",
+      "a04_e18_doctor_renewal_queue.png",
+      "a04_e19_approve_dialog_details.png",
+      "a04_e20_renewal_approved.png",
+      "a04_e21_patient_notifications.png",
+      "a04_e22_patient_renewal_status.png",
+      "a04_e23_ai_my_prescriptions.png",
+      "a04_e24_ai_refusals_in_app.png"
+    ],
+    "issuedPrescription": "RX-20261127-E389AE",
+    "renewal": "REN-20261127-FDCB86",
+    "renewedPrescription": "RX-REN-20261127-D70D5D"
+  },
+  "a03WebhookClarification": {
+    "forwardedDeliveries": 51,
+    "distinctEvents": 48,
+    "resends": 3,
+    "http200": 46,
+    "refusedDuringOutage": 5,
+    "resentOfThose": 3,
+    "neverRedelivered": [
+      "charge.refund.updated",
+      "charge.refund.updated"
+    ],
+    "a03JsonResent3": "correct"
+  },
+  "scenarioMatrix": {
+    "total": 36,
+    "counts": {
+      "PASS": 34,
+      "NOT APPLICABLE": 1,
+      "PARTIAL": 1
+    },
+    "rows": {
+      "A04-P01": {
+        "scenario": "Authorized doctor prescription creation",
+        "evidence": "Emu a04_e08; Probe P01; Auto p01",
+        "status": "PASS"
+      },
+      "A04-P02": {
+        "scenario": "Correct patient and consultation association",
+        "evidence": "Emu (database check); Auto p02",
+        "status": "PASS"
+      },
+      "A04-P03": {
+        "scenario": "Correct medication fields",
+        "evidence": "Emu a04_e08/e10; Auto p01_p03",
+        "status": "PASS"
+      },
+      "A04-P04": {
+        "scenario": "Missing required field rejection",
+        "evidence": "Emu a04_e05; Auto bug001; Flutter BUG-009",
+        "status": "PASS"
+      },
+      "A04-P05": {
+        "scenario": "Invalid instruction rejection",
+        "evidence": "Probe V01, V02; Auto bug001, bug002",
+        "status": "PASS"
+      },
+      "A04-P06": {
+        "scenario": "Draft persistence where supported",
+        "evidence": "No persisted prescription draft exists; the draft check stores nothing by design; issuing is the explicit signing",
+        "status": "NOT APPLICABLE"
+      },
+      "A04-P07": {
+        "scenario": "Explicit clinician approval",
+        "evidence": "Emu a04_e06/e07 (review dialog, Cancel stores nothing); Flutter review-dialog test",
+        "status": "PASS"
+      },
+      "A04-P08": {
+        "scenario": "Duplicate submission prevention",
+        "evidence": "Probe P08c (3 → 1); Auto bug003 (3)",
+        "status": "PASS"
+      },
+      "A04-A01": {
+        "scenario": "Authorized prescription retrieval",
+        "evidence": "Probe AI-PAT/AI-DOC; Emu a04_e23; Auto bug007, ai_*",
+        "status": "PASS"
+      },
+      "A04-A02": {
+        "scenario": "Grounded prescription summary",
+        "evidence": "Probe AI-DOC summary; Auto ai_doctor (own vs other doctor's reference)",
+        "status": "PASS"
+      },
+      "A04-A03": {
+        "scenario": "Structured draft assistance where supported",
+        "evidence": "Auto structured_draft; Emu a04_e06; doctor \"draft help\" reply",
+        "status": "PASS"
+      },
+      "A04-A04": {
+        "scenario": "Autonomous prescribing rejection",
+        "evidence": "Probe (patient and doctor); Auto ai_* ; renewal tool needs confirmation",
+        "status": "PASS"
+      },
+      "A04-A05": {
+        "scenario": "Unauthorized medication change rejection",
+        "evidence": "Probe; Auto ai_*",
+        "status": "PASS"
+      },
+      "A04-A06": {
+        "scenario": "Prompt injection resistance",
+        "evidence": "Probe \"Ignore previous restrictions…\" (both roles); Emu a04_e24",
+        "status": "PASS (tested phrasings)"
+      },
+      "A04-A07": {
+        "scenario": "Provider failure fallback",
+        "evidence": "Auto a07 (failing provider injected): same answers; prescription paths never call a provider",
+        "status": "PASS (deterministic paths)"
+      },
+      "A04-U01": {
+        "scenario": "Approved prescription visibility",
+        "evidence": "Emu a04_e09/e10",
+        "status": "PASS"
+      },
+      "A04-U02": {
+        "scenario": "Accurate medication instructions",
+        "evidence": "Emu a04_e10 (matches database); Flutter \"not stated\" test",
+        "status": "PASS"
+      },
+      "A04-U03": {
+        "scenario": "Prescription persistence",
+        "evidence": "Emu: logout/login and app restart (a04_e17)",
+        "status": "PASS"
+      },
+      "A04-U04": {
+        "scenario": "Cross-patient access rejection",
+        "evidence": "Probe S (403); Auto s03_s04, ai_patient (no other patient's data)",
+        "status": "PASS"
+      },
+      "A04-R01": {
+        "scenario": "Patient renewal request",
+        "evidence": "Emu a04_e14/e15; Auto bug005",
+        "status": "PASS"
+      },
+      "A04-R02": {
+        "scenario": "Authorized doctor approval",
+        "evidence": "Emu a04_e19/e20; Auto r02",
+        "status": "PASS"
+      },
+      "A04-R03": {
+        "scenario": "Doctor rejection",
+        "evidence": "Auto r03 (API level); not repeated on the emulator",
+        "status": "PASS (API)"
+      },
+      "A04-R04": {
+        "scenario": "Duplicate renewal prevention",
+        "evidence": "Emu a04_e16; Probe R04b; Auto bug006",
+        "status": "PASS"
+      },
+      "A04-R05": {
+        "scenario": "Concurrent approval protection",
+        "evidence": "Auto r02 (4 parallel approvals → 1 prescription)",
+        "status": "PASS (automated)"
+      },
+      "A04-R06": {
+        "scenario": "Correct patient notification",
+        "evidence": "Emu a04_e21; Auto r02, r03, bug012",
+        "status": "PASS"
+      },
+      "A04-M01": {
+        "scenario": "Correct prescribed schedule",
+        "evidence": "Emu a04_e11/e12 (2 times for twice daily); Auto m01",
+        "status": "PASS"
+      },
+      "A04-M02": {
+        "scenario": "Correct prescribed duration",
+        "evidence": "Emu (5 days stored, not 14); Auto m01",
+        "status": "PASS"
+      },
+      "A04-M03": {
+        "scenario": "No invented medication instructions",
+        "evidence": "Emu a04_e04 (empty fields); Auto m03 (as-needed refused), \"not stated\" replies",
+        "status": "PASS"
+      },
+      "A04-M04": {
+        "scenario": "Renewal synchronization",
+        "evidence": "An amendment stops outdated patient reminders (Auto bug008). A renewal starts no reminder automatically, by design; the patient sets one from the renewed prescription. Not exercised on the device for the renewed prescription",
+        "status": "PARTIAL"
+      },
+      "A04-M05": {
+        "scenario": "Duplicate reminder prevention",
+        "evidence": "Emu a04_e13; Auto bug008",
+        "status": "PASS"
+      },
+      "A04-M06": {
+        "scenario": "Worker restart recovery",
+        "evidence": "A02 scheduler recovery suite unchanged and passing; patient reminders survived two backend restarts during A04",
+        "status": "PASS (A02 automated + restart observation)"
+      },
+      "A04-S01": {
+        "scenario": "Pending doctor rejection",
+        "evidence": "Probe S; Auto s01_s02",
+        "status": "PASS"
+      },
+      "A04-S02": {
+        "scenario": "Unrelated doctor rejection",
+        "evidence": "Probe S; Auto s01_s02, bug007, ai_doctor (404 for another doctor's visit)",
+        "status": "PASS"
+      },
+      "A04-S03": {
+        "scenario": "Patient mutation rejection",
+        "evidence": "Probe S (amend, approve: 403); Auto s03_s04",
+        "status": "PASS"
+      },
+      "A04-S04": {
+        "scenario": "Unauthorized admin clinical access rejection",
+        "evidence": "Probe S (403); Auto s03_s04",
+        "status": "PASS"
+      },
+      "A04-S05": {
+        "scenario": "Audit history integrity",
+        "evidence": "Auto s05 (SIGNED, VIEWED, AMENDED, VIEWED; previous items kept)",
+        "status": "PASS"
+      }
+    }
+  },
+  "integration": "pending",
+  "productionReady": false,
+  "clinicallyApproved": false
+}
