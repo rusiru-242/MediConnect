@@ -1,7 +1,7 @@
 {
-  "uniqueTrackedItems": 231,
-  "confirmedDefects": 198,
-  "defectsFixed": 197,
+  "uniqueTrackedItems": 258,
+  "confirmedDefects": 218,
+  "defectsFixed": 217,
   "defectsOpen": [
     "BUG-039"
   ],
@@ -29,7 +29,14 @@
     "A02-O2",
     "A02-O3",
     "A02-O4",
-    "A02-O5"
+    "A02-O5",
+    "A03-O1",
+    "A03-O2",
+    "A03-O3",
+    "A03-O4",
+    "A03-O5",
+    "A03-O6",
+    "A03-O7"
   ],
   "securityIncidents": [
     "P5-C1"
@@ -76,6 +83,10 @@
     },
     "Agent Completion A02": {
       "defects": 21,
+      "improvements": 0
+    },
+    "Agent Completion A03": {
+      "defects": 20,
       "improvements": 0
     }
   }

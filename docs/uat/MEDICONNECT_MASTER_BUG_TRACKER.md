@@ -1,6 +1,6 @@
-# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A02)
+# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A03)
 
-For: the project owner, reviewers and future maintainers. Generated 2026-11-26 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
+For: the project owner, reviewers and future maintainers. Generated 2026-11-27 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
 
 ## How to read it
 
@@ -13,15 +13,15 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-26 b
 
 | Measure | Count |
 |---|---|
-| Unique tracked items | 231 |
-| Confirmed defects | 198 |
-| Defects fixed (automated regression) | 197 |
+| Unique tracked items | 258 |
+| Confirmed defects | 218 |
+| Defects fixed (automated regression) | 217 |
 | Defects open | 1 (BUG-039) |
 | …of the fixed: manual device retest still pending | 7 |
 | …of the fixed: external verification blocked | 1 |
 | Improvements / requirements delivered | 21 |
 | Regression guards (not defects) | 1 |
-| Observations (unconfirmed) | 10 |
+| Observations (unconfirmed) | 17 |
 | Security incidents (owner) | 1 |
 
 | Source | Defects | Improvements |
@@ -34,6 +34,7 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-26 b
 | Phase 05 | 25 | 13 |
 | Agent Completion A01 | 17 | 0 |
 | Agent Completion A02 | 21 | 0 |
+| Agent Completion A03 | 20 | 0 |
 
 Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not defects; see `PHASE_05_REMAINING_BLOCKERS.md`.
 
@@ -270,5 +271,32 @@ Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not def
 | A02-O1 |  | observation | Low | A02 | NotificationService.check_and_send_appointment_reminders (24 h / 1 h) is legacy code that no worker calls | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
 | A02-O2 |  | observation | Low | A02 | Device-local reminders use Android inexact alarms (inexactAllowWhileIdle) | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
 | A02-O3 |  | observation | Low | A02 | normalize_phone accepts only 07XXXXXXXX and +947XXXXXXXX; 94…/0094… forms are refused (safe, but strict) | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
-| A02-O4 |  | observation | Low | A02 | Two test_phase02_booking_payment / test_production_security_audit tests fail when run **alone on an empty database**, because they depend on | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A02-O4 |  | observation | Low | A02 | Two test_phase02_booking_payment / test_production_security_audit tests fail when run **alone on an empty database**, because they depend on | RESOLVED (A03) | agent-completion/a02/A02_BUG_FIX_REPORT.md |
 | A02-O5 |  | observation | Low | A02 | The "AI" patient-communication drafting is a fixed template (appointment reminder batch) with an HMAC approval token | OPEN | agent-completion/a02/A02_BUG_FIX_REPORT.md |
+| A03-BUG-001 |  | defect | High | Stripe webhooks | A redelivery that arrived while the first delivery was still processing, or after its processing raised, got 200 "already_processed". | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-002 |  | defect | High | Stripe webhooks | Every real payment_intent.payment_failed webhook returned 500 (a locally signed event verified by the real stripe library) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-003 |  | defect | Medium | Stripe webhooks | A failure event delivered after the success sent the patient "Payment Failed. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-004 |  | defect | Medium | Payment status | After a recorded decline, a later success with another card (same intent) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-005 |  | defect | High | Reservation holds | An expired hold was released without cancelling its PaymentIntent, so an open PaymentSheet could still charge for a booking that no longer e | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-006 |  | defect | High | Refund reconciliation | Webhook and polling reconciliation never matched a real refund request. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-007 |  | defect | High | Refund execution | A network or 5xx error from Refund.create marked the request failed with no Stripe id, although Stripe may have created the refund. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-008 |  | defect | Low | Refund polling | The polling fallback always read the same first 20 processing refunds; refunds pending for days would starve newer ones | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-009 |  | defect | High | Admin / reconciliation | A refund Stripe failed after reporting success (seen live with pm_card_refundFail) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-010 |  | defect | High | AI booking memory | After "Select the most experienced doctor", "Show me the available slots for this doctor tomorrow" asked "Which doctor do you mean?". | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-011 |  | defect | Medium | AI booking | "Show me another available time on the same date" asked for symptoms | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-012 |  | defect | Medium | AI booking (read-only management) | "I want to cancel my appointment" answered "Your booking selection has been reset"; "I want to reschedule my appointment" asked for symptoms | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-013 |  | defect | Low | NLP | Romanized Sinhala time words "udee/udeta" (morning), "dawal" (afternoon), "hawasa" (evening) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-014 |  | defect | Low | AI booking | "Yes, confirm it and charge my card" (no hold was ever created) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-015 |  | defect | Medium | Booking summary | The AI booking summary never stated the visit type (emulator) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-016 |  | defect | Low | AI booking | The assistant said "tap 'Confirm Booking'" while the card's button is "Accept & Continue" (emulator) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-017 |  | defect | Low | Money display | The session response, the hold message and the Flutter summary model fell back to an invented LKR 2,500 when the server fee was missing. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-018 |  | defect | Low | App booking result | An e-mail provider that is not configured (disabled, the A02 vocabulary) | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-019 |  | defect | Low | Admin reconciliation | The fixed rule-based recommendations were headed "AI Recommendation" | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-BUG-020 |  | defect | Medium | AI booking notices | A paid AI booking gave the patient no in-app confirmation, while a decline did. | FIXED (A03) | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O1 |  | observation | Low | A03 | My Appointments "Upcoming" lists 2026-12-04 before 2026-12-01 (not chronological) | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O2 |  | observation | Low | A03 | On current Stripe API versions charge.refunded events carry no refund list, so they reconcile nothing (no_refunds) | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O3 |  | observation | Low | A03 | On the emulator, Android raised a system ANR ("system using pending focus request") while the Stripe PaymentSheet opened | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O4 |  | observation | Low | A03 | The payment-failure notice uses one idempotency key per payment, so a second decline on the same intent is not notified again (the first not | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O5 |  | observation | Low | A03 | "Show me my upcoming appointments" (care agenda) lists times and "Confirmed appointment" without doctor names | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O6 |  | observation | Low | A03 | A payment that succeeds after holdExpiresAt but before the worker releases the hold goes to refund review, not confirmation (existing rule;  | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |
+| A03-O7 |  | observation | Low | A03 | "most experienced kenawa select karanna" (Romanized) is not recognised as a selection request; with one candidate the result is the same | OPEN | agent-completion/a03/A03_BUG_FIX_REPORT.md |

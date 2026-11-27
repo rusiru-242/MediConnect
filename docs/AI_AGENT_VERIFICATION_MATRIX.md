@@ -149,3 +149,14 @@ The final matrix covering all 38 components is in [uat/MEDICONNECT_ALL_38_AGENT_
   - Not yet available: push (no Firebase project), external e-mail (owner chose local SMTP testing only) and SMS (no provider). No external delivery is claimed.
 - **Scheduler (36):** exactly-once delivery re-verified live across a backend restart and three competing workers. A real worker crash is now recovered (A02-BUG-005).
 - **Totals unchanged:** 26 VERIFIED (local), 12 PARTIAL, 0 BLOCKED.
+
+## Agent Completion A03 update (2026-11-27, `fix/agents-a03-booking-payments`)
+
+- **01 Appointment Booking Agent: PARTIAL → VERIFIED (test mode + live Gemini).**
+  - Natural-language booking was verified in English, Sinhala, Romanized Sinhala and mixed language, deterministically and with 44 live Gemini calls.
+  - The selected-doctor memory, same-date alternatives and read-only cancel/reschedule help were fixed.
+  - Stripe test-mode payments, declines, retries, expiry, refunds and a race between two backend processes were verified live (43/43).
+  - Stripe-generated test webhooks were delivered with the Stripe CLI (51 events).
+  - Emulator and browser end-to-end runs passed.
+  - Remaining gates: refund policy (B6), physical phone (B10), Sinhala review (B12), and a staging webhook endpoint. Production delivery was not tested.
+- **Totals:** 27 VERIFIED (local), 11 PARTIAL, 0 BLOCKED.

@@ -1,0 +1,65 @@
+{
+ "app": "http://127.0.0.1:5174",
+ "backend": "127.0.0.1:8001",
+ "refundId": "REF-F73CEBAC99",
+ "reviewRefundId": "REF-87A1AF5A44",
+ "appointmentId": "6b094d4462b83a37c5d00c2f",
+ "steps": [
+  {
+   "id": "A03-U04a",
+   "scenario": "Admin approves the patient refund from the browser (one request, Stripe result shown)",
+   "actual": {
+    "rowSource": true,
+    "prefilled": "3500",
+    "approvePosts": 1
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A03-U04b",
+   "scenario": "Refund that Stripe failed after success shows \"Needs review\" with an explanation",
+   "actual": {
+    "flagText": "Needs review: Stripe reported failed",
+    "alert": "Needs review: Stripe reported this refund as failed after it had succeeded. MediConnect still records the money as returned and has not changed any record. Chec"
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A03-U03a",
+   "scenario": "Reconciliation shows REFUND_FAILED_AFTER_SUCCESS with a rule-based recommendation",
+   "actual": {
+    "listsRefund": true,
+    "aiLabel": false
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A03-U03b",
+   "scenario": "Payment monitoring lists the LKR 3,500 payment and its refund",
+   "actual": {
+    "hasAmount": true,
+    "hasRefunded": true
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A03-U03c",
+   "scenario": "Admin appointments page loads with cancelled and refunded bookings",
+   "actual": {
+    "hasCancelled": true
+   },
+   "status": "PASS"
+  },
+  {
+   "id": "A03-B-SAFETY",
+   "scenario": "No request left 127.0.0.1 and no page error",
+   "actual": {
+    "blocked": [],
+    "pageErrors": []
+   },
+   "status": "PASS"
+  }
+ ],
+ "blocked": [],
+ "pageErrors": []
+}

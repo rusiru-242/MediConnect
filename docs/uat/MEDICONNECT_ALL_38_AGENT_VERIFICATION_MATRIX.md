@@ -1,6 +1,6 @@
 # MediConnect — Final Verification Matrix: All 38 AI Components
 
-_Final consolidated copy of `phase-05/PHASE_05_ALL_38_AGENT_VERIFICATION_MATRIX.md` (state after all five phases), updated by Agent Completion A01 for components 02, 04 and 32 and by A02 for 05, 07, 08, 09, 13 and 19._
+_Final consolidated copy of `phase-05/PHASE_05_ALL_38_AGENT_VERIFICATION_MATRIX.md` (state after all five phases), updated by Agent Completion A01 for components 02, 04 and 32 by A02 for 05, 07, 08, 09, 13 and 19, and by A03 for 01._
 
 For: the project owner and reviewers. 2026-11-26, branch `fix/phase-05-final-ai-security-integration`.
 
@@ -23,7 +23,7 @@ For: the project owner and reviewers. 2026-11-26, branch `fix/phase-05-final-ai-
 
 | ID | Name | Role | Implemented | Deterministic | LLM-driven | Actual tests | Local integration | Live provider | Emulator/Browser | Safety | Remaining blockers | Final status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | Appointment Booking Agent | Patient | Yes | Search, ranking, holds, payment, confirmation | Bounded (provider may pick public read-only tools; final list always from the trusted search) | test_ai_booking_agent, test_phase2_booking, test_phase02_booking_payment, P05 `mem`, `arch` S-01 | Live: Phase 02 Stripe script (36 steps) re-run, intent probe P-1–P-3 | Not run (B13) | Emu (Phase 01–03); Phase 05 app launch | Explicit confirmation before hold and payment; no booking from AI text | Stripe webhook delivery (B3); live LLM (B13) | PARTIAL |
+| 01 | Appointment Booking Agent | Patient | Yes | Search, ranking, selected-doctor memory, alternatives, proposal, holds, payment, confirmation, read-only cancel/reschedule help | Bounded (provider may pick public read-only tools; final list always from the trusted search) | test_ai_booking_agent, test_phase02_booking_payment, P05 `mem`, **A03 `test_a03_booking_agent` (16), `test_a03_booking_payments` (22)** | **A03 live: Stripe test mode 43/43 (2 processes, restart), Stripe CLI webhooks (51 events), probe 6 threads** | **Live Gemini (`gemini-3.5-flash-lite`), 44 calls, A03** · OpenAI not used | **Emu A03: search → summary (in-person) → PaymentSheet decline/success → cancel → refund; Browser A03 refund/reconciliation** | Explicit Accept before hold; payment only on Stripe; no booking, cancellation or charge from AI text | Refund policy (B6); physical phone (B10); Sinhala review (B12); dashboard webhook endpoint for staging | VERIFIED (test mode + live Gemini) · owner policy and device gates |
 | 02 | Health Assistant | Patient | Yes | Grounded composer (symptoms, follow-up context, wellness, medicine library, prevention), refusals (B16, prescriptions, injection), emergency first | Bounded: provider may only rephrase non-authoritative answers; schema + grounding + language checks | test_ai_health_chat, stab, P05 `emg`, **A01 `test_a01_health_assistant` (36)** | Live A01 probe 26 cases (before/after), emulator Health Chat | **Live Gemini (`gemini-3.5-flash-lite`), A01** · OpenAI not run (no credits) | Emu (A01: markdown, live reply, duplicate pointer) | Emergency first; no diagnosis or dosing; authoritative answers never sent to a provider | Clinical review (B1); native-language review (B12) | VERIFIED (local + live Gemini) · clinical review |
 | 03 | Doctor Recommendation Agent | Patient | Yes | Ranking, fee/rating filters, explanations | Bounded preference proposal | test_ai_doctor_recommendations, Phase 01 tests | Live: probe P-1, P-2, P-3, P-8 | Not run | Emu (Phase 01) | Only verified doctors; real fees | Sinhala review (B12) | VERIFIED (local) |
 | 04 | Medicine Image Analysis Agent | Patient | Yes | Validation, refusal rules (loose tablets, blurry, several packages), no repeated dosing, embedded-text guard | Vision provider (primary, then secondary), strict schema | stab image tests, **A01 `test_a01_medicine_vision` (21)** | Live A01 vision probe, 8 synthetic fixtures, all matching expected after fixes | **Live Gemini vision (`gemini-3.5-flash-lite`), synthetic images only, A01** | Emu (A01: pick, preview, send, live result card) | Never invents an identity; blurry/loose/multiple handled; photos encrypted at rest (B8) | Real photographed packaging untested; pharmacist review (B2); data-processing agreement before real patient images; camera capture not implemented | PARTIAL · live vision verified (synthetic) |
@@ -81,8 +81,8 @@ For: the project owner and reviewers. 2026-11-26, branch `fix/phase-05-final-ai-
 
 | Final status | Count | Components |
 |---|---|---|
-| VERIFIED (local) | 26 | 02, 03, 06, 10, 11, 12, 14, 15, 16, 18, 20, 21, 22, 23, 24, 27, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38 |
-| PARTIAL | 12 | 01, 04, 05, 07, 08, 09, 13, 17, 19, 25, 26, 32 |
+| VERIFIED (local) | 27 | 01, 02, 03, 06, 10, 11, 12, 14, 15, 16, 18, 20, 21, 22, 23, 24, 27, 28, 29, 30, 31, 33, 34, 35, 36, 37, 38 |
+| PARTIAL | 11 | 04, 05, 07, 08, 09, 13, 17, 19, 25, 26, 32 |
 | BLOCKED | 0 | — |
 | **Total** | **38** | |
 
@@ -90,6 +90,8 @@ Updated by Agent Completion A01 (2026-11-26, branch `fix/agents-a01-ai-intellige
 
 Updated by Agent Completion A02 (2026-11-26, branch `fix/agents-a02-reminders-notifications`): 05, 07, 08, 09, 13 and 19 stay **PARTIAL**. Their in-app path is now verified live with the real worker, plus device reminders on the emulator. Push (Firebase not configured), external e-mail (owner chose local SMTP only) and SMS (no provider) remain blocked, so none is marked VERIFIED. Details: [agent-completion/a02/A02_FINAL_COMPLETION_REPORT.md](agent-completion/a02/A02_FINAL_COMPLETION_REPORT.md).
 
-Of the 26 VERIFIED (local) components, eight carry an additional human gate: clinical, pharmacist or language review (02, 06, 10, 11, 15, 16, 33, 34).
+Updated by Agent Completion A03 (2026-11-27, branch `fix/agents-a03-booking-payments`): 01 PARTIAL → **VERIFIED (test mode + live Gemini)**. Its two former blockers are closed for test mode: Stripe-generated test webhooks were delivered by the Stripe CLI (B3) and processed, and live Gemini booking conversations ran (B13). 20 defects were fixed (A03-BUG-001 to 020). Remaining gates: refund/cancellation policy confirmation (B6), a physical-phone PaymentSheet run (B10), Sinhala review (B12), and a staging webhook endpoint. Production delivery was not tested. Details: [agent-completion/a03/A03_FINAL_COMPLETION_REPORT.md](agent-completion/a03/A03_FINAL_COMPLETION_REPORT.md).
+
+Of the 27 VERIFIED (local) components, nine carry an additional human or owner gate: clinical, pharmacist, language, policy or physical-device review (01, 02, 06, 10, 11, 15, 16, 33, 34).
 
 **Live LLM verification exists only for components 02, 04 and 32, with Gemini and synthetic data (A01).** No component is verified against OpenAI live generation, a clinician, a pharmacist or a physical phone. Seven components have a bounded, optional LLM path (01, 02, 03, 04, 31, 32, 33); the other 31 are deterministic. Critical clinical and financial operations (booking confirmation, payment, refund, prescription, note signing, approvals, suspensions) stay deterministic and human-controlled.

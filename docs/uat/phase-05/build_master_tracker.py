@@ -141,6 +141,29 @@ if a02.exists():
             add(c[0], '', 'Low', 'A02', _re.sub(r'`', '', c[1]).split('. ')[0][:140], 'observation', 'OPEN',
                 'agent-completion/a02/A02_BUG_FIX_REPORT.md')
 
+# ---- Agent Completion A03 (2026-11-27, branch fix/agents-a03-booking-payments)
+a03 = U / 'agent-completion' / 'a03' / 'A03_BUG_FIX_REPORT.md'
+if a03.exists():
+    import re as _re
+    a03_text = a03.read_text(encoding='utf-8')
+    for line in a03_text.split('## Defects')[1].split('## Changed test expectations')[0].splitlines():
+        if line.startswith('| A03-BUG-'):
+            c = [x.strip() for x in line.strip('|').split('|')]
+            title = _re.sub(r'\*\*|`', '', c[3])
+            title = _re.split(r'(?<=[.)])\s', title)[0][:140]
+            add(c[0], '', _re.sub(r'\s*\(.*\)', '', c[1]), c[2], title, 'defect', 'FIXED (A03)',
+                'agent-completion/a03/A03_BUG_FIX_REPORT.md')
+    for line in a03_text.split('## Observations')[1].splitlines():
+        if line.startswith('| A03-O'):
+            c = [x.strip() for x in line.strip('|').split('|')]
+            add(c[0], '', 'Low', 'A03', _re.sub(r'`', '', c[1]).split('. ')[0][:140], 'observation', 'OPEN',
+                'agent-completion/a03/A03_BUG_FIX_REPORT.md')
+
+# A02-O4 (index-dependent tests in isolation) was resolved in A03: tests/conftest.py creates the indexes first.
+for _r in rows:
+    if _r['id'] == 'A02-O4':
+        _r['status'] = 'RESOLVED (A03)'
+
 # ---- counts
 def is_open(r):
     return r['status'].upper().startswith('OPEN')
@@ -161,7 +184,8 @@ counts = {
 }
 for prefix, label in (('BUG-0', 'historical BUG-001..063 (unaliased)'), ('P01-', 'Phase 01'), ('P02-', 'Phase 02'),
                       ('P03-', 'Phase 03'), ('P04-', 'Phase 04'), ('P05-', 'Phase 05'),
-                      ('A01-', 'Agent Completion A01'), ('A02-', 'Agent Completion A02')):
+                      ('A01-', 'Agent Completion A01'), ('A02-', 'Agent Completion A02'),
+                      ('A03-', 'Agent Completion A03')):
     sel = [r for r in rows if r['id'].startswith(prefix)]
     counts['byPhase'][label] = {'defects': sum(r['kind'] == 'defect' for r in sel),
                                 'improvements': sum(r['kind'] == 'improvement' for r in sel)}
@@ -169,8 +193,8 @@ for prefix, label in (('BUG-0', 'historical BUG-001..063 (unaliased)'), ('P01-',
 (U / 'phase-05' / 'evidence' / 'master-tracker-counts.json').write_text(json.dumps(counts, indent=2), encoding='utf-8')
 
 lines = [
-    '# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A02)', '',
-    'For: the project owner, reviewers and future maintainers. Generated 2026-11-26 by '
+    '# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A03)', '',
+    'For: the project owner, reviewers and future maintainers. Generated 2026-11-27 by '
     '`docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).', '',
     '## How to read it', '',
     '- One row per **unique** issue. Owner IDs BUG-049 to BUG-063 that describe a Phase 01 item are listed once, under '

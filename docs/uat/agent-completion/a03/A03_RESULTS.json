@@ -1,0 +1,537 @@
+{
+  "phase": "Agent Completion A03",
+  "date": "2026-11-27",
+  "agent": {
+    "id": "01",
+    "name": "AI Appointment Booking",
+    "before": "PARTIAL",
+    "after": "VERIFIED (test mode + live Gemini)",
+    "gates": [
+      "refund/cancellation policy confirmation (B6)",
+      "physical phone PaymentSheet (B10)",
+      "Sinhala review (B12)",
+      "staging webhook endpoint (production delivery not tested)"
+    ]
+  },
+  "branch": "fix/agents-a03-booking-payments",
+  "baseBranch": "fix/agents-a02-reminders-notifications",
+  "baseCommit": "048ad48",
+  "codeCommits": [
+    "4e03d86",
+    "9f6796b",
+    "4b5b5e2",
+    "60cf1b8",
+    "a8376d3",
+    "e513d01",
+    "3bc2917",
+    "94d85ca",
+    "d3a2b86",
+    "d48c9c6",
+    "32ef187",
+    "020f3b6",
+    "e3722ba"
+  ],
+  "testedCodeCommit": "e3722ba",
+  "merged": false,
+  "deployed": false,
+  "remoteDatabaseAccessed": false,
+  "mongoCredentialsChanged": false,
+  "paidServicesEnabled": false,
+  "livePayments": false,
+  "externalMessagesSent": 0,
+  "ownerApprovals": {
+    "liveGemini": "capped at 60 requests",
+    "stripeCli": "stripe listen with the backend sk_test key"
+  },
+  "matrixTotals": {
+    "before": {
+      "VERIFIED": 26,
+      "PARTIAL": 12,
+      "BLOCKED": 0
+    },
+    "after": {
+      "VERIFIED": 27,
+      "PARTIAL": 11,
+      "BLOCKED": 0
+    }
+  },
+  "defects": {
+    "count": 20,
+    "fixed": 20,
+    "ids": [
+      "A03-BUG-001",
+      "A03-BUG-002",
+      "A03-BUG-003",
+      "A03-BUG-004",
+      "A03-BUG-005",
+      "A03-BUG-006",
+      "A03-BUG-007",
+      "A03-BUG-008",
+      "A03-BUG-009",
+      "A03-BUG-010",
+      "A03-BUG-011",
+      "A03-BUG-012",
+      "A03-BUG-013",
+      "A03-BUG-014",
+      "A03-BUG-015",
+      "A03-BUG-016",
+      "A03-BUG-017",
+      "A03-BUG-018",
+      "A03-BUG-019",
+      "A03-BUG-020"
+    ],
+    "high": [
+      "A03-BUG-001",
+      "A03-BUG-002",
+      "A03-BUG-005",
+      "A03-BUG-006",
+      "A03-BUG-007",
+      "A03-BUG-009",
+      "A03-BUG-010"
+    ],
+    "observations": [
+      "A03-O1",
+      "A03-O2",
+      "A03-O3",
+      "A03-O4",
+      "A03-O5",
+      "A03-O6",
+      "A03-O7"
+    ],
+    "resolvedEarlierObservations": [
+      "A02-O4"
+    ]
+  },
+  "tests": {
+    "backend": {
+      "baseline": {
+        "passed": 907,
+        "commit": "048ad48",
+        "providerAttempts": 0
+      },
+      "final": "945 passed, 0 failed, 0 provider connection attempts (e3722ba, mediconnect_a03final2_test)",
+      "newA03Files": {
+        "test_a03_booking_payments.py": 22,
+        "test_a03_booking_agent.py": 16
+      },
+      "firstFinalRun": "020f3b6: 944 passed, 1 failed (A01 test_p09 flaky: global time.sleep patch; isolated in e3722ba)"
+    },
+    "flutter": {
+      "passed": 317,
+      "failed": 0,
+      "baseline": 313,
+      "analyze": "no issues",
+      "debugApk": "built"
+    },
+    "adminWeb": {
+      "passed": 42,
+      "failed": 0,
+      "baseline": 40,
+      "build": "ok",
+      "tsc": "ok"
+    },
+    "changedExpectations": [
+      "test_phase04_admin_system::test_n10 (A03-BUG-007)",
+      "test_phase05_stripe_webhooks fixtures (A03-BUG-006)",
+      "phase04Admin.test.tsx retry text (A03-BUG-007)"
+    ]
+  },
+  "liveStripe": {
+    "steps": 43,
+    "summary": {
+      "steps": 43,
+      "pass": 43,
+      "fail": [],
+      "recordedFailsReevaluated": [
+        "A03-P05_duplicate_charge_prevention",
+        "A03-C10b_refund_failure_after_success_flagged_for_review"
+      ]
+    },
+    "reevaluated": [
+      "A03-P05_duplicate_charge_prevention",
+      "A03-C10b_refund_failure_after_success_flagged_for_review"
+    ],
+    "backendRestart": "PASS"
+  },
+  "webhooks": {
+    "stripeCliForwarded": 51,
+    "http200": 46,
+    "non2xx": 0,
+    "notDeliveredDuringOutage": 5,
+    "resent": 3,
+    "productionEndpointTested": false
+  },
+  "liveGemini": {
+    "model": "gemini-3.5-flash-lite",
+    "calls": 44,
+    "successes": 44,
+    "failures": 0,
+    "refusedLocallyByCap": 4,
+    "cap": 60,
+    "fallback": [
+      {
+        "user": "Find me a good cardiologist in Colombo.",
+        "http": 200,
+        "type": "doctor_options",
+        "doctors": [
+          "Dr. UAT Cardio One",
+          "Dr. UAT Cardio Two"
+        ],
+        "maxFee": null,
+        "reply": "I found 2 verified doctors in Colombo matching your search. Select a doctor to view their profile or check appointment slots."
+      },
+      {
+        "user": "mata 3000ta aduwen kenek hoyala denna.",
+        "http": 200,
+        "type": "doctor_options",
+        "doctors": [
+          "Dr. UAT Cardio One"
+        ],
+        "maxFee": 3000.0,
+        "reply": "ඔබේ සෙවුමට ගැළපෙන වෛද්‍යවරුන් 1 දෙනෙක් හමු වුණා. විස්තර හෝ වෙන් කළ හැකි වේලාවන් බැලීමට වෛද්‍යවරයෙකු තෝරන්න."
+      }
+    ]
+  },
+  "probe": {
+    "deterministic": {
+      "turns": 16,
+      "anyHold": false,
+      "unverifiedCards": 0,
+      "geminiDelta": 0
+    },
+    "gemini_run1": {
+      "turns": 19,
+      "anyHold": false,
+      "unverifiedCards": 0,
+      "geminiDelta": 22
+    },
+    "gemini_final": {
+      "turns": 19,
+      "anyHold": false,
+      "unverifiedCards": 0,
+      "geminiDelta": 22
+    }
+  },
+  "browser": {
+    "steps": [
+      {
+        "id": "A03-U04a",
+        "status": "PASS"
+      },
+      {
+        "id": "A03-U04b",
+        "status": "PASS"
+      },
+      {
+        "id": "A03-U03a",
+        "status": "PASS"
+      },
+      {
+        "id": "A03-U03b",
+        "status": "PASS"
+      },
+      {
+        "id": "A03-U03c",
+        "status": "PASS"
+      },
+      {
+        "id": "A03-B-SAFETY",
+        "status": "PASS"
+      }
+    ],
+    "blockedHosts": [],
+    "pageErrors": []
+  },
+  "scenarioMatrix": {
+    "total": 56,
+    "counts": {
+      "PASS": 56
+    },
+    "rows": {
+      "A03-A01": {
+        "scenario": "English booking request",
+        "evidence": "Probe (det. + Gemini); Emu a03_01",
+        "status": "PASS"
+      },
+      "A03-A02": {
+        "scenario": "Sinhala booking request",
+        "evidence": "Probe",
+        "status": "PASS"
+      },
+      "A03-A03": {
+        "scenario": "Romanized Sinhala booking request",
+        "evidence": "Probe",
+        "status": "PASS"
+      },
+      "A03-A04": {
+        "scenario": "Mixed-language request",
+        "evidence": "Probe; Auto bug013",
+        "status": "PASS"
+      },
+      "A03-A05": {
+        "scenario": "Follow-up budget change",
+        "evidence": "Probe (SI, ROM, MIX)",
+        "status": "PASS"
+      },
+      "A03-A06": {
+        "scenario": "Follow-up doctor selection",
+        "evidence": "Probe; Auto bug010; Emu a03_02",
+        "status": "PASS"
+      },
+      "A03-A07": {
+        "scenario": "Named-doctor availability",
+        "evidence": "Probe; Emu a03_03",
+        "status": "PASS"
+      },
+      "A03-A08": {
+        "scenario": "Unavailable slot alternatives",
+        "evidence": "Probe CONFLICT (real taken slot); Auto bug011",
+        "status": "PASS"
+      },
+      "A03-A09": {
+        "scenario": "Explicit booking confirmation",
+        "evidence": "Emu a03_04_booking_summary_in_person, a03_06; Auto bug015_016",
+        "status": "PASS"
+      },
+      "A03-A10": {
+        "scenario": "Gemini live booking request",
+        "evidence": "Probe Gemini (44 live calls, 0 failures)",
+        "status": "PASS"
+      },
+      "A03-A11": {
+        "scenario": "Provider failure and deterministic fallback",
+        "evidence": "Live fallback (cap reached)",
+        "status": "PASS"
+      },
+      "A03-A12": {
+        "scenario": "Unauthorized AI mutation rejection",
+        "evidence": "Probe (0 holds); Auto a12, bug012",
+        "status": "PASS"
+      },
+      "A03-R01": {
+        "scenario": "Atomic reservation",
+        "evidence": "Live R01",
+        "status": "PASS"
+      },
+      "A03-R02": {
+        "scenario": "Concurrent reservation",
+        "evidence": "Live R02 (2 patients, 2 processes)",
+        "status": "PASS"
+      },
+      "A03-R03": {
+        "scenario": "Hold countdown",
+        "evidence": "Live R03 (600 s); Emu a03_05/a03_09",
+        "status": "PASS"
+      },
+      "A03-R04": {
+        "scenario": "Automatic expiry",
+        "evidence": "Live R04; Emu a03_10",
+        "status": "PASS"
+      },
+      "A03-R05": {
+        "scenario": "Manual release",
+        "evidence": "Live R05",
+        "status": "PASS"
+      },
+      "A03-R06": {
+        "scenario": "Released slot availability",
+        "evidence": "Live R06",
+        "status": "PASS"
+      },
+      "A03-R07": {
+        "scenario": "Backend restart recovery",
+        "evidence": "Live restart1–3; Emu app restart",
+        "status": "PASS"
+      },
+      "A03-R08": {
+        "scenario": "Duplicate reservation request",
+        "evidence": "Live R08",
+        "status": "PASS"
+      },
+      "A03-P01": {
+        "scenario": "Stripe test payment success",
+        "evidence": "Live P01; Emu a03_15",
+        "status": "PASS"
+      },
+      "A03-P02": {
+        "scenario": "Declined payment",
+        "evidence": "Live P02; Emu a03_13",
+        "status": "PASS"
+      },
+      "A03-P03": {
+        "scenario": "Cancelled payment",
+        "evidence": "Live P03",
+        "status": "PASS"
+      },
+      "A03-P04": {
+        "scenario": "Payment retry",
+        "evidence": "Live P04; Emu decline → success; Auto bug004",
+        "status": "PASS"
+      },
+      "A03-P05": {
+        "scenario": "Duplicate charge prevention",
+        "evidence": "Live P05 (re-evaluated)",
+        "status": "PASS"
+      },
+      "A03-P06": {
+        "scenario": "Amount and currency verification",
+        "evidence": "Live P06; Auto P02 mismatch",
+        "status": "PASS"
+      },
+      "A03-P07": {
+        "scenario": "Payment ownership",
+        "evidence": "Live P07",
+        "status": "PASS"
+      },
+      "A03-P08": {
+        "scenario": "Expired-hold payment",
+        "evidence": "Live P08; Auto bug005; Emu a03_10",
+        "status": "PASS"
+      },
+      "A03-P09": {
+        "scenario": "Cancelled appointment payment",
+        "evidence": "Live P09",
+        "status": "PASS"
+      },
+      "A03-P10": {
+        "scenario": "Network failure recovery",
+        "evidence": "Live restart (webhook lost, status refresh)",
+        "status": "PASS"
+      },
+      "A03-W01": {
+        "scenario": "Valid locally signed event",
+        "evidence": "Live W01; Auto P05",
+        "status": "PASS"
+      },
+      "A03-W02": {
+        "scenario": "Invalid signature",
+        "evidence": "Live W02; Auto P05",
+        "status": "PASS"
+      },
+      "A03-W03": {
+        "scenario": "Duplicate event",
+        "evidence": "Live W03; Auto",
+        "status": "PASS"
+      },
+      "A03-W04": {
+        "scenario": "Out-of-order event",
+        "evidence": "Live W04; Auto bug003",
+        "status": "PASS"
+      },
+      "A03-W05": {
+        "scenario": "Actual Stripe test webhook delivery",
+        "evidence": "Stripe CLI forwarding (kind 2); public endpoint not tested",
+        "status": "PASS (CLI)"
+      },
+      "A03-W06": {
+        "scenario": "Payment success reconciliation",
+        "evidence": "Live W06",
+        "status": "PASS"
+      },
+      "A03-W07": {
+        "scenario": "Refund status reconciliation",
+        "evidence": "Live W07, C10b; Auto bug006/bug007",
+        "status": "PASS"
+      },
+      "A03-W08": {
+        "scenario": "Webhook retry and recovery",
+        "evidence": "Live W08 (CLI resend); Auto bug001",
+        "status": "PASS"
+      },
+      "A03-C01": {
+        "scenario": "Patient cancellation",
+        "evidence": "Live C01; Emu a03_20/a03_21",
+        "status": "PASS"
+      },
+      "A03-C02": {
+        "scenario": "Doctor cancellation",
+        "evidence": "Live C02",
+        "status": "PASS"
+      },
+      "A03-C03": {
+        "scenario": "Rescheduling",
+        "evidence": "Live C03",
+        "status": "PASS"
+      },
+      "A03-C04": {
+        "scenario": "Failed rescheduling preserves booking",
+        "evidence": "Live C04",
+        "status": "PASS"
+      },
+      "A03-C05": {
+        "scenario": "Refund request",
+        "evidence": "Live C05; Emu a03_21",
+        "status": "PASS"
+      },
+      "A03-C06": {
+        "scenario": "Admin refund approval",
+        "evidence": "Live C06; Browser A03-U04a",
+        "status": "PASS"
+      },
+      "A03-C07": {
+        "scenario": "Admin refund rejection",
+        "evidence": "Live C07",
+        "status": "PASS"
+      },
+      "A03-C08": {
+        "scenario": "Duplicate refund prevention",
+        "evidence": "Live C08",
+        "status": "PASS"
+      },
+      "A03-C09": {
+        "scenario": "Concurrent refund approval",
+        "evidence": "Live C09 (4 parallel → 1 Stripe refund)",
+        "status": "PASS"
+      },
+      "A03-C10": {
+        "scenario": "Stripe test refund reconciliation",
+        "evidence": "Live C10, C10b; Auto bug006/007/009",
+        "status": "PASS"
+      },
+      "A03-U01": {
+        "scenario": "Patient appointment details",
+        "evidence": "Emu a03_19, a03_22",
+        "status": "PASS"
+      },
+      "A03-U02": {
+        "scenario": "Doctor appointment details",
+        "evidence": "Doctor API (`a03_cross_role_refund.json`); doctor UI from Phase 02/03 widget tests",
+        "status": "PASS (API)"
+      },
+      "A03-U03": {
+        "scenario": "Admin payment monitoring",
+        "evidence": "Browser U03a–c",
+        "status": "PASS"
+      },
+      "A03-U04": {
+        "scenario": "Admin refund monitoring",
+        "evidence": "Browser U04a–b",
+        "status": "PASS"
+      },
+      "A03-U05": {
+        "scenario": "Notification deep link",
+        "evidence": "Emu a03_24",
+        "status": "PASS"
+      },
+      "A03-U06": {
+        "scenario": "Correct appointment reminder",
+        "evidence": "Auto P05 s06/A02 suites (live delivery in A02)",
+        "status": "PASS (automated)"
+      },
+      "A03-U07": {
+        "scenario": "Obsolete reminder cancellation",
+        "evidence": "Live C03 state; Auto P05 s06f/g",
+        "status": "PASS (automated + live state)"
+      },
+      "A03-U08": {
+        "scenario": "In-person appointment semantics",
+        "evidence": "Emu a03_04 / a03_18 / a03_19; doctor API",
+        "status": "PASS"
+      }
+    }
+  },
+  "ci": "Backend CI success on e3722ba; Backend, Mobile and Admin Web CI success on 020f3b6 (mobile/admin code unchanged since; CI is path-filtered)",
+  "package": "C:\\Users\\REDTECH\\Downloads\\A03_REPORT_PACKAGE.zip",
+  "productionReady": false,
+  "clinicallyApproved": false
+}

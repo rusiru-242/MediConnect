@@ -392,3 +392,16 @@ Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER
 - **A02-BUG-006:** push previews exposed names, dates and specialties on the lock screen.
 
 Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md). Details: [uat/agent-completion/a02/A02_BUG_FIX_REPORT.md](uat/agent-completion/a02/A02_BUG_FIX_REPORT.md).
+
+## Agent Completion A03 (2026-11-27, branch `fix/agents-a03-booking-payments`)
+
+20 new defects (A03-BUG-001 to 020) in AI booking, Stripe payments, webhooks and refunds, all fixed with automated tests. Several were found only with real Stripe test-mode objects or on the emulator. The most serious:
+- **A03-BUG-002:** every real `payment_intent.payment_failed` webhook returned 500. The stripe-python 16 objects are not dicts, and the old test mocked the event as a dict.
+- **A03-BUG-006:** refund webhooks and the polling fallback never matched a real refund request (uppercase and lowercase status mismatch).
+- **A03-BUG-007:** a lost refund response was marked failed with no Stripe id; a later re-approval could refund twice.
+- **A03-BUG-005:** an expired hold's PaymentIntent stayed payable; three such test-mode intents were open in UAT.
+- **A03-BUG-001:** in-progress or crashed webhook deliveries were acknowledged with 200, so Stripe stopped retrying.
+- **A03-BUG-009:** a refund Stripe failed after success was invisible to administrators.
+- **A03-BUG-010:** after "select the most experienced doctor", the agent proposed a different (cheaper) doctor for "this doctor".
+
+Reconciled index: [uat/MEDICONNECT_MASTER_BUG_TRACKER.md](uat/MEDICONNECT_MASTER_BUG_TRACKER.md) (218 confirmed defects: 217 fixed, 1 open, BUG-039). Details: [uat/agent-completion/a03/A03_BUG_FIX_REPORT.md](uat/agent-completion/a03/A03_BUG_FIX_REPORT.md).
