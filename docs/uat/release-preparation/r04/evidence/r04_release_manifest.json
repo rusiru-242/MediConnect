@@ -1,0 +1,159 @@
+{
+  "directory": "C:\\Users\\REDTECH\\Downloads\\MediConnect-v1.0.0-academic",
+  "zip": "C:\\Users\\REDTECH\\Downloads\\MediConnect-v1.0.0-academic.zip",
+  "zipBytes": 109779845,
+  "zipSha256": "47e77647813d1162ce471879c561478e8d9c2e976b880714ad18f87d0c675e4c",
+  "files": [
+    {
+      "path": "admin-web/mediconnect-admin-web-dist.zip",
+      "bytes": 354975,
+      "sha256": "0fa594c49ef8e8a3dc64306df01b7241f883f0029c2a256c668e86cf036a80a6"
+    },
+    {
+      "path": "android/MediConnect-v1.0.0-academic-emulator-debug.apk",
+      "bytes": 257233513,
+      "sha256": "ca477aab1df01c020d913aa309e4f2b7402593174fb4042b2fe0bf4ebf208357"
+    },
+    {
+      "path": "docs/AGENTIC_AI_ARCHITECTURE.md",
+      "bytes": 15482,
+      "sha256": "011c45d5f38e0bbcfd522e494bb1a453f5fca609a6fb4d1db902b77629fbbbf0"
+    },
+    {
+      "path": "docs/ARCHITECTURE_OVERVIEW.md",
+      "bytes": 5543,
+      "sha256": "17bf1ac1c8954ac899709003415872897f563ed62008ed8bc5fcb90782832826"
+    },
+    {
+      "path": "docs/DEVELOPER_SETUP.md",
+      "bytes": 7045,
+      "sha256": "c2d7ef49e2524e651147caadc972ce771c48847cbb255e3fa240d91bb6af6c7a"
+    },
+    {
+      "path": "docs/FINAL_38_COMPONENT_VERIFICATION_MATRIX.md",
+      "bytes": 26002,
+      "sha256": "5a148138d03692bc43f399e24207ce82a437271c9b55f2148c48cc994fb456ce"
+    },
+    {
+      "path": "docs/FINAL_ENGINEERING_SUMMARY.md",
+      "bytes": 3334,
+      "sha256": "8f6a77c0237cc1c453bb5ebd718266f75cf87d7673cfa24779a2156e3602ac5f"
+    },
+    {
+      "path": "docs/KNOWN_LIMITATIONS_AND_BLOCKERS.md",
+      "bytes": 2578,
+      "sha256": "ac3fa0f6fa6302a7faebc8d132b70a7e1da52afcdd8db9c08871ce49477a1711"
+    },
+    {
+      "path": "docs/OWNER_ACTIONS_BEFORE_RELEASE.md",
+      "bytes": 3786,
+      "sha256": "963601a91ce15e9415f987233c1792b3a1ff9eb1d4507174889b2935529a30b4"
+    },
+    {
+      "path": "docs/R05_DEMO_HANDOVER.md",
+      "bytes": 6333,
+      "sha256": "05750cef7e92718f2a2fab28edf43d72c5eff22fe444e2a74df13f86efbaaa3d"
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 15950,
+      "sha256": "959affd57cddb37121d4f06b7c9f60d6b01102ef39814a1dc9d8780e2404ddcd"
+    },
+    {
+      "path": "docs/RELEASE_NOTES.md",
+      "bytes": 6592,
+      "sha256": "cee5423cae2d3f11adaec784d73a43831a51c1654f2b3ea82c2d69950a6eb8e5"
+    },
+    {
+      "path": "README_FIRST.txt",
+      "bytes": 746,
+      "sha256": "7d64315f2d7e7256e15fc2d946befd3683fb612405ebc8f3eaf43baeee64cf33"
+    },
+    {
+      "path": "screenshots/01_splash.jpg",
+      "bytes": 11702,
+      "sha256": "1728e3b702eb3ed9f3ea35995e431a9f50d10d9b55f9c2a437698a0bbb4f6d2e"
+    },
+    {
+      "path": "screenshots/02_login_dark.jpg",
+      "bytes": 33823,
+      "sha256": "44dac6f3fd8ad7f701c49f0cc2e4673a7d52778a402720b19633b194a9fa2e16"
+    },
+    {
+      "path": "screenshots/03_patient_dashboard.jpg",
+      "bytes": 66203,
+      "sha256": "ec65038013fb2a3db342bc30a8497f206271d838573a58deb3c418f38cf9588c"
+    },
+    {
+      "path": "screenshots/04_multilingual_assistant.jpg",
+      "bytes": 73744,
+      "sha256": "ae285de751aec24578c187c521d7323fbe3385cfb7b1961d9570a56d54664ce0"
+    },
+    {
+      "path": "screenshots/05_ai_doctor_card.jpg",
+      "bytes": 76249,
+      "sha256": "9181e262507533dfffd2acf2ef14845b4933f8780e6e9a39c6127471acf0c820"
+    },
+    {
+      "path": "screenshots/06_booking_summary.jpg",
+      "bytes": 74906,
+      "sha256": "a06a52be3343704bcaed36baf8725e93e33e8adc9ba0164dfb920d28885e23ab"
+    },
+    {
+      "path": "screenshots/07_payment_confirmed.jpg",
+      "bytes": 82606,
+      "sha256": "cb8eb5ab3fc205ea90541b475ec672359797a4bbbd942191f149c26a77a32992"
+    },
+    {
+      "path": "screenshots/08_medicine_image_analysis.jpg",
+      "bytes": 90319,
+      "sha256": "621ba3b418d879827fbb17b93edee8fc2c62c07530fc6b8def63411758b5033b"
+    },
+    {
+      "path": "screenshots/09_doctor_dashboard.jpg",
+      "bytes": 55020,
+      "sha256": "fa7ba34c44c9d3a00ec180b08aa8bd619b273a15cd078509ee93109d2b8e2360"
+    },
+    {
+      "path": "screenshots/10_renewal_approval.jpg",
+      "bytes": 50839,
+      "sha256": "d314e77a7d5d96ee2d78fec6943adf1f3e6be4294c0c8d981f0eb53bae828ac0"
+    },
+    {
+      "path": "screenshots/11_medication_reminders.jpg",
+      "bytes": 40634,
+      "sha256": "325b175db1628de7550bc3bcea4b18b1a21d70aea5ea77ed0cacab192df8638c"
+    },
+    {
+      "path": "screenshots/12_patient_profile.jpg",
+      "bytes": 52543,
+      "sha256": "b023a6261dd9cc93ef0b0a4b568b7d828d5a28229e16193e7a41282270de1cf4"
+    },
+    {
+      "path": "screenshots/13_admin_dashboard.jpg",
+      "bytes": 92949,
+      "sha256": "3ce5971ed37d2900427b60692cd5e0d4c18c70ccd573c8cba50e09aceb9ccef2"
+    },
+    {
+      "path": "screenshots/14_admin_monitoring.jpg",
+      "bytes": 89465,
+      "sha256": "110a676b1e54f5a40197a44bdba084abb2824ca2b8311e9c640a7b5699d6b480"
+    },
+    {
+      "path": "screenshots/15_fraud_review.jpg",
+      "bytes": 115923,
+      "sha256": "790db685f1fd28e3751c599cd75cb0ae43ce3db955f700dd6b2b583d3cbc0c5d"
+    },
+    {
+      "path": "screenshots/16_support_queue.jpg",
+      "bytes": 103186,
+      "sha256": "107f05440bcb45647341a30e558efca766a29a121e59cc3b7c9b94ae96723296"
+    },
+    {
+      "path": "screenshots/SCREENSHOTS.json",
+      "bytes": 5131,
+      "sha256": "b1a143d0f48d14087509f0048fbde3a33901a1e6792a7ead25f5430148268988"
+    }
+  ],
+  "secretHits": 0
+}

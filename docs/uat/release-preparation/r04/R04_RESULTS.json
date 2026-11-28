@@ -1,0 +1,145 @@
+{
+  "phase": "R04 Final Academic Release Preparation and Professional Documentation",
+  "date": "2026-11-28",
+  "release": {
+    "version": "v1.0.0-academic",
+    "classification": "Academic Demonstration / Engineering Preview",
+    "existingTags": [],
+    "published": false,
+    "publicReleaseEligible": false,
+    "reason": "historical database credential exposure without confirmed remediation; R04 not yet merged; no owner approval"
+  },
+  "startingMain": "1f95285",
+  "r03Merge": {
+    "pr": 31,
+    "merge": "1f95285",
+    "head": "2ed0ce3",
+    "mergedWithChecksPending": true,
+    "ciOnMain": {
+      "Backend CI": "success",
+      "Mobile CI": "success"
+    }
+  },
+  "branch": "release/mediconnect-v1",
+  "documentation": {
+    "readme": "rewritten",
+    "developerSetup": "rewritten",
+    "architectureOverview": "new (4 Mermaid diagrams)",
+    "linksChecked": 50,
+    "brokenLinks": [],
+    "screenshots": [
+      "01_splash.jpg",
+      "02_login_dark.jpg",
+      "03_patient_dashboard.jpg",
+      "04_multilingual_assistant.jpg",
+      "05_ai_doctor_card.jpg",
+      "06_booking_summary.jpg",
+      "07_payment_confirmed.jpg",
+      "08_medicine_image_analysis.jpg",
+      "09_doctor_dashboard.jpg",
+      "10_renewal_approval.jpg",
+      "11_medication_reminders.jpg",
+      "12_patient_profile.jpg",
+      "13_admin_dashboard.jpg",
+      "14_admin_monitoring.jpg",
+      "15_fraud_review.jpg",
+      "16_support_queue.jpg"
+    ]
+  },
+  "apk": {
+    "type": "debug (emulator only)",
+    "versionName": "1.0.0",
+    "versionCode": 1,
+    "apiBaseUrl": "http://10.0.2.2:8001",
+    "command": "flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8001",
+    "buildOutput": "mobile/build/app/outputs/flutter-apk/app-debug.apk",
+    "packagedPath": "C:\\Users\\REDTECH\\Downloads\\MediConnect-v1.0.0-academic\\android\\MediConnect-v1.0.0-academic-emulator-debug.apk",
+    "bytes": 257233513,
+    "sha256": "ca477aab1df01c020d913aa309e4f2b7402593174fb4042b2fe0bf4ebf208357",
+    "signed": false,
+    "install": "success",
+    "launch": "welcome screen, no crash",
+    "login": "patient dashboard from 10.0.2.2:8001",
+    "secretScan": "none; one Stripe test publishable key (informational)"
+  },
+  "adminWeb": {
+    "typecheck": "ok",
+    "lint": "ok",
+    "tests": {
+      "passed": 51,
+      "failed": 0
+    },
+    "build": "ok",
+    "output": "admin-web/dist",
+    "archive": "C:\\Users\\REDTECH\\Downloads\\MediConnect-v1.0.0-academic\\admin-web\\mediconnect-admin-web-dist.zip",
+    "archiveSha256": "0fa594c49ef8e8a3dc64306df01b7241f883f0029c2a256c668e86cf036a80a6",
+    "preview": "login 200, favicon 200, logo loaded, 0 page errors",
+    "secretScan": "none",
+    "deployed": false
+  },
+  "newlyExecuted": {
+    "backendSmoke": {
+      "passed": 100,
+      "failed": 0,
+      "database": "fresh mediconnect_r04smoke_test",
+      "providerAttempts": 0
+    },
+    "flutterSmoke": {
+      "passed": 40,
+      "failed": 0
+    },
+    "flutterAnalyze": "no issues",
+    "adminTests": {
+      "passed": 51
+    },
+    "automatedTotal": 191
+  },
+  "historicalR03": {
+    "backend": 1064,
+    "flutter": 362,
+    "adminWeb": 51,
+    "total": 1477,
+    "components": {
+      "VERIFIED": 29,
+      "PARTIAL": 9,
+      "BLOCKED": 0
+    },
+    "tracker": {
+      "items": 340,
+      "defects": 262,
+      "fixed": 261,
+      "open": [
+        "BUG-039"
+      ]
+    }
+  },
+  "secretScans": {
+    "trackedFiles": {
+      "trackedFiles": 1499,
+      "trackedEnvFiles": []
+    },
+    "apk": "clean",
+    "adminDist": "clean",
+    "releasePackage": "clean",
+    "publishableKeyInformational": "mobile/lib/core/constants/api_constants.dart:435 (pk_test_)"
+  },
+  "credentialRemediation": "NOT CONFIRMED",
+  "releasePackage": {
+    "zip": "C:\\Users\\REDTECH\\Downloads\\MediConnect-v1.0.0-academic.zip",
+    "bytes": 109779845,
+    "sha256": "47e77647813d1162ce471879c561478e8d9c2e976b880714ad18f87d0c675e4c",
+    "files": 30
+  },
+  "r05Handover": "docs/uat/release-preparation/r04/R04_R05_DEMO_HANDOVER.md",
+  "integration": {
+    "branchHead": "b489208",
+    "ciRuns": 0,
+    "ciApplicable": "none (docs-only; path-filtered workflows)",
+    "pr": "not opened (gh unauthenticated); compare URL provided",
+    "merge": "not performed",
+    "originMain": "1f95285",
+    "tag": "not created"
+  },
+  "productionReady": false,
+  "clinicallyValidated": false
+}
