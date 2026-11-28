@@ -1,7 +1,7 @@
 {
-  "uniqueTrackedItems": 326,
-  "confirmedDefects": 255,
-  "defectsFixed": 254,
+  "uniqueTrackedItems": 340,
+  "confirmedDefects": 262,
+  "defectsFixed": 261,
   "defectsOpen": [
     "BUG-039"
   ],
@@ -67,7 +67,14 @@
     "R02-O2",
     "R02-O3",
     "R02-O4",
-    "R02-O5"
+    "R02-O5",
+    "R03-O1",
+    "R03-O2",
+    "R03-O3",
+    "R03-O4",
+    "R03-O5",
+    "R03-O6",
+    "R03-O7"
   ],
   "securityIncidents": [
     "P5-C1"
@@ -133,6 +140,10 @@
       "improvements": 0
     },
     "Release preparation R02": {
+      "defects": 7,
+      "improvements": 0
+    },
+    "Release preparation R03": {
       "defects": 6,
       "improvements": 0
     }

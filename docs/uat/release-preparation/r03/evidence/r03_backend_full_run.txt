@@ -1,0 +1,27 @@
+R03 backend full-suite runs (pytest -q -p a03_leak_detector -p no:cacheprovider -rfEs)
+
+== Final run: fresh local database mediconnect_r03_final2_test (did not exist before the run); tree = commit 4f64295
+1064 passed, 16 warnings in 511.01s (0:08:31)
+Provider connection detector:
+{
+ "blockedAttempts": 0,
+ "byHost": {},
+ "tests": []
+}
+
+== Earlier R03 run (before R03-BUG-004): fresh mediconnect_r03_final_test
+1064 passed, 16 warnings in 460.71s (0:07:40)
+Provider connection detector:
+{
+ "blockedAttempts": 0,
+ "byHost": {},
+ "tests": []
+}
+
+== Run on the R02-BUG-007 fix before R03 (fresh mediconnect_r02fix_test)
+FAILED tests/test_phase3_care.py::test_medication_approval_delivery_explicit_actions_and_prescription_change
+1 failed, 1049 passed, 16 warnings in 470.75s (0:07:50)
+(led to R03-BUG-001; the failing test passed alone)
+
+== Flutter: flutter test -> +362 All tests passed; flutter analyze -> No issues found
+== Admin: vitest 14 files / 51 tests passed; npm run typecheck exit 0; npm run lint clean; npm run build built

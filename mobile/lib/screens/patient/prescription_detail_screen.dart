@@ -351,14 +351,17 @@ class _PrescriptionDetailScreenState extends State<PrescriptionDetailScreen> {
                   Icon(Icons.verified_user_rounded, color: AppTheme.primary, size: 18),
                   SizedBox(width: 8),
                   Text(
-                    'Tamper-Evident Digital Prescription',
+                    'Digital Prescription',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
-                'Issued electronically via MediConnect. Verified against Sri Lanka Medical Council (SLMC) accredited credentials. Take strictly as directed.',
+                // R03-BUG-004: no SLMC registry or tamper-evidence mechanism exists, so neither is claimed.
+                'Issued electronically via MediConnect by the doctor named above. MediConnect administrators reviewed the '
+                "doctor's registration details; they are not checked automatically against the SLMC register. "
+                'Take as directed by your doctor.',
                 style: TextStyle(fontSize: 11, color: Colors.grey[700]),
               ),
             ],

@@ -104,7 +104,7 @@ async def amend_prescription(
 @prescription_router.get(
     "/{prescription_id}/pdf",
     summary="Download verified prescription PDF",
-    description="Generates and streams an authenticated, tamper-evident digital prescription PDF.",
+    description="Generates and streams the digital prescription PDF to an authorised viewer.",
     responses={
         200: {
             "content": {"application/pdf": {}},

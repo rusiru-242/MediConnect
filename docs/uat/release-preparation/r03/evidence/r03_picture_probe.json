@@ -1,0 +1,101 @@
+{
+  "uploads": {
+    "patient": {
+      "profileImage": "/api/profile/pictures/6b05c3fc88a1403facad0201?v=5cc6eb78d9cc494d",
+      "version": "5cc6eb78d9cc494d",
+      "width": 512,
+      "height": 512,
+      "contentType": "image/jpeg"
+    },
+    "doctorFirst": {
+      "profileImage": "/api/profile/pictures/6b05c3fc88a1403facad0210?v=b1cfa50b4b4947c0",
+      "version": "b1cfa50b4b4947c0",
+      "width": 512,
+      "height": 512,
+      "contentType": "image/jpeg"
+    },
+    "doctorReplaced": {
+      "profileImage": "/api/profile/pictures/6b05c3fc88a1403facad0210?v=cacbdcb313c54ee6",
+      "version": "cacbdcb313c54ee6",
+      "width": 512,
+      "height": 512,
+      "contentType": "image/jpeg"
+    }
+  },
+  "upload": {
+    "mode": "upload",
+    "visibility": {
+      "uat.patient2 -> uat.patient2": 200,
+      "uat.patient1 -> uat.patient2": 404,
+      "uat.doctor.neuro -> uat.patient2": 200,
+      "uat.doctor.gp -> uat.patient2": 404,
+      "uat.admin -> uat.patient2": 404,
+      "uat.patient2 -> uat.doctor.neuro": 200,
+      "uat.patient1 -> uat.doctor.neuro": 200,
+      "uat.doctor.neuro -> uat.doctor.neuro": 200,
+      "uat.doctor.gp -> uat.doctor.neuro": 200,
+      "uat.admin -> uat.doctor.neuro": 200
+    },
+    "doctorPicture": {
+      "size": [
+        512,
+        512
+      ],
+      "format": "JPEG",
+      "exifTags": 0,
+      "gps": false,
+      "cacheControl": null,
+      "sha256": "c08e750a457b6e0d1de488b5c774373bf61879831cfc86dc028be045b5faf765"
+    },
+    "patientPictureSha256": "8dbc6cf16bed564f2bf127ad3eb38a3e903922f69b0ebd9b50c13b7e28df3464",
+    "doctorProfileImage": "/api/profile/pictures/6b05c3fc88a1403facad0210?v=cacbdcb313c54ee6",
+    "searchCardImages": [
+      "/api/profile/pictures/6b05c3fc88a1403facad0210?v=cacbdcb313c54ee6"
+    ],
+    "appointmentDoctorImages": [
+      "/api/profile/pictures/6b05c3fc88a1403facad0210?v=cacbdcb313c54ee6"
+    ],
+    "visibilityAsDesigned": true,
+    "metadataStripped": true,
+    "searchUsesTrustedUrl": true,
+    "appointmentsUseTrustedUrl": true
+  },
+  "check": {
+    "mode": "check",
+    "visibility": {
+      "uat.patient2 -> uat.patient2": 200,
+      "uat.patient1 -> uat.patient2": 404,
+      "uat.doctor.neuro -> uat.patient2": 200,
+      "uat.doctor.gp -> uat.patient2": 404,
+      "uat.admin -> uat.patient2": 404,
+      "uat.patient2 -> uat.doctor.neuro": 200,
+      "uat.patient1 -> uat.doctor.neuro": 200,
+      "uat.doctor.neuro -> uat.doctor.neuro": 200,
+      "uat.doctor.gp -> uat.doctor.neuro": 200,
+      "uat.admin -> uat.doctor.neuro": 200
+    },
+    "doctorPicture": {
+      "size": [
+        512,
+        512
+      ],
+      "format": "JPEG",
+      "exifTags": 0,
+      "gps": false,
+      "cacheControl": "private, max-age=86400",
+      "sha256": "c08e750a457b6e0d1de488b5c774373bf61879831cfc86dc028be045b5faf765"
+    },
+    "patientPictureSha256": "8dbc6cf16bed564f2bf127ad3eb38a3e903922f69b0ebd9b50c13b7e28df3464",
+    "doctorProfileImage": "/api/profile/pictures/6b05c3fc88a1403facad0210?v=cacbdcb313c54ee6",
+    "searchCardImages": [
+      "/api/profile/pictures/6b05c3fc88a1403facad0210?v=cacbdcb313c54ee6"
+    ],
+    "appointmentDoctorImages": [
+      "/api/profile/pictures/6b05c3fc88a1403facad0210?v=cacbdcb313c54ee6"
+    ],
+    "visibilityAsDesigned": true,
+    "metadataStripped": true,
+    "searchUsesTrustedUrl": true,
+    "appointmentsUseTrustedUrl": true
+  }
+}

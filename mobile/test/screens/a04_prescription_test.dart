@@ -247,6 +247,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('rx_request_renewal_0')), findsNothing);
   });
+
+  testWidgets('R03-BUG-004: the prescription claims no SLMC register check or tamper evidence', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: PrescriptionDetailScreen(
+          prescriptionId: 'RX-20261127-A04B05',
+          initialPrescription: rx('ISSUED', [MedicationItem.fromJson({'medicationName': 'Synthozole'})]),
+          renewalService: FakeClinicalApi()),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Verified against'), findsNothing);
+    expect(find.textContaining('Tamper-Evident'), findsNothing);
+    expect(find.textContaining('not checked automatically against the SLMC register'), findsOneWidget);
+  });
 }
 
 class PagedDoctorClient extends ApiClient {

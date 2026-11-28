@@ -218,6 +218,8 @@ void main() {
     expect(find.text('Patient Reviews & Ratings'), findsOneWidget);
     expect(find.text('4.8'), findsOneWidget);
     expect(find.text('5 verified reviews'), findsOneWidget);
+    expect(find.text('★ 4.8'), findsOneWidget); // header shows the real average (R03-BUG-003)
+    expect(find.text('Top Ranked Specialist'), findsNothing);
     expect(find.text('Verified Patient Feedback'), findsOneWidget);
     expect(find.text('Alice P.'), findsOneWidget);
     expect(find.text('Great doctor, very helpful.'), findsOneWidget);
@@ -260,5 +262,9 @@ void main() {
 
     expect(find.text('Patient Reviews & Ratings'), findsOneWidget);
     expect(find.text('No reviews yet'), findsOneWidget);
+    // R03-BUG-003: no invented rating or ranking claim when the doctor has no reviews.
+    expect(find.text('No reviews'), findsOneWidget);
+    expect(find.textContaining('4.9'), findsNothing);
+    expect(find.text('Top Ranked Specialist'), findsNothing);
   });
 }

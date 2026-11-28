@@ -421,7 +421,10 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                                 ),
                                 const SizedBox(width: 2),
                                 Text(
-                                  '★ ${_ratingSummary?.averageRating?.toStringAsFixed(1) ?? "4.9"}',
+                                  // R03-BUG-003: no invented fallback; without reviews the card says so.
+                                  _ratingSummary?.hasReviews == true && _ratingSummary?.averageRating != null
+                                      ? '★ ${_ratingSummary!.averageRating!.toStringAsFixed(1)}'
+                                      : 'No reviews',
                                   style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w800,
@@ -488,72 +491,8 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Specialist Highlight Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.primaryBlue.withValues(alpha: 0.08),
-                  AppTheme.surfaceContainerLow,
-                  AppTheme.secondaryBlue.withValues(alpha: 0.08),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppTheme.primaryBlue.withValues(alpha: 0.15),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.monitor_heart_rounded,
-                    color: AppTheme.primaryBlue,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Top Ranked Specialist',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        'Certified clinical expertise in ',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
+          // R03-BUG-003: a fixed "Top Ranked Specialist / Certified clinical expertise" banner was shown for every
+          // doctor; it was not backed by any ranking or certification data, so it is removed.
           const SizedBox(height: 16),
 
           // Qualifications & Practice Details (Stitch Clinical Clarity)
