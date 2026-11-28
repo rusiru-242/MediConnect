@@ -1,0 +1,15 @@
+R02 backend full-suite runs (pytest -q -p a03_leak_detector)
+
+== Run 1: shared long-lived local DB mediconnect_test (before the R02-BUG-006 fix)
+FAILED tests/test_a05_fraud_support.py::test_f01_repeated_failed_logins_raise_a_review_signal
+FAILED tests/test_a05_fraud_support.py::test_f03_f11_f14_f15_slot_hoarding_signal_with_evidence_and_no_action
+FAILED tests/test_a05_fraud_support.py::test_f09_restart_and_repeated_sweeps_are_idempotent_and_throttled
+FAILED tests/test_a05_fraud_support.py::test_f10_f12_admin_sees_evidence_reviews_and_audit_records_no_account_action
+FAILED tests/test_admin_web_endpoints.py::test_admin_web_endpoints_rbac_and_crud
+5 failed, 1042 passed, 16 warnings in 463.82s (0:07:43)
+
+== Run 2 (final): fresh local DB mediconnect_r02_test (loopback, _test), after the fix
+1048 passed, 16 warnings in 476.02s (0:07:56)
+
+== Unchanged main code on the shared DB (git stash), A05 F01/F03: 2 failed (R02-BUG-006 reproduced before the fix)
+== After the fix on the shared DB: tests/test_a05_fraud_support.py + tests/test_r02_profile.py -> 71 passed (all 27 A05 + 44 R02), 1 failed: the new regression test's own invalid identity assertion on a classmethod; that line was removed and the test then passed on its own. Run 2 above is the final full run with every test.

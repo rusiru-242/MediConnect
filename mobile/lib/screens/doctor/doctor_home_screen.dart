@@ -13,6 +13,8 @@ import '../../widgets/doctor_today_overview.dart';
 import '../../widgets/medical_widgets.dart';
 import '../../widgets/mediconnect_logo.dart';
 import '../../widgets/notification_bell_button.dart';
+import '../../widgets/profile_picture_editor.dart';
+import '../../widgets/user_avatar.dart';
 import '../../widgets/server_settings_sheet.dart';
 
 /// Doctor Home Dashboard redesigned with Google Stitch Clinical Clarity design system (Phase 41).
@@ -144,10 +146,14 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
             ),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
-                  child: Icon(Icons.medical_services_rounded, size: 32, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
+                UserAvatar(
+                  key: const Key('doctor_sheet_avatar'),
+                  imageUrl: user?.profileImage,
+                  size: 60,
+                  fallback: ColoredBox(
+                    color: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
+                    child: Icon(Icons.medical_services_rounded, size: 32, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -192,6 +198,26 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
               ],
             ),
             Divider(height: 28, color: isDark ? AppTheme.darkBorder : AppTheme.border),
+            // R02: the doctor's own profile photo (shown to patients only while the doctor is approved).
+            ListTile(
+              key: const Key('doctor_change_photo'),
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.photo_camera_outlined, color: AppTheme.primaryBlue),
+              title: Text(
+                user?.profileImage == null ? 'Add profile photo' : 'Change profile photo',
+                style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+              ),
+              subtitle: Text('Shown to patients in doctor search and bookings',
+                  style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                ProfilePictureEditor.open(
+                  context,
+                  currentUrl: authProvider.user?.profileImage,
+                  onChanged: (url) => authProvider.updateProfileImage(url),
+                );
+              },
+            ),
             SwitchListTile.adaptive(
               key: const Key('doctor_home_dark_mode_switch'),
               contentPadding: EdgeInsets.zero,
@@ -417,7 +443,13 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               alignment: Alignment.center,
-                              child: const Icon(Icons.medical_services_rounded, size: 28, color: AppTheme.primaryBlue),
+                              child: UserAvatar(
+                                key: const Key('doctor_dashboard_avatar'),
+                                imageUrl: user?.profileImage,
+                                size: 54,
+                                borderRadius: 14,
+                                fallback: const Icon(Icons.medical_services_rounded, size: 28, color: AppTheme.primaryBlue),
+                              ),
                             ),
 
                           ],

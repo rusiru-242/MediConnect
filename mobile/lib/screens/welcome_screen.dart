@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/language_selector_sheet.dart';
 import '../widgets/mediconnect_logo.dart';
+import '../core/theme/auth_palette.dart';
 import '../widgets/server_settings_sheet.dart';
 
 /// Welcome screen introducing MediConnect with entry points to Login, Registration, and Google Sign-In.
@@ -42,12 +43,13 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pal = AuthPalette.of(context);
     final authProvider = context.watch<AuthProvider>();
     final isLoading = authProvider.isLoading;
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: pal.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -76,25 +78,25 @@ class WelcomeScreen extends StatelessWidget {
                 child: MediConnectLogo(size: 72),
               ),
               const SizedBox(height: 24),
-              const Center(
+              Center(
                 child: Text(
                   'MediConnect',
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.5,
-                    color: AppTheme.textPrimary,
+                    color: pal.textPrimary,
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Healthcare made simpler.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.primary,
+                  color: pal.accent,
                   letterSpacing: -0.2,
                 ),
               ),
@@ -102,10 +104,10 @@ class WelcomeScreen extends StatelessWidget {
               Text(
                 l10n?.welcomeSubtitle ?? 'Your trusted digital healthcare companion',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   height: 1.5,
-                  color: AppTheme.textSecondary,
+                  color: pal.textSecondary,
                 ),
               ),
               const SizedBox(height: 20),
@@ -116,10 +118,10 @@ class WelcomeScreen extends StatelessWidget {
                 children: [
                   Text(
                     l10n?.chooseLanguage ?? 'Choose Your Language',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
+                      color: pal.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -157,7 +159,7 @@ class WelcomeScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textMuted,
+                        color: pal.textMuted,
                       ),
                     ),
                   ),
@@ -182,18 +184,18 @@ class WelcomeScreen extends StatelessWidget {
                         'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
                         width: 20,
                         height: 20,
-                        errorBuilder: (context, error, stackTrace) => const Icon(
+                        errorBuilder: (context, error, stackTrace) => Icon(
                           Icons.account_circle_outlined,
                           size: 20,
-                          color: AppTheme.textSecondary,
+                          color: pal.textSecondary,
                         ),
                       ),
                 label: Text(
                   isLoading
                       ? (l10n?.loading ?? 'Connecting...')
                       : (l10n?.continueWithGoogle ?? 'Continue with Google'),
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: pal.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -205,9 +207,9 @@ class WelcomeScreen extends StatelessWidget {
                 children: [
                   Text(
                     l10n?.areYouADoctor ?? 'Are you a doctor? ',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: AppTheme.textSecondary,
+                      color: pal.textSecondary,
                     ),
                   ),
                   GestureDetector(
@@ -217,10 +219,10 @@ class WelcomeScreen extends StatelessWidget {
                         : () => Navigator.of(context).pushNamed('/doctor/register'),
                     child: Text(
                       l10n?.registerAsDoctor ?? 'Register as a Doctor',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.primary,
+                        color: pal.accent,
                       ),
                     ),
                   ),

@@ -7,6 +7,7 @@ import '../../models/doctor_availability.dart';
 import '../../models/doctor_review.dart';
 import '../../services/doctor_service.dart';
 import '../../services/review_service.dart';
+import '../../widgets/user_avatar.dart';
 import '../../widgets/medical_widgets.dart';
 import 'booking_confirmation_screen.dart';
 
@@ -235,22 +236,29 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    CircleAvatar(
-                      radius: 38,
-                      backgroundColor: AppTheme.primaryContainer,
-                      child: Text(
-                        doctor.fullName.isNotEmpty
-                            ? doctor.fullName
-                                  .replaceFirst('Dr. ', '')
-                                  .split(' ')
-                                  .map((n) => n.isNotEmpty ? n[0] : '')
-                                  .take(2)
-                                  .join()
-                            : 'DR',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryBlue,
+                    UserAvatar(
+                      key: const Key('doctor_detail_avatar'),
+                      imageUrl: doctor.profileImage,
+                      size: 76,
+                      semanticLabel: 'Photo of ${doctor.fullName}',
+                      fallback: ColoredBox(
+                        color: AppTheme.primaryContainer,
+                        child: Center(
+                          child: Text(
+                            doctor.fullName.isNotEmpty
+                                ? doctor.fullName
+                                      .replaceFirst('Dr. ', '')
+                                      .split(' ')
+                                      .map((n) => n.isNotEmpty ? n[0] : '')
+                                      .take(2)
+                                      .join()
+                                : 'DR',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ),
                         ),
                       ),
                     ),

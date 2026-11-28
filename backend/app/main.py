@@ -38,6 +38,7 @@ from app.routes.doctor_workflow import router as doctor_workflow_router
 from app.services.doctor_communications import run_communications
 from app.routes.care_automation import router as care_automation_router
 from app.routes.admin_workflow import router as admin_workflow_router
+from app.routes.profile import router as profile_router
 from app.routes.clinical_workflow import clinical_workflow_router
 from app.routes.security_monitoring import probe_router, router as security_monitoring_router
 from app.services.platform_monitoring_service import PlatformMonitoringService
@@ -184,6 +185,7 @@ app.include_router(doctor_workflow_router, prefix="/api")
 app.include_router(patient_timeline_router, prefix="/api")
 app.include_router(clinical_workflow_router, prefix="/api")
 app.include_router(security_monitoring_router, prefix="/api")
+app.include_router(profile_router, prefix="/api")
 app.include_router(probe_router, prefix="/api")
 app.include_router(probe_router)
 

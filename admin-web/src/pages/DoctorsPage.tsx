@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Stethoscope, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { doctorsApi } from '../api/doctorsApi';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Pagination } from '../components/common/Pagination';
@@ -8,6 +8,7 @@ import { SearchBar } from '../components/common/SearchBar';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
+import { DoctorAvatar } from '../components/common/DoctorAvatar';
 import { getErrorMessage } from '../api/client';
 
 export const DoctorsPage: React.FC = () => {
@@ -124,9 +125,7 @@ export const DoctorsPage: React.FC = () => {
                   <tr key={doc.doctorProfileId} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-600 font-bold shrink-0">
-                          <Stethoscope className="w-4 h-4" />
-                        </div>
+                        <DoctorAvatar imageUrl={doc.profileImage} name={doc.fullName} />
                         <div>
                           <p className="font-semibold text-slate-900">{doc.fullName}</p>
                           <p className="text-[11px] text-slate-400">{doc.email}</p>

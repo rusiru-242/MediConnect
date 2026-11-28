@@ -25,6 +25,7 @@ class Appointment {
   final String? patientName;
   final String? patientEmail;
   final String? doctorName;
+  final String? doctorProfileImage; // R02: API path of the doctor's picture (from the backend)
   final String? specialty;
   final String? hospitalOrClinic;
 
@@ -61,6 +62,7 @@ class Appointment {
     this.patientName,
     this.patientEmail,
     this.doctorName,
+    this.doctorProfileImage,
     this.specialty,
     this.hospitalOrClinic,
     this.bookingReference,
@@ -105,6 +107,7 @@ class Appointment {
       patientName: json['patientName']?.toString(),
       patientEmail: json['patientEmail']?.toString(),
       doctorName: json['doctorName']?.toString(),
+      doctorProfileImage: json['doctorProfileImage']?.toString(),
       specialty: json['specialty']?.toString(),
       hospitalOrClinic: json['hospitalOrClinic']?.toString(),
       bookingReference: json['bookingReference']?.toString(),
@@ -139,6 +142,7 @@ class Appointment {
       'patientName': patientName,
       'patientEmail': patientEmail,
       'doctorName': doctorName,
+      'doctorProfileImage': doctorProfileImage,
       'specialty': specialty,
       'hospitalOrClinic': hospitalOrClinic,
     };

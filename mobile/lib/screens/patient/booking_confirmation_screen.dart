@@ -9,6 +9,7 @@ import '../../models/doctor.dart';
 import '../../models/doctor_availability.dart';
 import '../../services/appointment_service.dart';
 import '../../services/payment_service.dart';
+import '../../widgets/user_avatar.dart';
 import '../../widgets/medical_widgets.dart';
 import 'payment_success_screen.dart';
 
@@ -334,10 +335,12 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.person_rounded,
-                            size: 24,
-                            color: AppTheme.primaryBlue,
+                          child: UserAvatar(
+                            key: const Key('booking_doctor_avatar'),
+                            imageUrl: widget.doctor.profileImage,
+                            size: 46,
+                            borderRadius: 10,
+                            fallback: const Icon(Icons.person_rounded, size: 24, color: AppTheme.primaryBlue),
                           ),
                         ),
                         Positioned(

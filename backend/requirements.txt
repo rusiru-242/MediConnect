@@ -13,6 +13,8 @@ reportlab>=4.0.0
 tzdata>=2024.1
 python-multipart>=0.0.20
 cryptography>=42.0.0
+# R02: profile picture validation and re-encoding (previously only a transitive dependency of reportlab)
+pillow>=12.0.0
 # Phase 05 pip-audit: minimum versions with the published fixes (transitive dependencies made explicit)
 dnspython>=2.9.2
 certifi>=2026.10.18

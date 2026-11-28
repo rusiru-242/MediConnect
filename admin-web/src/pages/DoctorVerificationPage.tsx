@@ -21,6 +21,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { SearchBar } from '../components/common/SearchBar';
 import { getErrorMessage } from '../api/client';
+import { DoctorAvatar } from '../components/common/DoctorAvatar';
 import { useToast } from '../context/ToastContext';
 
 /** Email status from the account record. It was a hard-coded "Verified" badge before Phase 04 (P04-N21). */
@@ -247,9 +248,14 @@ export const DoctorVerificationPage: React.FC = () => {
                 {filteredApps.map((app) => (
                   <tr key={app.doctorProfileId} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-900">{app.fullName}</div>
-                      <div className="text-[11px] text-slate-400">
-                        {app.email} {app.phone ? `• ${app.phone}` : ''}
+                      <div className="flex items-center gap-2.5">
+                        <DoctorAvatar imageUrl={app.profileImage} name={app.fullName} />
+                        <div>
+                          <div className="font-semibold text-slate-900">{app.fullName}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {app.email} {app.phone ? `• ${app.phone}` : ''}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -332,7 +338,10 @@ export const DoctorVerificationPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 border border-slate-100 text-xs">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Full Name</span>
-                <p className="font-semibold text-slate-900 mt-0.5">{appDetail.fullName}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <DoctorAvatar imageUrl={appDetail.profileImage} name={appDetail.fullName} size={40} />
+                  <p className="font-semibold text-slate-900">{appDetail.fullName}</p>
+                </div>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Email & Phone</span>

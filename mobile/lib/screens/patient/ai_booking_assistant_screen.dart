@@ -16,6 +16,7 @@ import '../../models/booking_session.dart';
 
 import '../../services/ai_booking_service.dart';
 
+import '../../widgets/user_avatar.dart';
 import '../../services/payment_service.dart';
 
 import 'my_appointments_screen.dart';
@@ -1566,12 +1567,14 @@ class _AiBookingAssistantScreenState extends State<AiBookingAssistantScreen> {
 
                       children: [
 
-                        CircleAvatar(
-
-                          backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
-
-                          child: const Icon(Icons.person, color: AppTheme.primary),
-
+                        UserAvatar(
+                          key: Key('booking_candidate_avatar_${doc.doctorId}'),
+                          imageUrl: doc.profileImage,
+                          size: 40,
+                          fallback: ColoredBox(
+                            color: AppTheme.primary.withValues(alpha: 0.15),
+                            child: const Icon(Icons.person, color: AppTheme.primary),
+                          ),
                         ),
 
                         const SizedBox(width: 8),

@@ -156,6 +156,7 @@ def _build_appointment_response(
     specialty: Optional[str] = None,
     hospital_or_clinic: Optional[str] = None,
     payment_details: Optional[Dict[str, Any]] = None,
+    doctor_profile_image: Optional[str] = None,
 ) -> AppointmentResponse:
     """Build an AppointmentResponse from a raw MongoDB document with optional enriched fields."""
     return AppointmentResponse(
@@ -180,6 +181,7 @@ def _build_appointment_response(
         patientName=patient_name,
         patientEmail=patient_email,
         doctorName=doctor_name,
+        doctorProfileImage=doctor_profile_image,
         specialty=specialty,
         hospitalOrClinic=hospital_or_clinic,
         appointmentVersion=int(doc.get("appointmentVersion", 1)),
@@ -571,6 +573,7 @@ class AppointmentService:
             {**appt_doc.to_mongo_dict(), "_id": result.inserted_id},
             doctor_id=str(doctor_profile.get("doctorId", "")),
             doctor_name=doctor_user_doc.get("fullName"),
+            doctor_profile_image=doctor_user_doc.get("profileImage"),
             specialty=doctor_profile.get("specialty"),
             hospital_or_clinic=doctor_profile.get("hospitalOrClinic"),
             patient_name=patient_user.fullName,
@@ -631,6 +634,7 @@ class AppointmentService:
                 doc,
                 doctor_id=dr_profile.get("doctorId") if dr_profile else None,
                 doctor_name=dr_user.get("fullName") if dr_user else None,
+                doctor_profile_image=dr_user.get("profileImage") if dr_user else None,
                 specialty=dr_profile.get("specialty") if dr_profile else None,
                 hospital_or_clinic=doc.get("hospitalOrClinic") or (dr_profile.get("hospitalOrClinic") if dr_profile else None),
                 patient_name=patient_user.fullName,
@@ -764,6 +768,7 @@ class AppointmentService:
             updated,
             doctor_id=dr_profile.get("doctorId") if dr_profile else None,
             doctor_name=dr_user.get("fullName") if dr_user else None,
+            doctor_profile_image=dr_user.get("profileImage") if dr_user else None,
             specialty=dr_profile.get("specialty") if dr_profile else None,
             hospital_or_clinic=dr_profile.get("hospitalOrClinic") if dr_profile else None,
             patient_name=patient_user.fullName,
@@ -1288,6 +1293,7 @@ class AppointmentService:
             patient_name=pt_user.get("fullName") if pt_user else None,
             patient_email=pt_user.get("email") if pt_user else None,
             doctor_name=dr_user.get("fullName") if dr_user else None,
+            doctor_profile_image=dr_user.get("profileImage") if dr_user else None,
             specialty=dr_profile.get("specialty") if dr_profile else None,
             hospital_or_clinic=appt.get("hospitalOrClinic") or (dr_profile.get("hospitalOrClinic") if dr_profile else None),
             payment_details=_payment_details(db, appt),
@@ -1487,6 +1493,7 @@ class AppointmentService:
             patient_name=pt_user.get("fullName") if pt_user else None,
             patient_email=pt_user.get("email") if pt_user else None,
             doctor_name=dr_user.get("fullName") if dr_user else None,
+            doctor_profile_image=dr_user.get("profileImage") if dr_user else None,
             specialty=dr_profile.get("specialty") if dr_profile else None,
             hospital_or_clinic=dr_profile.get("hospitalOrClinic") if dr_profile else None,
         )

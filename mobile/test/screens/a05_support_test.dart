@@ -13,6 +13,7 @@ import 'package:mediconnect/screens/patient/support_screens.dart';
 import 'package:mediconnect/services/support_service.dart';
 import 'package:provider/provider.dart';
 
+import '../helpers/fake_profile_service.dart';
 import 'notification_screen_test.dart' show MockNotificationService;
 
 Map<String, dynamic> _ticketJson(String id, {String status = 'open', List<Map<String, dynamic>>? messages,
@@ -155,7 +156,7 @@ void main() {
       providers: [ChangeNotifierProvider<AuthProvider>.value(value: AuthProvider())],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
-        home: const PatientProfileScreen(),
+        home: PatientProfileScreen(service: FakeProfileService()),
         routes: {'/patient/support': (_) => const Scaffold(body: Text('support route'))},
       ),
     ));

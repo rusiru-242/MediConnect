@@ -1,0 +1,7 @@
+{"viewer": "uat.patient2@uat.mediconnect.lk", "owner": "uat.patient2@uat.mediconnect.lk", "ownerHasPicture": true, "status": 200}
+{"viewer": "uat.patient1@uat.mediconnect.lk", "owner": "uat.patient2@uat.mediconnect.lk", "ownerHasPicture": true, "status": 404}
+{"viewer": "uat.doctor.gp@uat.mediconnect.lk", "owner": "uat.patient2@uat.mediconnect.lk", "ownerHasPicture": true, "status": 404}
+{"viewer": "uat.doctor.neuro@uat.mediconnect.lk", "owner": "uat.patient2@uat.mediconnect.lk", "ownerHasPicture": true, "status": 200}
+{"viewer": "uat.admin@uat.mediconnect.lk", "owner": "uat.patient2@uat.mediconnect.lk", "ownerHasPicture": true, "status": 404}
+{"viewer": "uat.patient1@uat.mediconnect.lk", "owner": "uat.doctor.gp@uat.mediconnect.lk", "ownerHasPicture": true, "status": 200}
+{"viewer": "uat.admin@uat.mediconnect.lk", "owner": "uat.doctor.gp@uat.mediconnect.lk", "ownerHasPicture": true, "status": 200}

@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/doctor.dart';
 import '../../services/doctor_service.dart';
 import '../../widgets/medical_widgets.dart';
+import '../../widgets/user_avatar.dart';
 import '../../utils/assistant_navigation.dart';
 
 /// Screen allowing patients to discover, search, and filter approved doctors.
@@ -652,19 +653,28 @@ class _FindDoctorScreenState extends State<FindDoctorScreen> {
                       border: Border.all(color: AppTheme.border),
                     ),
                     alignment: Alignment.center,
-                    child: Text(
-                      doctor.fullName.isNotEmpty
-                          ? doctor.fullName
-                                .replaceFirst('Dr. ', '')
-                                .split(' ')
-                                .map((n) => n.isNotEmpty ? n[0] : '')
-                                .take(2)
-                                .join()
-                          : 'DR',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.primaryBlue,
+                    child: UserAvatar(
+                      key: Key('doctor_avatar_${doctor.doctorId}'),
+                      imageUrl: doctor.profileImage,
+                      size: 56,
+                      borderRadius: 13,
+                      semanticLabel: 'Photo of ${doctor.fullName}',
+                      fallback: Center(
+                        child: Text(
+                          doctor.fullName.isNotEmpty
+                              ? doctor.fullName
+                                    .replaceFirst('Dr. ', '')
+                                    .split(' ')
+                                    .map((n) => n.isNotEmpty ? n[0] : '')
+                                    .take(2)
+                                    .join()
+                              : 'DR',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
                       ),
                     ),
                   ),

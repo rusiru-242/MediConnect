@@ -305,7 +305,7 @@ class FraudDetectionService:
 
     @classmethod
     def run_detection_sweep(cls, db: Database, now: Optional[datetime] = None, *, force: bool = False,
-                            limit: int = 200) -> Dict[str, int]:
+                            limit: Optional[int] = None) -> Dict[str, int]:
         """A05-BUG-001: evaluate recently active accounts from the background worker.
 
         Before A05 the rules ran only when an administrator called the evaluate endpoint with an account id, so no
@@ -332,8 +332,14 @@ class FraudDetectionService:
         accounts |= set(db["security_events"].distinct("actorId", {
             "category": {"$in": ["AUTH_FAILURE", "UNAUTHORIZED_ACCESS"]},
             "timestamp": {"$gte": now - timedelta(minutes=15)}}))
-        stats = {"evaluated": 0, "flagged": 0}
-        for account_id in sorted(str(a) for a in accounts if a)[:limit]:
+        # R02-BUG-006: this used to be ``sorted(ids)[:200]``. ObjectId strings sort by creation time, so once more than
+        # 200 accounts were active in the window the NEWEST accounts were silently never evaluated. Every candidate is
+        # now evaluated; an explicit ``limit`` (tests, manual runs) is reported as ``deferred`` instead of hidden.
+        candidates = sorted(str(a) for a in accounts if a)
+        selected = candidates if limit is None else candidates[:max(0, int(limit))]
+        stats = {"evaluated": 0, "flagged": 0, "candidates": len(candidates),
+                 "deferred": len(candidates) - len(selected)}
+        for account_id in selected:
             stats["evaluated"] += 1
             if cls.evaluate_account_risk(account_id, db=db, now=now):
                 stats["flagged"] += 1

@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 
-import '../../core/constants/api_constants.dart';
 import '../../core/network/api_error_mapper.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
@@ -15,6 +14,7 @@ import '../../services/ai_booking_service.dart';
 import '../../services/payment_service.dart';
 import '../../widgets/safe_markdown_text.dart';
 import 'doctor_detail_screen.dart';
+import '../../widgets/user_avatar.dart';
 import '../../utils/emergency_dialer.dart';
 import 'payment_success_screen.dart';
 
@@ -2342,18 +2342,14 @@ class _AiCareAssistantScreenState extends State<AiCareAssistantScreen> {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-                  child: doctor.profileImage?.isNotEmpty == true
-                      ? ClipOval(child: Image.network(
-                          Uri.parse(ApiConstants.hostBaseUrl).resolve(doctor.profileImage!).toString(),
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Icon(Icons.person),
-                        ))
-                      : const Icon(Icons.person, size: 28, color: AppTheme.primary),
+                UserAvatar(
+                  key: Key('care_doctor_avatar_${doctor.doctorId}'),
+                  imageUrl: doctor.profileImage,
+                  size: 48,
+                  fallback: ColoredBox(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    child: const Icon(Icons.person, size: 28, color: AppTheme.primary),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

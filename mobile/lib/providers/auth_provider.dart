@@ -14,6 +14,7 @@ import '../services/auth_api_service.dart';
 import '../services/fcm_service.dart';
 import '../services/google_auth_service.dart';
 import '../services/local_notification_service.dart';
+import '../widgets/user_avatar.dart';
 import '../services/medication_reminder_service.dart';
 
 enum AuthStatus {
@@ -190,6 +191,7 @@ class AuthProvider extends ChangeNotifier {
       // Cache user profile
       await _storageService.saveUserJson(jsonEncode(session.user.toJson()));
 
+      AvatarCache.clear(); // R02: never show a previous account's cached pictures
       _user = session.user;
       _status = AuthStatus.authenticated;
       FcmService().syncTokenWithBackend().catchError((_) {});
@@ -272,6 +274,7 @@ class AuthProvider extends ChangeNotifier {
       // Cache user profile safely
       await _storageService.saveUserJson(jsonEncode(session.user.toJson()));
 
+      AvatarCache.clear(); // R02: never show a previous account's cached pictures
       _user = session.user;
       _status = AuthStatus.authenticated;
       FcmService().syncTokenWithBackend().catchError((_) {});
@@ -546,6 +549,35 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Log out patient, revoking session on backend and clearing secure storage.
+  /// R02: reflect a changed or removed profile picture everywhere the signed-in user is shown.
+  void updateProfileImage(String? url) {
+    final current = _user;
+    if (current == null) return;
+    _user = UserModel(
+      id: current.id,
+      fullName: current.fullName,
+      email: current.email,
+      phone: current.phone,
+      role: current.role,
+      emailVerified: current.emailVerified,
+      accountStatus: current.accountStatus,
+      createdAt: current.createdAt,
+      profileImage: url,
+      authProviders: current.authProviders,
+    );
+    _storageService.saveUserJson(jsonEncode(_user!.toJson())).catchError((_) {});
+    notifyListeners();
+  }
+
+  /// R02: a renamed patient (profile edit) is shown with the new name without signing in again.
+  void updateFullName(String name) {
+    final current = _user;
+    if (current == null || name.isEmpty) return;
+    _user = current.copyWith(fullName: name);
+    _storageService.saveUserJson(jsonEncode(_user!.toJson())).catchError((_) {});
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     _isLoading = true;
     notifyListeners();
@@ -580,6 +612,7 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       // Local session and tokens are purged immediately
       await _storageService.clearAll();
+      AvatarCache.clear(); // R02: private pictures are dropped from memory on logout
       _user = null;
       _doctorApplicationStatus = null;
       _status = AuthStatus.unauthenticated;

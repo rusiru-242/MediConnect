@@ -4,6 +4,7 @@ import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/appointment.dart';
 import '../../services/appointment_service.dart';
+import '../../widgets/user_avatar.dart';
 import '../../widgets/appointment_payment_summary.dart';
 import 'submit_review_dialog.dart';
 
@@ -394,14 +395,13 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    CircleAvatar(
-                                      radius: 26,
-                                      backgroundColor:
-                                          AppTheme.primary.withValues(alpha: 0.1),
-                                      child: const Icon(
-                                        Icons.person,
-                                        color: AppTheme.primary,
-                                        size: 30,
+                                    UserAvatar(
+                                      key: const Key('appointment_detail_doctor_avatar'),
+                                      imageUrl: _appointment!.doctorProfileImage,
+                                      size: 52,
+                                      fallback: ColoredBox(
+                                        color: AppTheme.primary.withValues(alpha: 0.1),
+                                        child: const Icon(Icons.person, color: AppTheme.primary, size: 30),
                                       ),
                                     ),
                                     const SizedBox(width: 14),

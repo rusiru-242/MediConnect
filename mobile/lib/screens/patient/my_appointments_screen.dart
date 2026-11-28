@@ -6,6 +6,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/appointment.dart';
 import '../../providers/locale_provider.dart';
 import '../../services/appointment_service.dart';
+import '../../widgets/user_avatar.dart';
 import '../../widgets/medical_widgets.dart';
 import 'appointment_detail_screen.dart';
 
@@ -255,7 +256,13 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen>
                   border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
                 ),
                 alignment: Alignment.center,
-                child: Icon(Icons.person_rounded, size: 26, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
+                child: UserAvatar(
+                  key: Key('appointment_doctor_avatar_${appt.id}'),
+                  imageUrl: appt.doctorProfileImage,
+                  size: 46,
+                  borderRadius: 11,
+                  fallback: Icon(Icons.person_rounded, size: 26, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

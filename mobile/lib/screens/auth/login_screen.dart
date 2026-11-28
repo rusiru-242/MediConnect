@@ -7,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/language_selector_sheet.dart';
 import '../../widgets/mediconnect_logo.dart';
+import '../../core/theme/auth_palette.dart';
 import '../../widgets/server_settings_sheet.dart';
 
 /// Clean, minimal MediConnect Login Screen matching the Welcome Screen aesthetic.
@@ -158,13 +159,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final pal = AuthPalette.of(context);
     final authProvider = context.watch<AuthProvider>();
     final isLoading = authProvider.isLoading;
     final errorMessage = authProvider.errorMessage;
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: pal.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -199,25 +201,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: MediConnectLogo(size: 64),
                 ),
                 const SizedBox(height: 10),
-                const Center(
+                Center(
                   child: Text(
                     'MediConnect',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
                       letterSpacing: -0.5,
-                      color: AppTheme.textPrimary,
+                      color: pal.textPrimary,
                     ),
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Healthcare made simpler.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.primary,
+                    color: pal.accent,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -227,9 +229,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: AppTheme.surfaceContainerLow,
+                    color: pal.surfaceLow,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.border, width: 1),
+                    border: Border.all(color: pal.border, width: 1),
                   ),
                   child: Row(
                     children: [
@@ -243,7 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
                               color: _selectedRole == 'patient'
-                                  ? Colors.white
+                                  ? pal.card
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(9),
                               boxShadow: _selectedRole == 'patient'
@@ -264,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   size: 18,
                                   color: _selectedRole == 'patient'
                                       ? AppTheme.primaryBlue
-                                      : AppTheme.textSecondary,
+                                      : pal.textSecondary,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
@@ -276,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         : FontWeight.w500,
                                     color: _selectedRole == 'patient'
                                         ? AppTheme.primaryBlue
-                                        : AppTheme.textSecondary,
+                                        : pal.textSecondary,
                                   ),
                                 ),
                               ],
@@ -294,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
                               color: _selectedRole == 'doctor'
-                                  ? Colors.white
+                                  ? pal.card
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(9),
                               boxShadow: _selectedRole == 'doctor'
@@ -315,7 +317,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   size: 18,
                                   color: _selectedRole == 'doctor'
                                       ? AppTheme.primaryBlue
-                                      : AppTheme.textSecondary,
+                                      : pal.textSecondary,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
@@ -327,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         : FontWeight.w500,
                                     color: _selectedRole == 'doctor'
                                         ? AppTheme.primaryBlue
-                                        : AppTheme.textSecondary,
+                                        : pal.textSecondary,
                                   ),
                                 ),
                               ],
@@ -468,11 +470,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Text(
+                        Text(
                           'Remember me',
                           style: TextStyle(
                             fontSize: 13,
-                            color: AppTheme.textSecondary,
+                            color: pal.textSecondary,
                           ),
                         ),
                       ],
@@ -487,9 +489,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Text(
                         l10n?.forgotPassword ?? 'Forgot Password?',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppTheme.primary,
+                          color: pal.accent,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -541,7 +543,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textMuted,
+                          color: pal.textMuted,
                         ),
                       ),
                     ),
@@ -555,9 +557,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   key: const Key('login_google_button'),
                   onPressed: isLoading ? null : _onGoogleSignIn,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textPrimary,
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: AppTheme.border, width: 1.5),
+                    foregroundColor: pal.textPrimary,
+                    backgroundColor: pal.card,
+                    side: BorderSide(color: pal.border, width: 1.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -576,18 +578,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
                           width: 20,
                           height: 20,
-                          errorBuilder: (context, error, stackTrace) => const Icon(
+                          errorBuilder: (context, error, stackTrace) => Icon(
                             Icons.account_circle_outlined,
                             size: 20,
-                            color: AppTheme.textSecondary,
+                            color: pal.textSecondary,
                           ),
                         ),
                   label: Text(
                     isLoading
                         ? (l10n?.loading ?? 'Connecting...')
                         : (l10n?.continueWithGoogle ?? 'Continue with Google'),
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
+                    style: TextStyle(
+                      color: pal.textPrimary,
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
                     ),
@@ -601,19 +603,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Text(
                       l10n?.dontHaveAccount ?? "Don't have an account? ",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppTheme.textSecondary,
+                        color: pal.textSecondary,
                       ),
                     ),
                     GestureDetector(
                       onTap: isLoading ? null : _onCreateAccount,
                       child: Text(
                         l10n?.createAccount ?? 'Create Account',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.primary,
+                          color: pal.accent,
                         ),
                       ),
                     ),
@@ -627,9 +629,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Text(
                       l10n?.areYouADoctor ?? 'Are you a doctor? ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppTheme.textSecondary,
+                        color: pal.textSecondary,
                       ),
                     ),
                     GestureDetector(
@@ -639,10 +641,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           : () => Navigator.of(context).pushNamed('/doctor/register'),
                       child: Text(
                         l10n?.registerAsDoctor ?? 'Register as a Doctor',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.primary,
+                          color: pal.accent,
                         ),
                       ),
                     ),

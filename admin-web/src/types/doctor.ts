@@ -8,6 +8,8 @@ export interface DoctorDocumentMetadata {
 }
 
 export interface DoctorApplicationSummary {
+  /** R02: authenticated API path of the doctor's picture, or null. */
+  profileImage?: string | null;
   doctorProfileId: string;
   userId: string;
   fullName: string;
@@ -35,6 +37,8 @@ export interface DoctorApplicationDetail extends DoctorApplicationSummary {
 }
 
 export interface DoctorListItem {
+  /** R02: authenticated API path of the doctor's picture, or null. */
+  profileImage?: string | null;
   doctorProfileId: string;
   userId: string;
   fullName: string;
