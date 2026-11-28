@@ -115,7 +115,7 @@
   },
   "secretScans": {
     "trackedFiles": {
-      "trackedFiles": 1488,
+      "trackedFiles": 1499,
       "trackedEnvFiles": []
     },
     "apk": "clean",
@@ -131,7 +131,15 @@
     "files": 30
   },
   "r05Handover": "docs/uat/release-preparation/r04/R04_R05_DEMO_HANDOVER.md",
-  "integration": "pending",
+  "integration": {
+    "branchHead": "b489208",
+    "ciRuns": 0,
+    "ciApplicable": "none (docs-only; path-filtered workflows)",
+    "pr": "not opened (gh unauthenticated); compare URL provided",
+    "merge": "not performed",
+    "originMain": "1f95285",
+    "tag": "not created"
+  },
   "productionReady": false,
   "clinicallyValidated": false
 }

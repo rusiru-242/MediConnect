@@ -43,4 +43,23 @@ R04 changes only `README.md` and `docs/**`, so **no CI workflow applies** to the
 
 ## PR, CI and merge
 
-To be completed after the events.
+| Item | Value |
+|---|---|
+| Branch push | `b489208` (docs), plus this record |
+| CI on the branch | **No workflow runs** (GitHub API: 0 runs for `b489208`), as expected for a docs-only change. This is not a pass. The code the workflows cover is unchanged since `1f95285`, where Backend and Mobile CI succeeded |
+| Pull request | **Not opened:** the GitHub CLI is not logged in, so the owner was given the compare URL, title and description |
+| Compare URL | https://github.com/rusiru-242/MediConnect/compare/main...release/mediconnect-v1?expand=1 |
+| Title | R04: Prepare MediConnect Academic Release and Advanced Agentic AI Documentation |
+| Description | `evidence/r04_pr_description.md` in the R04 report package |
+| Required reviews / branch protection | Unknown (the API requires authentication) |
+| Merge | Not performed; `origin/main` is still `1f95285` |
+| Tag / GitHub release | Not created (see `R04_RELEASE_SECURITY_GATE.md`) |
+
+## Post-merge steps (once merged)
+
+1. Fetch `origin/main` and confirm that `b489208` and the earlier phases are ancestors.
+2. Confirm no workflow was expected to run.
+3. Check that the README renders: images and Mermaid diagrams.
+4. Fast-forward local `main`.
+5. Keep all branches.
+6. Publish the tag and release only after the security gate conditions are met.
