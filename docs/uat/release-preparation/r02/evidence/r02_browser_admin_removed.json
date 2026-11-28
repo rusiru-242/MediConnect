@@ -1,0 +1,60 @@
+{
+  "label": "removed",
+  "doctorName": "Dr. UAT General",
+  "steps": [
+    {
+      "id": "I15",
+      "scenario": "Doctor management list shows the doctor picture (blob from the admin session)",
+      "actual": {
+        "name": "Dr. UAT General",
+        "image": false,
+        "fallback": true,
+        "src": null,
+        "box": [
+          32,
+          32
+        ],
+        "rowHeight": 67,
+        "matches": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "I15b",
+      "scenario": "Other doctors keep the fallback avatar; avatars are 32x32 and rows are not distorted",
+      "actual": {
+        "others": 0,
+        "sizes": [
+          "32x32"
+        ],
+        "maxRow": 67
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "I15c",
+      "scenario": "Doctor verification page renders the doctor with an avatar",
+      "actual": {
+        "rows": 14,
+        "target": {
+          "image": false,
+          "fallback": true
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "S-ADMIN",
+      "scenario": "No storage path or token in the admin page",
+      "actual": {
+        "leaks": []
+      },
+      "status": "PASS"
+    }
+  ],
+  "rows": 1,
+  "pictureRequests": 0,
+  "pictureHosts": [],
+  "blockedRequests": [],
+  "pageErrors": []
+}

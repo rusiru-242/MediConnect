@@ -1,0 +1,2 @@
+uat.patient2 identical_after_restart=true sha256=ef2ad6eb9a004aed9c5e9487d2b59369b7dcb2882201cf9b7fd41f370ba6a04c
+uat.doctor.gp identical_after_restart=true sha256=d9c15e997da38a02c01125ff6e929fed5445d3c79bbfa1504d0957cea778c638

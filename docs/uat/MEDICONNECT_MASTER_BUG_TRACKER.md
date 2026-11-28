@@ -1,4 +1,4 @@
-# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A05)
+# MediConnect — Master Bug Tracker (reconciled, Phases 00–05, Agent Completion A01–A05, Release R01–R02)
 
 For: the project owner, reviewers and future maintainers. Generated 2026-11-28 by `docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).
 
@@ -13,15 +13,15 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-28 b
 
 | Measure | Count |
 |---|---|
-| Unique tracked items | 306 |
-| Confirmed defects | 248 |
-| Defects fixed (automated regression) | 247 |
+| Unique tracked items | 326 |
+| Confirmed defects | 255 |
+| Defects fixed (automated regression) | 254 |
 | Defects open | 1 (BUG-039) |
 | …of the fixed: manual device retest still pending | 7 |
 | …of the fixed: external verification blocked | 1 |
 | Improvements / requirements delivered | 21 |
 | Regression guards (not defects) | 1 |
-| Observations (unconfirmed) | 35 |
+| Observations (unconfirmed) | 48 |
 | Security incidents (owner) | 1 |
 
 | Source | Defects | Improvements |
@@ -37,6 +37,8 @@ For: the project owner, reviewers and future maintainers. Generated 2026-11-28 b
 | Agent Completion A03 | 20 | 0 |
 | Agent Completion A04 | 16 | 0 |
 | Agent Completion A05 | 14 | 0 |
+| Release preparation R01 | 1 | 0 |
+| Release preparation R02 | 6 | 0 |
 
 Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not defects; see `PHASE_05_REMAINING_BLOCKERS.md`.
 
@@ -340,7 +342,7 @@ Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not def
 | A05-BUG-012 |  | defect | Medium | Admin web | Rule-based templates were presented as AI output: "AI-Assisted", "AI Support Intelligence", "AI draft response generated", "AI-classified …  | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
 | A05-BUG-013 |  | defect | Low | Agent 26 status | After an admin replied, the ticket said "in progress", so the patient could not tell that support had answered. | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
 | A05-BUG-014 |  | defect | Medium | Admin web, Agent 25 | The fraud review screen showed no evidence or history. | FIXED (A05) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
-| A05-O1 |  | observation | Low | A05 | The patient Profile screen shows hard-coded health data that is not the patient's: height 5'7", weight 134 lbs, BMI 21.0, **"Allergies: Peni | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| A05-O1 |  | observation | Low | A05 | The patient Profile screen shows hard-coded health data that is not the patient's: height 5'7", weight 134 lbs, BMI 21.0, **"Allergies: Peni | RESOLVED (R02-BUG-001) | agent-completion/a05/A05_BUG_FIX_REPORT.md |
 | A05-O2 |  | observation | Low | A05 | In UAT the slot-hoarding rule flagged uat.p02.patientb, whose earlier A03 test session had released four unpaid holds that day | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
 | A05-O3 |  | observation | Low | A05 | The explanation counts supporting references with at most 5 per rule ("Supported by 5 event reference(s)") while the evidence can show 6 obs | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
 | A05-O4 |  | observation | Low | A05 | The pre-existing BRUTE_FORCE security event uses check-then-insert, so two simultaneous failed logins could record it twice | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
@@ -350,3 +352,23 @@ Owner decisions and external blockers (B1–B17, P3-B*, P4-B*, P5-*) are not def
 | A05-O8 |  | observation | Low | A05 | The admin ticket queue loads the 50 most recently active tickets and has no paging controls | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
 | A05-O9 |  | observation | Low | A05 | Text an admin appends to the template appears after the template's signature unless the admin moves it; editing convenience only | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
 | A05-O10 |  | observation | Low | A05 | The mobile ticket thread does not refresh by itself; pull to refresh or reopen it (a notification opens the current state) | OPEN | agent-completion/a05/A05_BUG_FIX_REPORT.md |
+| R01-BUG-001 |  | defect | Low | Admin web | The admin favicon pointed to /vite.svg, which was never in public/. | FIXED (R01) | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R01-O1 |  | observation | Low | R01 | At 360 dp width the patient bottom navigation's "Profile" item overflows by 15 px (r01_after_e14_small_patient_dashboard_dark.png). | RESOLVED (R02-BUG-003) | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R01-O2 |  | observation | Low | R01 | Welcome and login use fixed light colours. | RESOLVED (R02-BUG-004) | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R01-O3 |  | observation | Low | R01 | The splash waits at least 1.2 s (Future.delayed(1200 ms) | OPEN | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R01-O4 |  | observation | Low | R01 | The native splash is white in light and dark system modes. | OPEN | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R01-O5 |  | observation | Low | R01 | The source is a raster. | OPEN | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R01-O6 |  | observation | Low | R01 | At 16 px on dark tab strips the favicon has low contrast (r01_after_b02, b08) | OPEN | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R01-O7 |  | observation | Low | R01 | iOS icons, launch image, storyboard size and display name were updated but not built or run: there is no macOS/Xcode environment | OPEN | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R01-O8 |  | observation | Low | R01 | The first R01 APK was built without --dart-define=API_BASE_URL=http://10.0.2.2:8001, so it used its built-in default and could not reach the | OPEN | release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md |
+| R02-BUG-001 |  | defect | High | Mobile — patient profile | The patient Profile screen showed invented personal and clinical data, including height 5'7", weight 134 lbs, BMI 21.0 "Normal", allergy "Pe | FIXED (R02) | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-BUG-002 |  | defect | Medium | Mobile — patient profile | Profile actions reported success without doing anything. | FIXED (R02) | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-BUG-003 |  | defect | Medium | Mobile — patient navigation | The bottom navigation overflowed by 15 px at 360 dp, with the yellow-and-black stripe over "Profile". | FIXED (R02) | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-BUG-004 |  | defect | Medium | Mobile — welcome and login | The welcome and login screens were unreadable in dark mode. | FIXED (R02) | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-BUG-005 |  | defect | Medium | Mobile — AI care assistant | The doctor card in the AI assistant loaded the picture without the session (Image.network with no credentials). | FIXED (R02) | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-BUG-006 |  | defect | Medium | Backend — fraud sweep (A05, latent) | With more than 200 recently active accounts, the fraud sweep silently skipped the newest ones. | FIXED (R02) | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-O1 |  | observation | Low | R02 | The long-lived local mediconnect_test database had collected about 10,000 users and 42 payments with future createdAt values from earlier fi | OPEN | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-O2 |  | observation | Low | R02 | /patient/ai-recommendations (AiDoctorRecommendationScreen) is registered but no screen navigates to it | OPEN | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-O3 |  | observation | Low | R02 | The deterministic assistant maps "general practitioner" to a specialty name that the synthetic doctor "General Practice" does not match, so  | OPEN | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-O4 |  | observation | Low | R02 | On the profile card, a screen reader announces the photo button together with the name and e-mail ("Change profile photo, UAT Patient Two, … | OPEN | release-preparation/r02/R02_BUG_FIX_REPORT.md |
+| R02-O5 |  | observation | Low | R02 | No historical fabricated values exist in the database: the invented profile values were literals in the screen, never stored | OPEN | release-preparation/r02/R02_BUG_FIX_REPORT.md |

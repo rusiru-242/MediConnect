@@ -200,6 +200,46 @@ if a05.exists():
             add(c[0], '', 'Low', 'A05', _re.sub(r'`', '', c[1]).split('. ')[0][:140], 'observation', 'OPEN',
                 'agent-completion/a05/A05_BUG_FIX_REPORT.md')
 
+# ---- Release preparation R01 (2026-11-28, branch feat/mediconnect-branding)
+r01 = U / 'release-preparation' / 'r01' / 'R01_BRANDING_UPDATE_REPORT.md'
+if r01.exists():
+    import re as _re
+    for line in r01.read_text(encoding='utf-8').splitlines():
+        if line.startswith('| R01-BUG-') or line.startswith('| R01-O'):
+            c = [x.strip() for x in line.strip('|').split('|')]
+            text = _re.sub(r'\*\*|`', '', c[2])
+            title = _re.split(r'(?<=[.)])\s', text)[0][:140]
+            if c[0].startswith('R01-BUG-'):
+                add(c[0], '', 'Low', 'Admin web', title, 'defect', 'FIXED (R01)',
+                    'release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md')
+            else:
+                add(c[0], '', 'Low', 'R01', title, 'observation', 'OPEN',
+                    'release-preparation/r01/R01_BRANDING_UPDATE_REPORT.md')
+
+# ---- Release preparation R02 (2026-11-28, branch feat/profile-picture-management)
+r02 = U / 'release-preparation' / 'r02' / 'R02_BUG_FIX_REPORT.md'
+if r02.exists():
+    import re as _re
+    r02_text = r02.read_text(encoding='utf-8')
+    for line in r02_text.split('## Defects')[1].split('## Issues found')[0].splitlines():
+        if line.startswith('| R02-BUG-'):
+            c = [x.strip() for x in line.strip('|').split('|')]
+            title = _re.sub(r'\*\*|`', '', c[3])
+            title = _re.split(r'(?<=[.)])\s', title)[0][:140]
+            add(c[0], '', _re.sub(r'\s*\(.*\)', '', c[1]), c[2], title, 'defect', 'FIXED (R02)',
+                'release-preparation/r02/R02_BUG_FIX_REPORT.md')
+    for line in r02_text.split('## Observations')[1].splitlines():
+        if line.startswith('| R02-O'):
+            c = [x.strip() for x in line.strip('|').split('|')]
+            add(c[0], '', 'Low', 'R02', _re.sub(r'`', '', c[1]).split('. ')[0][:140], 'observation', 'OPEN',
+                'release-preparation/r02/R02_BUG_FIX_REPORT.md')
+    # Earlier observations resolved by R02 after verification (status only; the original rows are kept).
+    for r in rows:
+        resolved = {'A05-O1': 'RESOLVED (R02-BUG-001)', 'R01-O1': 'RESOLVED (R02-BUG-003)',
+                    'R01-O2': 'RESOLVED (R02-BUG-004)'}.get(r['id'])
+        if resolved:
+            r['status'] = resolved
+
 # ---- counts
 def is_open(r):
     return r['status'].upper().startswith('OPEN')
@@ -222,7 +262,8 @@ for prefix, label in (('BUG-0', 'historical BUG-001..063 (unaliased)'), ('P01-',
                       ('P03-', 'Phase 03'), ('P04-', 'Phase 04'), ('P05-', 'Phase 05'),
                       ('A01-', 'Agent Completion A01'), ('A02-', 'Agent Completion A02'),
                       ('A03-', 'Agent Completion A03'), ('A04-', 'Agent Completion A04'),
-                      ('A05-', 'Agent Completion A05')):
+                      ('A05-', 'Agent Completion A05'), ('R01-', 'Release preparation R01'),
+                      ('R02-', 'Release preparation R02')):
     sel = [r for r in rows if r['id'].startswith(prefix)]
     counts['byPhase'][label] = {'defects': sum(r['kind'] == 'defect' for r in sel),
                                 'improvements': sum(r['kind'] == 'improvement' for r in sel)}
@@ -230,7 +271,7 @@ for prefix, label in (('BUG-0', 'historical BUG-001..063 (unaliased)'), ('P01-',
 (U / 'phase-05' / 'evidence' / 'master-tracker-counts.json').write_text(json.dumps(counts, indent=2), encoding='utf-8')
 
 lines = [
-    '# MediConnect — Master Bug Tracker (reconciled, Phases 00–05 and Agent Completion A01–A05)', '',
+    '# MediConnect — Master Bug Tracker (reconciled, Phases 00–05, Agent Completion A01–A05, Release R01–R02)', '',
     'For: the project owner, reviewers and future maintainers. Generated 2026-11-28 by '
     '`docs/uat/phase-05/build_master_tracker.py` from the recorded sources only (nothing re-typed by hand).', '',
     '## How to read it', '',

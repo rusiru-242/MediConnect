@@ -1,0 +1,632 @@
+{
+  "phase": "R02 Profile Pictures, Profile Data Integrity and UI Corrections",
+  "date": "2026-11-28",
+  "startingMain": "93520da63bb5ca8312d7bbd583f221b8a8a3b3c5",
+  "r01Merge": {
+    "pr": 28,
+    "mergeCommit": "93520da",
+    "ciOnMerge": {
+      "Mobile CI": "success",
+      "Admin Web CI": "success"
+    },
+    "mergedWhilePrCheckPending": {
+      "check": "Mobile CI (pull_request)",
+      "mergedAt": "2026-11-27T20:23:09Z",
+      "checkCompleted": "2026-11-27T20:24:54Z",
+      "conclusion": "success"
+    }
+  },
+  "branch": "feat/profile-picture-management",
+  "storage": {
+    "kind": "local disk, AES-256-GCM (document_crypto, store profile_images)",
+    "path": "backend/uploads/profile_images/<userId>/<uuid4>.jpg",
+    "dbReference": "users.profileImage + users.profileImageMeta (no Base64 in MongoDB)",
+    "defaults": {
+      "maxBytes": 5242880,
+      "maxPixels": 40000000,
+      "maxDimension": 8000,
+      "outputSize": 512,
+      "uploadsPerHour": 20
+    },
+    "productionLimitation": "single-server disk; shared/object storage needed for multiple instances"
+  },
+  "resolved": {
+    "A05-O1": "R02-BUG-001",
+    "R01-O1": "R02-BUG-003",
+    "R01-O2": "R02-BUG-004"
+  },
+  "defects": {
+    "count": 6,
+    "fixed": 6,
+    "items": [
+      {
+        "id": "R02-BUG-001",
+        "severity": "High (A05-O1)",
+        "component": "Mobile — patient profile"
+      },
+      {
+        "id": "R02-BUG-002",
+        "severity": "Medium",
+        "component": "Mobile — patient profile"
+      },
+      {
+        "id": "R02-BUG-003",
+        "severity": "Medium (R01-O1)",
+        "component": "Mobile — patient navigation"
+      },
+      {
+        "id": "R02-BUG-004",
+        "severity": "Medium (R01-O2)",
+        "component": "Mobile — welcome and login"
+      },
+      {
+        "id": "R02-BUG-005",
+        "severity": "Medium",
+        "component": "Mobile — AI care assistant"
+      },
+      {
+        "id": "R02-BUG-006",
+        "severity": "Medium",
+        "component": "Backend — fraud sweep (A05, latent)"
+      }
+    ],
+    "observations": [
+      "R02-O1",
+      "R02-O2",
+      "R02-O3",
+      "R02-O4",
+      "R02-O5"
+    ]
+  },
+  "tests": {
+    "backend": {
+      "passed": 1048,
+      "failed": 0,
+      "database": "fresh mediconnect_r02_test",
+      "newFile": {
+        "tests/test_r02_profile.py": 45
+      },
+      "providerAttempts": 0,
+      "historicalBaseline": 1003,
+      "firstRunSharedDb": {
+        "passed": 1042,
+        "failed": 5,
+        "causes": [
+          "R02-BUG-006 (fixed)",
+          "R02-O1 test data"
+        ]
+      }
+    },
+    "flutter": {
+      "passed": 361,
+      "failed": 0,
+      "baseline": 342,
+      "new": {
+        "test/screens/r02_profile_test.dart": 19
+      },
+      "analyze": "no issues",
+      "apk": "debug, --dart-define=API_BASE_URL=http://10.0.2.2:8001"
+    },
+    "adminWeb": {
+      "passed": 51,
+      "failed": 0,
+      "baseline": 47,
+      "new": {
+        "src/test/r02DoctorAvatar.test.tsx": 4
+      },
+      "tsc": "ok",
+      "lint": "ok",
+      "build": "ok"
+    },
+    "newlyExecutedTotal": 1460,
+    "historicalCombinedBaseline": 1392,
+    "changedExpectations": [
+      "patient_profile_screen_test: MEDICONNECT PASS now asserted absent (+ Health Summary present)",
+      "a05_support_test C01: fake profile service injected"
+    ]
+  },
+  "matrices": {
+    "counts": {
+      "images": {
+        "total": 24,
+        "pass": 24,
+        "qualified": 6
+      },
+      "security": {
+        "total": 15,
+        "pass": 15,
+        "qualified": 0
+      },
+      "profileData": {
+        "total": 10,
+        "pass": 10,
+        "qualified": 0
+      },
+      "ui": {
+        "total": 8,
+        "pass": 8,
+        "qualified": 0
+      }
+    },
+    "rows": {
+      "images": {
+        "R02-I01": {
+          "scenario": "Patient gallery selection",
+          "evidence": "Device `e03`→`e08`; widget I01",
+          "result": "PASS"
+        },
+        "R02-I02": {
+          "scenario": "Patient camera selection",
+          "evidence": "Device `e10` (system camera, virtual scene) → `e11` → `e12`; stored without GPS",
+          "result": "PASS (emulator camera; not a physical camera)"
+        },
+        "R02-I03": {
+          "scenario": "Crop and preview",
+          "evidence": "Device `e05/e06` (panned); stored picture matches the panned square (`r02_stored_patient_a.jpg`); `test_i03` (server crop); widget (centred default crop)",
+          "result": "PASS"
+        },
+        "R02-I04": {
+          "scenario": "Patient upload",
+          "evidence": "Device `e07` (progress, \"Profile photo updated.\"), `e08`; `test_i04_i07`; stored as a 512×512 JPEG, served `private`",
+          "result": "PASS"
+        },
+        "R02-I05": {
+          "scenario": "Patient replacement",
+          "evidence": "Device: gallery → camera, new version `d0c38a80…`; `test_i05_i06`; one file on disk",
+          "result": "PASS"
+        },
+        "R02-I06": {
+          "scenario": "Patient removal",
+          "evidence": "Device `e26` → `e27` (\"Profile photo removed.\"), server `profileImage: null`, 0 files; `test_i05_i06`; widget I06",
+          "result": "PASS"
+        },
+        "R02-I07": {
+          "scenario": "Patient default avatar",
+          "evidence": "Device `e01/e27`; widget I07/I24; `test_i04_i07`",
+          "result": "PASS"
+        },
+        "R02-I08": {
+          "scenario": "Doctor upload",
+          "evidence": "Device `e17` → `e18` (dashboard card); `test_i08…`",
+          "result": "PASS"
+        },
+        "R02-I09": {
+          "scenario": "Doctor replacement",
+          "evidence": "Device `e24`, new version `d6ff84d7…`, one file; `test_i09_i10`",
+          "result": "PASS"
+        },
+        "R02-I10": {
+          "scenario": "Doctor removal",
+          "evidence": "API (the same endpoint the app uses) → `null`, 0 files; admin `r02_removed_b01–b03`; patient search falls back to initials (`e28`); `test_i09_i10`",
+          "result": "PASS (removal action run through the API, not tapped on the device)"
+        },
+        "R02-I11": {
+          "scenario": "Doctor search card",
+          "evidence": "Device `e19` (picture), `e25` (replaced), `e28` (removed → initials); `test_i08…`",
+          "result": "PASS"
+        },
+        "R02-I12": {
+          "scenario": "AI recommendation card",
+          "evidence": "`test_i12` (`/api/ai/doctor-recommendations` returns the stored path); device AI assistant doctor card `e23` (deterministic engine, 0 provider calls)",
+          "result": "PASS — the dedicated recommendation screen is not reachable from the app UI (R02-O2)"
+        },
+        "R02-I13": {
+          "scenario": "Doctor details",
+          "evidence": "Device `e20`; `test_i08…`",
+          "result": "PASS"
+        },
+        "R02-I14": {
+          "scenario": "Appointment doctor image",
+          "evidence": "Device booking summary `e21` (no hold created) and My Appointments `e22`; API `doctorProfileImage`; `test_i08…`",
+          "result": "PASS"
+        },
+        "R02-I15": {
+          "scenario": "Admin doctor management",
+          "evidence": "Browser `with_photo`, `replaced`, `removed` runs: list (blob from the admin session), verification queue, 32×32 square, no row distortion, no path or token in the DOM, 0 blocked requests, 0 page errors",
+          "result": "PASS"
+        },
+        "R02-I16": {
+          "scenario": "Logout/login persistence",
+          "evidence": "Device: patient → doctor → patient; the picture and data return after each login",
+          "result": "PASS"
+        },
+        "R02-I17": {
+          "scenario": "App restart persistence",
+          "evidence": "Device `e15` after force-stop (process 27364 → 29513)",
+          "result": "PASS"
+        },
+        "R02-I18": {
+          "scenario": "Backend restart persistence",
+          "evidence": "`r02_backend_restart_persistence.txt`: both pictures byte-identical (SHA-256) after restarting the UAT backend; `test_i18`",
+          "result": "PASS"
+        },
+        "R02-I19": {
+          "scenario": "Cached image replaced",
+          "evidence": "Device `e25`: the patient sees the new doctor picture after replacement; widget I04/I19 (a new version is fetched again)",
+          "result": "PASS"
+        },
+        "R02-I20": {
+          "scenario": "Account switching isolation",
+          "evidence": "Device `e16`: the doctor dashboard after the patient session shows the default, not the patient's picture; widget I20 (logout clears the cache); cache cleared at every login",
+          "result": "PASS"
+        },
+        "R02-I21": {
+          "scenario": "Cancelled selection",
+          "evidence": "Widget I21 (sheet cancel, picker cancel → no upload, no change)",
+          "result": "PASS (automated)"
+        },
+        "R02-I22": {
+          "scenario": "Failed upload recovery",
+          "evidence": "Widget I22 (error shown, previous picture kept, retry succeeds); `test_s14`",
+          "result": "PASS (automated)"
+        },
+        "R02-I23": {
+          "scenario": "Denied permission / no camera",
+          "evidence": "Widget I23 (clear message, no change). The app requests no runtime permission; the system picker and camera need none",
+          "result": "PASS (automated; a denial cannot be triggered on the device because no permission is requested)"
+        },
+        "R02-I24": {
+          "scenario": "Unavailable image fallback",
+          "evidence": "Widget I07/I24 (404, junk URL → fallback, no crash); admin `DoctorAvatar` tests",
+          "result": "PASS"
+        }
+      },
+      "security": {
+        "R02-S01": {
+          "scenario": "Unauthenticated upload, removal and retrieval",
+          "evidence": "`test_s01` (401/403); UAT `curl` without a session → 401",
+          "result": "PASS"
+        },
+        "R02-S02": {
+          "scenario": "Cross-user modification",
+          "evidence": "`test_s02`: a `userId` form field is ignored; the other user's picture is unchanged; `PUT /pictures/{other}` → 405; admin upload → 403",
+          "result": "PASS"
+        },
+        "R02-S03": {
+          "scenario": "Cross-user deletion",
+          "evidence": "`test_s02`: `DELETE /pictures/{other}` → 405; the other user's file and reference are intact",
+          "result": "PASS"
+        },
+        "R02-S04": {
+          "scenario": "Unauthorised patient picture retrieval",
+          "evidence": "`test_s04_s05`; UAT probe: other patient → 404, admin → 404 (`r02_uat_visibility_probe.jsonl`)",
+          "result": "PASS"
+        },
+        "R02-S05": {
+          "scenario": "Unrelated doctor access",
+          "evidence": "`test_s04_s05` (unrelated → 404; doctor with a confirmed appointment → 200); UAT: Dr. UAT General (cancelled appointment only) → 404, Dr. UAT Neuro (confirmed appointments) → 200",
+          "result": "PASS"
+        },
+        "R02-S06": {
+          "scenario": "Invalid format (GIF, BMP, EXE)",
+          "evidence": "`test_s06_s07` → 400, nothing stored",
+          "result": "PASS"
+        },
+        "R02-S07": {
+          "scenario": "Disguised non-image (text or script named .jpg/.png, HTML behind JPEG magic bytes)",
+          "evidence": "`test_s06_s07` → 400, nothing stored",
+          "result": "PASS"
+        },
+        "R02-S08": {
+          "scenario": "Oversized upload",
+          "evidence": "`test_s08`: 5 MB + 10 bytes → 413, nothing stored",
+          "result": "PASS"
+        },
+        "R02-S09": {
+          "scenario": "Oversized decoded dimensions / decompression bomb",
+          "evidence": "`test_s09`: 8100 px side → 400; a highly compressed 1200×1200 PNG under a 1 MP limit → 400 \"dimensions\"",
+          "result": "PASS"
+        },
+        "R02-S10": {
+          "scenario": "Malformed images",
+          "evidence": "`test_s10`: truncated PNG and a bare PNG header → 400. A JPEG with corrupted bytes is either refused or fully decoded and re-encoded (nothing of the original is stored)",
+          "result": "PASS"
+        },
+        "R02-S11": {
+          "scenario": "Metadata removal including GPS",
+          "evidence": "`test_s11` (camera make, software and GPS IFD gone; no `Exif` bytes); UAT gallery, camera and doctor uploads: `exifTags 0, gpsPresent false, syntheticCamMarkerPresent false`",
+          "result": "PASS"
+        },
+        "R02-S12": {
+          "scenario": "Path traversal",
+          "evidence": "`test_s12`: `../`, encoded variants, backslashes, junk and over-long ids → 404/422; a filename of `../../../../etc/evil.jpg` is stored as `<uuid>.jpg` in the owner's folder",
+          "result": "PASS"
+        },
+        "R02-S13": {
+          "scenario": "Concurrent replacement integrity",
+          "evidence": "`test_s13`: 5 parallel uploads → all 200, exactly one file, and the reference matches it",
+          "result": "PASS"
+        },
+        "R02-S14": {
+          "scenario": "Failed replacement keeps the previous picture",
+          "evidence": "`test_s14`: invalid replacement → 400; a simulated database failure removes the new file and the old one is still served byte for byte",
+          "result": "PASS"
+        },
+        "R02-S15": {
+          "scenario": "An unapproved doctor's picture is not public",
+          "evidence": "`test_s15`: pending doctor's picture → 404 to patients and other doctors, 200 to the doctor and admin; the doctor stays out of search and details",
+          "result": "PASS"
+        }
+      },
+      "profileData": {
+        "R02-P01": {
+          "scenario": "No hard-coded height",
+          "evidence": "`test_p01_p06`; widget `P01-P06`; device `r02_after_e01` (\"Not provided\")",
+          "result": "PASS"
+        },
+        "R02-P02": {
+          "scenario": "No hard-coded weight",
+          "evidence": "Same",
+          "result": "PASS"
+        },
+        "R02-P03": {
+          "scenario": "BMI only from valid actual values",
+          "evidence": "`test_p03_p07_p09` (height alone → no BMI; 170/65 → 22.5; clearing height → no BMI); device 165 cm / 58.5 kg → 21.5 with the note (`r02_after_e14`)",
+          "result": "PASS"
+        },
+        "R02-P04": {
+          "scenario": "No fabricated allergy; genuine records kept",
+          "evidence": "`test_p01_p06` (no \"penicillin\" anywhere in the response), `test_p04` (a clinician-recorded allergy is shown with provenance and is not copied), widget P03/P04; device: \"Reported by you: Not provided\", then \"No known allergies\" after the explicit choice. **The fabricated Penicillin allergy is no longer shown**",
+          "result": "PASS"
+        },
+        "R02-P05": {
+          "scenario": "No fabricated emergency contact",
+          "evidence": "Widget `P01-P06` (`emergency_not_provided`); device \"Not provided\" + \"Add\" (`r02_after_e02`)",
+          "result": "PASS"
+        },
+        "R02-P06": {
+          "scenario": "Appropriate missing-data display",
+          "evidence": "Widget tests (including the loading and failed-load states); device",
+          "result": "PASS"
+        },
+        "R02-P07": {
+          "scenario": "Valid authorised updates",
+          "evidence": "`test_p03_p07_p09`; widget P07/P08 (only changed fields sent); device edit form (`r02_after_e13/e14`)",
+          "result": "PASS"
+        },
+        "R02-P08": {
+          "scenario": "Invalid updates rejected",
+          "evidence": "`test_p08` (15 cases: out-of-range height/weight, unknown status, inconsistent allergy lists, over-long or too many items, bad phone, empty contact name, `role`, `email`, one-character name, control characters) → 422, stored data unchanged; client validation in the widget test",
+          "result": "PASS"
+        },
+        "R02-P09": {
+          "scenario": "Correct persistence",
+          "evidence": "`test_p03_p07_p09` (re-read); device after app restart (`r02_after_e15`, new process 27364 → 29513) and after logout/login",
+          "result": "PASS"
+        },
+        "R02-P10": {
+          "scenario": "Cross-patient access rejected",
+          "evidence": "`test_p10` (doctor/admin → 403; another patient's update not visible; unauthenticated → 401/403); `test_p04` (no record leakage); the endpoint has no id parameter",
+          "result": "PASS"
+        }
+      },
+      "ui": {
+        "R02-U01": {
+          "scenario": "Patient navigation at 320 dp",
+          "evidence": "Device `e30`, `e31` (1.3×); widget tests",
+          "result": "PASS"
+        },
+        "R02-U02": {
+          "scenario": "Patient navigation at 360 dp",
+          "evidence": "Device `e29`; widget tests",
+          "result": "PASS"
+        },
+        "R02-U03": {
+          "scenario": "Standard viewport",
+          "evidence": "Device 1440×3120 (all other shots); widget 412 dp",
+          "result": "PASS"
+        },
+        "R02-U04": {
+          "scenario": "Light-theme login",
+          "evidence": "Widget U04 (exact previous colours); device logins throughout",
+          "result": "PASS"
+        },
+        "R02-U05": {
+          "scenario": "Dark-theme login",
+          "evidence": "Device `e33`; widget U05/U06",
+          "result": "PASS"
+        },
+        "R02-U06": {
+          "scenario": "Dark-theme welcome",
+          "evidence": "Device `e32`; widget U05/U06 (Create Account contrast > 4.5:1)",
+          "result": "PASS"
+        },
+        "R02-U07": {
+          "scenario": "Logo vs profile avatar",
+          "evidence": "Widget U07 (both present, separate); device: the profile and dashboard headers keep the MediConnect logo while avatars change",
+          "result": "PASS"
+        },
+        "R02-U08": {
+          "scenario": "R01 branding preserved",
+          "evidence": "`r01_branding_test.dart` and `widget_test.dart` pass in the full suite; logo visible on every R02 screenshot",
+          "result": "PASS"
+        }
+      }
+    }
+  },
+  "uat": {
+    "emulatorScreenshots": [
+      "r02_after_e01_patient_profile_top.png",
+      "r02_after_e02_patient_profile_missing_data.png",
+      "r02_after_e03_photo_sheet.png",
+      "r02_after_e04_system_photo_picker.png",
+      "r02_after_e05_adjust_photo.png",
+      "r02_after_e06_adjust_photo_panned.png",
+      "r02_after_e07_uploading.png",
+      "r02_after_e08_profile_with_photo.png",
+      "r02_after_e09_dashboard_sheet_avatar.png",
+      "r02_after_e10_camera_app.png",
+      "r02_after_e11_camera_review.png",
+      "r02_after_e12_profile_camera_photo.png",
+      "r02_after_e13_edit_profile_form.png",
+      "r02_after_e14_profile_saved.png",
+      "r02_after_e15_after_restart_profile.png",
+      "r02_after_e16_doctor_dashboard_no_photo.png",
+      "r02_after_e17_doctor_profile_sheet.png",
+      "r02_after_e18_doctor_dashboard_with_photo.png",
+      "r02_after_e19_doctor_search_card.png",
+      "r02_after_e20_doctor_details.png",
+      "r02_after_e21_booking_summary.png",
+      "r02_after_e22_my_appointments_doctor_photo.png",
+      "r02_after_e23_ai_assistant_doctor_card.png",
+      "r02_after_e24_doctor_dashboard_replaced.png",
+      "r02_after_e25_search_card_replaced_photo.png",
+      "r02_after_e26_remove_confirm.png",
+      "r02_after_e27_profile_default_avatar.png",
+      "r02_after_e28_search_card_doctor_removed.png",
+      "r02_after_e29_nav_360dp.png",
+      "r02_after_e30_nav_320dp.png",
+      "r02_after_e31_nav_320dp_text130.png",
+      "r02_after_e32_welcome_dark_360dp.png",
+      "r02_after_e33_login_dark_360dp.png",
+      "r02_before_e01_patient_profile_top.png",
+      "r02_before_e02_patient_profile_stats.png",
+      "r02_before_e03_patient_profile_emergency.png"
+    ],
+    "browserScreenshots": [
+      "r02_removed_b01_admin_doctor_list.png",
+      "r02_removed_b02_admin_doctor_row_zoom.png",
+      "r02_removed_b03_admin_verification.png",
+      "r02_replaced_b01_admin_doctor_list.png",
+      "r02_replaced_b02_admin_doctor_row_zoom.png",
+      "r02_replaced_b03_admin_verification.png",
+      "r02_with_photo_b01_admin_doctor_list.png",
+      "r02_with_photo_b02_admin_doctor_row_zoom.png",
+      "r02_with_photo_b03_admin_verification.png"
+    ],
+    "browserRuns": {
+      "with_photo": {
+        "steps": [
+          [
+            "I15",
+            "PASS"
+          ],
+          [
+            "I15b",
+            "PASS"
+          ],
+          [
+            "I15c",
+            "PASS"
+          ],
+          [
+            "S-ADMIN",
+            "PASS"
+          ]
+        ],
+        "blocked": 0,
+        "pageErrors": 0
+      },
+      "replaced": {
+        "steps": [
+          [
+            "I15",
+            "PASS"
+          ],
+          [
+            "I15b",
+            "PASS"
+          ],
+          [
+            "I15c",
+            "PASS"
+          ],
+          [
+            "S-ADMIN",
+            "PASS"
+          ]
+        ],
+        "blocked": 0,
+        "pageErrors": 0
+      },
+      "removed": {
+        "steps": [
+          [
+            "I15",
+            "PASS"
+          ],
+          [
+            "I15b",
+            "PASS"
+          ],
+          [
+            "I15c",
+            "PASS"
+          ],
+          [
+            "S-ADMIN",
+            "PASS"
+          ]
+        ],
+        "blocked": 0,
+        "pageErrors": 0
+      }
+    },
+    "visibilityProbe": [
+      {
+        "viewer": "uat.patient2@uat.mediconnect.lk",
+        "owner": "uat.patient2@uat.mediconnect.lk",
+        "ownerHasPicture": true,
+        "status": 200
+      },
+      {
+        "viewer": "uat.patient1@uat.mediconnect.lk",
+        "owner": "uat.patient2@uat.mediconnect.lk",
+        "ownerHasPicture": true,
+        "status": 404
+      },
+      {
+        "viewer": "uat.doctor.gp@uat.mediconnect.lk",
+        "owner": "uat.patient2@uat.mediconnect.lk",
+        "ownerHasPicture": true,
+        "status": 404
+      },
+      {
+        "viewer": "uat.doctor.neuro@uat.mediconnect.lk",
+        "owner": "uat.patient2@uat.mediconnect.lk",
+        "ownerHasPicture": true,
+        "status": 200
+      },
+      {
+        "viewer": "uat.admin@uat.mediconnect.lk",
+        "owner": "uat.patient2@uat.mediconnect.lk",
+        "ownerHasPicture": true,
+        "status": 404
+      },
+      {
+        "viewer": "uat.patient1@uat.mediconnect.lk",
+        "owner": "uat.doctor.gp@uat.mediconnect.lk",
+        "ownerHasPicture": true,
+        "status": 200
+      },
+      {
+        "viewer": "uat.admin@uat.mediconnect.lk",
+        "owner": "uat.doctor.gp@uat.mediconnect.lk",
+        "ownerHasPicture": true,
+        "status": 200
+      }
+    ],
+    "backendRestart": [
+      "uat.patient2 identical_after_restart=true sha256=ef2ad6eb9a004aed9c5e9487d2b59369b7dcb2882201cf9b7fd41f370ba6a04c",
+      "uat.doctor.gp identical_after_restart=true sha256=d9c15e997da38a02c01125ff6e929fed5445d3c79bbfa1504d0957cea778c638"
+    ]
+  },
+  "components38": {
+    "VERIFIED": 29,
+    "PARTIAL": 9,
+    "BLOCKED": 0,
+    "changed": false
+  },
+  "environment": {
+    "remoteDatabaseAccessed": false,
+    "credentialsChanged": false,
+    "liveAiRequests": 0,
+    "payments": 0,
+    "externalImageHosting": false,
+    "realPhotographs": false,
+    "deployed": false
+  },
+  "integration": "pending",
+  "productionReady": false,
+  "clinicallyValidated": false
+}
