@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 import uuid
 import warnings
 from datetime import datetime, timezone
@@ -183,10 +184,30 @@ def process_image(data: bytes, crop: Optional[Tuple[float, float, float]] = None
     return out.getvalue(), out_size, out_size
 
 
+_STORAGE_KEY = re.compile(r"[A-Za-z0-9_-]{1,64}/[0-9a-f]{32}\.jpg")
+
+
+def _contained_path(key: str, create_base: bool = False) -> Optional[Path]:
+    """Map a server-generated storage key (``<userId>/<uuid4 hex>.jpg``) to its file, or None if malformed.
+
+    The key is validated against a strict pattern (no separators other than the one slash, no dots in the
+    directory part), so it cannot leave the base directory, and only the base is resolved. Resolving the full
+    path is avoided on purpose: on Windows, ``Path.resolve()`` can return the ``\\\\?\\`` long-path form while
+    another upload is creating the user's folder, which made parallel first uploads fail (R02-BUG-007).
+    """
+    if not isinstance(key, str) or not _STORAGE_KEY.fullmatch(key):
+        return None
+    base = _base_dir()
+    if create_base:
+        base.mkdir(parents=True, exist_ok=True)
+    user_dir, name = key.split("/")
+    return base.resolve() / user_dir / name
+
+
 def _write(user_id: str, payload: bytes) -> str:
     key = f"{user_id}/{uuid.uuid4().hex}.jpg"
-    path = (_base_dir() / key).resolve()
-    if not str(path).startswith(str(_base_dir().resolve())):
+    path = _contained_path(key, create_base=True)
+    if path is None:
         raise _bad("Invalid storage destination.")
     path.parent.mkdir(parents=True, exist_ok=True)
     sealed, _meta = seal_for_storage(payload, f"{STORE}/{key}")
@@ -198,8 +219,8 @@ def _remove(storage_key: Optional[str]) -> None:
     if not storage_key:
         return
     try:
-        path = (_base_dir() / storage_key).resolve()
-        if str(path).startswith(str(_base_dir().resolve())):
+        path = _contained_path(storage_key)
+        if path is not None:
             path.unlink(missing_ok=True)
     except OSError:
         logger.warning("Could not remove a replaced profile picture file.")
@@ -294,8 +315,8 @@ def read_for(db: Database, viewer, target_id: str) -> Tuple[bytes, str, str]:
     key = meta.get("storageKey")
     if not key:
         raise _not_found()
-    path = (_base_dir() / key).resolve()
-    if not str(path).startswith(str(_base_dir().resolve())) or not path.is_file():
+    path = _contained_path(key)
+    if path is None or not path.is_file():
         raise _not_found()
     try:
         data = open_from_storage(path.read_bytes(), f"{STORE}/{key}")

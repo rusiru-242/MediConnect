@@ -286,6 +286,29 @@ def test_s13_concurrent_replacement_keeps_one_consistent_picture(db, people, sto
     assert _get(p, p["id"]).status_code == 200
 
 
+def test_s13_concurrent_first_uploads_into_a_new_storage_folder_never_refuse(people, tmp_path):
+    """R02-BUG-007: parallel first uploads raced the creation of the storage folder and were refused as
+    "Invalid storage destination" (string-prefix check over two inconsistent resolve() calls)."""
+    p = people["patient"]
+    for round_no in range(8):
+        profile_image_service.upload_limiter.reset()
+        base = tmp_path / f"round{round_no}" / "profile_images"  # does not exist yet
+        with patch.object(profile_image_service, "_base_dir", lambda b=base: b):
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                rs = list(pool.map(lambda i: _upload(p, _img(color=(i * 40, 90, 10))), range(5)))
+                codes = [r.status_code for r in rs]
+            assert codes == [200] * 5, (round_no, [r.text[:200] for r in rs if r.status_code != 200])
+            assert len(_files(base, p["id"])) == 1
+
+
+def test_storage_keys_are_strictly_validated_and_never_leave_the_base(storage):
+    good = "6b0a57f12c066923f7009b02/" + "a" * 32 + ".jpg"
+    assert profile_image_service._contained_path(good) == storage.resolve() / good.split("/")[0] / ("a" * 32 + ".jpg")
+    for bad in ("../profile_images2/" + "a" * 32 + ".jpg", "../../x.jpg", ".", "", None, "u/../" + "a" * 32 + ".jpg",
+                "u\\" + "a" * 32 + ".jpg", "C:/" + "a" * 32 + ".jpg", "u/" + "a" * 32 + ".png", "a/b/" + "a" * 32 + ".jpg"):
+        assert profile_image_service._contained_path(bad) is None, bad
+
+
 def test_s14_failed_replacement_preserves_previous_picture(db, people, storage):
     p = people["patient"]
     _upload(p, _img(color=(0, 200, 0)))
