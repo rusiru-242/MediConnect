@@ -60,3 +60,6 @@ admin-web/node_modules/
 dist/
 admin-web/dist/
 .eslintcache
+
+# Provider-connection detector output from backend tests (R03); never commit
+backend/a03_leak_attempts.json

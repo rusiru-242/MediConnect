@@ -1,6 +1,6 @@
 """Server-side PDF generator for MediConnect Digital Prescriptions (Phase 21).
 
-Uses ReportLab to produce professional, tamper-evident digital prescription documents.
+Uses ReportLab to produce digital prescription documents (R03-BUG-004: no tamper-evidence mechanism is claimed).
 Incorporates verified doctor credentials, patient identification, medication tables,
 and clinical disclaimers.
 """
@@ -206,7 +206,7 @@ class PrescriptionPdfService:
             consult_date = issued_date_str[:10]
 
         doctor_info = [
-            Paragraph("VERIFIED PRESCRIBING PHYSICIAN", section_heading),
+            Paragraph("PRESCRIBING PHYSICIAN", section_heading),
             Spacer(1, 4),
             Paragraph(f"<b>{doc_name}</b>", val_bold),
             Paragraph(f"{quals}" if quals else "", val_style),

@@ -183,6 +183,18 @@ PERSONAL_EXPERIENCE = (
     "මට", "මගේ", "මම", "තාත්තා", "අම්මා", "දරුවා",
 )
 
+# R03-BUG-002: first-person phrases that describe the act of asking or studying, not the person's own condition
+# ("I'm just curious", "I have a question", "I am a student"). They are removed before PERSONAL_EXPERIENCE is
+# checked, so an educational question is not escalated just because it contains "I'm" or "I have". Any symptom
+# phrase still counts ("I'm curious, I have chest pain" -> "I have" remains), and nothing else is relaxed.
+SELF_INQUIRY = re.compile(
+    r"\bi(?:'?m| am) (?:just |only |simply |really )?(?:curious|asking|wondering|interested|learning|studying|researching|"
+    r"a (?:student|nurse|teacher|medical student|nursing student)|doing (?:a |my |some )?(?:school |class |college |university )?"
+    r"(?:project|homework|assignment|research))\b"
+    r"|\bi have (?:a |one |another )?(?:quick |general |simple )?(?:question|doubt|query|(?:school |class |college )?"
+    r"(?:project|assignment|homework|exam|quiz))\b"
+)
+
 # Hypothetical questions ("What should I do if someone has chest pain?").
 HYPOTHETICAL = (r"\bif (?:someone|somebody|a person|anyone|a patient|people|a child|you)\b", r"\bwhat if\b",
                 r"\bin case (?:of|someone|somebody)\b", r"\bsuppose\b", r"\bhypothetical\w*", r"\bimagine\b")
@@ -291,7 +303,8 @@ def _evaluate(text: str) -> EmergencyResult:
     norm = normalize(text)
     if not norm:
         return EmergencyResult(False)
-    experiencing = _has(norm, PERSONAL_EXPERIENCE)
+    experiencing_raw = _has(norm, PERSONAL_EXPERIENCE)
+    experiencing = _has(SELF_INQUIRY.sub(" ", norm), PERSONAL_EXPERIENCE) if experiencing_raw else None
     informational = bool(_has(norm, INFORMATIONAL)) and not experiencing
     hypothetical = bool(_has(norm, HYPOTHETICAL)) and not experiencing and not _has(norm, CURRENT)
     suppressed = None
@@ -307,6 +320,9 @@ def _evaluate(text: str) -> EmergencyResult:
         if _has(clause, HISTORICAL) and not _has(clause, CURRENT):
             suppressed = "historical"
             continue
+        if category == "self_harm" and experiencing_raw:
+            # The SELF_INQUIRY carve-out never applies to self-harm: any first-person framing keeps the support path.
+            return EmergencyResult(True, category, CATEGORY_REASONS[category], matched)
         if category == "self_harm" and (informational or hypothetical) and not _has(norm, INFORMATIONAL_SELF_HARM_SAFE):
             # Questions that mention suicide are never treated as purely educational unless clearly about
             # third-party facts ("what are the warning signs of suicide"); err on the side of support.

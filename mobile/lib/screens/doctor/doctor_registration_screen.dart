@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cross_file/cross_file.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -1071,12 +1072,15 @@ class _DoctorRegistrationScreenState extends State<DoctorRegistrationScreen> {
                   icon: const Icon(Icons.attach_file, size: 18),
                   label: Text(_isPickingDocument ? 'Selecting...' : 'Select File'),
                 ),
-                TextButton.icon(
-                  key: Key('${docKey}_sample_btn'),
-                  onPressed: _isPickingDocument ? null : onUseSample,
-                  icon: const Icon(Icons.auto_awesome, size: 16, color: AppTheme.primary),
-                  label: const Text('Use Sample', style: TextStyle(fontSize: 12)),
-                ),
+                // R03-BUG-005: placeholder credential documents (e.g. a "Verified SLMC Certificate Sample") are for
+                // debug/UAT builds only; a release build never offers them to a doctor applicant.
+                if (kDebugMode)
+                  TextButton.icon(
+                    key: Key('${docKey}_sample_btn'),
+                    onPressed: _isPickingDocument ? null : onUseSample,
+                    icon: const Icon(Icons.auto_awesome, size: 16, color: AppTheme.primary),
+                    label: const Text('Use Sample', style: TextStyle(fontSize: 12)),
+                  ),
               ],
             ),
           ],

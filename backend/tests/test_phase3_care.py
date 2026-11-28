@@ -1,4 +1,5 @@
 """Phase 3 integration tests use isolated MongoDB records and mocked channels."""
+import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
@@ -17,9 +18,12 @@ def isolated_database():
     from app.config.database import DatabaseManager
     original_db = DatabaseManager._db
     client = DatabaseManager.get_client()
-    test_db = client["mediconnect_phase3_test"]
+    # R03-BUG-001: derived from the session database (which conftest guarantees is local and ends in _test),
+    # so a fresh DATABASE_NAME gives a fresh module database. CI (mediconnect_test) keeps mediconnect_phase3_test.
+    session_db = os.environ["DATABASE_NAME"]
+    test_db = client[session_db[: -len("_test")] + "_phase3_test"]
     DatabaseManager._db = test_db
-    assert get_database().name.startswith("mediconnect_phase3_test")
+    assert get_database().name.endswith("_phase3_test") and get_database().name.startswith("mediconnect_")
     yield test_db
     DatabaseManager._db = original_db
 

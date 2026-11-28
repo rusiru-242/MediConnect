@@ -1,5 +1,6 @@
 """Phase 4 tests with JWT-authenticated synthetic records and no external delivery."""
 from concurrent.futures import ThreadPoolExecutor
+import os
 from datetime import date, timedelta
 from unittest.mock import patch
 
@@ -22,9 +23,12 @@ def isolated():
     from app.config.database import DatabaseManager
     original_db = DatabaseManager._db
     client = DatabaseManager.get_client()
-    test_db = client["mediconnect_phase4_test"]
+    # R03-BUG-001: derived from the session database (which conftest guarantees is local and ends in _test),
+    # so a fresh DATABASE_NAME gives a fresh module database. CI (mediconnect_test) keeps mediconnect_phase4_test.
+    session_db = os.environ["DATABASE_NAME"]
+    test_db = client[session_db[: -len("_test")] + "_phase4_test"]
     DatabaseManager._db = test_db
-    assert get_database().name.startswith("mediconnect_phase4_test")
+    assert get_database().name.endswith("_phase4_test") and get_database().name.startswith("mediconnect_")
     yield test_db
     DatabaseManager._db = original_db
 
