@@ -30,7 +30,8 @@ For: the project owner and reviewers. Pull-request, CI and merge facts are added
 | Commit | Scope |
 |---|---|
 | `4f64295` | fix(r03): tested code: R03-BUG-001 to 006 and the new regression tests |
-| next | docs(uat): R03 reports, evidence, scripts, consolidated final documents, master tracker |
+| `55bf5b1` | docs(uat): R03 reports, evidence, scripts, consolidated final documents, master tracker |
+| next docs commit | this CI and PR record |
 
 **Not committed:**
 - `backend/uat.env` and any `.env`;
@@ -50,4 +51,35 @@ The images committed are synthetic evidence only: emulator and browser screensho
 
 ## PR, CI and merge
 
-To be completed after the events.
+### CI on the branch push (public GitHub API)
+
+| Workflow | Commit | Result | Run |
+|---|---|---|---|
+| Backend CI | `55bf5b1` (contains code `4f64295`) | **success** | actions/runs/46140103423 |
+| Mobile CI | `55bf5b1` | **success** | actions/runs/46140103432 |
+| Admin Web CI | — | not triggered (no `admin-web/**` change); not reported as a pass | — |
+
+### Pull request
+
+**Status when this report was written:** not opened. The GitHub CLI is not logged in on this machine, so the agent cannot open or merge the PR.
+- The owner was given the compare URL, the title and the prepared description.
+- The instruction given: **merge only after Backend CI and Mobile CI have succeeded on the PR's final head.**
+- No required reviews or branch-protection settings could be read (the API requires authentication).
+
+| Item | Value |
+|---|---|
+| Compare URL | https://github.com/rusiru-242/MediConnect/compare/main...fix/final-release-verification?expand=1 |
+| Title | R03: Final MediConnect System Verification and Release Readiness |
+| Description | `evidence/r03_pr_description.md` in the report package |
+| PR number, CI on the PR head, merge commit | Not yet available |
+| `origin/main` at the time of writing | `b20e683` (unchanged) |
+
+## Post-merge verification
+
+Not yet performed. Steps once merged:
+1. Fetch `origin/main`.
+2. Confirm that the R03, R02, R01 and A01–A05 commits are ancestors.
+3. Check Backend and Mobile CI on `main`.
+4. Run the focused smoke tests: backend `test_r03_final_verification.py`, `test_r02_profile.py`, `test_a05_fraud_support.py`; Flutter `doctor_reviews_test.dart`, `a04_prescription_test.dart`, `r02_profile_test.dart`.
+5. Fast-forward local `main`.
+6. Keep all feature branches.

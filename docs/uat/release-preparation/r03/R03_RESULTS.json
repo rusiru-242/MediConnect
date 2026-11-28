@@ -377,7 +377,17 @@
     "B6 refund and cancellation policy",
     "fraud thresholds"
   ],
-  "integration": "pending",
+  "integration": {
+    "branchCI": {
+      "commit": "55bf5b1",
+      "Backend CI": "success (46140103423)",
+      "Mobile CI": "success (46140103432)",
+      "Admin Web CI": "not triggered"
+    },
+    "pr": "not opened (gh unauthenticated); compare URL provided",
+    "merge": "not performed",
+    "originMain": "b20e683"
+  },
   "productionReady": false,
   "clinicallyValidated": false
 }
