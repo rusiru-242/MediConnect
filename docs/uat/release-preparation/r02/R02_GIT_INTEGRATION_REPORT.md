@@ -21,7 +21,13 @@ For: the project owner and reviewers. Pull-request, CI and merge facts are fille
 
 ## Commits on the R02 branch
 
-Filled in after committing; see **PR, CI and merge**.
+| Commit | Scope |
+|---|---|
+| `b284388` | feat(profile): pictures, truthful patient profile, navigation and dark-mode fixes, fraud sweep fix (tested code) |
+| `b73e9ab` | docs(uat): R02 reports, evidence, results; master tracker |
+| next docs commit | this CI and PR record |
+
+Pushed as a new remote branch (no force push).
 
 **Not committed:**
 - `backend/uat.env` and any `.env`;
@@ -43,7 +49,25 @@ R02 changes `backend/**`, `mobile/**` and `admin-web/**`, so **all three** CI wo
 
 ## PR, CI and merge
 
-**Status when this report was written:** not yet opened.
+### CI on the branch push (public GitHub API)
+
+| Workflow | Commit | Result | Run |
+|---|---|---|---|
+| Backend CI | `b73e9ab` (contains code `b284388`) | **success** | actions/runs/46104436990 |
+| Mobile CI | `b73e9ab` | **success** | actions/runs/46104436890 |
+| Admin Web CI | `b73e9ab` | **success** | actions/runs/46104436953 |
+
+### Pull request
+
+**Status when this report was written:** not opened. The GitHub CLI is not logged in on this machine, so the agent cannot open or merge the PR. The owner was given the compare URL, title and prepared description, with the instruction **to merge only after Backend CI, Mobile CI and Admin Web CI have succeeded on the PR's final head**.
+
+| Item | Value |
+|---|---|
+| Compare URL | https://github.com/rusiru-242/MediConnect/compare/main...feat/profile-picture-management?expand=1 |
+| Title | R02: Secure Patient and Doctor Profile Pictures and Profile Data Corrections |
+| Description | `evidence/r02_pr_description.md` in the report package |
+| PR number, CI on the PR head, merge commit | Not yet available |
+| `origin/main` at the time of writing | `93520da` (unchanged) |
 
 ## Post-merge verification
 

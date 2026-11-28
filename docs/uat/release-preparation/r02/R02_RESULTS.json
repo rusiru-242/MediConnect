@@ -626,7 +626,17 @@
     "realPhotographs": false,
     "deployed": false
   },
-  "integration": "pending",
+  "integration": {
+    "branchCi": {
+      "commit": "b73e9ab",
+      "Backend CI": "success",
+      "Mobile CI": "success",
+      "Admin Web CI": "success"
+    },
+    "pr": "not opened (gh not authenticated)",
+    "merge": "not performed",
+    "originMain": "93520da"
+  },
   "productionReady": false,
   "clinicallyValidated": false
 }
