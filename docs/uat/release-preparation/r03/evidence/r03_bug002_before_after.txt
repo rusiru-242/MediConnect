@@ -1,0 +1,15 @@
+R03-BUG-002: emergency detection before (main b20e683) and after (4f64295)
+message | before | after | expected
+What is a heart attack? I'm just curious for a school project. | True | False | False
+I have a question: what is a heart attack? | True | False | False
+I am a student. What are the warning signs of a stroke? | True | False | False
+I'm wondering what are the symptoms of a stroke? | True | False | False
+I am doing a school project. What causes a heart attack? | True | False | False
+I'm curious, I have chest pain right now | True | True | True
+I have a question, my chest hurts and I can't breathe | True | True | True
+I am a student and I have crushing chest pain | True | True | True
+I have chest pain spreading to my left arm | True | True | True
+I'm having a heart attack | True | True | True
+My father collapsed and is not breathing | True | True | True
+I have a question about suicide, I want to kill myself | True | True | True
+I am just curious what are the signs of suicide | True | True | True

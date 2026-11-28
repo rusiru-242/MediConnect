@@ -1,0 +1,383 @@
+{
+  "phase": "R03 Final System Verification and Academic Release Readiness",
+  "date": "2026-11-28",
+  "startingMain": "b20e683",
+  "branch": "fix/final-release-verification",
+  "implementationCommit": "4f64295",
+  "priorMerges": {
+    "PR25": "d8c2142 (A01-A03)",
+    "PR26": "A04",
+    "PR27": "96e6fe7 (A05)",
+    "PR28": "93520da (R01)",
+    "PR29": {
+      "merge": "8ac5a41",
+      "head": "e652c5e",
+      "mergedWithChecksPending": true
+    },
+    "PR30": {
+      "merge": "b20e683",
+      "head": "e58cec3",
+      "mergedWithChecksPending": true,
+      "note": "R02-BUG-007 fix; also committed a generated detector file (R03-BUG-006)"
+    }
+  },
+  "defects": {
+    "count": 6,
+    "fixed": 6,
+    "items": [
+      {
+        "id": "R03-BUG-001",
+        "severity": "Low",
+        "component": "Backend tests — isolation"
+      },
+      {
+        "id": "R03-BUG-002",
+        "severity": "Medium",
+        "component": "Backend — emergency triage (Component 34)"
+      },
+      {
+        "id": "R03-BUG-003",
+        "severity": "High",
+        "component": "Mobile — doctor details"
+      },
+      {
+        "id": "R03-BUG-004",
+        "severity": "Medium",
+        "component": "Mobile + backend — prescriptions"
+      },
+      {
+        "id": "R03-BUG-005",
+        "severity": "Medium",
+        "component": "Mobile — doctor registration"
+      },
+      {
+        "id": "R03-BUG-006",
+        "severity": "Low",
+        "component": "Repository hygiene"
+      }
+    ],
+    "observations": [
+      "R03-O1",
+      "R03-O2",
+      "R03-O3",
+      "R03-O4",
+      "R03-O5",
+      "R03-O6",
+      "R03-O7"
+    ]
+  },
+  "tests": {
+    "backend": {
+      "passed": 1064,
+      "failed": 0,
+      "skipped": 0,
+      "database": "fresh mediconnect_r03_final2_test",
+      "providerConnectionAttempts": 0,
+      "new": {
+        "tests/test_r03_final_verification.py": 14
+      }
+    },
+    "flutter": {
+      "passed": 362,
+      "failed": 0,
+      "skipped": 0,
+      "analyze": "no issues",
+      "apk": "debug, --dart-define=API_BASE_URL=http://10.0.2.2:8001"
+    },
+    "adminWeb": {
+      "passed": 51,
+      "failed": 0,
+      "skipped": 0,
+      "typecheck": "ok",
+      "lint": "ok",
+      "build": "ok"
+    },
+    "newlyExecutedTotal": 1477,
+    "previousR02": {
+      "backend": 1048,
+      "flutter": 361,
+      "adminWeb": 51,
+      "total": 1460
+    }
+  },
+  "components38": {
+    "VERIFIED": 29,
+    "PARTIAL": 9,
+    "BLOCKED": 0,
+    "changed": false,
+    "partial": [
+      "04",
+      "05",
+      "07",
+      "08",
+      "09",
+      "13",
+      "17",
+      "19",
+      "32"
+    ]
+  },
+  "workflows": {
+    "A": "PASS (to explicit hold; payment via automated tests and A03 evidence)",
+    "B": "PASS",
+    "C": "PASS (device-level renewed-prescription reminder verified)",
+    "D": "PASS",
+    "E": "PASS (231-account real sweep); UAT check qualified (R03-O1)",
+    "F": "PASS"
+  },
+  "workflowProbe": {
+    "A01": true,
+    "A02": true,
+    "A03": true,
+    "A04": true,
+    "A05": true,
+    "A06": true,
+    "A07": true,
+    "A08": true,
+    "A09": true,
+    "SEC": true
+  },
+  "safety": [
+    {
+      "id": "S01",
+      "type": "emergency",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S02",
+      "type": "emergency_information",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S03",
+      "type": "medication_change_requires_clinician",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S04",
+      "type": "prescription_request_declined",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S05",
+      "type": "clarification_needed",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S06",
+      "type": "support_action_refused",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S07",
+      "type": "doctor_options",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S08",
+      "type": "clarification_needed",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S09",
+      "type": "no_results",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    },
+    {
+      "id": "S10",
+      "type": "clarification_needed",
+      "deltas": {
+        "holds": 0,
+        "payments": 0,
+        "refunds": 0,
+        "prescriptions": 0,
+        "renewals": 0
+      }
+    }
+  ],
+  "security": {
+    "unauthenticated": 401,
+    "tamperedToken": 401,
+    "patientToAdminUsers": 403,
+    "doctorToAdminUsers": 403,
+    "refreshOnce": 200,
+    "refreshReuseOld": 401,
+    "logout": 200,
+    "refreshAfterLogout": 401,
+    "accessAfterLogout": 401,
+    "otherPatientMarksNotificationRead": 403,
+    "otherPatientReadsAppointment": 403,
+    "otherPatientProfilePicture": 404,
+    "errorBodyHasNoTrace": true
+  },
+  "pictures": {
+    "visibilityAsDesigned": true,
+    "metadataStripped": true,
+    "searchUsesTrustedUrl": true,
+    "appointmentsUseTrustedUrl": true
+  },
+  "picturePersistenceAfterRestart": true,
+  "adminBrowser": {
+    "pages": {
+      "b01": "PASS",
+      "b02": "PASS",
+      "b03": "PASS",
+      "b04": "PASS",
+      "b05": "PASS",
+      "b06": "PASS",
+      "b07": "PASS",
+      "b08": "PASS",
+      "b09": "PASS",
+      "b10": "PASS",
+      "b11": "PASS",
+      "b12": "PASS",
+      "b13": "PASS"
+    },
+    "patientAccount": "PASS",
+    "patientPictureRequested": false,
+    "blockedExternalRequests": 0
+  },
+  "providerUsageDelta": {
+    "gemini": 0,
+    "openai": 0
+  },
+  "stripeRequests": 0,
+  "secretScan": {
+    "trackedFiles": 1460,
+    "trackedEnvFiles": []
+  },
+  "historicalCredentialExposure": "UNRESOLVED (no rotation evidence); critical",
+  "dependencyAudit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 5,
+    "high": 2,
+    "critical": 2,
+    "total": 9
+  },
+  "masterTracker": {
+    "uniqueTrackedItems": 340,
+    "confirmedDefects": 262,
+    "defectsFixed": 261,
+    "defectsOpen": [
+      "BUG-039"
+    ]
+  },
+  "evidence": {
+    "emulatorScreenshots": [
+      "r03_e00_launcher_icon.png",
+      "r03_e01_splash.png",
+      "r03_e02_welcome_light.png",
+      "r03_e03_patient_dashboard.png",
+      "r03_e04_patient_profile.png",
+      "r03_e05_picture_editor.png",
+      "r03_e06_find_doctor_search.png",
+      "r03_e07_doctor_details.png",
+      "r03_e07a_doctor_details_before_fix.png",
+      "r03_e08_ai_assistant_doctor_card.png",
+      "r03_e09_my_appointments.png",
+      "r03_e10_emergency_sos_dialog.png",
+      "r03_e10_medication_reminders_empty.png",
+      "r03_e11_help_support.png",
+      "r03_e12_patient_dashboard_dark.png",
+      "r03_e13_patient_profile_dark.png",
+      "r03_e14_welcome_dark.png",
+      "r03_e15_login_dark.png",
+      "r03_e16_doctor_dashboard_dark.png",
+      "r03_e17_doctor_renewal_queue.png",
+      "r03_e18_renewal_queue_alpha.png",
+      "r03_e19_renewal_approve_dialog.png",
+      "r03_e20_renewal_approved.png",
+      "r03_e21_patient_prescriptions.png",
+      "r03_e22_renewed_prescription_detail.png",
+      "r03_e23_set_reminder.png",
+      "r03_e24_reminder_saved.png",
+      "r03_e25_my_medications_with_renewal.png"
+    ],
+    "browserScreenshots": [
+      "r03_b01_dashboard.png",
+      "r03_b02_doctors.png",
+      "r03_b03_doctor-verification.png",
+      "r03_b04_appointments.png",
+      "r03_b05_payments.png",
+      "r03_b06_refunds.png",
+      "r03_b07_reconciliation.png",
+      "r03_b08_fraud-monitoring.png",
+      "r03_b09_support-tickets.png",
+      "r03_b10_monitoring.png",
+      "r03_b11_audit-logs.png",
+      "r03_b12_analytics.png",
+      "r03_b13_reports.png",
+      "r03_b14_patient_account_refused.png"
+    ]
+  },
+  "readiness": {
+    "academicDemonstration": "READY with conditions (local, synthetic, test mode)",
+    "engineering": "functioning in the verified environment",
+    "clinical": "NOT READY",
+    "security": "NOT READY for shared/public deployment",
+    "production": "NOT READY"
+  },
+  "openProductDecisions": [
+    "BUG-039 consultation fee",
+    "B6 refund and cancellation policy",
+    "fraud thresholds"
+  ],
+  "integration": "pending",
+  "productionReady": false,
+  "clinicallyValidated": false
+}

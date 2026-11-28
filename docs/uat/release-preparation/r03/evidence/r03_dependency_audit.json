@@ -1,0 +1,113 @@
+{
+  "tool": "npm audit --registry=https://registry.npmjs.org (admin-web; the configured mirror has no audit endpoint)",
+  "date": "2026-11-28",
+  "counts": {
+    "info": 0,
+    "low": 0,
+    "moderate": 5,
+    "high": 2,
+    "critical": 2,
+    "total": 9
+  },
+  "items": [
+    {
+      "package": "@vitest/mocker",
+      "severity": "moderate",
+      "direct": false,
+      "fixAvailable": true,
+      "shipsInProductionBundle": false,
+      "advisories": [
+        "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock",
+        "Vitest: Code injection via unauthenticated manual mock registration"
+      ]
+    },
+    {
+      "package": "esbuild",
+      "severity": "moderate",
+      "direct": false,
+      "fixAvailable": true,
+      "shipsInProductionBundle": false,
+      "advisories": [
+        "esbuild enables any website to send any requests to the development server and read the response"
+      ]
+    },
+    {
+      "package": "react-router",
+      "severity": "moderate",
+      "direct": false,
+      "fixAvailable": true,
+      "shipsInProductionBundle": true,
+      "advisories": [
+        "React Router: Open redirect via backslash in <Link> and useNavigate (CVE-2025-68470 bypass)",
+        "React Router: Arbitrary Constructor Injection via deserializeErrors() in React Router SSR Hydration"
+      ]
+    },
+    {
+      "package": "react-router-dom",
+      "severity": "moderate",
+      "direct": true,
+      "fixAvailable": true,
+      "shipsInProductionBundle": true,
+      "advisories": []
+    },
+    {
+      "package": "tinypool",
+      "severity": "critical",
+      "direct": false,
+      "fixAvailable": true,
+      "shipsInProductionBundle": false,
+      "advisories": [
+        "Tinypool: Prototype Pollution gadget in worker options leads to Remote Code Execution",
+        "Tinypool: Prototype Pollution Gadget to RCE in run() options"
+      ]
+    },
+    {
+      "package": "vite",
+      "severity": "high",
+      "direct": true,
+      "fixAvailable": true,
+      "shipsInProductionBundle": false,
+      "advisories": [
+        "Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling",
+        "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
+        "launch-editor: escapeCmdArgs() omits % escaping on Windows",
+        "launch-editor: Editor CLI flag misinterpretation causing arbitrary command execution for some editors",
+        "launch-editor: `fs.existsSync()` existence check can be bypassed on Windows",
+        "Vite: Cross origin script execution through Vite custom middleware",
+        "Vite: Files outside `server.fs.allow` could be served when project paths match system paths on non-Windows machine",
+        "vite: `server.fs.deny` bypass on Windows alternate paths"
+      ]
+    },
+    {
+      "package": "vite-node",
+      "severity": "moderate",
+      "direct": false,
+      "fixAvailable": true,
+      "shipsInProductionBundle": false,
+      "advisories": []
+    },
+    {
+      "package": "vitest",
+      "severity": "critical",
+      "direct": true,
+      "fixAvailable": true,
+      "shipsInProductionBundle": false,
+      "advisories": [
+        "When Vitest UI server is listening, arbitrary file can be read and executed",
+        "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock"
+      ]
+    },
+    {
+      "package": "zod",
+      "severity": "high",
+      "direct": true,
+      "fixAvailable": true,
+      "shipsInProductionBundle": true,
+      "advisories": [
+        "Zod can exhaust memory while validating oversized constrained collections"
+      ]
+    }
+  ],
+  "python": "pip-audit not installed in the backend environment; not run (no new tool added in R03)",
+  "flutter": "flutter pub outdated: no discontinued or retracted packages reported; Dart has no local advisory audit"
+}
