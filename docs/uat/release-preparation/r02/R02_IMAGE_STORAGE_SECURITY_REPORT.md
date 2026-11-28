@@ -66,7 +66,7 @@ Pictures are display-only. They are not sent to any AI provider and not used for
 | R02-S10 | Malformed images | `test_s10`: truncated PNG and a bare PNG header → 400. A JPEG with corrupted bytes is either refused or fully decoded and re-encoded (nothing of the original is stored) | PASS |
 | R02-S11 | Metadata removal including GPS | `test_s11` (camera make, software and GPS IFD gone; no `Exif` bytes); UAT gallery, camera and doctor uploads: `exifTags 0, gpsPresent false, syntheticCamMarkerPresent false` | PASS |
 | R02-S12 | Path traversal | `test_s12`: `../`, encoded variants, backslashes, junk and over-long ids → 404/422; a filename of `../../../../etc/evil.jpg` is stored as `<uuid>.jpg` in the owner's folder | PASS |
-| R02-S13 | Concurrent replacement integrity | `test_s13`: 5 parallel uploads → all 200, exactly one file, and the reference matches it | PASS |
+| R02-S13 | Concurrent replacement integrity | `test_s13`: 5 parallel uploads → all 200, exactly one file, and the reference matches it. After merge, an intermittent refusal of parallel first uploads was found and fixed (R02-BUG-007); the new 8-round test passes | PASS (after R02-BUG-007 fix) |
 | R02-S14 | Failed replacement keeps the previous picture | `test_s14`: invalid replacement → 400; a simulated database failure removes the new file and the old one is still served byte for byte | PASS |
 | R02-S15 | An unapproved doctor's picture is not public | `test_s15`: pending doctor's picture → 404 to patients and other doctors, 200 to the doctor and admin; the doctor stays out of search and details | PASS |
 | — | Rate limit | `test_upload_rate_limit`: third change within the window → 429 | PASS |
