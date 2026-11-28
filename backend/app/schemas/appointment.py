@@ -54,6 +54,7 @@ class AppointmentResponse(BaseModel):
     patientName: Optional[str] = None
     patientEmail: Optional[str] = None
     doctorName: Optional[str] = None
+    doctorProfileImage: Optional[str] = None  # R02: authenticated API path of the doctor's picture
     specialty: Optional[str] = None
     hospitalOrClinic: Optional[str] = None
 

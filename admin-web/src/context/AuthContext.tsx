@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AdminUser, AuthContextType } from '../types/auth';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '../api/client';
+import { clearDoctorAvatarCache } from '../components/common/doctorAvatarCache';
 import { authApi } from '../api/authApi';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    clearDoctorAvatarCache(); // R02: no cached pictures survive a sign-out
     const refreshToken = sessionStorage.getItem('mediconnect_admin_refresh') || undefined;
     // Revoke on the server first, while the access token is still attached, so both the refresh token and the
     // access token are revoked (Phase 05). The local session is cleared whatever the outcome.

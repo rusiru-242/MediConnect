@@ -74,5 +74,9 @@
             <action android:name="android.intent.action.DIAL"/>
             <data android:scheme="tel"/>
         </intent>
+        <!-- R02: profile photo from the system camera app (no CAMERA permission is requested by MediConnect). -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
+        </intent>
     </queries>
 </manifest>

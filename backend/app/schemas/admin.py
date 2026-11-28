@@ -13,6 +13,7 @@ class AdminDoctorApplicationSummary(BaseModel):
     doctorProfileId: str
     userId: str
     fullName: str
+    profileImage: Optional[str] = None  # R02: authenticated API path of the doctor's picture
     email: str
     phone: Optional[str] = None
     specialty: str
@@ -46,6 +47,7 @@ class AdminDoctorApplicationDetail(BaseModel):
     doctorProfileId: str
     userId: str
     fullName: str
+    profileImage: Optional[str] = None  # R02: authenticated API path of the doctor's picture
     email: str
     phone: Optional[str] = None
     specialty: str
@@ -126,6 +128,7 @@ class AdminDoctorListItem(BaseModel):
     doctorProfileId: str
     userId: str
     fullName: str
+    profileImage: Optional[str] = None  # R02: authenticated API path of the doctor's picture
     email: str
     phone: Optional[str] = None
     specialty: str

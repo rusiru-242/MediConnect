@@ -16,6 +16,7 @@ import '../../widgets/server_settings_sheet.dart';
 import '../../models/appointment.dart';
 import '../../utils/assistant_navigation.dart';
 import '../../utils/emergency_dialer.dart';
+import '../../widgets/user_avatar.dart';
 import '../../widgets/upcoming_appointment_card.dart';
 
 /// Patient Home Dashboard redesigned with Google Stitch Clinical Clarity design system.
@@ -142,10 +143,14 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
             ),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
-                  child: Icon(Icons.person_rounded, size: 32, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
+                UserAvatar(
+                  key: const Key('dashboard_patient_avatar'),
+                  imageUrl: user?.profileImage,
+                  size: 56,
+                  fallback: ColoredBox(
+                    color: isDark ? AppTheme.darkPrimaryContainer : AppTheme.primaryContainer,
+                    child: Icon(Icons.person_rounded, size: 32, color: isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -688,11 +693,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildNavItem(
+                Expanded(child: _buildNavItem(
                   icon: Icons.home_rounded,
                   label: localeProvider?.currentLanguage == AppLanguage.sinhala
                       ? 'මුල් පිටුව'
@@ -700,8 +705,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   isSelected: _selectedNavIndex == 0,
                   isDark: isDark,
                   onTap: () => setState(() => _selectedNavIndex = 0),
-                ),
-                _buildNavItem(
+                )),
+                Expanded(child: _buildNavItem(
                   icon: Icons.calendar_month_rounded,
                   label: l10n?.myAppointments ?? 'Appointments',
                   isSelected: _selectedNavIndex == 1,
@@ -709,8 +714,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   onTap: () {
                     Navigator.of(context).pushNamed('/patient/my-appointments');
                   },
-                ),
-                _buildNavItem(
+                )),
+                Expanded(child: _buildNavItem(
                   icon: Icons.medical_services_rounded,
                   label: l10n?.findDoctor ?? 'Doctors',
                   isSelected: _selectedNavIndex == 2,
@@ -718,8 +723,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   onTap: () {
                     Navigator.of(context).pushNamed('/patient/find-doctor');
                   },
-                ),
-                _buildNavItem(
+                )),
+                Expanded(child: _buildNavItem(
                   icon: Icons.person_rounded,
                   label: l10n?.profile ?? 'Profile',
                   isSelected: _selectedNavIndex == 3,
@@ -727,7 +732,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   onTap: () {
                     Navigator.of(context).pushNamed('/patient/profile');
                   },
-                ),
+                )),
               ],
             ),
           ),
@@ -747,37 +752,53 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     final activeFg = isDark ? AppTheme.darkPrimaryBlue : AppTheme.primaryBlue;
     final inactiveFg = isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 28,
-              decoration: BoxDecoration(
-                color: isSelected ? activeBg : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? activeFg : inactiveFg,
-                size: 22,
-              ),
+    // R01-O1 (R02): every item takes an equal share of the bar and its label scales down instead of overflowing,
+    // so all four destinations fit at 320 dp and with larger system text.
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 52,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isSelected ? activeBg : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isSelected ? activeFg : inactiveFg,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? activeFg : inactiveFg,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? activeFg : inactiveFg,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -148,6 +148,7 @@ class ApiClient {
     required List<http.MultipartFile> files,
     Map<String, String>? headers,
     bool includeAuth = false,
+    void Function(int sentBytes, int totalBytes)? onProgress,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
     _safeLogRequest('POST (multipart)', uri);
@@ -165,7 +166,9 @@ class ApiClient {
       }
 
       Future<http.Response> sendOnce() async {
-        final request = http.MultipartRequest('POST', uri);
+        final request = onProgress == null
+            ? http.MultipartRequest('POST', uri)
+            : _ProgressMultipartRequest('POST', uri, onProgress);
         final combinedHeaders = await _buildHeaders(headers, includeAuth: includeAuth);
         combinedHeaders.remove('Content-Type');
         combinedHeaders.remove('content-type');
@@ -628,5 +631,24 @@ class ApiClient {
       _safeLogError(healthUri, 'HealthCheckFailed ($e)');
       return false;
     }
+  }
+}
+
+/// R02: a multipart request that reports how many body bytes have been handed to the network (upload progress).
+class _ProgressMultipartRequest extends http.MultipartRequest {
+  final void Function(int sentBytes, int totalBytes) onProgress;
+
+  _ProgressMultipartRequest(super.method, super.url, this.onProgress);
+
+  @override
+  http.ByteStream finalize() {
+    final stream = super.finalize();
+    final total = contentLength;
+    var sent = 0;
+    return http.ByteStream(stream.map((chunk) {
+      sent += chunk.length;
+      onProgress(sent, total);
+      return chunk;
+    }));
   }
 }

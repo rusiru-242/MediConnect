@@ -111,6 +111,23 @@ class Settings(BaseModel):
     FRAUD_SWEEP_INTERVAL_SECONDS: int = Field(
         default_factory=lambda: int((os.getenv("FRAUD_SWEEP_INTERVAL_SECONDS") or "300").strip())
     )
+    # R02: profile pictures. Incoming uploads are capped in bytes and in decoded pixels (decompression-bomb guard);
+    # stored avatars are re-encoded squares of PROFILE_IMAGE_OUTPUT_SIZE pixels.
+    PROFILE_IMAGE_MAX_BYTES: int = Field(
+        default_factory=lambda: int((os.getenv("PROFILE_IMAGE_MAX_BYTES") or str(5 * 1024 * 1024)).strip())
+    )
+    PROFILE_IMAGE_MAX_PIXELS: int = Field(
+        default_factory=lambda: int((os.getenv("PROFILE_IMAGE_MAX_PIXELS") or "40000000").strip())
+    )
+    PROFILE_IMAGE_MAX_DIMENSION: int = Field(
+        default_factory=lambda: int((os.getenv("PROFILE_IMAGE_MAX_DIMENSION") or "8000").strip())
+    )
+    PROFILE_IMAGE_OUTPUT_SIZE: int = Field(
+        default_factory=lambda: int((os.getenv("PROFILE_IMAGE_OUTPUT_SIZE") or "512").strip())
+    )
+    PROFILE_IMAGE_UPLOADS_PER_HOUR: int = Field(
+        default_factory=lambda: int((os.getenv("PROFILE_IMAGE_UPLOADS_PER_HOUR") or "20").strip())
+    )
     GEMINI_API_KEY: Optional[str] = Field(
         default_factory=lambda: (os.getenv("GEMINI_API_KEY") or "").strip() or None
     )

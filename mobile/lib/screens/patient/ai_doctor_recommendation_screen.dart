@@ -6,6 +6,7 @@ import '../../models/doctor_recommendation.dart';
 import '../../services/ai_recommendation_service.dart';
 import 'booking_confirmation_screen.dart';
 import 'doctor_detail_screen.dart';
+import '../../widgets/user_avatar.dart';
 import '../../utils/money.dart';
 
 /// Screen allowing patients to discover verified doctors using natural language (English/Sinhala)
@@ -733,15 +734,22 @@ class _AiDoctorRecommendationScreenState extends State<AiDoctorRecommendationScr
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-                  child: Text(
-                    rec.fullName.isNotEmpty ? rec.fullName[0].toUpperCase() : 'D',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primary,
+                UserAvatar(
+                  key: Key('recommendation_avatar_${rec.doctorId}'),
+                  imageUrl: rec.profileImage,
+                  size: 52,
+                  semanticLabel: 'Photo of ${rec.fullName}',
+                  fallback: ColoredBox(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    child: Center(
+                      child: Text(
+                        rec.fullName.isNotEmpty ? rec.fullName[0].toUpperCase() : 'D',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primary,
+                        ),
+                      ),
                     ),
                   ),
                 ),
