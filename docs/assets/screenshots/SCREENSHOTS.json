@@ -1,0 +1,114 @@
+[
+  {
+    "file": "01_splash.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/emulator/r03_e01_splash.png",
+    "caption": "Branded splash screen (R03)",
+    "bytes": 11702,
+    "sha256": "1728e3b702eb3ed9f3ea35995e431a9f50d10d9b55f9c2a437698a0bbb4f6d2e"
+  },
+  {
+    "file": "02_login_dark.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/emulator/r03_e15_login_dark.png",
+    "caption": "Login in dark theme (R03)",
+    "bytes": 33823,
+    "sha256": "44dac6f3fd8ad7f701c49f0cc2e4673a7d52778a402720b19633b194a9fa2e16"
+  },
+  {
+    "file": "03_patient_dashboard.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/emulator/r03_e03_patient_dashboard.png",
+    "caption": "Patient dashboard (R03)",
+    "bytes": 66203,
+    "sha256": "ec65038013fb2a3db342bc30a8497f206271d838573a58deb3c418f38cf9588c"
+  },
+  {
+    "file": "04_multilingual_assistant.jpg",
+    "source": "docs/uat/release-preparation/r04/evidence/emulator/r04_multilingual_assistant.png",
+    "caption": "Romanised Sinhala request answered in Sinhala with trusted doctor cards (R04, deterministic engine)",
+    "bytes": 73744,
+    "sha256": "ae285de751aec24578c187c521d7323fbe3385cfb7b1961d9570a56d54664ce0"
+  },
+  {
+    "file": "05_ai_doctor_card.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/emulator/r03_e08_ai_assistant_doctor_card.png",
+    "caption": "AI assistant doctor card with the doctor's real picture and fee (R03)",
+    "bytes": 76249,
+    "sha256": "9181e262507533dfffd2acf2ef14845b4933f8780e6e9a39c6127471acf0c820"
+  },
+  {
+    "file": "06_booking_summary.jpg",
+    "source": "docs/uat/agent-completion/a03/evidence/emulator/a03_04_booking_summary_in_person.png",
+    "caption": "Booking proposal: nothing reserved before explicit Accept (A03)",
+    "bytes": 74906,
+    "sha256": "a06a52be3343704bcaed36baf8725e93e33e8adc9ba0164dfb920d28885e23ab"
+  },
+  {
+    "file": "07_payment_confirmed.jpg",
+    "source": "docs/uat/agent-completion/a03/evidence/emulator/a03_15_payment_confirmed.png",
+    "caption": "Stripe test-mode payment confirmed (A03)",
+    "bytes": 82606,
+    "sha256": "cb8eb5ab3fc205ea90541b475ec672359797a4bbbd942191f149c26a77a32992"
+  },
+  {
+    "file": "08_medicine_image_analysis.jpg",
+    "source": "docs/uat/agent-completion/a01/evidence/emulator/a01_12_image_result.png",
+    "caption": "Medicine package analysis on a synthetic image, live Gemini vision (A01)",
+    "bytes": 90319,
+    "sha256": "621ba3b418d879827fbb17b93edee8fc2c62c07530fc6b8def63411758b5033b"
+  },
+  {
+    "file": "09_doctor_dashboard.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/emulator/r03_e16_doctor_dashboard_dark.png",
+    "caption": "Doctor dashboard with profile picture (R03)",
+    "bytes": 55020,
+    "sha256": "fa7ba34c44c9d3a00ec180b08aa8bd619b273a15cd078509ee93109d2b8e2360"
+  },
+  {
+    "file": "10_renewal_approval.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/emulator/r03_e19_renewal_approve_dialog.png",
+    "caption": "Clinician approval of a prescription renewal (R03)",
+    "bytes": 50839,
+    "sha256": "d314e77a7d5d96ee2d78fec6943adf1f3e6be4294c0c8d981f0eb53bae828ac0"
+  },
+  {
+    "file": "11_medication_reminders.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/emulator/r03_e25_my_medications_with_renewal.png",
+    "caption": "Reminders locked to prescribed instructions (R03)",
+    "bytes": 40634,
+    "sha256": "325b175db1628de7550bc3bcea4b18b1a21d70aea5ea77ed0cacab192df8638c"
+  },
+  {
+    "file": "12_patient_profile.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/emulator/r03_e04_patient_profile.png",
+    "caption": "Patient profile: stored data only, synthetic picture (R03)",
+    "bytes": 52543,
+    "sha256": "b023a6261dd9cc93ef0b0a4b568b7d828d5a28229e16193e7a41282270de1cf4"
+  },
+  {
+    "file": "13_admin_dashboard.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/browser/r03_b01_dashboard.png",
+    "caption": "Admin dashboard (R03)",
+    "bytes": 92949,
+    "sha256": "3ce5971ed37d2900427b60692cd5e0d4c18c70ccd573c8cba50e09aceb9ccef2"
+  },
+  {
+    "file": "14_admin_monitoring.jpg",
+    "source": "docs/uat/release-preparation/r03/evidence/browser/r03_b08_fraud-monitoring.png",
+    "caption": "Monitoring with honest provider states (R03)",
+    "bytes": 89465,
+    "sha256": "110a676b1e54f5a40197a44bdba084abb2824ca2b8311e9c640a7b5699d6b480"
+  },
+  {
+    "file": "15_fraud_review.jpg",
+    "source": "docs/uat/release-preparation/r04/evidence/browser/r04_b01_fraud_review.png",
+    "caption": "Fraud signal review: evidence, human decision only (R04)",
+    "bytes": 115923,
+    "sha256": "790db685f1fd28e3751c599cd75cb0ae43ce3db955f700dd6b2b583d3cbc0c5d"
+  },
+  {
+    "file": "16_support_queue.jpg",
+    "source": "docs/uat/release-preparation/r04/evidence/browser/r04_b02_support_ticket.png",
+    "caption": "Customer support queue with rule-based triage (R04)",
+    "bytes": 103186,
+    "sha256": "107f05440bcb45647341a30e558efca766a29a121e59cc3b7c9b94ae96723296"
+  }
+]

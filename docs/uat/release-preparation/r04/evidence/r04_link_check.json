@@ -1,0 +1,255 @@
+{
+  "results": [
+    {
+      "doc": "README.md",
+      "target": "mobile/assets/branding/mediconnect_symbol.png",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "https://github.com/rusiru-242/MediConnect/actions/workflows/backend-ci.yml/badge.svg?branch=main",
+      "kind": "external (not fetched)"
+    },
+    {
+      "doc": "README.md",
+      "target": "https://github.com/rusiru-242/MediConnect/actions/workflows/backend-ci.yml",
+      "kind": "external (not fetched)"
+    },
+    {
+      "doc": "README.md",
+      "target": "https://github.com/rusiru-242/MediConnect/actions/workflows/mobile-ci.yml/badge.svg?branch=main",
+      "kind": "external (not fetched)"
+    },
+    {
+      "doc": "README.md",
+      "target": "https://github.com/rusiru-242/MediConnect/actions/workflows/mobile-ci.yml",
+      "kind": "external (not fetched)"
+    },
+    {
+      "doc": "README.md",
+      "target": "https://github.com/rusiru-242/MediConnect/actions/workflows/admin-web-ci.yml/badge.svg?branch=main",
+      "kind": "external (not fetched)"
+    },
+    {
+      "doc": "README.md",
+      "target": "https://github.com/rusiru-242/MediConnect/actions/workflows/admin-web-ci.yml",
+      "kind": "external (not fetched)"
+    },
+    {
+      "doc": "README.md",
+      "target": "#known-limitations",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#overview",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#key-features",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#hybrid-agentic-ai-architecture",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#system-architecture",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#security-and-data",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#verification-results",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#screenshots",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#getting-started",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#project-structure",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#known-limitations",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "#documentation",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/uat/MEDICONNECT_ADVANCED_AGENTIC_AI_ARCHITECTURE.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/ARCHITECTURE_OVERVIEW.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/uat/release-preparation/r03/R03_SECURITY_VERIFICATION_REPORT.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/uat/MEDICONNECT_FINAL_ENGINEERING_SUMMARY.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/uat/MEDICONNECT_FINAL_38_COMPONENT_VERIFICATION_MATRIX.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/SCREENSHOTS.json",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/01_splash.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/03_patient_dashboard.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/04_multilingual_assistant.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/05_ai_doctor_card.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/06_booking_summary.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/07_payment_confirmed.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/08_medicine_image_analysis.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/12_patient_profile.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/09_doctor_dashboard.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/10_renewal_approval.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/11_medication_reminders.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/02_login_dark.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/13_admin_dashboard.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/15_fraud_review.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/assets/screenshots/16_support_queue.jpg",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/DEVELOPER_SETUP.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/DEVELOPER_SETUP.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/ARCHITECTURE_OVERVIEW.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/uat/MEDICONNECT_ADVANCED_AGENTIC_AI_ARCHITECTURE.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/uat/MEDICONNECT_FINAL_ENGINEERING_SUMMARY.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/uat/release-preparation/r04/R04_RELEASE_NOTES.md",
+      "ok": true
+    },
+    {
+      "doc": "README.md",
+      "target": "docs/uat/MEDICONNECT_OWNER_ACTIONS_BEFORE_RELEASE.md",
+      "ok": true
+    },
+    {
+      "doc": "docs/ARCHITECTURE_OVERVIEW.md",
+      "target": "uat/MEDICONNECT_ADVANCED_AGENTIC_AI_ARCHITECTURE.md",
+      "ok": true
+    },
+    {
+      "doc": "docs/ARCHITECTURE_OVERVIEW.md",
+      "target": "uat/MEDICONNECT_FINAL_ARCHITECTURE.md",
+      "ok": true
+    },
+    {
+      "doc": "docs/uat/release-preparation/r04/R04_RELEASE_NOTES.md",
+      "target": "../../../DEVELOPER_SETUP.md",
+      "ok": true
+    }
+  ],
+  "broken": []
+}

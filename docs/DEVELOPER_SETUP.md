@@ -1,226 +1,144 @@
-# MediConnect — Local Developer Setup Guide
+# MediConnect — Developer Setup (local, Windows-first)
 
-This guide provides end-to-end instructions for configuring a local Windows development workstation for the MediConnect platform using Windows PowerShell.
+For: developers and reviewers setting up MediConnect locally. Updated for v1.0.0-academic (R04, 2026-11-28). Every command below was checked against this repository.
 
----
+> Use a **local MongoDB and synthetic data only**. Never point a local setup at a shared or remote database. A historical database credential exposure is still open (see the R03 security report).
 
-## 1. System Prerequisites
+## 1. Requirements
 
-Install the following runtimes and toolchains on your Windows workstation:
-1. **Python**: Version 3.12 or 3.13 ([python.org](https://www.python.org/downloads/))
-2. **Node.js**: Version 20 LTS or higher with npm ([nodejs.org](https://nodejs.org/))
-3. **Flutter SDK**: Version 3.29.0 or higher ([flutter.dev](https://docs.flutter.dev/get-started/install/windows))
-4. **Android Studio**: With Android SDK (API 34/35), Android SDK Platform-Tools (`adb`), and Android Emulator
-5. **Git**: Version 2.40+ ([git-scm.com](https://git-scm.com/))
-6. **MongoDB**: Local MongoDB community server or a free MongoDB Atlas M0 cluster ([mongodb.com/atlas](https://www.mongodb.com/atlas))
+| Tool | Version | Notes |
+|---|---|---|
+| Python | 3.12+ (CI uses 3.12; 3.13 also used locally) | `python --version` |
+| Node.js | 20+ (CI uses 20) | `node --version` |
+| Flutter SDK | Dart ≥ 3.7 (`mobile/pubspec.yaml`); verified with Flutter 3.47.5 stable | `flutter doctor` |
+| Android SDK | Platform tools and an emulator image (Android 7.0+, minSdk 24) | Android Studio or command-line tools |
+| MongoDB | Community server listening on `127.0.0.1:27017` | No authentication needed for local use |
+| Git | any recent | |
 
----
-
-## 2. Repository Cloning & Structure
-
-```powershell
-# Clone the repository
-git clone https://github.com/rusiru-242/MediConnect.git
-cd MediConnect
-```
-
-The workspace consists of three core subprojects:
-- `backend/` — FastAPI REST application
-- `mobile/` — Flutter Android application (Patient + Doctor)
-- `admin-web/` — React + TypeScript Web Admin application
-
----
-
-## 3. Backend Setup (FastAPI & MongoDB)
-
-### Step 1: Initialize Virtual Environment
-Open Windows PowerShell in `C:\Users\REDTECH\Downloads\MediConnect\backend`:
+## 2. Backend (FastAPI)
 
 ```powershell
-cd C:\Users\REDTECH\Downloads\MediConnect\backend
-
-# Create virtual environment named 'venv'
+cd backend
 python -m venv venv
-
-# Enable execution policy for current process if script execution is restricted
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-# Activate virtual environment
-.\venv\Scripts\Activate.ps1
-```
-
-### Step 2: Install Python Dependencies
-```powershell
-# Upgrade pip and install pinned dependencies
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-### Step 3: Configure Environment Variables
-Copy `.env.example` to `.env`:
-
-```powershell
+.\venv\Scripts\pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Open `.env` in your editor and configure:
-```dotenv
-APP_NAME=MediConnect
-ENVIRONMENT=development
-PORT=8000
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/?retryWrites=true&w=majority
-DATABASE_NAME=mediconnect
-JWT_SECRET=your_super_secret_local_dev_jwt_key_at_least_32_bytes_long_1234
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
-ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000
-STRIPE_SECRET_KEY=sk_test_mock_secret_key_or_real_test_key
-STRIPE_WEBHOOK_SECRET=whsec_mock_webhook_secret
-STRIPE_CURRENCY=lkr
-```
+**`backend/.env`:**
+- Contains placeholders only; fill in your own values and never commit it.
+- It needs a Stripe **test** key, because the UAT script refuses anything else. All other variables can stay empty for a local demonstration.
 
-### Step 4: Run FastAPI Development Server
-```powershell
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-- API Base: `http://127.0.0.1:8000`
-- Health Probe: `http://127.0.0.1:8000/health`
-- Swagger Documentation: `http://127.0.0.1:8000/docs`
+| Variable | Purpose | Local value |
+|---|---|---|
+| `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` | Stripe test mode | `sk_test_…` / `pk_test_…` from your own Stripe test account |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signature | optional locally (`stripe listen --print-secret`) |
+| `GEMINI_API_KEY`, `OPENAI_API_KEY` | Optional AI providers | leave empty: the deterministic engine answers |
+| `MONGODB_URI`, `DATABASE_NAME`, `JWT_SECRET` | Used by deployments | **ignored by the UAT script**, which forces the local database and its own secret |
 
-### Step 5: Execute Automated Test Suite
-```powershell
-# Run the 190 automated pytest integration tests
-python -m compileall app
-pytest -q
-```
-
----
-
-## 4. Flutter Mobile Setup (Android Client)
-
-The Flutter mobile application supports **Patients** and **Doctors**.
-
-### Step 1: Install Dependencies
-Open PowerShell in `C:\Users\REDTECH\Downloads\MediConnect\mobile`:
+### Isolated UAT backend (recommended)
 
 ```powershell
-cd C:\Users\REDTECH\Downloads\MediConnect\mobile
+powershell -ExecutionPolicy Bypass -File backend\scripts\start_uat_backend.ps1            # seeds synthetic data, then starts
+powershell -ExecutionPolicy Bypass -File backend\scripts\start_uat_backend.ps1 -SkipSeed  # later runs
+```
 
-# Get Flutter dependencies
+What the script guarantees:
+- **Database:** always `mongodb://127.0.0.1:27017/mediconnect_uat`, never the URI in `.env`.
+- **Port:** `127.0.0.1:8001`. Port 8000 is reserved for production-like use, so don't use it for UAT.
+- **AI:** deterministic engine; image analysis is disabled.
+- **Delivery:** e-mail, push and SMS are disabled.
+- **Stripe:** test key required.
+- **Secrets:** a random JWT secret and document-encryption key are generated once into the git-ignored `backend/uat.env`, along with the shared synthetic-account password (`UAT_PASSWORD`). The password is never printed.
+- **Optional flags:** `-AiProvider gemini|openai|both`, `-AiDailyLimit N`, `-EnableVision`, `-StripeWebhookSecretFile <path>`. Use them only with explicit authorisation, and with synthetic data.
+
+**Health check:** `http://127.0.0.1:8001/health` should report `"database": … "isolatedTestData": true`. The API docs are at `/docs`.
+
+### Backend tests
+
+```powershell
+cd backend
+.\venv\Scripts\python -m pytest -q
+```
+
+How the test setup protects you:
+- **Database:** `tests/conftest.py` forces a local database whose name ends in `_test` (default `mediconnect_test`) and refuses anything else.
+- **Fresh runs:** for a completely fresh run, set `MONGODB_URI=mongodb://127.0.0.1:27017/<name>_test` and `DATABASE_NAME=<name>_test`.
+- **Providers:** keys are blanked; Stripe uses test doubles.
+
+## 3. Admin web (React + Vite)
+
+```powershell
+cd admin-web
+npm ci
+Copy-Item .env.example .env.local   # VITE_API_BASE_URL=http://127.0.0.1:8001/api
+npm run dev                         # http://localhost:5173 (Vite moves to 5174 if 5173 is busy)
+```
+
+`vite.config.ts` sets `host: true`, so the dev server also listens on your LAN interfaces. Use `npm run dev -- --host 127.0.0.1` to keep it local.
+
+**Checks:**
+- `npm run typecheck`
+- `npm run lint`
+- `npm test` (Vitest)
+- `npm run build` (output: `admin-web/dist/`)
+
+Without `VITE_API_BASE_URL`, development uses the UAT backend on port 8001, and a production build uses a relative `/api`.
+
+**Admin sign-in:** `uat.admin@uat.mediconnect.lk`, using the shared UAT password from `backend/uat.env`.
+
+## 4. Android app (Flutter)
+
+```powershell
+cd mobile
 flutter pub get
-```
-
-### Step 2: Verify Toolchain
-```powershell
-flutter doctor -v
 flutter analyze
-```
-
-### Step 3: Running on Android Emulator
-When running on the official Android Emulator, use `10.0.2.2` to refer to the host computer's `localhost`:
-
-```powershell
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
-```
-
-### Step 4: Running on Physical Android Device
-When running on a physical Android smartphone connected via USB:
-1. Enable **Developer Options** and **USB Debugging** on the device.
-2. Confirm device connection via ADB:
-   ```powershell
-   adb devices
-   ```
-3. Use reverse port forwarding so the device can access the host backend:
-   ```powershell
-   adb reverse tcp:8000 tcp:8000
-   flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000
-   ```
-   *(Alternatively, provide your local LAN IP: `--dart-define=API_BASE_URL=http://192.168.1.X:8000`)*
-
-### Step 5: Run Automated Flutter Tests
-```powershell
 flutter test
 ```
 
-### Step 6: Build Release Binaries
-```powershell
-# Build unsigned release APK
-flutter build apk --release
+### Emulator
 
-# Build unsigned release App Bundle
-flutter build appbundle --release
-```
-
----
-
-## 5. React Admin Web Setup (Admin Portal)
-
-The React web console is strictly for **Administrators**.
-
-### Step 1: Install Node Dependencies
-Open PowerShell in `C:\Users\REDTECH\Downloads\MediConnect\admin-web`:
+`10.0.2.2` is the Android emulator's alias for the host computer's loopback:
 
 ```powershell
-cd C:\Users\REDTECH\Downloads\MediConnect\admin-web
-
-# Install pinned packages
-npm ci
+flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8001
+adb install -r build\app\outputs\flutter-apk\app-debug.apk
+# or: flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8001
 ```
 
-### Step 2: Configure Environment
-Copy `.env.example` to `.env`:
+**This APK only works on the emulator.** `10.0.2.2` does not exist on a physical phone.
 
-```powershell
-Copy-Item .env.example .env
-```
+### Physical Android phone (not verified in this project)
 
-Ensure `.env` contains:
-```dotenv
-VITE_API_BASE_URL=http://127.0.0.1:8000/api
-```
+A physical phone cannot reach `127.0.0.1:8001` on your computer. Either option below needs a rebuild with the matching `API_BASE_URL`:
 
-### Step 3: Launch Local Vite Development Server
-```powershell
-npm run dev
-```
-Open your browser to `http://localhost:5173`.
+- **USB, recommended:** `adb reverse tcp:8001 tcp:8001`, then build with `--dart-define=API_BASE_URL=http://127.0.0.1:8001`.
+- **Same Wi-Fi:** the backend would have to listen on the LAN address rather than `127.0.0.1`. That exposes it to your network, so only do it on a trusted network with synthetic data. Build with `--dart-define=API_BASE_URL=http://<computer LAN IP>:8001`.
 
-### Step 4: Run Linting, Typechecking & Unit Tests
-```powershell
-# Run ESLint
-npm run lint
+A release build without `API_BASE_URL` points to a production host and is not usable locally. No signing keystore is included (`android/key.properties` is absent), so release builds are unsigned unless you provide your own signing configuration.
 
-# Run TypeScript compiler typecheck
-npm run typecheck
+## 5. Synthetic accounts
 
-# Run Vitest unit tests (28 tests)
-npm run test
-```
+All on the domain `uat.mediconnect.lk`, with the shared password from `backend/uat.env`:
 
-### Step 5: Build Production Distribution
-```powershell
-npm run build
-```
-The compiled, minified bundle will be generated in `admin-web/dist/`.
+| Role | Examples |
+|---|---|
+| Patients | `uat.patient1`, `uat.patient2`, `uat.p02.patienta`/`b`/`c`, `uat.p03.patienta`/`b` |
+| Doctors | `uat.doctor.gp`, `uat.doctor.neuro`, `uat.p02.doctor.ortho`, `uat.p03.doctor.alpha` |
+| Admin | `uat.admin` |
 
----
+Some fixtures come from the phase seeders: `backend/scripts/seed_phase02_fixtures.py`, `seed_phase03_fixtures.py` and `seed_phase04_fixtures.py`, run from `backend` with `python -m scripts.<name>`.
 
-## 6. Docker Compose Orchestration (Optional)
+## 6. Optional providers (authorisation required)
 
-To start both the FastAPI backend and React Admin portal in local Docker containers:
+| Provider | How | Notes |
+|---|---|---|
+| Gemini | `GEMINI_API_KEY` in `.env`, then `start_uat_backend.ps1 -AiProvider gemini -AiDailyLimit 60` | Capped by the provider gateway; synthetic data only |
+| Gemini vision | Add `-EnableVision` | Synthetic packaging images only |
+| OpenAI | `OPENAI_API_KEY`, `-AiProvider openai` or `both` | Not verified live (no account credits) |
+| Stripe webhooks | `stripe listen --forward-to http://127.0.0.1:8001/api/payments/webhook --print-secret`, save the secret to a file outside the repository, pass it with `-StripeWebhookSecretFile` | Test mode only |
 
-```powershell
-cd C:\Users\REDTECH\Downloads\MediConnect
+## 7. Not covered
 
-# Build and start services in the background
-docker-compose up -d --build
-
-# Check container status
-docker-compose ps
-
-# View service logs
-docker-compose logs -f
-```
-- Backend will be accessible at: `http://localhost:8000`
-- Web Admin will be accessible at: `http://localhost:3000`
+- `docker-compose.yml` and the Dockerfiles exist, but they were not used or verified for v1.0.0-academic.
+- No deployment is authorised.
+- iOS builds were not run.
